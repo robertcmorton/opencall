@@ -134,7 +134,7 @@ export function RolePicker({
               }
             : undefined
         }
-        title="Pick your assigned roles — your items highlight and the bar below tracks your next one"
+        data-tip="Pick your assigned roles — your items highlight and the bar below tracks your next one"
         onClick={() => setOpen((o) => !o)}
       >
         {myRoles.length === 0

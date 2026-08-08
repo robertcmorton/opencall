@@ -25,7 +25,7 @@ function FormatButton({
   return (
     <button
       type="button"
-      title={title}
+      data-tip={title}
       className={active ? "is-on" : ""}
       // mousedown so the cell editor never loses focus/selection
       onMouseDown={(e) => {

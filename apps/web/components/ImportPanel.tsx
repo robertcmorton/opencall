@@ -111,15 +111,15 @@ function IssueFixRow({
         placeholder={issue.kind === "start" ? "e.g. 7:30 pm" : "e.g. 5:00"}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        title={issue.suggestion ? `Suggested: ${issue.suggestion}` : "No automatic suggestion — type the intended value"}
+        data-tip={issue.suggestion ? `Suggested: ${issue.suggestion}` : "No automatic suggestion — type the intended value"}
       />
-      <button className="btn btn-sm btn-primary" disabled={!parses} title={parses ? "Replace the cell with this value" : "Doesn't parse yet"} onClick={() => onApply(issue, value)}>
+      <button className="btn btn-sm btn-primary" disabled={!parses} data-tip={parses ? "Replace the cell with this value" : "Doesn't parse yet"} onClick={() => onApply(issue, value)}>
         Apply
       </button>
-      <button className="btn btn-sm btn-ghost" title="Import this cell as empty" onClick={() => onApply(issue, "")}>
+      <button className="btn btn-sm btn-ghost" data-tip="Import this cell as empty" onClick={() => onApply(issue, "")}>
         Clear
       </button>
-      <button className="btn btn-sm btn-ghost" title="Leave it — the cell imports empty but the text stays visible here" onClick={onKeep}>
+      <button className="btn btn-sm btn-ghost" data-tip="Leave it — the cell imports empty but the text stays visible here" onClick={onKeep}>
         Keep as is
       </button>
     </div>
@@ -433,7 +433,7 @@ export function ImportPanel({
               </div>
             )}
             <div>
-              <label className="field-label" title="Which source row holds the column headers — adjust if detection picked the wrong one">
+              <label className="field-label" data-tip="Which source row holds the column headers — adjust if detection picked the wrong one">
                 Header row
               </label>
               <input
@@ -555,7 +555,7 @@ export function ImportPanel({
                               background: bad ? "var(--over-soft)" : undefined,
                               color: bad ? "var(--over)" : undefined,
                             }}
-                            title={bad ? `Couldn't parse "${raw}" — it will import empty` : undefined}
+                            data-tip={bad ? `Couldn't parse "${raw}" — it will import empty` : undefined}
                           >
                             {display}
                           </td>

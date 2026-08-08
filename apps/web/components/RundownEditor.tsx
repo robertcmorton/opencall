@@ -81,7 +81,7 @@ function SortableRow({
       ref={setNodeRef}
       className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${clockMark ? "clock-row" : ""}`}
       data-rowid={row.id}
-      title={walk ? "Walkthrough position — synced to every screen" : clockMark ? "Event time is here per the TIME column" : undefined}
+      data-tip={walk ? "Walkthrough position — synced to every screen" : clockMark ? "Event time is here per the TIME column" : undefined}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -94,7 +94,7 @@ function SortableRow({
         <span className="rn-num">{displayNumber}</span>
         {active && <span className="cue-badge">CUE</span>}
         {!active && row.outcome && (
-          <span className={`outcome-chip oc-${row.outcome}`} title="Alternate ending — plays only when this outcome is picked at full time">
+          <span className={`outcome-chip oc-${row.outcome}`} data-tip="Alternate ending — plays only when this outcome is picked at full time">
             {row.outcome === "win" ? "WIN" : row.outcome === "lose" ? "LOSE" : row.outcome === "golden" ? "GP" : row.outcome === "draw" ? "DRAW" : row.outcome}
           </span>
         )}
@@ -217,7 +217,7 @@ function TimingNudge({
           type="button"
           className="tn-btn"
           disabled={disabled}
-          title={`Take ${-d} seconds out of this item`}
+          data-tip={`Take ${-d} seconds out of this item`}
           onClick={() => onNudge(d)}
         >
           {d}
@@ -227,7 +227,7 @@ function TimingNudge({
         type="button"
         className="tn-btn tn-cue"
         disabled={disabled}
-        title="This item is happening NOW — pin it to the clock and re-time everything below it"
+        data-tip="This item is happening NOW — pin it to the clock and re-time everything below it"
         onClick={onCue}
       >
         CUE
@@ -238,7 +238,7 @@ function TimingNudge({
           type="button"
           className="tn-btn"
           disabled={disabled}
-          title={`Give this item ${d} more seconds`}
+          data-tip={`Give this item ${d} more seconds`}
           onClick={() => onNudge(d)}
         >
           +{d}
@@ -956,7 +956,7 @@ export function RundownEditor({
             className={
               rowRecord.durationMuted ? "duration-muted" : rowRecord.durationHidden ? "duration-hidden-marker" : ""
             }
-            title={
+            data-tip={
               rowRecord.durationMuted
                 ? "Muted — excluded from timing"
                 : rowRecord.durationHidden
@@ -995,7 +995,7 @@ export function RundownEditor({
               <button
                 type="button"
                 className={`btn btn-sm ${rowRecord.durationHidden ? "is-on" : ""}`}
-                title="Keep the duration in timing but hide it on shared and guest views"
+                data-tip="Keep the duration in timing but hide it on shared and guest views"
                 onClick={() => setRowField(rowRecord.id, "durationHidden", !rowRecord.durationHidden)}
               >
                 Hide
@@ -1003,7 +1003,7 @@ export function RundownEditor({
               <button
                 type="button"
                 className={`btn btn-sm ${rowRecord.durationMuted ? "is-on" : ""}`}
-                title="Exclude this duration from the running-order math"
+                data-tip="Exclude this duration from the running-order math"
                 onClick={() => setRowField(rowRecord.id, "durationMuted", !rowRecord.durationMuted)}
               >
                 Mute
@@ -1107,7 +1107,7 @@ export function RundownEditor({
           <div
             className="header-clock mono"
             style={canEditContent ? { cursor: "pointer" } : undefined}
-            title={canEditContent ? "Click to change the planned start time (an anchored first row overrides it)" : undefined}
+            data-tip={canEditContent ? "Click to change the planned start time (an anchored first row overrides it)" : undefined}
             onClick={() => {
               if (!canEditContent) return;
               const raw = window.prompt(
@@ -1146,7 +1146,7 @@ export function RundownEditor({
                 !endish.test(rows[lastIdx]!.title);
               if (openEnded) {
                 const approx = timing.rows[lastIdx]!.startSec! + 30 * 60;
-                return <span title="The last item has no duration — assuming 30 minutes">≈{formatTimeOfDay(approx, meta.use24h)}</span>;
+                return <span data-tip="The last item has no duration — assuming 30 minutes">≈{formatTimeOfDay(approx, meta.use24h)}</span>;
               }
               return timing.endSec != null ? formatTimeOfDay(timing.endSec, meta.use24h) : "—";
             })()}
@@ -1187,7 +1187,7 @@ export function RundownEditor({
               const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
               return (
                 <>
-                  <span className="chip" title="Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees">
+                  <span className="chip" data-tip="Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees">
                     Walkthrough{at >= 0 ? ` ${at + 1}/${walkable.length}` : ""}
                   </span>
                   <button
@@ -1205,7 +1205,7 @@ export function RundownEditor({
                     Next {Icon.next}
                   </button>
                   {walkRowId && (
-                    <button className="btn btn-sm btn-ghost" title="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
+                    <button className="btn btn-sm btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
                       End walkthrough
                     </button>
                   )}
@@ -1218,12 +1218,12 @@ export function RundownEditor({
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
             <span
               className={`chip ${decisionSoon ? "decision-pulse" : ""}`}
-              title="This sheet has alternate endings. Pick the real result when it happens — the other branches skip themselves and every screen follows. Golden point loops back here for the final pick."
+              data-tip="This sheet has alternate endings. Pick the real result when it happens — the other branches skip themselves and every screen follows. Golden point loops back here for the final pick."
             >
               {decisionSoon ? "Full time — pick the result" : "Full time:"}
             </span>
             {chosenOutcome === "golden" && (
-              <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} title="Golden point is playing — pick the final result when it lands">
+              <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} data-tip="Golden point is playing — pick the final result when it lands">
                 ⚡ Golden point playing
               </span>
             )}
@@ -1239,7 +1239,7 @@ export function RundownEditor({
                       }
                     : undefined
                 }
-                title={
+                data-tip={
                   o === "golden"
                     ? "Scores level — play the golden-point block; the final pick comes back after it"
                     : `Play the ${o} ending and skip the others`
@@ -1250,7 +1250,7 @@ export function RundownEditor({
               </button>
             ))}
             {chosenOutcome && (
-              <button className="btn btn-sm btn-ghost" title="Un-choose: all endings visible again" onClick={clearOutcome}>
+              <button className="btn btn-sm btn-ghost" data-tip="Un-choose: all endings visible again" onClick={clearOutcome}>
                 Reset
               </button>
             )}
@@ -1260,7 +1260,7 @@ export function RundownEditor({
           <button
             className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
             style={clockFollow ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" } : undefined}
-            title="The SERVER runs the show off the TIME column — every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct; toggle off for manual control."
+            data-tip="The SERVER runs the show off the TIME column — every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct; toggle off for manual control."
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
           >
             ◷ {clockFollow ? "Following clock" : "Follow clock"}
@@ -1273,7 +1273,7 @@ export function RundownEditor({
           <button
             className="btn btn-sm hide-mobile"
             disabled={undoMgr.undoStack.length === 0}
-            title="Undo the last row change (⌘Z) — including a timing nudge, live or not"
+            data-tip="Undo the last row change (⌘Z) — including a timing nudge, live or not"
             onClick={() => undoMgr.undo()}
           >
             ↺ Undo
@@ -1285,7 +1285,7 @@ export function RundownEditor({
         {canEditContent && showLive && (
           <button
             className={`btn btn-sm hide-mobile ${editTools ? "is-on" : ""}`}
-            title="Add rows and redo changes while the show is running"
+            data-tip="Add rows and redo changes while the show is running"
             onClick={() => setEditTools((v) => !v)}
           >
             {editTools ? "✕ Editing" : "✎ Edit sheet"}
@@ -1296,25 +1296,25 @@ export function RundownEditor({
             <button
               className="btn btn-sm"
               disabled={undoMgr.redoStack.length === 0}
-              title="Redo the undone change (⇧⌘Z)"
+              data-tip="Redo the undone change (⇧⌘Z)"
               onClick={() => undoMgr.redo()}
             >
               ↻ Redo
             </button>
-            <button className="btn" onClick={() => addRow("cue")} title="A timed item the show steps through — the normal row">
+            <button className="btn" onClick={() => addRow("cue")} data-tip="A timed item the show steps through — the normal row">
               {Icon.plus} Row
             </button>
             <button
               className="btn"
               onClick={() => addRow("group")}
-              title="A section heading (PRE-GAME, HALF TIME) — organises the sheet into blocks; it has no time and the transport steps past it"
+              data-tip="A section heading (PRE-GAME, HALF TIME) — organises the sheet into blocks; it has no time and the transport steps past it"
             >
               {Icon.plus} Group
             </button>
             <button
               className="btn"
               onClick={() => addRow("milestone")}
-              title="A fixed moment on the clock (DOORS 6:00 PM, KICK-OFF) — marks a time without being something you play; it has no duration"
+              data-tip="A fixed moment on the clock (DOORS 6:00 PM, KICK-OFF) — marks a time without being something you play; it has no duration"
             >
               {Icon.plus} Milestone
             </button>
@@ -1324,7 +1324,7 @@ export function RundownEditor({
           <button
             className="btn btn-sm"
             style={{ borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }}
-            title="The sheet's TIME and DURATION columns don't add up in these places — open to see each one explained, with the choices for fixing it"
+            data-tip="The sheet's TIME and DURATION columns don't add up in these places — open to see each one explained, with the choices for fixing it"
             onClick={() => setReconciling(true)}
           >
             ⚠ {timingGaps.length} timing gap{timingGaps.length === 1 ? "" : "s"} — Reconcile
@@ -1332,7 +1332,7 @@ export function RundownEditor({
         )}
         <button
           className="btn btn-sm mobile-only"
-          title="Phones show only the essentials — switch to see every column"
+          data-tip="Phones show only the essentials — switch to see every column"
           onClick={() => setMobileAllCols((v) => !v)}
         >
           {mobileAllCols ? "Key columns" : "All columns"}
@@ -1446,7 +1446,7 @@ export function RundownEditor({
         {activeRowId && !followScroll && (
           <button
             className="btn btn-primary sync-cue"
-            title="Jump back to the live cue and follow along again"
+            data-tip="Jump back to the live cue and follow along again"
             onClick={() => {
               setFollowScroll(true);
               programmaticScroll.current = true;
@@ -1493,7 +1493,7 @@ export function RundownEditor({
             </button>
             <button
               className="btn btn-sm"
-              title="Skip: keeps the row visible but removes it from timing and transport — the show catches back up to the original anchors"
+              data-tip="Skip: keeps the row visible but removes it from timing and transport — the show catches back up to the original anchors"
               onClick={() =>
                 doc.transact(() =>
                   selected.forEach((id) => {
@@ -1540,14 +1540,14 @@ export function RundownEditor({
               <button
                 key={color}
                 className="color-swatch"
-                title={`Highlight ${label}`}
+                data-tip={`Highlight ${label}`}
                 style={{ background: color }}
                 onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", color)))}
               />
             ))}
             <button
               className="color-swatch"
-              title="Clear highlight"
+              data-tip="Clear highlight"
               style={{ background: "transparent" }}
               onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", null)))}
             >
@@ -1558,7 +1558,7 @@ export function RundownEditor({
             </button>
             <button
               className="btn btn-sm btn-ghost"
-              title="Clear selection"
+              data-tip="Clear selection"
               onClick={() => {
                 setSelected(new Set());
                 setLastSelected(null);
@@ -1618,7 +1618,7 @@ export function RundownEditor({
                       <span
                         className="col-label"
                         draggable={canEditContent}
-                        title={canEditContent ? "Click to rename · drag to move the column" : undefined}
+                        data-tip={canEditContent ? "Click to rename · drag to move the column" : undefined}
                         onClick={canEditContent ? () => setEditingCol(c.id) : undefined}
                         onDragStart={(e) => {
                           setDragCol(c.key);
@@ -1640,7 +1640,7 @@ export function RundownEditor({
                   return (
                     <Fragment key={c.id}>
                       {th}
-                      <th data-colkey="zero" style={{ width: colWidths["zero"] }} title="Countdown to the next anchored time">
+                      <th data-colkey="zero" style={{ width: colWidths["zero"] }} data-tip="Countdown to the next anchored time">
                         Zero{resizeHandle("zero", nextColKey("zero"))}
                       </th>
                     </Fragment>
@@ -1741,7 +1741,7 @@ export function RundownEditor({
                             ) : rowRecord.untimed && rowRecord.hardStartSec == null ? (
                               // The source sheet left this row untimed (a sub-cue) —
                               // faithful blank instead of an invented cascade time.
-                              <span style={{ color: "var(--text-3)" }} title="Untimed in the source sheet — double-click to set a time">
+                              <span style={{ color: "var(--text-3)" }} data-tip="Untimed in the source sheet — double-click to set a time">
                                 —
                               </span>
                             ) : t.startSec != null ? (
@@ -1796,7 +1796,7 @@ export function RundownEditor({
           if (!target) return null;
           return (
             <div className="timing-nudge-dock" style={{ bottom: dockBottom }}>
-              <span className="tn-target" title={target.title || "untitled"}>
+              <span className="tn-target" data-tip={target.title || "untitled"}>
                 {selected.size === 1 ? "Selected" : "Live"}: {target.title || "untitled"}
               </span>
               <TimingNudge onNudge={(d) => nudgeRow(target.id, d)} onCue={() => cueRow(target.id)} />
@@ -1823,6 +1823,17 @@ export function RundownEditor({
           channel={channel}
           activeRowId={activeRowId}
         />
+      )}
+
+      {/* A refused command is shown where the person who pressed it is
+          looking. Live, "nothing happened" is the worst possible feedback. */}
+      {channel.lastCmdError && (
+        <div className="cmd-error no-print" role="alert">
+          <strong>{channel.lastCmdError.action}</strong> didn&rsquo;t go through — {channel.lastCmdError.msg}
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => channel.clearCmdError()}>
+            Dismiss
+          </button>
+        </div>
       )}
 
       {rows.length === 0 &&

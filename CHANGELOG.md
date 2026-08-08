@@ -11,6 +11,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 _Nothing yet._
 
+## [0.24.0] — 2026-08-08
+
+### Fixed
+- **A refused transport command said nothing at all.** The server rejects a command when the credential cannot call the show, when the show is not live, and in a few other cases — and the screen simply carried on as if the button had never been pressed. Live, "nothing happened" is indistinguishable from a broken button. Refusals now appear on screen where the person who pressed it is looking, and are written to the error log with the action that was refused. A command sent while disconnected says so too, instead of queueing silently.
+- **Stop needed a second press within three seconds**, which is short enough that a glance away read as a dead button. It now waits ten seconds, says "Press again to stop", and pulses while it waits.
+
+### Added
+- Transport refusals join the error log alongside the browser errors and failed requests already captured there, so a fault during a show can be read back afterwards.
+
+### Changed
+- **Tooltips are the site's own.** The browser's take about a second to appear, render in the operating system's style, and cannot be placed. These appear the instant you point at something, match the rest of the interface, and flip below the control when there is no room above.
+
+
 ## [0.23.1] — 2026-08-08
 
 ### Changed

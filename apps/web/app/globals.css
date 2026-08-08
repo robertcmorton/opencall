@@ -1723,3 +1723,118 @@ th.col-drop-target {
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* A transport command the server refused — shown where the caller is looking. */
+.cmd-error {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + var(--rolebar-h, 0px));
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  background: var(--over-soft);
+  border: 1px solid var(--over);
+  color: var(--over);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-lg);
+}
+.cmd-error strong {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The armed Stop pulses so a glance away still reads as "waiting on you". */
+.btn-danger.armed {
+  animation: armed-pulse 1s ease-in-out infinite;
+}
+@keyframes armed-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--over-soft); }
+  50% { box-shadow: 0 0 0 5px var(--over-soft); }
+}
+
+/* ---------- Tooltips ----------
+   The browser's own tooltip takes about a second to appear, renders in the OS
+   style, and cannot be positioned — no use on a console where the label has to
+   arrive the instant you look. These are the site's own: instant, themed, and
+   they never intercept the pointer. Use data-tip="…" in place of title="…".
+   Touch devices get nothing (there is no hover to reveal it). */
+[data-tip] {
+  position: relative;
+}
+@media (hover: hover) {
+  [data-tip]::after,
+  [data-tip]::before {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 90ms var(--ease);
+    position: absolute;
+    z-index: 200;
+  }
+  [data-tip]::after {
+    content: attr(data-tip);
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 280px;
+    white-space: normal;
+    text-align: left;
+    padding: 6px 9px;
+    border-radius: var(--r-md);
+    background: var(--surface-2, #1b1f27);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: var(--fs-xs);
+    font-weight: 450;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-transform: none;
+    box-shadow: var(--shadow-lg);
+  }
+  /* The little pointer, drawn as a rotated square tucked under the bubble. */
+  [data-tip]::before {
+    content: "";
+    left: 50%;
+    bottom: calc(100% + 4px);
+    transform: translateX(-50%) rotate(45deg);
+    height: 8px;
+    width: 8px;
+    background: var(--surface-2, #1b1f27);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  [data-tip]:hover::after,
+  [data-tip]:hover::before,
+  [data-tip]:focus-visible::after,
+  [data-tip]:focus-visible::before {
+    opacity: 1;
+    transition-delay: 0s; /* immediately — that is the whole point */
+  }
+  /* Anything in the top bar has no room above it — those flip below. */
+  .show-topbar [data-tip]::after,
+  .format-bar [data-tip]::after {
+    top: calc(100% + 8px);
+    bottom: auto;
+  }
+  .show-topbar [data-tip]::before,
+  .format-bar [data-tip]::before {
+    top: calc(100% + 4px);
+    bottom: auto;
+    transform: translateX(-50%) rotate(225deg);
+  }
+  /* …and explicitly, for anything else that needs it. */
+  [data-tip][data-tip-below]::after {
+    top: calc(100% + 8px);
+    bottom: auto;
+  }
+  [data-tip][data-tip-below]::before {
+    top: calc(100% + 4px);
+    bottom: auto;
+    transform: translateX(-50%) rotate(225deg);
+  }
+}

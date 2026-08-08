@@ -62,7 +62,7 @@ export function KeyTimesEditor({
         type="button"
         className={`chip ${open ? "is-on" : ""}`}
         style={{ cursor: "pointer" }}
-        title="Key times — doors, soundcheck, on-air…"
+        data-tip="Key times — doors, soundcheck, on-air…"
         onClick={() => setOpen((o) => !o)}
       >
         {summary || (canEdit ? "+ key times" : "key times")}

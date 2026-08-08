@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { formatDuration, formatTimeOfDay, type LiveShowTiming } from "@opencall/core";
 import type { ShowChannel } from "../lib/showChannel";
 import { Icon } from "./ui";
@@ -52,6 +52,7 @@ export function TransportBar({
   const liveState = show?.state ?? "idle";
   const isLive = liveState === "running" || liveState === "paused";
   const [armStop, setArmStop] = useState(false);
+  const armTimer = useRef<number | undefined>(undefined);
 
   const step = (dir: 1 | -1) => {
     if (!show?.activeRowId) return;
@@ -89,34 +90,41 @@ export function TransportBar({
       {isLive && (
         <>
           {liveState === "running" ? (
-            <button className="btn" title="Pause" onClick={() => channel.sendCmd("pause")}>
+            <button className="btn" data-tip="Pause" onClick={() => channel.sendCmd("pause")}>
               {Icon.pause} Pause
             </button>
           ) : (
-            <button className="btn btn-positive" title="Resume" onClick={() => channel.sendCmd("resume")}>
+            <button className="btn btn-positive" data-tip="Resume" onClick={() => channel.sendCmd("resume")}>
               {Icon.play} Resume
             </button>
           )}
-          <button className="btn" title="Previous cue (Shift+Space)" onClick={() => step(-1)}>
+          <button className="btn" data-tip="Previous cue (Shift+Space)" onClick={() => step(-1)}>
             {Icon.prev} Prev
           </button>
-          <button className="btn btn-primary" title="Next cue (Space)" onClick={() => step(1)}>
+          <button className="btn btn-primary" data-tip="Next cue (Space)" onClick={() => step(1)}>
             Next {Icon.next}
           </button>
           <button
-            className={`btn btn-danger ${armStop ? "is-on" : ""}`}
-            title="Stop the show"
+            // Stopping needs a second press — ending a live show by a stray
+            // tap is worse than a wasted one. But the first press has to LOOK
+            // like it did something, and three seconds was short enough that a
+            // glance away read as a dead button. Ten seconds, and the button
+            // says what it is waiting for.
+            className={`btn btn-danger ${armStop ? "is-on armed" : ""}`}
+            data-tip={armStop ? "Press again to end the show" : "Stop the show — asks once to confirm"}
             onClick={() => {
               if (armStop) {
                 channel.sendCmd("stop");
                 setArmStop(false);
+                if (armTimer.current) window.clearTimeout(armTimer.current);
               } else {
                 setArmStop(true);
-                window.setTimeout(() => setArmStop(false), 3000);
+                if (armTimer.current) window.clearTimeout(armTimer.current);
+                armTimer.current = window.setTimeout(() => setArmStop(false), 10000);
               }
             }}
           >
-            {Icon.stop} {armStop ? "Confirm stop" : "Stop"}
+            {Icon.stop} {armStop ? "Press again to stop" : "Stop"}
           </button>
           <span className={`live-badge ${liveState === "paused" ? "paused" : ""}`}>
             {liveState === "paused" ? "PAUSED" : "LIVE"}

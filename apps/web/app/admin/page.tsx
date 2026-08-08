@@ -27,7 +27,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
   return (
     <div
       className="img-slot"
-      title={value ? `${hint} — click to replace` : `${hint} — click to add, or drop an image`}
+      data-tip={value ? `${hint} — click to replace` : `${hint} — click to add, or drop an image`}
       onClick={() => void pickImage().then((img) => img && onChange(img))}
       onDragOver={(e) => {
         e.preventDefault();
@@ -62,7 +62,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
         <button
           type="button"
           className="img-slot-x"
-          title="Remove image"
+          data-tip="Remove image"
           onClick={(e) => {
             e.stopPropagation();
             onChange(null);
@@ -82,7 +82,7 @@ function SportSelect({ value, onChange, compact }: { value: string | null; onCha
   return (
     <select
       className="input"
-      title="Sport drives the live outcome flow — NRL adds the full-time Win / Lose / Golden point pick"
+      data-tip="Sport drives the live outcome flow — NRL adds the full-time Win / Lose / Golden point pick"
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
       style={compact ? { height: 30, fontSize: "var(--fs-sm)", padding: "0 8px" } : undefined}
@@ -243,7 +243,7 @@ function CreateRundownForm({
       {templates.length > 0 && (
         <select
           className="input"
-          title="Start the new rundown empty, or copy a saved template"
+          data-tip="Start the new rundown empty, or copy a saved template"
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
         >
@@ -727,7 +727,7 @@ export default function AdminPage() {
                         </button>
                         <button
                           className="btn btn-sm btn-ghost"
-                          title="Company logo — shown beside the company and on its events"
+                          data-tip="Company logo — shown beside the company and on its events"
                           onClick={pickLogo}
                         >
                           Logo
@@ -735,7 +735,7 @@ export default function AdminPage() {
                         {group.companyToken && (
                           <button
                             className="btn btn-sm"
-                            title="Copy this company's showcaller credential"
+                            data-tip="Copy this company's showcaller credential"
                             onClick={() => void navigator.clipboard.writeText(group.companyToken!)}
                           >
                             Copy token
@@ -823,7 +823,7 @@ export default function AdminPage() {
                 />
                 <button
                   className="btn btn-sm btn-ghost"
-                  title="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
+                  data-tip="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
                   onClick={() => setLocEvent(event)}
                 >
                   Event location…
@@ -905,7 +905,7 @@ export default function AdminPage() {
                         href={`/show/${r.id}`}
                         className="btn btn-sm btn-primary"
                         style={{ textDecoration: "none" }}
-                        title="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
+                        data-tip="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
                       >
                         Open show
                       </Link>
@@ -914,7 +914,7 @@ export default function AdminPage() {
                         href={`/view/${r.id}`}
                         className="btn btn-sm btn-primary"
                         style={{ textDecoration: "none" }}
-                        title="Read-only: follows the live show — your access level for this event"
+                        data-tip="Read-only: follows the live show — your access level for this event"
                       >
                         View
                       </Link>
@@ -926,18 +926,18 @@ export default function AdminPage() {
                         ["prompter", "Script prompter — large scrolling script that follows the caller"],
                       ] as const
                     ).map(([view, hint]) => (
-                      <Link key={view} href={`/${view}/${r.id}`} className="chip" style={{ textDecoration: "none" }} title={hint}>
+                      <Link key={view} href={`/${view}/${r.id}`} className="chip" style={{ textDecoration: "none" }} data-tip={hint}>
                         {view}
                       </Link>
                     ))}
                     {canManageRow(event) && (
                     <span className="hide-mobile">
                       <Dropdown label="⋯" className="btn btn-sm btn-ghost">
-                        <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} title="Edit the sheet with no transport controls — safe while preparing content">
+                        <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Edit the sheet with no transport controls — safe while preparing content">
                           <span className="check" />
                           Edit content
                         </Link>
-                        <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} title="Read-only: follows the live show, nothing can be changed">
+                        <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Read-only: follows the live show, nothing can be changed">
                           <span className="check" />
                           Read-only view
                         </Link>
@@ -945,7 +945,7 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="menu-item"
-                          title="Copy a URL that opens this rundown read-only — for camera operators and crew"
+                          data-tip="Copy a URL that opens this rundown read-only — for camera operators and crew"
                           onClick={() =>
                             void copyViewOnlyLink(r.id).then((url) =>
                               window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this rundown live.`),
@@ -958,7 +958,7 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className="menu-item"
-                          title="Re-import from the stored run sheet with the latest import quality — links and codes keep working"
+                          data-tip="Re-import from the stored run sheet with the latest import quality — links and codes keep working"
                           onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
                         >
                           <span className="check" />
@@ -1068,7 +1068,7 @@ export default function AdminPage() {
                     <button
                       type="button"
                       className="btn btn-sm"
-                      title="Create a rundown from an XLSX, CSV, or PDF run sheet"
+                      data-tip="Create a rundown from an XLSX, CSV, or PDF run sheet"
                       onClick={() => setImportFor({ eventId: event.id })}
                     >
                       ⤒ Import run sheet…

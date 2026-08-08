@@ -84,7 +84,7 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button
           className="btn btn-sm btn-primary"
-          title="Copies a URL that opens this rundown read-only — hand it to camera operators and crew"
+          data-tip="Copies a URL that opens this rundown read-only — hand it to camera operators and crew"
           onClick={() =>
             void copyViewOnlyLink(rundownId).then((url) => {
               reload();
@@ -97,7 +97,7 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
         <input
           className="input"
           placeholder="Who is this code for? (e.g. Sarah — Cam 2)"
-          title="The name travels with the code — every screen shows who joined with it"
+          data-tip="The name travels with the code — every screen shows who joined with it"
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{ minWidth: 220 }}
@@ -133,7 +133,7 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
             <button
               className="btn btn-sm btn-ghost"
               style={{ color: "var(--over)" }}
-              title="Revoke: this code stops working everywhere immediately"
+              data-tip="Revoke: this code stops working everywhere immediately"
               onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
             >
               Revoke
@@ -160,7 +160,7 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   return (
     <button
       className={`btn btn-sm ${armed ? "btn-danger is-on" : ""}`}
-      title="Replace this rundown's content with this version (a 'Before restore' snapshot is saved first)"
+      data-tip="Replace this rundown's content with this version (a 'Before restore' snapshot is saved first)"
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -218,7 +218,7 @@ export function HistoryPanel({ rundownId, onClose }: { rundownId: string; onClos
             <RestoreHereButton snapshotId={s.id} />
             <button
               className="btn btn-sm"
-              title="Copy this version into a NEW rundown, leaving the current one untouched"
+              data-tip="Copy this version into a NEW rundown, leaving the current one untouched"
               onClick={() =>
                 void api
                   .restoreSnapshot(s.id)

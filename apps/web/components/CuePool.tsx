@@ -86,7 +86,7 @@ export function CuePool({ doc, mode, channel }: { doc: Y.Doc; mode: EditorMode; 
             {canFire ? (
               <button
                 className={`btn btn-sm ${flash === item.id ? "btn-positive" : "btn-primary"}`}
-                title="Log this cue into the as-run report now"
+                data-tip="Log this cue into the as-run report now"
                 onClick={() => fire(item)}
               >
                 {flash === item.id ? "✓ Fired" : "Fire"}

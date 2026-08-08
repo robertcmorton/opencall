@@ -24,6 +24,14 @@ export interface ShowChannel {
   /** Server clock now: Date.now() + measured offset. */
   serverNow: () => number;
   sendCmd: (action: CmdAction, rowId?: string) => void;
+  /**
+   * The last transport command the SERVER refused, with the reason it gave.
+   * A rejected command used to be dropped on the floor: the button appeared
+   * to do nothing, which is indistinguishable from a broken button when you
+   * are live. Surfaces show this and it is journaled.
+   */
+  lastCmdError: { action: string; msg: string; at: number } | null;
+  clearCmdError: () => void;
 }
 
 /**
@@ -37,6 +45,9 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
   const [show, setShow] = useState<ShowStatePayload | null>(null);
+  const [lastCmdError, setLastCmdError] = useState<{ action: string; msg: string; at: number } | null>(null);
+  // command id → what it was trying to do, so a refusal can name the action.
+  const sentRef = useRef(new Map<string, CmdAction>());
   const wsRef = useRef<WebSocket | null>(null);
   const offsetRef = useRef(0);
   const lastSeqRef = useRef(-1);
@@ -107,6 +118,15 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             }
             break;
           }
+          case "cmd_error": {
+            const action = sentRef.current.get(msg.id) ?? "command";
+            sentRef.current.delete(msg.id);
+            setLastCmdError({ action, msg: String(msg.msg ?? "refused"), at: Date.now() });
+            void import("./errorReport").then((m) =>
+              m.reportClientError(`transport "${action}" refused by the server: ${msg.msg} (code ${msg.code})`),
+            );
+            break;
+          }
           case "show_state": {
             if (msg.seq <= lastSeqRef.current) break;
             lastSeqRef.current = msg.seq;
@@ -140,16 +160,25 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     sport,
     show,
     serverNow: () => Date.now() + offsetRef.current,
+    lastCmdError,
+    clearCmdError: () => setLastCmdError(null),
     sendCmd: (action, rowId) => {
-      const payload: Record<string, unknown> = { v: PROTOCOL_VERSION, t: "cmd", id: ulid(), action };
+      const id = ulid();
+      // Remember what each id was for, so a refusal can name the button.
+      sentRef.current.set(id, action);
+      if (sentRef.current.size > 50) sentRef.current.delete(sentRef.current.keys().next().value!);
+      const payload: Record<string, unknown> = { v: PROTOCOL_VERSION, t: "cmd", id, action };
       if (rowId) payload.rowId = rowId;
       if (action === "stop") payload.confirm = true;
       const frame = JSON.stringify(payload);
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current) ws.send(frame);
       else {
+        // Not connected: queue it, but say so — a command that has not left
+        // the device must never look like one the server accepted.
         pendingRef.current.push({ frame, at: Date.now() });
         if (pendingRef.current.length > 20) pendingRef.current.shift();
+        setLastCmdError({ action, msg: "not connected — queued until the server is back", at: Date.now() });
       }
     },
   };

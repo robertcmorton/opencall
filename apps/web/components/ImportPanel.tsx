@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   buildSheet,
   classifySheet,
+  EVENT_TYPES,
   looksLikeBotchedValue,
   detectRoles,
   findCueTypeColumn,
@@ -20,6 +21,7 @@ import {
 } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { api, fetchRundownSource } from "../lib/api";
+import { MissingFields } from "./ui";
 import { extractGrid } from "../lib/importExtract";
 
 /** ArrayBuffer → base64 (chunked — sheets can be megabytes). */
@@ -160,17 +162,30 @@ const KIND_STYLE: Record<ClassifiedRow["kind"], { label: string; color: string }
  */
 export function ImportPanel({
   eventId,
+  eventType: initialType = null,
   replaceRundown,
   onDone,
   onClose,
 }: {
   eventId: string;
+  /** The event's current type, if it has one. Asked for here when it does not. */
+  eventType?: string | null;
   /** Update mode: the imported sheet REPLACES this rundown's content (same id, links, codes). */
   replaceRundown?: { id: string; name: string };
   onDone: (rundownId: string) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
+  /**
+   * What kind of show this sheet is for.
+   *
+   * Asked at import because this is the moment somebody is looking at the
+   * sheet and knows — and because it decides what the live result chooser
+   * offers, which is the wrong thing to discover at full time. It lives on the
+   * EVENT, so a second sheet for the same day inherits it.
+   */
+  const [type, setType] = useState<string | null>(initialType);
+  const [tried, setTried] = useState(false);
   const [rawGrid, setRawGrid] = useState<string[][] | null>(null); // as extracted, pre-merge
   const [lineMeta, setLineMeta] = useState<{ page: number; y: number }[] | undefined>(undefined);
   const [rowLines, setRowLines] = useState<{ page: number; ys: number[] }[] | undefined>(undefined);
@@ -350,7 +365,20 @@ export function ImportPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replaceRundown?.id]);
 
+  /** Everything this import still needs. Named, so nobody hunts the form. */
+  const missing = [
+    !replaceRundown && !name.trim() && "A name for this run sheet",
+    !type && "Event type",
+    importable.length === 0 && "A sheet with at least one row",
+  ].filter((v) => typeof v === "string") as string[];
+
   const doImport = () => {
+    setTried(true);
+    if (missing.length > 0) return;
+    // The type lives on the event, so a second sheet for the same day inherits
+    // it. Written before the rows: if this fails, nothing has been imported
+    // under the wrong kind of show.
+    if (type && type !== initialType) void api.patchEvent(eventId, { sport: type });
     // One conversion, shared with the audit script and the unit tests: what a
     // sheet BECOMES must not be decided by code only a browser can run.
     const built = buildSheet({ headers, mapping, rows }, { widths, roleColumnKey: roleKey, roles });
@@ -456,9 +484,36 @@ export function ImportPanel({
             {!replaceRundown && (
               <div>
                 <label className="field-label">Rundown name</label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} style={{ minWidth: 240 }} />
+                <input
+                  className={"input " + (tried && !name.trim() ? "field-missing" : "")}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{ minWidth: 240 }}
+                />
               </div>
             )}
+            <div>
+              <label className="field-label" data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch">
+                Event type
+              </label>
+              <select
+                className={"input " + (tried && !type ? "field-missing" : "")}
+                value={type ?? ""}
+                onChange={(e) => setType(e.target.value || null)}
+                style={{ minWidth: 190 }}
+              >
+                <option value="">Choose…</option>
+                {(["Sport", "Production"] as const).map((g) => (
+                  <optgroup key={g} label={g}>
+                    {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="field-label" data-tip="Which source row holds the column headers — adjust if detection picked the wrong one">
                 Header row
@@ -484,11 +539,12 @@ export function ImportPanel({
                 <span style={{ color: "var(--warn)" }}> · {warnings} cell{warnings === 1 ? "" : "s"} couldn’t be parsed — fix below</span>
               )}
             </span>
+            {tried && missing.length > 0 && <MissingFields missing={missing} />}
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="btn btn-ghost" onClick={() => setGrid(null)}>
                 Different file
               </button>
-              <button className="btn btn-primary" disabled={busy || importable.length === 0} onClick={doImport}>
+              <button className="btn btn-primary" disabled={busy} onClick={doImport}>
                 {busy ? "Importing…" : `${replaceRundown ? "Update with" : "Import"} ${importable.length} rows`}
               </button>
             </div>

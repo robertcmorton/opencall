@@ -9,7 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Importing a run sheet asks what kind of show it is for.** This is the moment somebody is looking at the sheet and knows, and the answer decides what the live result chooser offers — which is the wrong thing to discover at full time. It is stored on the event, so a second sheet for the same day inherits it.
+- **Creating a company is a form, not a prompt.** A `window.prompt` cannot say what it wants, cannot mark what is missing and cannot be styled, so an empty name failed by silently doing nothing. The token it produces is shown once, with a copy button and a warning that it will not be shown again.
+- **Every creation form names what is still missing** — company, event and import. Fields are marked and listed by name, so nobody hunts the form for the empty one.
 
 ## [0.31.0] — 2026-08-09
 

@@ -142,6 +142,96 @@ function openDatePicker(e: { currentTarget: HTMLInputElement }): void {
   }
 }
 
+/**
+ * A company, asked for properly.
+ *
+ * It was a `window.prompt`, which cannot say what it wants, cannot mark what
+ * is missing, and cannot be styled — so an empty name failed by silently doing
+ * nothing. The token it produces is shown once and never again, which is a
+ * reason to be careful with the screen that produces it.
+ */
+function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [tried, setTried] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+
+  const missing = [!name.trim() && "Company name"].filter((v) => typeof v === "string") as string[];
+
+  if (token)
+    return (
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
+        <strong>Company created</strong>
+        <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+          Its showcaller token is below. It is shown once — copy it somewhere safe before closing this.
+        </span>
+        <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
+          {token}
+        </code>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-sm btn-primary" onClick={() => void navigator.clipboard.writeText(token)}>
+            Copy token
+          </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => {
+              setToken(null);
+              setOpen(false);
+              setName("");
+              setTried(false);
+            }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
+
+  if (!open)
+    return (
+      <button className="btn btn-primary" onClick={() => setOpen(true)}>
+        {Icon.plus} Company
+      </button>
+    );
+
+  return (
+    <form
+      className="panel"
+      style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        setTried(true);
+        if (missing.length > 0) return;
+        void api.createCompany(name.trim()).then(({ companyToken }) => {
+          setToken(companyToken);
+          onCreated();
+        });
+      }}
+    >
+      <div>
+        <label className="field-label">Company name</label>
+        <input
+          className={"input " + (tried && !name.trim() ? "field-missing" : "")}
+          autoFocus
+          placeholder="Harbour Park Productions"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{ minWidth: 240 }}
+        />
+      </div>
+      {tried && <MissingFields missing={missing} />}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn btn-primary" type="submit">
+          Create company
+        </button>
+        <button className="btn" type="button" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?: string }) {
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [sport, setSport] = useState<string | null>(null);
@@ -714,21 +804,7 @@ export default function AdminPage() {
                 : "Every event company, event, and show. Admin sees everything."}
             </p>
           </div>
-          {me?.role === "admin" && (
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                const name = window.prompt("Company name");
-                if (name?.trim())
-                  void api.createCompany(name.trim()).then(({ companyToken }) => {
-                    window.alert(`Company created. Showcaller token (share it securely):\n\n${companyToken}`);
-                    reload();
-                  });
-              }}
-            >
-              {Icon.plus} Company
-            </button>
-          )}
+          {me?.role === "admin" && <CreateCompanyForm onCreated={reload} />}
         </header>
 
         {error && (
@@ -1105,6 +1181,7 @@ export default function AdminPage() {
               {importFor?.eventId === event.id ? (
                 <ImportPanel
                   eventId={event.id}
+                  eventType={event.sport}
                   replaceRundown={importFor.replace}
                   onClose={() => setImportFor(null)}
                   onDone={(rundownId) => {

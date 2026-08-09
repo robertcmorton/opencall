@@ -182,6 +182,36 @@ export function mapColumns(headers: string[], sampleRows: string[][] = []): Colu
       break;
     }
   }
+  // Compound headers — "ITEM / ACTION", "SEGMENT / CONTENT", "CUE DESCRIPTION"
+  // — match none of those outright, and a sheet headed that way came in with no
+  // title column at all: every cue row arrived blank, with only milestones
+  // saved by their own fallback. So when nothing matched exactly, take a header
+  // that CONTAINS one of the words.
+  //
+  // Two guards, because "cue" and "item" also head columns that are not the
+  // title: never a header that is already doing a structural job, and among
+  // what is left prefer the column carrying the most text. The title column is
+  // the wordy one — that is what makes it the title column.
+  if (titleIndex < 0) {
+    const structural = (h: string): boolean =>
+      NUMBER_HEADERS.includes(h) || START_HEADERS.includes(h) || DURATION_HEADERS.includes(h) || TYPE_HEADERS.includes(h);
+    const textPerRow = (col: number): number => {
+      if (sampleRows.length === 0) return 0;
+      return sampleRows.reduce((sum, row) => sum + (row[col] ?? "").trim().length, 0) / sampleRows.length;
+    };
+    let best = -1;
+    let bestScore = -1;
+    normalized.forEach((h, i) => {
+      if (structural(h)) return;
+      if (!priority.some((word) => new RegExp(`\\b${word}\\b`).test(h))) return;
+      const score = textPerRow(i);
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    });
+    if (best >= 0) titleIndex = best;
+  }
 
   const usedKeys = new Set<string>();
   const uniqueKey = (base: string): string => {
@@ -262,10 +292,22 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
   const trigger = (title: string): string | null => {
     const t = title.toLowerCase();
     const fullTime = /\bfull\s?time\b/.test(t);
+    // "Golden point" names the block; "extra time" on its own does NOT. The
+    // phrase turns up in ordinary notes ("allow extra time for egress") and
+    // treating it as a trigger opened an ending block that swallowed the rest
+    // of the sheet — 130 rows on one real run sheet.
+    const extra = /\bgolden\s?point\b/.test(t);
+    const drawn = /\bdrawn?\b/.test(t);
+    // A draw is only a real ending once extra time has been played. At full
+    // time a level score does not end the match — it sends it to golden point,
+    // and the block under that banner is the extra-time period. So a drawn
+    // result NAMED alongside extra time is its own ending, and "full time,
+    // draw" on its own still opens the golden-point block.
+    if (drawn && extra) return "draw";
     if (fullTime && /\bwin\b/.test(t)) return "win";
     if (fullTime && /\b(lose|loss|lost)\b/.test(t)) return "lose";
-    if (/\bgolden\s?point\b/.test(t)) return "golden";
-    if (fullTime && /\bdraw\b/.test(t)) return "golden";
+    if (extra) return "golden";
+    if (fullTime && drawn) return "golden";
     return null;
   };
 

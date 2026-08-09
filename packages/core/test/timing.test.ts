@@ -259,3 +259,32 @@ describe("computeTiming — alternate endings stack", () => {
     expect(at("lose", t).startSec).toBe(NINE_AM + 600);
   });
 });
+
+describe("findTimingGaps — alternate endings", () => {
+  it("does not report a gap for the branches that will not be played", () => {
+    // Second half ends 10:00; four endings of 18/10/25/6 minutes stack, so the
+    // show resumes at 10:25 and the sheet anchors the reset there. Adding every
+    // branch up made that look like a 34-minute hole at the end of every game.
+    const rows: PlanRow[] = [
+      row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+      row("win", { durationSec: 18 * 60, outcome: "win", outcomeGame: 1 }),
+      row("lose", { durationSec: 10 * 60, outcome: "lose", outcomeGame: 1 }),
+      row("golden", { durationSec: 25 * 60, outcome: "golden", outcomeGame: 1 }),
+      row("draw", { durationSec: 6 * 60, outcome: "draw", outcomeGame: 1 }),
+      row("reset", { durationSec: 600, hardStartSec: NINE_AM + 3600 + 25 * 60 }),
+    ];
+    expect(findTimingGaps(rows, computeTiming(rows, NINE_AM))).toEqual([]);
+  });
+
+  it("still reports a real hole after the endings", () => {
+    const rows: PlanRow[] = [
+      row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+      row("win", { durationSec: 18 * 60, outcome: "win", outcomeGame: 1 }),
+      row("lose", { durationSec: 25 * 60, outcome: "lose", outcomeGame: 1 }),
+      row("reset", { durationSec: 600, hardStartSec: NINE_AM + 3600 + 60 * 60 }),
+    ];
+    const gaps = findTimingGaps(rows, computeTiming(rows, NINE_AM));
+    expect(gaps.length).toBe(1);
+    expect(gaps[0]!.gapSec).toBe(35 * 60);
+  });
+});

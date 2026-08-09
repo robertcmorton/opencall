@@ -288,6 +288,26 @@ async function extractPdf(buffer: ArrayBuffer, loader?: PdfjsLoader): Promise<Ex
       if (columnEdges.length === 0 || x - columnEdges[columnEdges.length - 1]! >= MIN_COLUMN) columnEdges.push(x);
     }
   }
+  // Some exporters rule only the RIGHT edge of each cell and let the page
+  // frame stand in for the table's left border. The run of edges then opens
+  // one column late, and every run to the left of the first edge falls into
+  // the same cell as the column beside it — an ITEM number and a TIME arrive
+  // glued together as "1 09:00:00", and the whole sheet imports with no times
+  // at all. When a column's worth of text sits left of the first edge on line
+  // after line, the missing border is real, so open the run of edges there.
+  if (columnEdges.length >= 2) {
+    const first = columnEdges[0]!;
+    const outside = pages.flat().filter((r) => r.x + r.w / 2 < first);
+    // On many rows, not once: a title line or a logo above the table is not a
+    // column, and inventing one for it would shift every sheet that has one.
+    const lines = new Set(outside.map((r) => `${Math.round(r.y)}`)).size;
+    const rowsOnPage = new Set(pages.flat().map((r) => `${Math.round(r.y)}`)).size;
+    if (outside.length > 0 && lines >= Math.max(4, rowsOnPage * 0.25)) {
+      const leftmost = Math.min(...outside.map((r) => r.x));
+      if (first - leftmost >= 14) columnEdges.unshift(leftmost - 1);
+    }
+  }
+
   const ruled = columnEdges.length >= 3;
 
   // Fallback: cluster the x positions of every run on every page.

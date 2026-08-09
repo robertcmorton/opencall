@@ -9,6 +9,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **A 24-hour, four-game test run sheet, generated as a PDF.** Nothing in the example sheets ran across a whole day, and nothing had more than one game's worth of alternate endings — so the cases that break (a sheet that crosses midnight, a result called on one game while three others are still to come, four endings stacked at once) had never been exercised end to end. The generator builds the sheet with a running clock so its own arithmetic is consistent, and everything in it — teams, venues, people — is invented.
+- **An import check that reads a sheet the way the app does.** Point it at a file or a folder and it reports what the import screen would say: cells it could not read, times that do not add up, the ending blocks it found, the roles it detected. It exits non-zero when anything is wrong, so a release can be gated on it. "It imported" and "it imported correctly" are different claims, and the second one used to take twenty minutes of reading a screen against a PDF.
+
+### Fixed
+- **A table whose left border is not drawn no longer loses its first column.** Some exporters rule only the right-hand edge of each cell and let the page frame stand in for the table's left border. The run of column boundaries then opened one column late, so the item number and the start time arrived glued together in one cell — and the whole sheet imported with no times at all. When a column's worth of text sits to the left of the first boundary on line after line, that missing border is now taken as real.
+- **A compound column header no longer leaves every row blank.** "ITEM / ACTION" and its cousins matched no known title header exactly, so the sheet imported with no title column: every cue row arrived empty, with only milestones saved by a fallback. A header that CONTAINS one of the known words now counts, choosing the column carrying the most text — the title column is the wordy one.
+- **The timing check no longer invents a hole at the end of every game.** It added every alternate ending together, so a set of endings that will play one of four looked like a gap the size of the three that will not.
+
 ### Changed
 - **Alternate endings now sit stacked, and the sheet stops counting all of them.** A game's endings are alternatives — only one is ever called — but they were laid end to end like a running order, so a three-way ending made the sheet claim three times the time it would really take and every projected end after it was wrong. Each ending now starts at the same moment, the show resumes after the longest, and only one counts toward the running time. On screen they sit in their own lanes inside one frame, one directly above the next; once a result is called the others dim rather than disappear.
 

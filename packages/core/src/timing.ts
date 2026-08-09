@@ -126,9 +126,13 @@ export interface TimingGap {
   gapSec: number;
 }
 
-/** The shape findTimingGaps needs from a row — anchored start only. */
+/** The shape findTimingGaps needs from a row — its anchor, and its ending. */
 export interface AnchoredRow {
   hardStartSec: number | null;
+  /** Which alternate ending this row belongs to, if any. See `computeTiming`. */
+  outcome?: string | null;
+  /** Which game on the day that ending belongs to. */
+  outcomeGame?: number;
 }
 
 /** How many rows in a row may sit alongside the running order before we stop looking. */
@@ -154,6 +158,46 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
   const gaps: TimingGap[] = [];
   let lastAnchor = -1;
   let expected: number | null = null;
+
+  /**
+   * How far each row moves the running order on. An ordinary row moves it on by
+   * its own duration; a block of alternate endings moves it on by its LONGEST
+   * branch, because only one of them will be played. The whole block's advance
+   * is charged to the row that opens it, so the walk below stays a simple sum.
+   *
+   * Adding every branch up instead reported a phantom hole at the end of every
+   * game — the size of the endings that were never going to happen.
+   */
+  const advance = new Array<number>(rows.length).fill(0);
+  {
+    const dur = (i: number): number => timing.rows[i]?.effectiveDurationSec ?? 0;
+    const gameAt = (i: number): number | null => (rows[i]?.outcome ? rows[i]!.outcomeGame ?? 1 : null);
+    let i = 0;
+    while (i < rows.length) {
+      const game = gameAt(i);
+      if (game == null) {
+        advance[i] = dur(i);
+        i += 1;
+        continue;
+      }
+      let end = i;
+      while (end < rows.length && gameAt(end) === game) end += 1;
+      let longest = 0;
+      let run = 0;
+      let branch = "";
+      for (let k = i; k < end; k++) {
+        const key = `${rows[k]!.outcomeGame ?? 1}:${rows[k]!.outcome}`;
+        if (key !== branch) {
+          branch = key;
+          longest = Math.max(longest, run);
+          run = 0;
+        }
+        run += dur(k);
+      }
+      advance[i] = Math.max(longest, run);
+      i = end;
+    }
+  }
 
   /** Does the chain pick up again within a few rows if we skip from `i`? */
   const runsAlongside = (i: number, expectedAt: number): boolean => {
@@ -187,7 +231,7 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
       lastAnchor = i;
       expected = row.hardStartSec + t.effectiveDurationSec;
     } else if (expected != null) {
-      expected += t.effectiveDurationSec;
+      expected += advance[i]!;
     }
   });
   return gaps;

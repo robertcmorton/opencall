@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.33.1] — 2026-08-09
+
+### Fixed
+- **No Draw button on a competition that cannot produce a draw.** Netball, knockout football and an AFL final all send a level score to an extra period that is then played until somebody leads — so offering Draw after it offered a result that does not exist, at full time, with the stadium waiting. Only rugby league keeps it, because golden point runs a fixed ten minutes and can genuinely run out.
+- **A league football match can be drawn again.** It was modelled as going to extra time, which league football does not do, and the Draw that actually happens was withheld. League and knockout are now separate choices, as are the home-and-away and finals forms of Australian rules — the formats differ in what can happen at the end, which is the only thing this setting governs.
+- **Netball checked against real cue sheets** rather than written from the rules: the period is called "Extra time" and the last quarter is worded "4th Quarter Commences", both of which the app now recognises.
+
 ## [0.33.0] — 2026-08-09
 
 ### Added

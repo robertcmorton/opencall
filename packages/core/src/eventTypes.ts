@@ -47,14 +47,26 @@ export interface EventTypeDef {
 }
 
 /**
- * Win / Lose with a level score sent to an extra period, which can then end
- * drawn. Rugby league, and the shape most knockout formats take.
+ * A level score is sent to an extra period, and CAN still be level after it.
+ * Rugby league: golden point runs a fixed ten minutes and a match that nobody
+ * wins in that time is a draw.
  */
-const withExtraPeriod = (extraLabel: string): Pick<EventTypeDef, "fullTime" | "afterExtra" | "extraLabel"> => ({
+const extraCanDraw = (extraLabel: string): Pick<EventTypeDef, "fullTime" | "afterExtra" | "extraLabel"> => ({
   // No Draw at full time: a level score does not end the match, it sends it on.
   fullTime: ["win", "lose", "golden"],
-  // Once the extra period has been played, a draw is a real result.
   afterExtra: ["win", "lose", "draw"],
+  extraLabel,
+});
+
+/**
+ * A level score is sent to an extra period that is played until somebody wins
+ * — extra time then penalties, or play continuing to a two-goal lead. Offering
+ * Draw after it is offering a result the competition cannot produce, which at
+ * full time is a button that should not be there.
+ */
+const extraMustSettle = (extraLabel: string): Pick<EventTypeDef, "fullTime" | "afterExtra" | "extraLabel"> => ({
+  fullTime: ["win", "lose", "golden"],
+  afterExtra: ["win", "lose"],
   extraLabel,
 });
 
@@ -65,13 +77,16 @@ const drawAtFullTime: Pick<EventTypeDef, "fullTime" | "afterExtra"> = {
 };
 
 const SECOND_HALF = /\b(second|2nd)\s+half\b/i;
+// Real netball cue sheets word it "4th Quarter Commences (15mins)"; AFL sheets
+// use both "quarter" and "term".
+const FINAL_QUARTER = /\b(final|fourth|4th)\s+(quarter|term)\b/i;
 
 export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "nrl",
     label: "Rugby league (NRL)",
     group: "Sport",
-    ...withExtraPeriod("Golden point"),
+    ...extraCanDraw("Golden point"),
     resultDueAfter: SECOND_HALF,
     blurb: "Level at full time goes to golden point; a draw is only possible after it.",
   },
@@ -80,16 +95,34 @@ export const EVENT_TYPES: EventTypeDef[] = [
     label: "Australian rules (AFL)",
     group: "Sport",
     ...drawAtFullTime,
-    resultDueAfter: /\b(final|fourth|4th)\s+(quarter|term)\b/i,
-    blurb: "A drawn match stands at the final siren in the home-and-away season.",
+    resultDueAfter: FINAL_QUARTER,
+    blurb: "Home-and-away: a drawn match stands at the final siren.",
   },
   {
-    id: "soccer",
-    label: "Football (soccer)",
+    id: "afl-finals",
+    label: "Australian rules (AFL) — final",
     group: "Sport",
-    ...withExtraPeriod("Extra time"),
+    ...extraMustSettle("Extra time"),
+    resultDueAfter: FINAL_QUARTER,
+    blurb: "A final cannot be drawn: level at the siren goes to extra time, and it is played out.",
+  },
+  {
+    // Kept as `soccer` rather than renamed: the id is stored on events that
+    // already exist, and league is the format most of them will be.
+    id: "soccer",
+    label: "Football (soccer) — league",
+    group: "Sport",
+    ...drawAtFullTime,
     resultDueAfter: SECOND_HALF,
-    blurb: "A draw stands in league play; a knockout goes to extra time and then penalties.",
+    blurb: "A draw is a result and the match ends there. No extra time.",
+  },
+  {
+    id: "soccer-knockout",
+    label: "Football (soccer) — knockout",
+    group: "Sport",
+    ...extraMustSettle("Extra time"),
+    resultDueAfter: SECOND_HALF,
+    blurb: "Level at full time goes to extra time, then penalties. Somebody goes through.",
   },
   {
     id: "cricket",
@@ -99,12 +132,14 @@ export const EVENT_TYPES: EventTypeDef[] = [
     blurb: "Win, loss or draw. Long formats can end without a result at all.",
   },
   {
+    // Checked against real Super Netball cue sheets: they call the period
+    // "Extra Time" and mark the fourth period "4th Quarter Commences".
     id: "netball",
     label: "Netball",
     group: "Sport",
-    ...withExtraPeriod("Extra time"),
-    resultDueAfter: /\b(final|fourth|4th)\s+quarter\b/i,
-    blurb: "Level at full time goes to extra time.",
+    ...extraMustSettle("Extra time"),
+    resultDueAfter: FINAL_QUARTER,
+    blurb: "Level at full time goes to extra time, which is played until somebody leads.",
   },
   {
     id: "corporate",

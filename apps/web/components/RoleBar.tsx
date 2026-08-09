@@ -6,13 +6,34 @@ import type { ProjectedRow, RoleDef } from "@opencall/db/doc";
 import type { ShowChannel } from "../lib/showChannel";
 import { useDismiss } from "./ui";
 
+const escapeRe = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A role name has to appear as a WHOLE word.
+ *
+ * Positions are short — GA, SC, MC, VT — and matched anywhere inside a string
+ * they turn the sheet's own words into crew: "GAME ONE" was drawn as "GA" +
+ * "ME ONE", "SCORES LEVEL" as "SC" + "ORES LEVEL", and rows lit up as
+ * somebody's work because their initials happened to be spelt inside an
+ * unrelated word. Letters and digits either side disqualify a match;
+ * punctuation and spaces do not, so "GFX/LED" still finds both.
+ */
+const WHOLE_WORD = (body: string): RegExp => new RegExp(`(?<![A-Za-z0-9])(${body})(?![A-Za-z0-9])`, "gi");
+
+/** Does this text name the role, as a whole word? */
+export const mentionsRole = (text: string, role: string): boolean => {
+  const needle = role.trim();
+  if (!needle || !text) return false;
+  return new RegExp(`(?<![A-Za-z0-9])${escapeRe(needle)}(?![A-Za-z0-9])`, "i").test(text);
+};
+
 /** Colour-codes every mention of a known role inside plain cell text. */
 export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode {
   if (!text || roles.length === 0) return text;
   const escaped = [...roles]
     .sort((a, b) => b.name.length - a.name.length)
-    .map((r) => r.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const regex = new RegExp(`(${escaped.join("|")})`, "gi");
+    .map((r) => escapeRe(r.name));
+  const regex = WHOLE_WORD(escaped.join("|"));
   const byName = new Map(roles.map((r) => [r.name.toLowerCase(), r.color]));
   const parts = text.split(regex);
   if (parts.length === 1) return text;
@@ -20,7 +41,20 @@ export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode 
     const color = byName.get(part.toLowerCase());
     if (!color) return part;
     return (
-      <span key={i} style={{ background: `${color}22`, color, borderRadius: 3, padding: "0 3px", fontWeight: 600 }}>
+      <span
+        key={i}
+        // Never broken across lines: a position is read at a glance, and in a
+        // narrow WHO column "CREW" was being split into "CRE" and "W".
+        style={{
+          background: `${color}22`,
+          color,
+          borderRadius: 3,
+          padding: "0 3px",
+          fontWeight: 600,
+          display: "inline-block",
+          whiteSpace: "nowrap",
+        }}
+      >
         {part}
       </span>
     );
@@ -35,12 +69,12 @@ export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode 
  * tracks" in a notes column. Without any, every cell may name the role.
  */
 export function rowMatchesRole(row: ProjectedRow, role: string, roleColumnKeys?: string[] | null): boolean {
-  const needle = role.trim().toLowerCase();
+  const needle = role.trim();
   if (!needle) return false;
-  if (row.title.toLowerCase().includes(needle)) return true;
+  if (mentionsRole(row.title, needle)) return true;
   const keys = (roleColumnKeys ?? []).filter(Boolean);
-  if (keys.length > 0) return keys.some((k) => row.cells[k]?.toLowerCase().includes(needle) ?? false);
-  return Object.values(row.cells).some((v) => v.toLowerCase().includes(needle));
+  if (keys.length > 0) return keys.some((k) => mentionsRole(row.cells[k] ?? "", needle));
+  return Object.values(row.cells).some((v) => mentionsRole(v, needle));
 }
 
 /**

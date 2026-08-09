@@ -1655,7 +1655,16 @@ th.col-drop-target {
   display: none !important;
 }
 
-@media (max-width: 760px) {
+/*
+ * A phone turned sideways is not a desktop. Every rule below used to key off
+ * WIDTH alone, so rotating a 375×812 phone to 812×375 switched the whole
+ * mobile treatment OFF at the exact moment the screen got shortest — and the
+ * sheet came back with one row visible under a full stack of chrome.
+ *
+ * Short counts as small. 500px of height is a landscape phone; a tablet in
+ * either orientation is taller than that.
+ */
+@media (max-width: 760px), (max-height: 500px) {
   .mobile-only {
     display: inline-flex !important;
   }
@@ -1952,4 +1961,27 @@ th.col-drop-target {
   border-color: var(--over);
   color: var(--over);
   font-weight: 650;
+}
+
+/* ── A landscape phone: every pixel of height belongs to the sheet ────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .show-page {
+    padding-top: 0.3rem !important;
+  }
+  .topbar-head {
+    margin-bottom: 0.3rem;
+  }
+  .topbar-head h1 {
+    font-size: 0.95rem !important;
+  }
+  .show-topbar .btn-sm,
+  .show-topbar .btn {
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  /* The cue timer is the one thing worth its height; the rest gives way. */
+  .big-timer {
+    transform: scale(0.8);
+    transform-origin: top center;
+  }
 }

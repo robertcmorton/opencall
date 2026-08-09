@@ -160,6 +160,9 @@ const CUE_POOL_ENABLED = false;
 const HIDDEN_COLS_KEY = (rundownId: string) => `oc:hiddencols:${rundownId}`;
 const COL_WIDTHS_KEY = (rundownId: string) => `oc:colwidths:${rundownId}`;
 
+/** What the fixed columns cost, for working out how many others still fit. */
+const COL_W = { rownum: 38, time: 74, dur: 58 } as const;
+
 /**
  * Progress-bar fill that only ever animates forwards. Chrome will start the
  * CSS width transition from the previous fill's value even across a remount,
@@ -410,7 +413,17 @@ export function RundownEditor({
   }, []);
   // Phones show only the essentials (title/start/duration + the role column);
   // this opts back into the full sheet.
-  const [mobileAllCols, setMobileAllCols] = useState(false);
+  /**
+   * The grid's own width, watched so the column folding can react to a window
+   * resize or a phone turning sideways without a reload.
+   */
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const measureGrid = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const read = () => setGridWidth(el.clientWidth);
+    read();
+    new ResizeObserver(read).observe(el);
+  }, []);
   // Set after mount: locale-formatted dates differ between server and client,
   // and rendering one during SSR causes a hydration mismatch.
   const [printedAt, setPrintedAt] = useState("");
@@ -1172,9 +1185,36 @@ export function RundownEditor({
   // Columns render in the DOC's order — which mirrors the source sheet, so a
   // run sheet with TIME before ACTIVITY looks the same on screen. The Zero
   // column (synthetic) rides directly after the duration column.
-  const orderedColumns = columns.filter(
+  const shown = columns.filter(
     (c) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration" || (c.kind === "richtext" && !hiddenCols.has(c.key)),
   );
+
+  /**
+   * Columns folded into the item cell because the window is too narrow to give
+   * them one of their own.
+   *
+   * The sheet never scrolls sideways. A horizontal scrollbar hides half the
+   * row behind an edge and asks someone calling a show to go looking for it —
+   * on a phone, one-handed, mid-item. So the grid always fits, and what will
+   * not fit as a column appears underneath the item it belongs to instead.
+   *
+   * Folding runs right to left, which makes the column ORDER the priority
+   * order: drag a column left to keep it, and it survives a narrower window.
+   */
+  const MIN_TITLE = 190; // the action text is the thing being read
+  const MIN_EXTRA = 92; // narrower than this and a column is unreadable anyway
+  const foldedKeys = (() => {
+    const extras = shown.filter((c) => c.kind === "richtext");
+    if (gridWidth == null || extras.length === 0) return new Set<string>();
+    const structural =
+      COL_W.rownum + (shown.some((c) => c.kind === "startTime") ? COL_W.time : 0) + (shown.some((c) => c.kind === "duration") ? COL_W.dur : 0);
+    const room = gridWidth - structural - MIN_TITLE;
+    const keep = Math.max(0, Math.floor(room / MIN_EXTRA));
+    return new Set(extras.slice(keep).map((c) => c.key));
+  })();
+  const orderedColumns = shown.filter((c) => !foldedKeys.has(c.key));
+  /** The folded columns, in sheet order, for the line under the item. */
+  const foldedColumns = shown.filter((c) => foldedKeys.has(c.key));
   const orderedColKeys = [
     "rownum",
     ...orderedColumns.flatMap((c) => (c.kind === "duration" && showZero ? [c.key, "zero"] : [c.key])),
@@ -1184,6 +1224,29 @@ export function RundownEditor({
     return i >= 0 && i < orderedColKeys.length - 1 ? orderedColKeys[i + 1]! : null;
   };
   const fixedStyle = tableStyle(orderedColKeys);
+
+  /**
+   * The folded columns' values for one row, as a line under the item.
+   *
+   * Labelled, because out of its column a value has nothing to say what it is:
+   * "CREW" on its own could be a department, a note or a name.
+   */
+  const foldedLine = (rowRecord: ProjectedRow) => {
+    const parts = foldedColumns
+      .map((c) => ({ label: c.title, value: (rowRecord.cells[c.key] ?? "").trim() }))
+      .filter((p) => p.value);
+    if (parts.length === 0) return null;
+    return (
+      <div className="cell-folded">
+        {parts.map((p) => (
+          <span key={p.label} className="cf-part">
+            <span className="cf-label">{p.label}</span>
+            {highlightRoles(p.value, roles)}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   const richColClass = (column: ColumnDef): string =>
     column.kind !== "richtext" ? "" : `col-rich${meta.roleColumnKeys.includes(column.key) ? " col-role" : ""}`;
@@ -1212,6 +1275,7 @@ export function RundownEditor({
         onDoubleClick={canEditContent ? () => setActiveCell({ rowId: rowRecord.id, columnId: column.id }) : undefined}
       >
         {richXml ? <RichCellText xml={richXml} /> : highlightRoles(rowRecord.cells[column.key] ?? "", roles)}
+        {column.kind === "title" && foldedLine(rowRecord)}
       </td>
     );
   };
@@ -1619,13 +1683,6 @@ export function RundownEditor({
             ⚠ {timingGaps.length} timing gap{timingGaps.length === 1 ? "" : "s"} — Reconcile
           </button>
         )}
-        <button
-          className="btn btn-sm mobile-only"
-          data-tip="Phones show only the essentials — switch to see every column"
-          onClick={() => setMobileAllCols((v) => !v)}
-        >
-          {mobileAllCols ? "Key columns" : "All columns"}
-        </button>
         <Dropdown label={<>{Icon.columns} Columns</>}>
           <div className="menu-heading">Show columns</div>
           {allRichColumns.map((c) => (
@@ -1750,7 +1807,8 @@ export function RundownEditor({
           </button>
         )}
         <div
-          className={`grid-scroll ${mobileAllCols ? "mobile-show-all" : ""}`}
+          ref={measureGrid}
+          className="grid-scroll"
           onMouseOver={
             canEditContent
               ? (e) => {
@@ -1984,6 +2042,7 @@ export function RundownEditor({
                           return (
                             <td className="mono-progress" style={{ position: "relative" }}>
                               {rowRecord.cells[col.key] ?? ""}
+                              {foldedLine(rowRecord)}
                               <BarFill className={`row-progress ${over ? "over" : ""}`} frac={frac} />
                             </td>
                           );

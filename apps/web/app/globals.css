@@ -1308,7 +1308,12 @@ kbd {
 /* The grid scrolls INSIDE this container (the show chrome above stays put),
    which also lets the sticky column headers work. */
 .grid-scroll {
-  overflow: auto;
+  /* Vertically only. A horizontal scrollbar hides half of every row behind an
+     edge and asks someone calling a show to go looking for it — on a phone,
+     one-handed, mid-item. What will not fit as a column is folded under the
+     item it belongs to instead (see `foldedKeys` in RundownEditor). */
+  overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--r-lg);
   /* Positioning context for the selection bar, which floats above the
@@ -1436,8 +1441,12 @@ kbd {
 .col-resize {
   position: absolute;
   top: 0;
-  right: -5px;
-  width: 10px;
+  /* Inside the cell, not straddling its edge. Hanging 5px past the last
+     column made the table wider than its container at every size — six
+     pixels of overflow is still overflow, and it is what a horizontal
+     scrollbar is made of. */
+  right: 0;
+  width: 9px;
   height: 100%;
   cursor: col-resize;
   user-select: none;
@@ -1587,13 +1596,6 @@ th.col-drop-target {
   min-width: 0;
   overflow-wrap: break-word;
 }
-@media (max-width: 760px) {
-  /* "All columns" on a phone still needs the side-scroll to be readable. */
-  .grid-scroll.mobile-show-all .rundown-grid.cols-fixed {
-    min-width: 680px;
-  }
-}
-
 /* ---------- Phone: the show page is an app shell, not a document ----------
    Pinning it to the viewport rather than sizing it in flow. On iOS the
    document stays fractionally scrollable behind a 100dvh block — the browser
@@ -1689,18 +1691,14 @@ th.col-drop-target {
      several columns; all of them at once leaves the action text a sliver, and
      the action text is the thing being read. "All columns" brings the rest
      back with a side-scroll. */
-  .grid-scroll:not(.mobile-show-all) .col-rich:not(.col-role),
-  .grid-scroll:not(.mobile-show-all) .col-role ~ .col-role {
-    display: none;
-  }
-  .grid-scroll:not(.mobile-show-all) .rundown-grid {
+  .grid-scroll .rundown-grid {
     min-width: 0;
     width: 100%;
     table-layout: fixed;
   }
   /* The action column takes everything the fixed ones leave, and wraps. */
-  .grid-scroll:not(.mobile-show-all) .rundown-grid td,
-  .grid-scroll:not(.mobile-show-all) .rundown-grid th {
+  .grid-scroll .rundown-grid td,
+  .grid-scroll .rundown-grid th {
     min-width: 0;
     overflow-wrap: anywhere;
   }
@@ -2117,5 +2115,127 @@ th.col-drop-target {
   .sheet-toolbar .chip {
     height: 28px;
     padding: 0 9px;
+  }
+}
+
+/* ── Columns folded into the item ─────────────────────────────────────────
+   What will not fit as a column of its own appears under the item it belongs
+   to, labelled — out of its column a value has nothing to say what it is. */
+.cell-folded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--text-2);
+  line-height: 1.35;
+}
+.cell-folded .cf-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.cell-folded .cf-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  /* Never broken: "NOTES" split across two lines as "NOT/ES" reads as noise
+     next to the value it is labelling. */
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.cell-folded .cf-part > :not(.cf-label) {
+  min-width: 0;
+}
+
+/* The grid fills its container at every size — never wider. */
+.rundown-grid {
+  width: 100%;
+  table-layout: fixed;
+}
+.rundown-grid td,
+.rundown-grid th {
+  overflow-wrap: anywhere;
+}
+
+/* ── The number column, stacked ───────────────────────────────────────────
+   On a narrow screen a four-digit item number costs more width than the
+   number is worth. Set one digit per line it costs about a character, and
+   every one of those characters goes to the action text instead. */
+@media (max-width: 760px), (max-height: 500px) {
+  .rundown-grid .row-number .rn-num {
+    display: block;
+    line-height: 1.02;
+    letter-spacing: 0;
+    word-break: break-all;
+    max-width: 1.1em;
+    font-size: 0.68rem;
+  }
+  .rundown-grid .row-number {
+    padding-left: 3px;
+    padding-right: 3px;
+    text-align: center;
+  }
+}
+
+/* A time or a duration never breaks mid-number: "1:00:00" split as "1:00:0"
+   and "0" is not a duration, it is two bits of one. Let them shrink instead. */
+@media (max-width: 760px), (max-height: 500px) {
+  .rundown-grid td.mono,
+  .rundown-grid td.mono-progress {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    font-size: 0.72rem;
+  }
+  /* The item text is the exception — it is prose and must wrap. */
+  .rundown-grid td.mono-progress {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: inherit;
+  }
+}
+
+/* ── Import preview ───────────────────────────────────────────────────────
+   A column per column in the source, so it is wide by nature — but it fits,
+   because a sideways scrollbar hides the very mapping this screen exists to
+   let you check. Cells clip rather than push the table wider; the values are
+   a sample, and the dropdown above each one is the thing being set. */
+.import-grid {
+  width: 100%;
+  table-layout: fixed;
+}
+.import-grid th,
+.import-grid td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.import-grid .input {
+  max-width: 100%;
+}
+
+/* Narrow: the mapping is a list, not a grid. Ten source columns cannot be
+   read side by side on a phone, and pretending otherwise is what produced
+   the scrollbar. Each source column becomes a row: its name, what it maps
+   to, and a sample of what is in it. */
+@media (max-width: 760px) {
+  .import-grid,
+  .import-grid thead,
+  .import-grid tbody,
+  .import-grid tr,
+  .import-grid th,
+  .import-grid td {
+    display: block;
+    width: auto;
+  }
+  .import-grid tr {
+    border-bottom: 1px solid var(--border);
+    padding: 6px 0;
+  }
+  .import-grid td:empty {
+    display: none;
   }
 }

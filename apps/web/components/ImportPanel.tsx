@@ -497,8 +497,11 @@ export function ImportPanel({
             </div>
           )}
 
-          <div style={{ overflow: "auto", maxHeight: "62vh" }}>
-            <table className="rundown-grid" style={{ fontSize: "0.78rem" }}>
+          {/* Vertically only. The preview is wide by nature — a column per
+              column in the source — but a sideways scrollbar hides the very
+              mapping the screen exists to let you check. */}
+          <div className="import-preview" style={{ overflowX: "hidden", overflowY: "auto", maxHeight: "62vh" }}>
+            <table className="rundown-grid import-grid" style={{ fontSize: "0.78rem" }}>
               <thead>
                 <tr>
                   <th style={{ width: 90 }}>Row</th>

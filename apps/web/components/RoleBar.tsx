@@ -53,6 +53,14 @@ export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode 
           fontWeight: 600,
           display: "inline-block",
           whiteSpace: "nowrap",
+          // Clip, never spill. Not breaking is right — "CREW" split as "CRE"
+          // and "W" reads as two things — but a chip wider than its column
+          // pushed the whole table past its container, and six pixels of
+          // overflow is what a horizontal scrollbar is made of.
+          maxWidth: "100%",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          verticalAlign: "bottom",
         }}
       >
         {part}

@@ -8,7 +8,6 @@ import {
   api,
   ApiError,
   copyViewOnlyLink,
-  csvToSeedRows,
   getAdminToken,
   setAdminToken,
   type EventSummary,
@@ -120,7 +119,7 @@ function EventTypeSelect({
         ))}
       </select>
       {chosen && !compact && (
-        <span style={{ color: "var(--text-3)", fontSize: "0.72rem", maxWidth: 320 }}>{chosen.blurb}</span>
+        <span className="field-hint">{chosen.blurb}</span>
       )}
     </span>
   );
@@ -196,8 +195,7 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form
-      className="panel"
-      style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+      className="panel field-row"
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
@@ -220,7 +218,7 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
         />
       </div>
       {tried && <MissingFields missing={missing} />}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className="field-actions">
         <button className="btn btn-primary" type="submit">
           Create company
         </button>
@@ -264,8 +262,8 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
 
   return (
     <form
-      className="panel"
-      style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", margin: "0 0 4px" }}
+      className="panel field-row"
+      style={{ margin: "0 0 4px" }}
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
@@ -330,7 +328,7 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
         <EventTypeSelect value={sport} onChange={setSport} invalid={tried && !sport} />
       </div>
       {tried && <MissingFields missing={missing} />}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className="field-actions">
         <button className="btn btn-primary" type="submit">
           Create event
         </button>
@@ -356,8 +354,6 @@ function CreateRundownForm({
 }) {
   const [name, setName] = useState("");
   const [templateId, setTemplateId] = useState("");
-  const [csv, setCsv] = useState("");
-  const [showCsv, setShowCsv] = useState(false);
 
   return (
     <form
@@ -367,23 +363,13 @@ function CreateRundownForm({
         if (!name.trim()) return;
         const body: Parameters<typeof api.createRundown>[0] = { eventId, name: name.trim() };
         if (templateId) body.templateId = templateId;
-        else if (csv.trim()) {
-          const { rows } = csvToSeedRows(csv);
-          if (rows.length === 0) {
-            window.alert("No rows found in CSV — need a header row with at least a Title column.");
-            return;
-          }
-          body.rows = rows;
-        }
         void api.createRundown(body).then(() => {
           setName("");
-          setCsv("");
-          setShowCsv(false);
           onCreated();
         });
       }}
     >
-      {leading}
+      {leading && <div style={{ flexBasis: "100%", marginBottom: 2 }}>{leading}</div>}
       <input className="input" placeholder="New rundown name" value={name} onChange={(e) => setName(e.target.value)} />
       {templates.length > 0 && (
         <select
@@ -400,21 +386,9 @@ function CreateRundownForm({
           ))}
         </select>
       )}
-      <button className={`btn ${showCsv ? "is-on" : ""}`} type="button" onClick={() => setShowCsv((s) => !s)}>
-        Paste CSV
-      </button>
       <button className="btn" type="submit">
         {Icon.plus} Rundown
       </button>
-      {showCsv && (
-        <textarea
-          className="input"
-          style={{ width: "100%", minHeight: 90, fontFamily: "var(--font-mono)" }}
-          placeholder={"Paste CSV — e.g.\nTitle,Duration,Audio,Script\nWalk in,30m,,\nWelcome,1m30s,Lav 1,Good morning…"}
-          value={csv}
-          onChange={(e) => setCsv(e.target.value)}
-        />
-      )}
     </form>
   );
 }

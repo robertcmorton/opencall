@@ -2427,3 +2427,49 @@ th.col-drop-target {
 .field-missing {
   border-color: var(--warn) !important;
 }
+
+/* ── A row of fields ──────────────────────────────────────────────────────
+   Aligned by their TOPS. Bottom alignment looked right until a field grew a
+   hint line underneath it — then that field's control floated above the rest
+   of the row while its hint kept the bottoms level. Every label here is one
+   line, so aligning the tops lines the controls up and lets a hint hang
+   below where it belongs. */
+.field-row {
+  display: flex;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+/* A field's own hint sits under its control and takes no part in the row. */
+.field-row .field-hint {
+  display: block;
+  max-width: 300px;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+/* The buttons have no label above them, so they need the label's height to
+   sit level with the controls rather than the labels. */
+.field-row .field-actions {
+  display: flex;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 19px;
+}
+
+/* ── Room for the menu button ─────────────────────────────────────────────
+   It is fixed in the top-left corner and floats over whatever is there. Only
+   the top bar shares that height, so it reserves the room and the rest of the
+   page keeps its full width. Without it the button and the back arrow sat
+   exactly edge to edge and read as one control. */
+.with-sidenav.sidenav-closed .topbar-head,
+.with-sidenav.sidenav-closed .admin-main > header {
+  padding-left: max(0px, calc(52px - var(--sidenav-pad, 0px)));
+}
+@media (max-width: 900px) {
+  .with-sidenav .topbar-head,
+  .with-sidenav .admin-main > header {
+    padding-left: 52px;
+  }
+}

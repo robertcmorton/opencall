@@ -9,7 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Fields in a row line up again.** They were aligned by their bottoms, which looked right until a field grew a hint line underneath — then that field's control floated above the rest of the row while its hint kept the bottoms level. Timezone and Event type both did it. Rows align by their tops now, so every control sits on one line and a hint hangs below where it belongs.
+- **The menu button has room.** It is fixed in the top-left corner and floats over whatever is there, and the run sheet's back arrow sat exactly edge to edge with it — the two read as one control. The top bar reserves the space; the rest of the page keeps its full width.
+- **Import a run sheet sits on its own line**, above the name-and-create pair. It opens a whole screen where the others make one empty rundown, and side by side they read as three equal choices.
+- **Paste CSV is gone.** Importing a file does everything it did and more — the mapping preview, the roles, the column order — and it was a second way in that had to be maintained and explained.
 
 ## [0.32.0] — 2026-08-09
 

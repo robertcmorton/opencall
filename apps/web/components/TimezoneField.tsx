@@ -53,15 +53,7 @@ export function TimezoneField({
           </optgroup>
         ))}
       </select>
-      <div
-        style={{
-          marginTop: 4,
-          fontSize: "var(--fs-xs)",
-          color: valid ? "var(--text-2)" : "var(--over)",
-          maxWidth: 320,
-          lineHeight: 1.5,
-        }}
-      >
+      <div className="field-hint" style={valid ? undefined : { color: "var(--over)" }}>
         {valid
           ? `${zoneAbbreviation(value, Number.isNaN(previewMs) ? Date.now() : previewMs)}${atDate ? ` on ${atDate}` : ""} — every clock and the run of show follow this zone, daylight saving included.`
           : "Pick a zone from the list."}

@@ -11,6 +11,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 _Nothing yet._
 
+## [0.24.1] — 2026-08-09
+
+### Added
+- **A show driven by hand now says when it has been left behind.** A manually-called show advances only when someone presses Next; left alone — a console closed, an operator called away — it sits on the row it was last given while the clock runs on, and every readout reports a show hours over with no hint as to why. When the live cue falls three or more rows behind where the sheet says the show should be, a note says so and offers the two ways out: hand it to the clock, or catch up to now.
+
+### Changed
+- **Sync Cue is now a proper target** — a full-height pill rather than a small chip, and larger again on phones. It is pressed mid-show, often one-handed, and it is the way back to the live cue after any scroll.
+
+
 ## [0.24.0] — 2026-08-08
 
 ### Fixed

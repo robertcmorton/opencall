@@ -1212,6 +1212,8 @@ kbd {
 .grid-wrap {
   position: relative;
 }
+/* Deliberately large: it is pressed mid-show, often on a phone, often in a
+   hurry, and it is the way back to the live cue after any scroll. */
 .sync-cue {
   position: absolute;
   top: 42px;
@@ -1220,8 +1222,22 @@ kbd {
   margin: 0 auto;
   width: fit-content;
   z-index: 68;
+  height: auto;
+  min-height: 44px;
+  padding: 11px 22px;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
   box-shadow: var(--shadow-overlay);
   animation: menu-in var(--t-med) var(--ease);
+}
+@media (max-width: 760px) {
+  .sync-cue {
+    min-height: 52px;
+    padding: 14px 26px;
+    font-size: 1.05rem;
+  }
 }
 @media print {
   .sync-cue {
@@ -1837,4 +1853,26 @@ th.col-drop-target {
     bottom: auto;
     transform: translateX(-50%) rotate(225deg);
   }
+}
+
+/* The live cue has fallen behind the clock and nothing is advancing it. */
+.cue-drift {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + var(--rolebar-h, 0px));
+  z-index: 94;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: min(620px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-lg);
 }

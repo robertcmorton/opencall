@@ -476,6 +476,30 @@ export function RundownEditor({
   // every screen.
   const clockFollow = channel.show?.clockFollow ?? false;
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
+  /**
+   * How far the live cue has fallen behind the clock, in rows.
+   *
+   * A show driven by hand advances only when someone presses Next. Left alone
+   * — a console closed, an operator pulled away — it sits on the row it was
+   * last given while the clock runs on, and every readout reports a show
+   * hours over. That is indistinguishable from a broken clock unless the
+   * screen says plainly which row the sheet thinks should be on air.
+   */
+  const cueDriftRows = (() => {
+    if (!showLive || clockFollow || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
+    const at = rows.findIndex((r) => r.id === activeRowId);
+    const want = rows.findIndex((r) => r.id === clockRowId);
+    return at >= 0 && want > at ? want - at : 0;
+  })();
+  const cueDriftSec = (() => {
+    if (cueDriftRows === 0) return 0;
+    const at = rows.findIndex((r) => r.id === activeRowId);
+    const want = rows.findIndex((r) => r.id === clockRowId);
+    const a = timing.rows[at]?.startSec;
+    const b = timing.rows[want]?.startSec;
+    return a != null && b != null ? b - a : 0;
+  })();
+
 
   const yRows = doc.getMap<Y.Map<unknown>>("rows");
   const yOrder = doc.getArray<string>("rowOrder");
@@ -1823,6 +1847,33 @@ export function RundownEditor({
           channel={channel}
           activeRowId={activeRowId}
         />
+      )}
+
+      {/* Driven by hand and left behind: say so, and offer the two ways out. */}
+      {cueDriftRows >= 3 && (
+        <div className="cue-drift no-print" role="status">
+          <span>
+            The live cue is <strong>{cueDriftRows} rows</strong>
+            {cueDriftSec > 60 ? ` (${Math.round(cueDriftSec / 60)} min)` : ""} behind the clock — nothing is advancing
+            it.
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            data-tip="Hand the show to the clock: the server advances it along the TIME column from now on"
+            onClick={() => channel.sendCmd("clock_on")}
+          >
+            Follow clock
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            data-tip="Move the live cue to the row the sheet says should be on air now"
+            onClick={() => clockRowId && channel.sendCmd("jump", clockRowId)}
+          >
+            Catch up now
+          </button>
+        </div>
       )}
 
       {/* A refused command is shown where the person who pressed it is

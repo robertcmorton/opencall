@@ -728,7 +728,22 @@ export function mergeWrappedRows(
       numbered.push(i);
     }
   }
-  if (numbered.length === 0) return grid;
+  /**
+   * A numbering column has to actually number the sheet.
+   *
+   * Some sheets carry no column headers at all, so the header detector settles
+   * on the title block and the number-column detector then picks whichever
+   * column happens to hold a few digits — a stand number, a camera number. On
+   * one real sheet that was seven lines out of 288, and merging on it folded
+   * the entire run sheet into seven rows: every time in it lost, hours long.
+   *
+   * The bar is deliberately low. Real sheets number as little as a fifth of
+   * their lines — the rest are the wrapped continuations this merge exists to
+   * fold — so anything stricter switches the merge off where it was working.
+   * One line in twelve separates the sheets that number themselves from the
+   * one that happened to hold seven digits in a column.
+   */
+  if (numbered.length < Math.max(3, lineIdxs.length * 0.08)) return grid;
 
   // Physical-row bands from the ruled lines: band = which inter-rule gap a
   // line's y falls into. Two lines in the same band share a table row.

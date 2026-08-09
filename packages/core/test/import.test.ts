@@ -711,3 +711,37 @@ describe("what a view-only link shows by default", () => {
     expect(defaultViewColumns(columns, ["who"])[0]).toBe("start");
   });
 });
+
+describe("a column that is not the sheet's numbering", () => {
+  /**
+   * A sheet with no column headers: the header detector settles on the title
+   * block and the number-column detector then picks whichever column holds a
+   * few stray digits. Two real sheets folded from ~285 rows into seven.
+   */
+  const headerless = (): string[][] => {
+    const rows: string[][] = [["", "", "2025 SEASON — ROUND 11"]];
+    for (let i = 0; i < 60; i++) {
+      // A time and some text, and no numbering anywhere.
+      rows.push(["", `${9 + Math.floor(i / 6)}:${String((i % 6) * 10).padStart(2, "0")}am`, `Item ${i}`]);
+    }
+    // Three lines that happen to hold a bare number — a stand, a camera.
+    rows.push(["3", "", "Camera position"], ["4", "", "Camera position"], ["7", "", "Stand"]);
+    return rows;
+  };
+
+  it("does not fold the sheet into the handful of lines that hold digits", () => {
+    const built = buildSheet(planImport(headerless(), { mergeWrapped: true }));
+    // Nothing like 3 rows: every timed line is its own item.
+    expect(built.rows.length).toBeGreaterThan(50);
+  });
+
+  it("still merges a sheet that really does number itself", () => {
+    const numbered: string[][] = [["ITEM", "TIME", "ACTION"]];
+    for (let i = 1; i <= 30; i++) {
+      numbered.push([String(i), `${9 + Math.floor(i / 6)}:00am`, `Item ${i}`]);
+      numbered.push(["", "", `…continued line for ${i}`]); // the wrap this merge exists for
+    }
+    const built = buildSheet(planImport(numbered, { mergeWrapped: true }));
+    expect(built.rows.length).toBe(30);
+  });
+});

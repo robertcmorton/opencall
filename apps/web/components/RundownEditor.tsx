@@ -715,6 +715,19 @@ export function RundownEditor({
    * hours over. That is indistinguishable from a broken clock unless the
    * screen says plainly which row the sheet thinks should be on air.
    */
+  /**
+   * The clock is driving AND the cue is where the sheet says it should be.
+   *
+   * "Following clock" only says the server is in charge. It says nothing about
+   * whether the show is actually on time, which is the thing anyone looking at
+   * that button wants to know — and the two came apart in exactly the way you
+   * would least want: a bug had the show reporting +1:19 while the button sat
+   * there claiming it was following the clock. This is the claim that can be
+   * checked: the live cue IS the row the clock points at.
+   */
+  const clockSynced =
+    clockFollow && !clockHold && !!activeRowId && !!clockRowId && activeRowId === clockRowId;
+
   const cueDriftRows = (() => {
     if (!showLive || (clockFollow && !clockHold) || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
     const at = rows.findIndex((r) => r.id === activeRowId);
@@ -1913,11 +1926,36 @@ export function RundownEditor({
         {isShow && showLive && (
           <button
             className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
-            style={clockFollow ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" } : undefined}
-            data-tip="The SERVER runs the show off the TIME column — every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct; toggle off for manual control."
+            style={
+              clockSynced
+                ? { borderColor: "var(--under)", color: "var(--under)", background: "var(--under-soft)" }
+                : clockFollow
+                  ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }
+                  : undefined
+            }
+            data-tip={
+              clockSynced
+                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off."
+                : clockFollow
+                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off."
+                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct."
+            }
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
           >
-            ◷ {clockFollow ? (clockHold ? "Clock held" : "Following clock") : "Follow clock"}
+            {/* "Following clock" is a claim about who is driving. "Clock
+                synced" is a claim about where the show IS, and that is the one
+                anybody is actually checking — the two came apart badly enough
+                once to be worth separating for good. "Held" has to stay on
+                this button too: while it is held the clock is NOT advancing
+                anything, so "Following clock" would be untrue. */}
+            ◷{" "}
+            {clockHold
+              ? "Clock held"
+              : clockSynced
+                ? "Clock synced"
+                : clockFollow
+                  ? "Following clock"
+                  : "Follow clock"}
           </button>
         )}
         {/* Taking the wheel for a moment is not the same as switching the clock

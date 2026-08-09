@@ -18,6 +18,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **Rename a column heading on the import screen by double-clicking it.** Sheets arrive with whatever the last person typed at the top of the column, and this is the moment somebody is looking at it and knows what it should say. A column kept as its own carries the new heading through.
 
 ### Changed
+- **The clock button says whether the show is actually on time.** "Following clock" only ever meant "the server is driving" — it said nothing about whether the cue was where the sheet points, which is the thing anyone glancing at it wants to know, and the two came apart badly enough once to be worth separating for good. It now reads **Clock synced** in green when the live cue is on the row the clock points at, and Following clock in amber while it is not there yet.
 - **"I'll drive" is now "Step it myself".** The control stops the clock advancing the cue so you step it with Next — which the old label described only by metaphor.
 
 ### Fixed

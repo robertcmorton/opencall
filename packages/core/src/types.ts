@@ -27,6 +27,15 @@ export interface PlanRow {
   skipped?: boolean;
   /** Display-only flag; does not affect math. */
   durationHidden?: boolean;
+  /**
+   * Which alternate ending this row belongs to ("win", "lose", "draw",
+   * "golden"). Rows tagged with different endings are ALTERNATIVES: only one of
+   * them is ever played, so they share a start rather than following one
+   * another, and only the longest counts toward the running time.
+   */
+  outcome?: string | null;
+  /** Which game on the day this ending belongs to, counting from 1. */
+  outcomeGame?: number;
 }
 
 export interface TimedRow {

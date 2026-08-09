@@ -832,6 +832,48 @@ kbd {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
 }
+/* ── Alternate endings, stacked ───────────────────────────────────────────
+   A game's endings are ALTERNATIVES, not a running order. Read straight down
+   the page they look like a sequence — win, then lose, then draw, as though
+   the show played all three. Each ending gets its own lane inside one frame,
+   stacked directly on the one before it, and the timing gives them all the
+   same start, so the sheet reads "one of these" rather than "all of these".  */
+.oc-rail-win {
+  --branch-rail: var(--under);
+}
+.oc-rail-lose {
+  --branch-rail: var(--over);
+}
+.oc-rail-draw {
+  --branch-rail: var(--accent);
+}
+.oc-rail-golden {
+  --branch-rail: var(--warn);
+}
+.branch-row > td {
+  /* Tinted rather than filled: the row's own colour still shows through. */
+  background-color: color-mix(in srgb, var(--branch-rail) 7%, transparent);
+}
+.branch-row > td:first-child {
+  box-shadow: inset 3px 0 0 var(--branch-rail);
+}
+/* The line between one ending and the next in the stack. */
+.branch-open > td {
+  border-top: 1px dashed var(--branch-rail);
+}
+/* The frame around the whole set. */
+.branch-block-open > td {
+  border-top: 2px solid var(--border);
+}
+.branch-block-close > td {
+  border-bottom: 2px solid var(--border);
+}
+/* A result has been called and this was not it — dimmed, never hidden: a
+   result gets reversed more often than anyone would like. */
+.branch-dim > td {
+  opacity: 0.42;
+}
+
 /* Full time is close and no result picked yet — the chooser calls for a decision. */
 .decision-pulse {
   color: var(--warn) !important;

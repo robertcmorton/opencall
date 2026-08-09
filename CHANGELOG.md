@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Alternate endings now sit stacked, and the sheet stops counting all of them.** A game's endings are alternatives — only one is ever called — but they were laid end to end like a running order, so a three-way ending made the sheet claim three times the time it would really take and every projected end after it was wrong. Each ending now starts at the same moment, the show resumes after the longest, and only one counts toward the running time. On screen they sit in their own lanes inside one frame, one directly above the next; once a result is called the others dim rather than disappear.
+
 ### Fixed
 - **Picking a result no longer decides every other game on the day.** A sheet running several matches carries several sets of alternate endings, and the choice was read sheet-wide: calling the afternoon result skipped the evening game's branches too, hours before they were due, and a single Reset put all of them back. Endings are now grouped by the game they belong to, the chooser names the game it is asking about, and each result is picked and cleared on its own.
 - **An ending no longer tags the rest of the day.** A branch ran from its header to the end of the sheet, so on a multi-game day everything after the first full time was marked as belonging to that one result. A branch now closes where the day moves on — the next result to choose from, the next kick-off, or the next fixed moment on the sheet.

@@ -40,8 +40,23 @@ type ActiveCell = { rowId: string; columnId: string } | null;
 /** Default cue-type vocabulary from real production sheets. Free text always works too. */
 const CUE_TYPE_CHIPS = ["AUDIO", "GFX", "VTR", "LED", "PA", "MC", "GA", "DJ", "CREW", "PYRO", "LIGHTING", "LIVE VSN", "CAM", "SUPER", "TAKEOVER", "SCORE", "NOTE"];
 
+/**
+ * A row's place in a stack of alternate endings. `opens`/`closes` bound one
+ * ending; `blockOpens`/`blockCloses` bound the whole set of them.
+ */
+interface BranchMark {
+  outcome: string;
+  opens: boolean;
+  closes: boolean;
+  blockOpens: boolean;
+  blockCloses: boolean;
+  /** A result has been called and it was not this one. */
+  dim: boolean;
+}
+
 function SortableRow({
   row,
+  branch,
   displayNumber,
   children,
   selected,
@@ -57,6 +72,8 @@ function SortableRow({
   onSelect,
 }: {
   row: ProjectedRow;
+  /** Set when this row is one of a game's alternate endings — see `branchAt`. */
+  branch?: BranchMark | null;
   /** Mirrors the source sheet's numbering on imports; sequential otherwise; blank when the sheet had none. */
   displayNumber: string;
   children: React.ReactNode;
@@ -79,7 +96,11 @@ function SortableRow({
   return (
     <tr
       ref={setNodeRef}
-      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${clockMark ? "clock-row" : ""}`}
+      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${clockMark ? "clock-row" : ""} ${
+        branch
+          ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
+          : ""
+      }`}
       data-rowid={row.id}
       data-tip={walk ? "Walkthrough position — synced to every screen" : clockMark ? "Event time is here per the TIME column" : undefined}
       style={{
@@ -93,8 +114,11 @@ function SortableRow({
       <td className="row-number mono" onClick={onSelect} {...attributes} {...listeners}>
         <span className="rn-num">{displayNumber}</span>
         {active && <span className="cue-badge">CUE</span>}
-        {!active && row.outcome && (
-          <span className={`outcome-chip oc-${row.outcome}`} data-tip="Alternate ending — plays only when this outcome is picked at full time">
+        {!active && row.outcome && (branch?.opens ?? true) && (
+          <span
+            className={`outcome-chip oc-${row.outcome}`}
+            data-tip="One of several alternate endings, stacked here because only one of them will be called. They all start at the same moment; picking a result plays this branch and skips the rest."
+          >
             {row.outcome === "win" ? "WIN" : row.outcome === "lose" ? "LOSE" : row.outcome === "golden" ? "GP" : row.outcome === "draw" ? "DRAW" : row.outcome}
           </span>
         )}
@@ -621,6 +645,36 @@ export function RundownEditor({
     doc.transact(() => {
       for (const r of rowsOfGame(game)) yRows.get(r.id)?.set("skipped", false);
     });
+  };
+
+  /**
+   * Where a row sits inside a block of alternate endings, so the grid can show
+   * the endings STACKED — each in its own lane, one directly above the next,
+   * all starting at the same moment.
+   *
+   * Read down the page they look like a sequence: win, then lose, then draw, as
+   * though the show played all three. They are alternatives; only one is ever
+   * called. The lanes say so, and the timing behind them now gives every branch
+   * the same start.
+   */
+  const branchAt = (i: number): BranchMark | null => {
+    const r = rows[i];
+    if (!r?.outcome) return null;
+    const game = r.outcomeGame ?? 1;
+    const gameAt = (j: number): number | null => (rows[j]?.outcome ? rows[j]!.outcomeGame ?? 1 : null);
+    const keyAt = (j: number): string | null => (rows[j]?.outcome ? `${rows[j]!.outcomeGame ?? 1}:${rows[j]!.outcome}` : null);
+    const key = `${game}:${r.outcome}`;
+    const chosen = chosenOf(game);
+    return {
+      outcome: r.outcome,
+      opens: keyAt(i - 1) !== key,
+      closes: keyAt(i + 1) !== key,
+      blockOpens: gameAt(i - 1) !== game,
+      blockCloses: gameAt(i + 1) !== game,
+      // Dimmed, never hidden: the endings that were not called stay readable,
+      // because a result gets reversed more often than anyone would like.
+      dim: chosen != null && chosen !== r.outcome,
+    };
   };
 
   // ── Timing nudges ───────────────────────────────────────────────────────
@@ -1762,6 +1816,7 @@ export function RundownEditor({
                   <SortableRow
                     key={rowRecord.id}
                     row={rowRecord}
+                    branch={branchAt(i)}
                     displayNumber={mirrored ? (rowRecord.sourceNumber ?? "") : String(i + 1)}
                     selected={selected.has(rowRecord.id)}
                     active={activeRowId === rowRecord.id}

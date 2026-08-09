@@ -190,3 +190,72 @@ describe("findTimingGaps", () => {
     ).toBeGreaterThan(0);
   });
 });
+
+describe("computeTiming — alternate endings stack", () => {
+  // Pre-game, then a win branch and a lose branch, then the day carries on.
+  const sheet = (): PlanRow[] => [
+    row("pre", { durationSec: 600 }),
+    row("win1", { durationSec: 300, outcome: "win", outcomeGame: 1 }),
+    row("win2", { durationSec: 120, outcome: "win", outcomeGame: 1 }),
+    row("lose1", { durationSec: 180, outcome: "lose", outcomeGame: 1 }),
+    row("after", { durationSec: 60 }),
+  ];
+  const at = (id: string, t: ReturnType<typeof computeTiming>) =>
+    t.rows.find((r) => r.id === id)!;
+
+  it("starts every ending at the same moment", () => {
+    const t = computeTiming(sheet(), NINE_AM);
+    expect(at("win1", t).startSec).toBe(NINE_AM + 600);
+    expect(at("lose1", t).startSec).toBe(NINE_AM + 600);
+  });
+
+  it("resumes the day after the longest ending, not after all of them", () => {
+    const t = computeTiming(sheet(), NINE_AM);
+    // win is 300+120 = 420; lose is 180. The day resumes 420s after the block.
+    expect(at("after", t).startSec).toBe(NINE_AM + 600 + 420);
+  });
+
+  it("counts one ending toward the running time, not every branch", () => {
+    // 600 pre + 420 (longest ending) + 60 after. Laid end to end it read 1260.
+    expect(computeTiming(sheet(), NINE_AM).totalDurationSec).toBe(1080);
+  });
+
+  it("uses the chosen ending once the others are skipped", () => {
+    const picked = sheet().map((r) => (r.outcome === "win" ? { ...r, skipped: true } : r));
+    const t = computeTiming(picked, NINE_AM);
+    expect(at("after", t).startSec).toBe(NINE_AM + 600 + 180);
+    expect(t.totalDurationSec).toBe(600 + 180 + 60);
+  });
+
+  it("keeps two games' endings apart", () => {
+    const t = computeTiming(
+      [
+        row("g1win", { durationSec: 300, outcome: "win", outcomeGame: 1 }),
+        row("g1lose", { durationSec: 60, outcome: "lose", outcomeGame: 1 }),
+        row("g2win", { durationSec: 200, outcome: "win", outcomeGame: 2 }),
+        row("g2lose", { durationSec: 90, outcome: "lose", outcomeGame: 2 }),
+      ],
+      NINE_AM,
+    );
+    // Game 1's two endings share a start; game 2's block opens after the
+    // longest of game 1's, and its own two endings share that start.
+    expect(at("g1win", t).startSec).toBe(NINE_AM);
+    expect(at("g1lose", t).startSec).toBe(NINE_AM);
+    expect(at("g2win", t).startSec).toBe(NINE_AM + 300);
+    expect(at("g2lose", t).startSec).toBe(NINE_AM + 300);
+    expect(t.endSec).toBe(NINE_AM + 300 + 200);
+  });
+
+  it("still lets an imported time on a branch row win", () => {
+    const t = computeTiming(
+      [
+        row("pre", { durationSec: 600 }),
+        row("win", { durationSec: 300, outcome: "win", outcomeGame: 1, hardStartSec: NINE_AM + 3600 }),
+        row("lose", { durationSec: 180, outcome: "lose", outcomeGame: 1 }),
+      ],
+      NINE_AM,
+    );
+    expect(at("win", t).startSec).toBe(NINE_AM + 3600);
+    expect(at("lose", t).startSec).toBe(NINE_AM + 600);
+  });
+});

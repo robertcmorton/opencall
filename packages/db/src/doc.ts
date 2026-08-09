@@ -335,6 +335,7 @@ export function projectRundownDoc(doc: Y.Doc): {
       cellsRich,
       color: row.get("color") as string | undefined,
       outcome: (row.get("outcome") as string | null | undefined) ?? null,
+      outcomeGame: (row.get("outcomeGame") as number | undefined) ?? undefined,
     });
   }
   return { meta, keyTimes, roles, columns, rows };

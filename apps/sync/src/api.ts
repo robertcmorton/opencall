@@ -211,7 +211,10 @@ export function createApiHandler(
           json(res, 404, { error: "unknown code" });
           return true;
         }
-        json(res, 200, resolved);
+        const row = await db.query.shareTokens.findFirst({ where: eq(schema.shareTokens.id, resolved.tokenId) });
+        // `columns` is the SHOW list — null means "not set", which the client
+        // reads as the phone-shaped default rather than "show nothing".
+        json(res, 200, { ...resolved, columns: row?.columnVisibility ?? null });
         return true;
       }
 
@@ -1006,9 +1009,15 @@ export function createApiHandler(
         if (!(await requireEditor(rundownId))) return true;
         const rows = await db.query.shareTokens.findMany({
           where: and(eq(schema.shareTokens.rundownId, rundownId), eq(schema.shareTokens.kind, "join")),
-          columns: { id: true, joinCode: true, role: true, label: true, revokedAt: true },
+          columns: { id: true, joinCode: true, role: true, label: true, revokedAt: true, columnVisibility: true },
         });
-        json(res, 200, rows.filter((r) => !r.revokedAt).map(({ revokedAt: _r, ...rest }) => rest));
+        json(
+          res,
+          200,
+          rows
+            .filter((r) => !r.revokedAt)
+            .map(({ revokedAt: _r, columnVisibility, ...rest }) => ({ ...rest, columns: columnVisibility })),
+        );
         return true;
       }
 
@@ -1130,6 +1139,21 @@ export function createApiHandler(
               lastSeenAt: v.lastSeenAt.toISOString(),
             })),
         );
+        return true;
+      }
+
+      /** Which columns a view-only link may show. */
+      if (req.method === "PATCH" && /^\/rundowns\/[^/]+\/join-codes\/[^/]+$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        const codeId = pathname.split("/")[4]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const body = await readJson(req);
+        const columns = Array.isArray(body.columns) ? (body.columns as unknown[]).filter((k): k is string => typeof k === "string") : null;
+        await db
+          .update(schema.shareTokens)
+          .set({ columnVisibility: columns ? Object.fromEntries(columns.map((k) => [k, true])) : null })
+          .where(and(eq(schema.shareTokens.id, codeId), eq(schema.shareTokens.rundownId, rundownId)));
+        json(res, 200, { ok: true });
         return true;
       }
 

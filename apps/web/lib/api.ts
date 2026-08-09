@@ -97,6 +97,8 @@ export interface JoinCodeSummary {
   role: string;
   /** Who this code is for — the joiner's identity on every screen. */
   label: string | null;
+  /** Which columns this link may show. null = the phone-shaped default. */
+  columns?: Record<string, boolean> | null;
 }
 
 export const api = {
@@ -157,6 +159,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ role, label }),
     }),
+  /** Which columns a view-only link may show. null = the default. */
+  setCodeColumns: (rundownId: string, codeId: string, columns: string[] | null) =>
+    request<{ ok: true }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "PATCH", body: JSON.stringify({ columns }) }),
   revokeJoinCode: (rundownId: string, codeId: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "DELETE" }),
   snapshots: (rundownId: string) => request<SnapshotSummary[]>(`/rundowns/${rundownId}/snapshots`),
@@ -236,7 +241,9 @@ export const api = {
     request<{ id: string }>("/templates", { method: "POST", body: JSON.stringify(body) }),
   // ── Landing & admin ──
   resolveCode: (code: string) =>
-    request<{ role: "caller" | "editor" | "follower"; rundownId: string }>(`/codes/${encodeURIComponent(code)}`),
+    request<{ role: "caller" | "editor" | "follower"; rundownId: string; columns: Record<string, boolean> | null }>(
+      `/codes/${encodeURIComponent(code)}`,
+    ),
   live: () => request<{ rundownId: string; state: string; startedAt: string }[]>("/live"),
   patchEvent: (id: string, body: { name?: string; location?: string; timezone?: string; startDate?: string; endDate?: string; sport?: string | null; image1?: string | null; image2?: string | null }) =>
     request<{ id: string }>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),

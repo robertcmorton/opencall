@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { defaultViewColumns } from "../src/eventTypes";
 import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
@@ -681,5 +682,32 @@ describe("values that are not questions", () => {
   it("still flags anything shaped like a time someone mistyped", () => {
     for (const v of ["12:", ":30", "7.3O pm", "0:9O:00", "2 mins x", "1030hrs?", "6 mins 15 mins"])
       expect(looksLikeBotchedValue(v)).toBe(true);
+  });
+});
+
+describe("what a view-only link shows by default", () => {
+  const columns = [
+    { key: "start", kind: "startTime" },
+    { key: "dur", kind: "duration" },
+    { key: "scr", kind: "richtext" },
+    { key: "title", kind: "title" },
+    { key: "who", kind: "richtext" },
+    { key: "notes", kind: "richtext" },
+  ];
+
+  it("keeps when, what and whose job — and nothing else", () => {
+    expect(defaultViewColumns(columns, ["who"])).toEqual(["start", "dur", "title", "who"]);
+  });
+
+  it("takes only the first role column when a sheet records work in several", () => {
+    expect(defaultViewColumns(columns, ["who", "scr"])).toEqual(["start", "dur", "title", "who"]);
+  });
+
+  it("copes with a sheet that names no role column", () => {
+    expect(defaultViewColumns(columns, [])).toEqual(["start", "dur", "title"]);
+  });
+
+  it("returns them in the sheet's own order, not the order asked for", () => {
+    expect(defaultViewColumns(columns, ["who"])[0]).toBe("start");
   });
 });

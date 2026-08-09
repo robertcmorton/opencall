@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   absoluteNow,
   computeTiming,
+  defaultViewColumns,
   eventType,
   outcomesFor,
   formatDuration,
@@ -373,6 +374,43 @@ export function RundownEditor({
     if (gapRow) centreInSheet(gapRow);
   }, [gapFocus?.toId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [hiddenCols, setHiddenCols] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * A view-only link decides what it may show.
+   *
+   * The list on the link is what to SHOW, so everything else is hidden — and
+   * when the link says nothing, the phone-shaped default applies, because a
+   * link is opened on a phone at the side of a pitch far more often than on a
+   * desk. Whoever shared it can add columns; nobody holding it can.
+   */
+  /**
+   * What this link may show, asked for here rather than handed down.
+   *
+   * The view page is a server component, and a server component cannot pass a
+   * function across the boundary to fetch it — the editor already holds the
+   * code, so it is the right place to ask.
+   */
+  const [viewColumns, setViewColumns] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (mode !== "view" || !joinCode) return;
+    void api
+      .resolveCode(joinCode)
+      .then((r) => setViewColumns(r.columns ? Object.keys(r.columns) : null))
+      .catch(() => setViewColumns(null));
+  }, [mode, joinCode]);
+
+  useEffect(() => {
+    if (mode !== "view" || columns.length === 0) return;
+    const show = new Set(
+      viewColumns && viewColumns.length > 0
+        ? viewColumns
+        : defaultViewColumns(
+            columns.map((c) => ({ key: c.key, kind: c.kind })),
+            meta.roleColumnKeys,
+          ),
+    );
+    setHiddenCols(new Set(columns.filter((c) => !show.has(c.key)).map((c) => c.key)));
+    // Columns arrive with the document; the link's list never changes after.
+  }, [mode, columns.length, viewColumns?.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   // Per-user column width overrides (drag the header edges); imported sheets
   // still provide the starting widths.
   const { widths: colWidths, handle: resizeHandle, tableStyle } = useColWidths(COL_WIDTHS_KEY(rundownId));
@@ -1912,7 +1950,7 @@ export function RundownEditor({
       )}
       {panel === "join" && (
         <div className="no-print">
-          <JoinCodesPanel rundownId={rundownId} onClose={() => setPanel(null)} />
+          <JoinCodesPanel rundownId={rundownId} columns={columns} roleColumnKeys={meta.roleColumnKeys} onClose={() => setPanel(null)} />
         </div>
       )}
 

@@ -22,7 +22,6 @@ export function ViewerGate({ code, children }: { code?: string; children: React.
   const [name, setName] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     const known = viewerName();
     setName(known);

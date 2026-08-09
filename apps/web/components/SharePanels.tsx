@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, API_URL, copyViewOnlyLink, type SnapshotSummary } from "../lib/api";
 import type { ColumnDef } from "@opencall/db/doc";
+import { defaultViewColumns } from "@opencall/core";
 
 const panelStyle: React.CSSProperties = {
   margin: "0 0 12px",
@@ -77,8 +78,75 @@ export function GuestPassPanel({ rundownId, columns, onClose }: { rundownId: str
  * This replaced two panels that did nearly the same thing — a "join code" and
  * a "guest pass" — which nothing on screen distinguished.
  */
-export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onClose: () => void }) {
-  const [codes, setCodes] = useState<{ id: string; joinCode: string | null; role: string; label: string | null }[]>([]);
+/**
+ * What one link may show.
+ *
+ * The default is the phone-shaped set — a link is opened at the side of a
+ * pitch far more often than at a desk — and anything else is an addition
+ * somebody made deliberately. "Back to the default" is offered because a set
+ * that has drifted is worth being able to undo without re-ticking six boxes.
+ */
+function ColumnChoice({
+  columns,
+  roleColumnKeys,
+  chosen,
+  onChange,
+}: {
+  columns: ColumnDef[];
+  roleColumnKeys: string[];
+  chosen: string[] | null;
+  onChange: (next: string[] | null) => void;
+}) {
+  const fallback = defaultViewColumns(
+    columns.map((c) => ({ key: c.key, kind: c.kind })),
+    roleColumnKeys,
+  );
+  const shown = new Set(chosen && chosen.length > 0 ? chosen : fallback);
+  // The structural three are the sheet: without them there is nothing to read.
+  const locked = (c: ColumnDef) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration";
+  return (
+    <div className="panel" style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 4 }}>
+      <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Shows:</span>
+      {columns.map((c) => (
+        <label key={c.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, opacity: locked(c) ? 0.6 : 1 }}>
+          <input
+            type="checkbox"
+            checked={shown.has(c.key)}
+            disabled={locked(c)}
+            onChange={(e) => {
+              const next = new Set(shown);
+              if (e.target.checked) next.add(c.key);
+              else next.delete(c.key);
+              onChange([...columns.filter((x) => next.has(x.key)).map((x) => x.key)]);
+            }}
+          />
+          {c.title}
+        </label>
+      ))}
+      {chosen && chosen.length > 0 && (
+        <button className="btn btn-sm btn-ghost" onClick={() => onChange(null)}>
+          Back to the default
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function JoinCodesPanel({
+  rundownId,
+  columns = [],
+  roleColumnKeys = [],
+  onClose,
+}: {
+  rundownId: string;
+  columns?: ColumnDef[];
+  roleColumnKeys?: string[];
+  onClose: () => void;
+}) {
+  const [codes, setCodes] = useState<
+    { id: string; joinCode: string | null; role: string; label: string | null; columns?: Record<string, boolean> | null }[]
+  >([]);
+  const [editingCols, setEditingCols] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
   const [name, setName] = useState("");
   const reload = () => {
@@ -140,6 +208,13 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
               </button>
             )}
             <button
+              className="btn btn-sm"
+              data-tip="Choose what this link shows. The default is what fits a phone — when, what, and whose job."
+              onClick={() => setEditingCols(editingCols === c.id ? null : c.id)}
+            >
+              Columns
+            </button>
+            <button
               className="btn btn-sm btn-ghost"
               style={{ color: "var(--over)" }}
               data-tip="Revoke: this link stops working everywhere immediately, and its viewer list goes with it"
@@ -147,6 +222,14 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
             >
               Revoke
             </button>
+            {editingCols === c.id && (
+              <ColumnChoice
+                columns={columns}
+                roleColumnKeys={roleColumnKeys}
+                chosen={c.columns ? Object.keys(c.columns) : null}
+                onChange={(next) => void api.setCodeColumns(rundownId, c.id, next).then(reload)}
+              />
+            )}
           </li>
         ))}
       </ul>

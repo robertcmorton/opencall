@@ -150,3 +150,31 @@ export function outcomesFor(id: string | null | undefined, extraPlaying: boolean
   if (!type) return [];
   return extraPlaying && type.afterExtra.length > 0 ? type.afterExtra : type.fullTime;
 }
+
+/**
+ * What a view-only link shows before anyone changes it.
+ *
+ * Tuned for a phone, because that is what a link gets opened on: someone is
+ * holding it one-handed at the side of a pitch. Three things earn their place
+ * at that width — when it happens, what happens, and whose job it is. Anything
+ * else is folded under the item anyway, so shipping it by default only makes
+ * the rows taller.
+ *
+ * `roleColumnKeys` is the sheet's own answer to "whose job" — the WHO column
+ * it was imported with. The first is taken; a sheet that records work in three
+ * columns does not need all three on a phone.
+ *
+ * Returns the keys to SHOW. Whoever shares the link can add to it.
+ */
+export function defaultViewColumns(
+  columns: { key: string; kind: string }[],
+  roleColumnKeys: string[] = [],
+): string[] {
+  const keep = new Set<string>();
+  for (const c of columns) {
+    if (c.kind === "title" || c.kind === "startTime" || c.kind === "duration") keep.add(c.key);
+  }
+  const firstRole = roleColumnKeys.find((k) => columns.some((c) => c.key === k));
+  if (firstRole) keep.add(firstRole);
+  return columns.filter((c) => keep.has(c.key)).map((c) => c.key);
+}

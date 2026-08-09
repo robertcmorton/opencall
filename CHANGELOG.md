@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.27.0] — 2026-08-09
+
 ### Added
 - **A run sheet can be closed to its audience once the event is done.** A sheet stayed open to everyone who had ever been given a way in — crew codes, guest passes, view-only accounts — long after the show was over, and the only way to shut it was to revoke each code one at a time. One button in Show settings now closes it to all of them at once, with a page that says the event is over rather than pretending the link was never any good. Whoever calls or edits the show keeps their access, so it is always reversible by the people who did it.
 - **The showcaller can take the wheel without switching the clock off.** Clock-follow was all or nothing: to step a cue by hand you had to turn the whole thing off and remember to turn it back on. Pause was no answer either — Pause stops the SHOW, freezing the item clock on every screen downstream. There is now a hold that stops only the automatic advance: the show runs on, every timer keeps counting, and the cue moves when the showcaller presses Next. Handing it back picks the show up wherever the cue now is. A hold is a moment, not a setting — switching clock-follow on again always starts unheld, and ending the show clears it.

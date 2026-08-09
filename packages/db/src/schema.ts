@@ -33,6 +33,36 @@ export const users = pgTable("users", {
   createdAt: createdAt(),
 });
 
+/**
+ * An invitation to join, before there is an account.
+ *
+ * Kept apart from `users` on purpose: a pending invite is not a person yet,
+ * and putting one in the user list makes every list of "who has access" a lie
+ * until they accept.
+ *
+ * The GRANTS are recorded here, not chosen at acceptance — an invite carries
+ * exactly the access the person who sent it chose, so accepting one can never
+ * give more than was offered. `teamId` is the company that issued it, which is
+ * what stops one company seeing or revoking another's invitations.
+ */
+export const userInvites = pgTable("user_invites", {
+  id: id().primaryKey(),
+  email: text("email").notNull(),
+  /** A suggested name, if the inviter knew it. The person can change it. */
+  name: text("name"),
+  /** Single-use, long, and the only thing the accept link carries. */
+  token: text("token").notNull().unique(),
+  /** The company whose invitation this is. Null when an admin issued it. */
+  teamId: text("team_id").references(() => teams.id),
+  /** Exactly what accepting grants — nothing is decided at acceptance. */
+  grants: jsonb("grants").$type<{ kind: (typeof grantKinds)[number]; targetId: string }[]>().notNull().default([]),
+  invitedByUserId: text("invited_by_user_id").references(() => users.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
 export const teams = pgTable("teams", {
   id: id().primaryKey(),
   name: text("name").notNull(),

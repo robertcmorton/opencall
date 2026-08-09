@@ -17,6 +17,8 @@ import {
   verifyPassword,
 } from "./auth";
 import { serializeCsv } from "@opencall/core";
+import { inviteEmail, mailConfigured, sendMail } from "./mail";
+import { grantInScope, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import {
   buildRundownDoc,
   decodeDoc,
@@ -62,6 +64,51 @@ let loginBudget = 30;
 setInterval(() => {
   loginBudget = 30;
 }, 60_000).unref();
+
+/**
+ * Where the accept link points.
+ *
+ * The web app and the sync server are separate services on separate hosts, so
+ * the sync server cannot know the app's address by looking at itself. It is
+ * given one (PUBLIC_WEB_URL); failing that it uses the Origin the request
+ * arrived with, which is the dashboard the person is standing in front of.
+ */
+function inviteUrl(req: IncomingMessage, token: string): string {
+  const configured = process.env.PUBLIC_WEB_URL?.trim().replace(/\/$/, "");
+  const origin = String(req.headers.origin ?? "").trim().replace(/\/$/, "");
+  return `${configured || origin || ""}/invite/${token}`;
+}
+
+/**
+ * What an invitation gives, in words rather than ids.
+ *
+ * It goes in the email and on the accept screen, so somebody deciding whether
+ * to click can see what they are being handed. "company:01H8…" tells them
+ * nothing; "Harbour Park Productions" tells them everything.
+ */
+async function describeGrants(
+  db: DbHandle["db"],
+  grants: { kind: string; targetId: string }[],
+): Promise<string> {
+  const names: string[] = [];
+  for (const g of grants) {
+    if (g.kind === "admin") {
+      names.push("every event on this server");
+      continue;
+    }
+    if (g.kind === "company") {
+      const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, g.targetId) });
+      names.push(team ? `everything at ${team.name}` : "a company");
+      continue;
+    }
+    const event = await db.query.events.findFirst({ where: eq(schema.events.id, g.targetId) });
+    const label = event ? event.name : "an event";
+    names.push(g.kind === "view" ? `${label} (view only)` : label);
+  }
+  if (names.length === 0) return "a run sheet";
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
 
 export function createApiHandler(
   handle: DbHandle,
@@ -110,6 +157,39 @@ export function createApiHandler(
       if ((await authContext(handle, req))?.kind === "admin") return true;
       json(res, 401, { error: "admin token required" });
       return false;
+    };
+
+    /**
+     * What slice of the world this context may administer people within.
+     *
+     * The rules themselves live in `./scope`, pure and tested. This works out
+     * WHICH slice; that decides what may be done with it. `all` is the admin:
+     * every company, every event.
+     */
+    const peopleScope = async (): Promise<PeopleScope | null> => {
+      const ctx = await authContext(handle, req);
+      if (ctx?.kind === "admin") return { all: true };
+      // A company token, or an account holding a company grant, administers
+      // people inside that company. An event-level grant does not: running one
+      // show is not the same as managing who gets into the company.
+      const teamIds =
+        ctx?.kind === "company"
+          ? [ctx.teamId]
+          : ctx?.kind === "user"
+            ? ctx.grants.filter((g) => g.kind === "company").map((g) => g.targetId)
+            : [];
+      if (teamIds.length === 0) return null;
+      const events = await db.query.events.findMany({
+        where: inArray(schema.events.teamId, teamIds),
+        columns: { id: true },
+      });
+      return { all: false, teamIds, eventIds: events.map((e) => e.id) };
+    };
+
+    const requirePeopleScope = async (): Promise<PeopleScope | null> => {
+      const scope = await peopleScope();
+      if (!scope) json(res, 401, { error: "company or admin access required" });
+      return scope;
     };
 
     const eventIdForRundown = async (rundownId: string): Promise<string | null> => {
@@ -432,6 +512,193 @@ export function createApiHandler(
             grants: grants.filter((g) => g.userId === u.id).map((g) => ({ kind: g.kind, targetId: g.targetId })),
           })),
         );
+        return true;
+      }
+
+      /**
+       * People this context administers, and the pending invitations to join
+       * them. Scoped: a company sees its own crew and nobody else's.
+       */
+      if (req.method === "GET" && pathname === "/people") {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const allUsers = await db.query.users.findMany();
+        const allGrants = await db.query.userGrants.findMany();
+        const people = allUsers
+          .map((u) => ({
+            u,
+            // ONLY the grants this context is entitled to know about. A
+            // freelancer's other companies never leave the server.
+            grants: allGrants.filter((g) => g.userId === u.id && grantInScope(scope, g)),
+          }))
+          .filter((p) => scope.all || p.grants.length > 0)
+          .map(({ u, grants }) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            hasPassword: u.passwordHash != null,
+            grants: grants.map((g) => ({ kind: g.kind, targetId: g.targetId })),
+          }));
+
+        const invites = (await db.query.userInvites.findMany())
+          .filter((i) => !i.acceptedAt && !i.revokedAt && i.expiresAt > new Date())
+          .filter((i) => scope.all || (i.teamId != null && scope.teamIds.includes(i.teamId)))
+          .map((i) => ({
+            id: i.id,
+            email: i.email,
+            name: i.name,
+            grants: i.grants,
+            expiresAt: i.expiresAt.toISOString(),
+            url: inviteUrl(req, i.token),
+          }));
+        json(res, 200, { people, invites, mailConfigured: mailConfigured() });
+        return true;
+      }
+
+      /** Invite someone by email. The link is returned either way. */
+      if (req.method === "POST" && pathname === "/invites") {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const body = await readJson(req);
+        const email = String(body.email ?? "").trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          json(res, 400, { error: "A valid email address is required" });
+          return true;
+        }
+        const asked = Array.isArray(body.grants) ? (body.grants as { kind: string; targetId?: string }[]) : [];
+        const grants = resolveGrants(scope, asked);
+        if (grants.length === 0) {
+          json(res, 400, { error: "Choose what this person may open" });
+          return true;
+        }
+        if (refusedGrants(scope, grants).length > 0) {
+          json(res, 403, { error: "That is not yours to give access to" });
+          return true;
+        }
+
+        const ctx = await authContext(handle, req);
+        // Which company's invitation this is. An admin may say; otherwise it
+        // is read off the grants — a company grant names one outright, and an
+        // event grant belongs to whichever company owns the event. Without it
+        // the accept screen cannot say WHO is inviting you, which is the first
+        // thing anyone wants to know about a link in their inbox.
+        let teamId: string | null = scope.all ? (typeof body.teamId === "string" ? body.teamId : null) : scope.teamIds[0]!;
+        if (!teamId) {
+          const companyGrant = grants.find((g) => g.kind === "company");
+          if (companyGrant) teamId = companyGrant.targetId;
+          else {
+            const eventGrant = grants.find((g) => g.kind === "event" || g.kind === "view");
+            if (eventGrant) teamId = await teamIdForEvent(handle, eventGrant.targetId);
+          }
+        }
+
+        // Somebody who already has an account gets the access added rather
+        // than a second identity — which is what "invite them to this event"
+        // means when they already work here.
+        const existing = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+        if (existing) {
+          for (const g of grants) {
+            await db
+              .insert(schema.userGrants)
+              .values({ userId: existing.id, kind: g.kind as never, targetId: g.targetId })
+              .onConflictDoNothing();
+          }
+          json(res, 200, { added: true, userId: existing.id, name: existing.name });
+          return true;
+        }
+
+        const id = ulid();
+        const token = `inv_${ulid().toLowerCase()}${Math.random().toString(36).slice(2, 10)}`;
+        const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+        await db.insert(schema.userInvites).values({
+          id,
+          email,
+          name: typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : null,
+          token,
+          teamId,
+          grants: grants as never,
+          invitedByUserId: ctx?.kind === "user" ? ctx.userId : null,
+          expiresAt,
+        });
+
+        const url = inviteUrl(req, token);
+        const from = ctx?.kind === "company" ? ctx.teamName : ctx?.kind === "user" ? ctx.name : "An administrator";
+        const access = await describeGrants(db, grants);
+        const mail = inviteEmail({ url, from: from ?? "OpenCall", access });
+        const sent = await sendMail(email, mail.subject, mail.text, mail.html);
+        // The link comes back whether or not the mail went: an invitation
+        // whose email could not be sent is still a valid invitation.
+        json(res, 201, { id, url, emailed: sent.sent, reason: sent.reason });
+        return true;
+      }
+
+      /** Withdraw an invitation before it is accepted. */
+      if (req.method === "DELETE" && /^\/invites\/[^/]+$/.test(pathname)) {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const inviteId = pathname.split("/")[2]!;
+        const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.id, inviteId) });
+        if (!row || (!scope.all && !(row.teamId && scope.teamIds.includes(row.teamId)))) {
+          json(res, 404, { error: "unknown invitation" });
+          return true;
+        }
+        await db.update(schema.userInvites).set({ revokedAt: new Date() }).where(eq(schema.userInvites.id, inviteId));
+        json(res, 200, { ok: true });
+        return true;
+      }
+
+      /** What an invitation is for — public, because the holder has no account yet. */
+      if (req.method === "GET" && /^\/invites\/[^/]+$/.test(pathname)) {
+        const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, pathname.split("/")[2]!) });
+        if (!row || row.acceptedAt || row.revokedAt || row.expiresAt < new Date()) {
+          json(res, 404, { error: "This invitation has expired or already been used." });
+          return true;
+        }
+        const team = row.teamId ? await db.query.teams.findFirst({ where: eq(schema.teams.id, row.teamId) }) : null;
+        json(res, 200, {
+          email: row.email,
+          name: row.name,
+          company: team?.name ?? null,
+          access: await describeGrants(db, row.grants),
+        });
+        return true;
+      }
+
+      /** Accept: a name, a password, and the access the invitation carried. */
+      if (req.method === "POST" && /^\/invites\/[^/]+\/accept$/.test(pathname)) {
+        const token = pathname.split("/")[2]!;
+        const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, token) });
+        if (!row || row.acceptedAt || row.revokedAt || row.expiresAt < new Date()) {
+          json(res, 404, { error: "This invitation has expired or already been used." });
+          return true;
+        }
+        const body = await readJson(req);
+        const name = String(body.name ?? "").trim();
+        const password = String(body.password ?? "");
+        if (!name) {
+          json(res, 400, { error: "Your name is required" });
+          return true;
+        }
+        if (password.length < 8) {
+          json(res, 400, { error: "Choose a password of at least 8 characters" });
+          return true;
+        }
+        const userId = ulid();
+        await db.insert(schema.users).values({
+          id: userId,
+          name: name.slice(0, 80),
+          email: row.email,
+          accessToken: `usr_${ulid().toLowerCase()}`,
+          passwordHash: hashPassword(password),
+        });
+        // Exactly what the invitation carried — accepting cannot ask for more.
+        for (const g of row.grants) {
+          await db.insert(schema.userGrants).values({ userId, kind: g.kind as never, targetId: g.targetId }).onConflictDoNothing();
+        }
+        // Single use.
+        await db.update(schema.userInvites).set({ acceptedAt: new Date() }).where(eq(schema.userInvites.id, row.id));
+        const session = await createSession(handle, userId, String(req.headers["user-agent"] ?? ""));
+        json(res, 201, { token: session.token, expiresAt: session.expiresAt.toISOString(), name });
         return true;
       }
 

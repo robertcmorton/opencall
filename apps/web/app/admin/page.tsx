@@ -710,7 +710,7 @@ export default function AdminPage() {
           Show archived
         </button>
       </SideNavSection>
-      {me?.role === "admin" && <AdminNavSection />}
+      {(me?.role === "admin" || me?.role === "company" || me?.canManage) && <AdminNavSection role={me?.role} />}
       <SideNavSection heading="Credentials">
         {/* Who you are, then what you can do about it.
             It used to be a line of prose, then a menu item, then ANOTHER line

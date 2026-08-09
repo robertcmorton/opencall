@@ -32,6 +32,9 @@ importers:
       drizzle-orm:
         specifier: ^0.38.3
         version: 0.38.4(@electric-sql/pglite@0.2.17)(@types/pg@8.20.3)(@types/react@19.2.18)(pg@8.22.0)(react@19.2.8)
+      nodemailer:
+        specifier: ^9.0.5
+        version: 9.0.5
       ulid:
         specifier: ^2.3.0
         version: 2.4.0
@@ -45,6 +48,9 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
+      '@types/nodemailer':
+        specifier: ^8.0.1
+        version: 8.0.1
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
@@ -1456,6 +1462,9 @@ packages:
   '@types/node@22.20.1':
     resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
 
+  '@types/nodemailer@8.0.1':
+    resolution: {integrity: sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==}
+
   '@types/pako@2.0.4':
     resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
 
@@ -1828,6 +1837,10 @@ packages:
         optional: true
       sass:
         optional: true
+
+  nodemailer@9.0.5:
+    resolution: {integrity: sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ==}
+    engines: {node: '>=6.0.0'}
 
   orderedmap@2.1.1:
     resolution: {integrity: sha512-TvAWxi0nDe1j/rtMcWcIj94+Ffe6n7zhow33h40SKxmsmozs6dz/e+EajymfoFcHd7sxNn8yHM8839uixMOV6g==}
@@ -3084,6 +3097,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/nodemailer@8.0.1':
+    dependencies:
+      '@types/node': 22.20.1
+
   '@types/pako@2.0.4': {}
 
   '@types/pg@8.20.3':
@@ -3463,6 +3480,8 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
+
+  nodemailer@9.0.5: {}
 
   orderedmap@2.1.1: {}
 

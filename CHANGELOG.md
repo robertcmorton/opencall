@@ -9,7 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-08-09
+
+### Added
+- **Invite someone by email.** Their access is chosen by whoever has it to give and travels with the invitation, so accepting can never grant more than was offered. The link works once and expires in seven days; the person accepting sets their own name and password and is signed in on the spot rather than being made to log in with the password they typed a moment earlier. Where no mail server is configured the invitation still exists and the link comes back to be passed on by hand — sending is never a prerequisite. Somebody who already has an account gets the access added to it instead of a second identity.
+- **A company can see and manage its own people.** Who works here, what each of them may open, and which invitations are still outstanding.
+
 ### Changed
+- **A company is shown only the access that points at itself.** Crew are freelancers who work for several companies at once and every grant lives in one table, so a company reading another's roster off a shared person was a disclosure waiting to happen, not a display bug. The filtering is on the server: the same person can appear in two companies' lists with entirely different access in each, and neither is told about the other. An administrator still sees all of it.
+- **Access that is not yours to give is refused outright**, rather than the disallowed part being dropped and the rest carried out. Quietly trimming a request reports success for something that did not happen — a company adding a freelancer to two events and owning one of them would have been told it worked, and found out at the venue.
+- **"Everything at this company" works when a company invites somebody.** The picker never shows an id, because a company signed in as itself has exactly one; the server now resolves it to the company doing the inviting instead of rejecting the request as incomplete. An administrator, who has more than one company, is still asked which.
 - **Fields in a row line up again.** They were aligned by their bottoms, which looked right until a field grew a hint line underneath — then that field's control floated above the rest of the row while its hint kept the bottoms level. Timezone and Event type both did it. Rows align by their tops now, so every control sits on one line and a hint hangs below where it belongs.
 - **The menu button has room.** It is fixed in the top-left corner and floats over whatever is there, and the run sheet's back arrow sat exactly edge to edge with it — the two read as one control. The top bar reserves the space; the rest of the page keeps its full width.
 - **Import a run sheet sits on its own line**, above the name-and-create pair. It opens a whole screen where the others make one empty rundown, and side by side they read as three equal choices.

@@ -64,6 +64,13 @@
       "when": 1786246912205,
       "tag": "0008_viewer-roles",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786249072221,
+      "tag": "0009_user-invites",
+      "breakpoints": true
     }
   ]
 }

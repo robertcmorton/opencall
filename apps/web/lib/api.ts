@@ -236,6 +236,27 @@ export const api = {
         lastSeenAt: string;
       }[]
     >(`/rundowns/${rundownId}/viewers`),
+  // ── People and invitations ──
+  /** Everyone this credential administers, and the invitations still open. */
+  people: () =>
+    request<{
+      people: { id: string; name: string; email: string; hasPassword: boolean; grants: { kind: string; targetId: string }[] }[];
+      invites: { id: string; email: string; name: string | null; grants: { kind: string; targetId: string }[]; expiresAt: string; url: string }[];
+      mailConfigured: boolean;
+    }>("/people"),
+  invite: (token: string) =>
+    request<{ email: string; name: string | null; company: string | null; access: string }>(`/invites/${encodeURIComponent(token)}`),
+  createInvite: (body: { email: string; name?: string; grants: { kind: string; targetId: string }[] }) =>
+    request<{ id?: string; url?: string; emailed?: boolean; reason?: string; added?: boolean; name?: string }>("/invites", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  revokeInvite: (id: string) => request<{ ok: true }>(`/invites/${id}`, { method: "DELETE" }),
+  acceptInvite: (token: string, body: { name: string; password: string }) =>
+    request<{ token: string; expiresAt: string; name: string }>(`/invites/${encodeURIComponent(token)}/accept`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   /** Close the sheet to its audience once the event is done, or open it again. */
   setViewing: (rundownId: string, closed: boolean) =>
     request<{ closed: boolean }>(`/rundowns/${rundownId}/viewing`, { method: "POST", body: JSON.stringify({ closed }) }),

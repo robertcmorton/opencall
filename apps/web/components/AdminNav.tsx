@@ -7,17 +7,29 @@ import { SideNavSection } from "./SideNav";
  * Admin-only sidebar section: each tool lives on its own page rather than
  * stacking onto the events dashboard.
  */
-export function AdminNavSection({ active }: { active?: "users" | "errors" }) {
+export function AdminNavSection({
+  active,
+  role,
+}: {
+  active?: "users" | "errors";
+  /** Who is looking. A company administers its own people but not the server. */
+  role?: string | null;
+}) {
+  const isAdmin = role == null || role === "admin";
   return (
-    <SideNavSection heading="Admin">
+    <SideNavSection heading={isAdmin ? "Admin" : "Company"}>
       <Link className="menu-item" href="/admin/users">
         <span className="check">{active === "users" && "✓"}</span>
         Users &amp; access
       </Link>
-      <Link className="menu-item" href="/admin/errors">
-        <span className="check">{active === "errors" && "✓"}</span>
-        Error log
-      </Link>
+      {/* The error log is the SERVER's, not any one company's — it carries
+          faults from every event on the install. */}
+      {isAdmin && (
+        <Link className="menu-item" href="/admin/errors">
+          <span className="check">{active === "errors" && "✓"}</span>
+          Error log
+        </Link>
+      )}
     </SideNavSection>
   );
 }

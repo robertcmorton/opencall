@@ -29,6 +29,8 @@ export interface SeedRow {
   color?: string;
   /** Outcome branch ("win" | "lose" | "draw" | "golden") — the caller picks one at full time. */
   outcome?: string | null;
+  /** Which game's endings this row belongs to — a day can hold several games. */
+  outcomeGame?: number;
   /** columnKey → plain text; converted into a single-paragraph rich-text fragment. */
   cells?: Record<string, string>;
 }
@@ -181,6 +183,7 @@ export function buildRundownDoc(
       if (seed.sourceNumber) row.set("sourceNumber", seed.sourceNumber);
       if (seed.color) row.set("color", seed.color);
       if (seed.outcome) row.set("outcome", seed.outcome);
+      if (seed.outcomeGame) row.set("outcomeGame", seed.outcomeGame);
 
       const cells = new Y.Map<Y.XmlFragment>();
       const titleFragment = new Y.XmlFragment();
@@ -215,6 +218,8 @@ export interface ProjectedRow extends PlanRow {
   /** Outcome branch this row belongs to ("win" | "lose" | "golden"), if any —
    *  the caller picks one at full time and the others auto-skip. */
   outcome?: string | null;
+  /** Which game's endings this row belongs to — a day can hold several games. */
+  outcomeGame?: number;
 }
 
 /** Marks the cell editor can produce — a cell mentioning one renders rich. */

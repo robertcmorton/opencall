@@ -9,7 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Picking a result no longer decides every other game on the day.** A sheet running several matches carries several sets of alternate endings, and the choice was read sheet-wide: calling the afternoon result skipped the evening game's branches too, hours before they were due, and a single Reset put all of them back. Endings are now grouped by the game they belong to, the chooser names the game it is asking about, and each result is picked and cleared on its own.
+- **An ending no longer tags the rest of the day.** A branch ran from its header to the end of the sheet, so on a multi-game day everything after the first full time was marked as belonging to that one result. A branch now closes where the day moves on — the next result to choose from, the next kick-off, or the next fixed moment on the sheet.
 
 ## [0.24.3] — 2026-08-09
 

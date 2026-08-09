@@ -604,3 +604,50 @@ describe("roles from every column that assigns work", () => {
     expect(b.roles.map((r) => r.name.toLowerCase())).not.toContain(PROMPTER_TAG);
   });
 });
+
+describe("outcome branches on a multi-game day", () => {
+  // Two games in one sheet, each with its own endings.
+  const grid = (): string[][] => [
+    ["ITEM", "TIME", "DUR", "ACTION"],
+    ["1", "13:00:00", "40:00", "GAME ONE - Kick off"],
+    ["2", "", "", "FULLTIME - HOME WIN"],
+    ["3", "", "", "Winners presentation"],
+    ["4", "", "", "FULLTIME - HOME LOSE"],
+    ["5", "", "", "Commiserations read"],
+    ["6", "15:00:00", "", "Between games - crowd entertainment"],
+    ["7", "16:00:00", "40:00", "GAME TWO - Kick off"],
+    ["8", "", "", "FULLTIME - HOME WIN"],
+    ["9", "", "", "Winners presentation two"],
+    ["10", "", "", "FULLTIME - HOME LOSE"],
+    ["11", "", "", "Commiserations read two"],
+  ];
+  const rows = () => planImport(grid()).rows;
+
+  it("does not tag the rest of the day with the first game's ending", () => {
+    // "Between games - filler" sits after game one's branches and is nobody's ending.
+    const filler = rows().find((r) => r.sourceNumber === "6")!;
+    expect(filler.outcome).toBeFalsy();
+  });
+
+  it("numbers each game's endings separately", () => {
+    const r = rows();
+    expect(r.find((x) => x.sourceNumber === "2")?.outcomeGame).toBe(1);
+    expect(r.find((x) => x.sourceNumber === "3")?.outcomeGame).toBe(1);
+    expect(r.find((x) => x.sourceNumber === "8")?.outcomeGame).toBe(2);
+    expect(r.find((x) => x.sourceNumber === "9")?.outcomeGame).toBe(2);
+  });
+
+  it("keeps win and lose apart within a game", () => {
+    const r = rows();
+    expect(r.find((x) => x.sourceNumber === "3")?.outcome).toBe("win");
+    expect(r.find((x) => x.sourceNumber === "5")?.outcome).toBe("lose");
+    expect(r.find((x) => x.sourceNumber === "9")?.outcome).toBe("win");
+    expect(r.find((x) => x.sourceNumber === "11")?.outcome).toBe("lose");
+  });
+
+  it("carries the game number through to the built rows", () => {
+    const built = buildSheet(planImport(grid()));
+    const games = new Set(built.rows.filter((r) => r.outcome).map((r) => r.outcomeGame));
+    expect(games).toEqual(new Set([1, 2]));
+  });
+});

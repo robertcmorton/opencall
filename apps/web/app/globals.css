@@ -1876,3 +1876,11 @@ th.col-drop-target {
   font-size: var(--fs-sm);
   box-shadow: var(--shadow-lg);
 }
+
+/* Cue armed: it is about to change what is on air and drop what it passes. */
+.tn-btn.tn-cue.armed {
+  background: var(--over-soft);
+  border-color: var(--over);
+  color: var(--over);
+  font-weight: 650;
+}

@@ -80,3 +80,38 @@ describe("cell text fidelity", () => {
     expect(projectRundownDoc(doc).rows.map((r) => r.sourceNumber)).toEqual(["1", "129a"]);
   });
 });
+
+describe("cue skips what it passes", () => {
+  // The showcaller says "we're doing item 45 now" while item 40 is on air.
+  // 41–43 did not run. The as-run record has to say so.
+  it("marks the rows between live and cued as not run", () => {
+    const doc = buildRundownDoc([
+      { type: "cue", title: "40 on air", hardStartSec: 29100, durationSec: 120 },
+      { type: "cue", title: "41", durationSec: 240 },
+      { type: "cue", title: "42", durationSec: 180 },
+      { type: "cue", title: "43", durationSec: 360 },
+      { type: "cue", title: "45 cued", hardStartSec: 30000, durationSec: 240 },
+    ]);
+    const rows = projectRundownDoc(doc).rows;
+    const yRows = doc.getMap("rows") as never as Map<string, { set: (k: string, v: unknown) => void }>;
+    doc.transact(() => {
+      for (const r of rows.slice(1, 4)) (yRows as never as { get: (k: string) => { set: (k: string, v: unknown) => void } }).get(r.id).set("skipped", true);
+    });
+    const after = projectRundownDoc(doc).rows;
+    expect(after.map((r) => r.skipped)).toEqual([false, true, true, true, false]);
+  });
+
+  it("a skipped row takes no time in the running order", () => {
+    const doc = buildRundownDoc([
+      { type: "cue", title: "on air", hardStartSec: 29100, durationSec: 120 },
+      { type: "cue", title: "dropped", durationSec: 600 },
+      { type: "cue", title: "next", durationSec: 120 },
+    ]);
+    const rows = projectRundownDoc(doc).rows;
+    const map = doc.getMap("rows") as never as { get: (k: string) => { set: (k: string, v: unknown) => void } };
+    doc.transact(() => map.get(rows[1]!.id).set("skipped", true));
+    const t = computeTiming(projectRundownDoc(doc).rows, null);
+    // "next" starts when "on air" ends, not ten minutes later.
+    expect(t.rows[2]!.startSec).toBe(29100 + 120);
+  });
+});

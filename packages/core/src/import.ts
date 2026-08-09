@@ -247,6 +247,8 @@ export interface ClassifiedRow {
   outcome?: string | null;
   /** Words meant to be READ ALOUD, not performed — feeds the prompter. */
   script?: boolean;
+  /** Which game's endings this row belongs to (1, 2, 3…) — a day can hold several. */
+  outcomeGame?: number;
 }
 
 /**
@@ -266,12 +268,45 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
     if (fullTime && /\bdraw\b/.test(t)) return "golden";
     return null;
   };
+
+  /**
+   * Where one game's endings stop. A branch runs until the next trigger, and
+   * otherwise until the sheet plainly moves on — the next kick-off, the next
+   * section heading, or a row anchored to its own time.
+   *
+   * Without this a branch ran to the end of the sheet: on a day with four
+   * games, choosing game one's ending would have tagged every row of the
+   * afternoon with it.
+   */
+  const endsBlock = (r: ClassifiedRow): boolean =>
+    // NOT a banner: the ending headers themselves are banners, so treating one
+    // as the end closed every block on the row after it opened.
+    // NOT merely a timed row either: branch content carries its own times.
+    // What genuinely says the day has moved on is the next game starting, or a
+    // milestone — the sheet's own marker for a fixed moment.
+    r.kind === "milestone" || /\bkick\s?off\b|\bnext\s+(game|match)\b|\bpre[-\s]?game\b|\bwarm\s?up\b/i.test(r.title);
+
   let current: string | null = null;
+  let game = 0;
   for (const r of rows) {
     if (r.kind === "spacer") continue;
     const next = trigger(r.title);
-    if (next) current = next;
-    if (current) r.outcome = current;
+    if (next) {
+      // A new set of endings after a gap is the NEXT game's, not a
+      // continuation of the last one.
+      if (current == null) game += 1;
+      current = next;
+      r.outcome = current;
+      r.outcomeGame = game;
+      continue;
+    }
+    if (current == null) continue;
+    if (endsBlock(r)) {
+      current = null;
+      continue;
+    }
+    r.outcome = current;
+    r.outcomeGame = game;
   }
 }
 
@@ -1027,6 +1062,12 @@ export interface BuiltRow {
   untimed?: boolean;
   sourceNumber?: string;
   outcome?: string | null;
+  /**
+   * Which game on the day this ending belongs to, counting from 1. A sheet with
+   * several matches has several sets of endings, and picking a winner for the
+   * afternoon game must not skip the evening one's alternatives.
+   */
+  outcomeGame?: number;
   cells?: Record<string, string>;
 }
 
@@ -1122,7 +1163,7 @@ export function buildSheet(
   const cueTypeKey = cueKey;
 
   const rows: BuiltRow[] = importable.map((r) => {
-    if (r.kind === "banner") return { type: "group", title: r.title, sourceNumber: r.sourceNumber, outcome: r.outcome ?? undefined };
+    if (r.kind === "banner") return { type: "group", title: r.title, sourceNumber: r.sourceNumber, outcome: r.outcome ?? undefined, outcomeGame: r.outcomeGame };
     if (r.kind === "milestone") {
       const fallback = Object.values(r.cells).find((v) => v.trim());
       return {
@@ -1132,6 +1173,7 @@ export function buildSheet(
         hardStartSec: r.startSec,
         sourceNumber: r.sourceNumber,
         outcome: r.outcome ?? undefined,
+        outcomeGame: r.outcomeGame,
         cells: r.cells,
       };
     }
@@ -1156,6 +1198,7 @@ export function buildSheet(
       durationMuted: untimed && r.durationSec != null ? true : undefined,
       sourceNumber: r.sourceNumber,
       outcome: r.outcome ?? undefined,
+      outcomeGame: r.outcomeGame,
       cells: { ...r.cells, ...spilled, ...(assigned ? { roles: assigned } : {}) },
     };
   });

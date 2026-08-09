@@ -204,11 +204,22 @@ function TimingNudge({
   onNudge,
   onCue,
   disabled,
+  /** Rows a cue here would drop. 0 = this is the live row, so nothing changes on air. */
+  skips = 0,
 }: {
   onNudge: (deltaSec: number) => void;
   onCue: () => void;
   disabled?: boolean;
+  skips?: number;
 }) {
+  // Taking an item early changes what is on air and drops what it passes, so
+  // it asks once. Re-timing the live row changes nothing on air and does not.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 6000);
+    return () => window.clearTimeout(t);
+  }, [armed]);
   return (
     <div className="timing-nudge" onPointerDown={(e) => e.stopPropagation()}>
       {[-30, -15, -5].map((d) => (
@@ -225,12 +236,23 @@ function TimingNudge({
       ))}
       <button
         type="button"
-        className="tn-btn tn-cue"
+        className={`tn-btn tn-cue ${armed ? "armed" : ""}`}
         disabled={disabled}
-        data-tip="This item is happening NOW — pin it to the clock and re-time everything below it"
-        onClick={onCue}
+        data-tip={
+          skips > 0
+            ? `Take this item NOW — the show jumps here, the ${skips} item${skips === 1 ? "" : "s"} in between are marked as not run, and everything below re-times`
+            : "This item is happening NOW — pin it to the clock and re-time everything below it"
+        }
+        onClick={() => {
+          if (skips > 0 && !armed) {
+            setArmed(true);
+            return;
+          }
+          setArmed(false);
+          onCue();
+        }}
       >
-        CUE
+        {armed ? `Skip ${skips}?` : "CUE"}
       </button>
       {[5, 15, 30].map((d) => (
         <button
@@ -556,24 +578,51 @@ export function RundownEditor({
   // its rows and skips the other endings — in one undoable transaction,
   // synced to every screen, and the transport jumps to the branch when live.
   const outcomeRows = rows.filter((r) => r.outcome);
-  const outcomesPresent = (["golden", "win", "lose", "draw"] as const).filter((o) => outcomeRows.some((r) => r.outcome === o));
-  const chosenOutcome = (() => {
-    for (const o of outcomesPresent) {
-      const mine = outcomeRows.filter((r) => r.outcome === o);
-      const others = outcomeRows.filter((r) => r.outcome !== o);
+  /**
+   * A day can hold several games, each with its own endings. Every pick is
+   * scoped to ONE of them: choosing a result for the first game must not skip
+   * the third game's branches, which is what a single sheet-wide choice did.
+   */
+  const outcomeGames = [...new Set(outcomeRows.map((r) => r.outcomeGame ?? 1))].sort((a, b) => a - b);
+  const rowsOfGame = (g: number) => outcomeRows.filter((r) => (r.outcomeGame ?? 1) === g);
+  const outcomesOfGame = (g: number) =>
+    (["golden", "win", "lose", "draw"] as const).filter((o) => rowsOfGame(g).some((r) => r.outcome === o));
+  const chosenOf = (g: number): string | null => {
+    for (const o of outcomesOfGame(g)) {
+      const mine = rowsOfGame(g).filter((r) => r.outcome === o);
+      const others = rowsOfGame(g).filter((r) => r.outcome !== o);
       if (mine.length > 0 && mine.every((r) => !r.skipped) && others.length > 0 && others.every((r) => r.skipped)) return o;
     }
     return null;
+  };
+  /** The game whose full time is nearest the live cue — the one being called. */
+  const activeGame = (() => {
+    if (outcomeGames.length === 0) return null;
+    if (outcomeGames.length === 1) return outcomeGames[0]!;
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    if (liveIdx < 0) return outcomeGames.find((g) => chosenOf(g) == null) ?? outcomeGames[0]!;
+    // The first game whose branch rows still lie ahead of the live cue.
+    for (const g of outcomeGames) {
+      const last = rows.reduce((acc, r, i) => ((r.outcomeGame ?? 1) === g && r.outcome ? i : acc), -1);
+      if (last >= liveIdx) return g;
+    }
+    return outcomeGames[outcomeGames.length - 1]!;
   })();
-  const pickOutcome = (o: string): void => {
+  const pickOutcome = (o: string, game: number): void => {
     doc.transact(() => {
-      for (const r of outcomeRows) yRows.get(r.id)?.set("skipped", r.outcome !== o);
+      for (const r of rowsOfGame(game)) yRows.get(r.id)?.set("skipped", r.outcome !== o);
     });
     if (showLive) {
-      const first = rows.find((r) => r.outcome === o && r.type === "cue");
+      const first = rows.find((r) => (r.outcomeGame ?? 1) === game && r.outcome === o && r.type === "cue");
       if (first) channel.sendCmd("jump", first.id);
     }
   };
+  const clearOutcomeOf = (game: number): void => {
+    doc.transact(() => {
+      for (const r of rowsOfGame(game)) yRows.get(r.id)?.set("skipped", false);
+    });
+  };
+
   // ── Timing nudges ───────────────────────────────────────────────────────
   // Fixed corrections taken from the row itself when the show runs ahead or
   // behind. The LIVE cue is the anchor: time is absorbed on the far side of
@@ -618,43 +667,68 @@ export function RundownEditor({
   };
 
   /** "This is happening now": pin the row to the clock, ripple the rest down. */
+  /**
+   * How many rows a CUE on this one would drop. Zero when it is the live row
+   * (or nothing is live), which is the difference between re-timing the sheet
+   * and changing what is on air.
+   */
+  const cueSkipCount = (rowId: string): number => {
+    const idx = rows.findIndex((r) => r.id === rowId);
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    if (idx < 0 || liveIdx < 0 || idx <= liveIdx) return 0;
+    return rows.slice(liveIdx + 1, idx).filter((r) => r.type !== "group" && !r.skipped).length;
+  };
+
+  /**
+   * "This item is happening now."
+   *
+   * On the live row that is only a re-time: pin it to the clock and shift what
+   * follows. On a row further down it also means the show is GOING there, and
+   * the rows in between did not run — so they are marked skipped rather than
+   * squeezed. Squeezing would claim they ran faster, which is not what
+   * happened, and it breaks outright once the squeeze exceeds their duration.
+   * Skipping keeps the as-run record true and one undo takes it all back.
+   *
+   * Rows ABOVE are never touched: they already happened, and rewriting their
+   * times would falsify the record of the show.
+   */
   const cueRow = (rowId: string): void => {
     const idx = rows.findIndex((r) => r.id === rowId);
     if (idx < 0) return;
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    const jumping = liveIdx >= 0 && idx > liveIdx;
     // The clock carries sub-second precision for the smooth now-line; a
     // written start time is whole seconds like every other time in the sheet.
     const nowSec = Math.round(zoneSecondsOfDay(channel.serverNow(), channel.timezone));
     const currentStart = timing.rows[idx]?.startSec ?? null;
     const delta = currentStart != null ? nowSec - currentStart : 0;
     doc.transact(() => {
+      if (jumping) for (const r of rows.slice(liveIdx + 1, idx)) if (r.type !== "group") yRows.get(r.id)?.set("skipped", true);
       yRows.get(rowId)?.set("hardStartSec", nowSec);
+      yRows.get(rowId)?.set("skipped", false);
       if (delta !== 0) shiftFixedTimes(idx + 1, rows.length - 1, delta);
     });
+    if (jumping && showLive) channel.sendCmd("jump", rowId);
   };
 
-  const clearOutcome = (): void => {
-    doc.transact(() => {
-      for (const r of outcomeRows) yRows.get(r.id)?.set("skipped", false);
-    });
-  };
   // NRL flow: at full time the choices are Win / Lose / ⚡Golden point (a
   // level score goes to golden point, never straight to a draw). Once golden
   // point is playing, the final pick returns as Win / Lose / Draw. Events
   // without a sport show every tagged ending.
-  const visibleOutcomes =
-    channel.sport === "nrl"
-      ? chosenOutcome === "golden"
-        ? outcomesPresent.filter((o) => o !== "golden")
-        : outcomesPresent.filter((o) => o !== "draw")
-      : outcomesPresent;
+  const visibleOutcomesOf = (g: number): string[] => {
+    const present = outcomesOfGame(g);
+    if (channel.sport !== "nrl") return [...present];
+    return chosenOf(g) === "golden" ? present.filter((o) => o !== "golden") : present.filter((o) => o !== "draw");
+  };
   const outcomeLabel = (o: string): string =>
     o === "golden" ? "⚡ Golden point" : o === "win" ? "Win" : o === "lose" ? "Lose" : "Draw";
   // Position-based nudge — never clock-based, so stoppage time, injuries and
   // penalties can stretch the game freely: once the live row is within two
-  // cues of the ending blocks and no result is picked, the chooser pulses.
+  // cues of THIS game's ending blocks and no result is picked, the chooser
+  // pulses.
   const decisionSoon = (() => {
-    if (!showLive || chosenOutcome || outcomeRows.length === 0 || !activeRowId) return false;
-    const firstOutcomeIdx = rows.findIndex((r) => r.outcome);
+    if (!showLive || activeGame == null || chosenOf(activeGame) || !activeRowId) return false;
+    const firstOutcomeIdx = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === activeGame);
     const activeIdx = rows.findIndex((r) => r.id === activeRowId);
     if (firstOutcomeIdx < 0 || activeIdx < 0 || activeIdx >= firstOutcomeIdx) return false;
     const between = rows.slice(activeIdx + 1, firstOutcomeIdx).filter((r) => r.type === "cue" && !r.skipped).length;
@@ -1238,25 +1312,28 @@ export function RundownEditor({
             })()}
           </>
         )}
-        {isShow && outcomesPresent.length > 0 && (
+        {isShow && activeGame != null && (
+          // One chooser per game — a day can hold several, and the one being
+          // called is the one whose endings still lie ahead of the live cue.
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
             <span
               className={`chip ${decisionSoon ? "decision-pulse" : ""}`}
               data-tip="This sheet has alternate endings. Pick the real result when it happens — the other branches skip themselves and every screen follows. Golden point loops back here for the final pick."
             >
               {decisionSoon ? "Full time — pick the result" : "Full time:"}
+              {outcomeGames.length > 1 ? ` game ${activeGame}` : ""}
             </span>
-            {chosenOutcome === "golden" && (
+            {chosenOf(activeGame) === "golden" && (
               <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} data-tip="Golden point is playing — pick the final result when it lands">
                 ⚡ Golden point playing
               </span>
             )}
-            {visibleOutcomes.map((o) => (
+            {visibleOutcomesOf(activeGame).map((o) => (
               <button
                 key={o}
-                className={`btn btn-sm ${chosenOutcome === o ? "is-on" : ""}`}
+                className={`btn btn-sm ${chosenOf(activeGame) === o ? "is-on" : ""}`}
                 style={
-                  chosenOutcome === o
+                  chosenOf(activeGame) === o
                     ? {
                         borderColor: o === "win" ? "var(--under)" : o === "lose" ? "var(--over)" : o === "draw" ? "var(--accent)" : "var(--warn)",
                         color: o === "win" ? "var(--under)" : o === "lose" ? "var(--over)" : o === "draw" ? "var(--accent)" : "var(--warn)",
@@ -1268,13 +1345,13 @@ export function RundownEditor({
                     ? "Scores level — play the golden-point block; the final pick comes back after it"
                     : `Play the ${o} ending and skip the others`
                 }
-                onClick={() => pickOutcome(o)}
+                onClick={() => pickOutcome(o, activeGame)}
               >
                 {outcomeLabel(o)}
               </button>
             ))}
-            {chosenOutcome && (
-              <button className="btn btn-sm btn-ghost" data-tip="Un-choose: all endings visible again" onClick={clearOutcome}>
+            {chosenOf(activeGame) && (
+              <button className="btn btn-sm btn-ghost" data-tip="Un-choose: all endings visible again" onClick={() => clearOutcomeOf(activeGame)}>
                 Reset
               </button>
             )}
@@ -1501,7 +1578,7 @@ export function RundownEditor({
         {/* Hover nudges ride the right edge of the sheet, clear of the text. */}
         {canEditContent && nudgeRowAt && (
           <div className="timing-nudge-hover" style={{ top: nudgeRowAt.top }}>
-            <TimingNudge onNudge={(d) => nudgeRow(nudgeRowAt.id, d)} onCue={() => cueRow(nudgeRowAt.id)} />
+            <TimingNudge onNudge={(d) => nudgeRow(nudgeRowAt.id, d)} onCue={() => cueRow(nudgeRowAt.id)} skips={cueSkipCount(nudgeRowAt.id)} />
           </div>
         )}
         {canEditContent && selected.size > 0 && (
@@ -1823,7 +1900,7 @@ export function RundownEditor({
               <span className="tn-target" data-tip={target.title || "untitled"}>
                 {selected.size === 1 ? "Selected" : "Live"}: {target.title || "untitled"}
               </span>
-              <TimingNudge onNudge={(d) => nudgeRow(target.id, d)} onCue={() => cueRow(target.id)} />
+              <TimingNudge onNudge={(d) => nudgeRow(target.id, d)} onCue={() => cueRow(target.id)} skips={cueSkipCount(target.id)} />
             </div>
           );
         })()}

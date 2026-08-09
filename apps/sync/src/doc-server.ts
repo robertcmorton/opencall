@@ -38,8 +38,17 @@ export function parseDocName(name: string): { rundownId: string; epoch: number }
  * These strings are read off phones in venues: they name the fault, never a
  * credential, and are safe to show to whoever is holding the device.
  */
-const refuse = (reason: DocRefusal): never => {
-  throw Object.assign(new Error(reason), { reason });
+const refuse = (reason: DocRefusal, rundownId: string): never => {
+  // Two audiences, one throw. The CLIENT reads `.reason` — a bare code it turns
+  // into a sentence. The LOG gets `.message`, which the websocket library
+  // prints, so the rundown goes in there: without it a refusal says only that
+  // something was turned away, and you cannot tell one stale tab from six.
+  //
+  // That library line is a console.error and its level is not ours to set, so
+  // this warning carries the same fact at the level it deserves — a client
+  // asking for something it may no longer have is not a server fault.
+  console.warn(`[doc] refused ${reason} · rundown ${rundownId}`);
+  throw Object.assign(new Error(`${reason} · rundown ${rundownId}`), { reason });
 };
 
 /** Why a document connection was refused. The client maps these to plain words. */
@@ -63,8 +72,8 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
     async onAuthenticate({ documentName, token, connection }) {
       const { rundownId, epoch } = parseDocName(documentName);
       const liveEpoch = await currentEpoch(rundownId);
-      if (liveEpoch == null) refuse("no-such-rundown");
-      if (epoch !== liveEpoch) refuse("sheet-restored-reload");
+      if (liveEpoch == null) refuse("no-such-rundown", rundownId);
+      if (epoch !== liveEpoch) refuse("sheet-restored-reload", rundownId);
       if (isOpenAccess()) return; // dev-open deployment
       if (token && token === adminToken()) return;
       // "dev" is what a client with no stored credential sends; on a locked
@@ -102,9 +111,9 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         // A credential that resolves to somebody but carries no grant for this
         // sheet is a different problem from one the server does not know at
         // all — the first needs access, the second needs a fresh sign-in.
-        refuse(bearer ? "no-access-for-this-account" : "signin-not-recognised");
+        refuse(bearer ? "no-access-for-this-account" : "signin-not-recognised", rundownId);
       }
-      refuse("not-signed-in");
+      refuse("not-signed-in", rundownId);
     },
     async onLoadDocument({ documentName, document }) {
       const { rundownId } = parseDocName(documentName);

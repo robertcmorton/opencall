@@ -11,6 +11,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 _Nothing yet._
 
+## [0.24.3] — 2026-08-09
+
+### Changed
+- **A refused document connection now names the run sheet it was for.** The log said only that something had been turned away, so six refusals could have been one stale tab or six different ones — unanswerable from the log. Each refusal also writes its own warning line, because a client asking for a sheet it may no longer have is not a fault in the service.
+
+
 ## [0.24.2] — 2026-08-09
 
 ### Fixed

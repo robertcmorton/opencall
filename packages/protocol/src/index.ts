@@ -32,14 +32,15 @@ export const PingMsg = z.object({ ...envelope, t: z.literal("ping"), t0: z.numbe
 // "fire" logs an untimed pool cue to the as-run record without moving the show.
 // "clock_on"/"clock_off" toggle SERVER-driven clock-follow: the server itself
 // advances the show along the TIME column — no console needs to stay open.
-// "clock_hold"/"clock_release" take the wheel WITHOUT giving up clock-follow:
-// the server stops advancing, the showcaller steps the cue by hand, and
-// releasing hands it back — the clock picks the show up where it now is.
+// (v1.7 retired "clock_hold"/"clock_release". Holding stopped the advance and
+// resumed from the clock's current row — which is exactly what clock_off and
+// clock_on do, so it was a second control for one behaviour and read as
+// pointless because it was. Old as-run records keep the two types.)
 // "walk" moves the pre-show walkthrough cursor (rowId, or none to end it) —
 // a shared highlight for rehearsing the sheet before the show starts.
 export const CmdAction = z.enum([
   "start", "pause", "resume", "next", "prev", "jump", "stop", "fire",
-  "clock_on", "clock_off", "clock_hold", "clock_release", "walk",
+  "clock_on", "clock_off", "walk",
 ]);
 export type CmdAction = z.infer<typeof CmdAction>;
 
@@ -84,11 +85,6 @@ export const ShowStatePayload = z.object({
   sessionStartedAtMs: z.number().nullable(),
   /** Server-driven clock-follow is active for this session (additive v1.4). */
   clockFollow: z.boolean().default(false),
-  /**
-   * Clock-follow is on but HELD: the showcaller is stepping the cue by hand
-   * and the server is not advancing it (additive v1.6).
-   */
-  clockHold: z.boolean().default(false),
   /** Pre-show walkthrough cursor — highlighted on every device (additive v1.5). */
   walkRowId: z.string().nullable().default(null),
 });

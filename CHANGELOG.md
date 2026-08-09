@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **A switch on the run sheet toggles the two ending layouts** — layered, or one line until called — so they can be compared against a live sheet without going three levels into a menu. It appears only on a sheet that has alternate endings.
+
+### Removed
+- **"Step it myself" is gone.** It stopped the clock advancing the cue and resumed from the clock's current row, which is exactly what the Follow clock toggle beside it already did — the same behaviour behind two controls, which is why neither label could explain why the other existed. The clock is now a plain toggle. Old as-run records keep their hold entries; a history that will not parse is worse than one naming a command nothing sends any more.
+- **Columns is not offered while the show is running.** Which columns are on screen is a preparation decision, and the live screen is not where anybody should be rearranging the sheet they are calling off. It returns the moment the show is not live.
+
 ### Fixed
 - **Catching up to the clock no longer reports the show as late.** Following the clock and then pressing catch-up made the show read +1:19 — the size of exactly the overdue it had just corrected. The jump stamped the row as starting at the moment the button was pressed, but catching up is a claim about where the show ALREADY was, so the row now inherits its planned start. The automatic follower had always done this; a hand-pressed catch-up went down a different path and did not. An ordinary jump still starts the row when you take it, because that one really does mean "we are taking this now".
 - **Menus stay on the screen.** A menu was anchored to one side of its button — a decision made before anything knows how wide the menu is or where the button ended up — so the ⋯ on a row near the right edge put Rename, Archive and Delete past the window. It is now placed against the viewport, flipping above the button when there is no room below.

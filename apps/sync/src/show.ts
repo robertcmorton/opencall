@@ -20,7 +20,6 @@ export class ShowStateMachine {
       pausedAccumMs: 0,
       sessionStartedAtMs: null,
       clockFollow: false,
-      clockHold: false,
       walkRowId: null,
     };
   }
@@ -102,35 +101,18 @@ export class ShowStateMachine {
       }
       case "stop": {
         if (s.state === "idle" || s.state === "ended") return "not live";
-        return next({ state: "ended", activeRowId: null, activeRowStartedAtMs: null, pausedAtMs: null, clockFollow: false, clockHold: false });
+        return next({ state: "ended", activeRowId: null, activeRowStartedAtMs: null, pausedAtMs: null, clockFollow: false });
       }
       // Server-driven clock-follow: while on (and the show is RUNNING, not
       // paused), the server's scheduler advances the active row along the
       // TIME column — no console needs to stay open. Pause holds the show.
       case "clock_on": {
         if (s.state !== "running" && s.state !== "paused") return "not live";
-        // Turning it back on always starts unheld — a hold is a moment, not a
-        // setting, and inheriting one from an hour ago would look like a fault.
-        return next({ clockFollow: true, clockHold: false });
+        return next({ clockFollow: true });
       }
       case "clock_off": {
         if (s.state !== "running" && s.state !== "paused") return "not live";
-        return next({ clockFollow: false, clockHold: false });
-      }
-      // Take the wheel without giving up clock-follow. Pause stops the SHOW —
-      // the item clock freezes and everyone downstream sees a held show. This
-      // stops only the automatic advance: the show runs on, the timers run on,
-      // and the showcaller steps the cue with Next. Releasing hands it back,
-      // and the clock picks the show up wherever it now is.
-      case "clock_hold": {
-        if (s.state !== "running" && s.state !== "paused") return "not live";
-        if (!s.clockFollow) return "the clock is not driving this show";
-        return next({ clockHold: true });
-      }
-      case "clock_release": {
-        if (s.state !== "running" && s.state !== "paused") return "not live";
-        if (!s.clockFollow) return "the clock is not driving this show";
-        return next({ clockHold: false });
+        return next({ clockFollow: false });
       }
       // "fire" is handled by the server before the state machine — it logs to
       // the as-run record and never transitions state.

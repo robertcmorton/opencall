@@ -475,9 +475,8 @@ async function clockTick(): Promise<void> {
     for (const { rundownId } of live) {
       const machine = await showStore.get(rundownId);
       const current = machine.current;
-      // paused = the whole show is held; clockHold = the showcaller has taken
-      // the wheel and is stepping the cue by hand, with the show still running.
-      if (current.state !== "running" || !current.clockFollow || current.clockHold) continue;
+      // Paused holds the whole show. Otherwise the clock advances it.
+      if (current.state !== "running" || !current.clockFollow) continue;
 
       const sheet = await sheetNow(rundownId);
       if (!sheet) continue;

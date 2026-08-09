@@ -703,9 +703,6 @@ export function RundownEditor({
   // open). This toggle just flips the session mode; show_state carries it to
   // every screen.
   const clockFollow = channel.show?.clockFollow ?? false;
-  // Clock-follow is on but the showcaller has taken the wheel: the server has
-  // stopped advancing, the show and its timers run on, and Next is theirs.
-  const clockHold = (channel.show?.clockHold ?? false) && clockFollow;
   /**
    * How far the live cue has fallen behind the clock, in rows.
    *
@@ -725,11 +722,10 @@ export function RundownEditor({
    * there claiming it was following the clock. This is the claim that can be
    * checked: the live cue IS the row the clock points at.
    */
-  const clockSynced =
-    clockFollow && !clockHold && !!activeRowId && !!clockRowId && activeRowId === clockRowId;
+  const clockSynced = clockFollow && !!activeRowId && !!clockRowId && activeRowId === clockRowId;
 
   const cueDriftRows = (() => {
-    if (!showLive || (clockFollow && !clockHold) || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
+    if (!showLive || clockFollow || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
     const at = rows.findIndex((r) => r.id === activeRowId);
     const want = rows.findIndex((r) => r.id === clockRowId);
     return at >= 0 && want > at ? want - at : 0;
@@ -1935,9 +1931,9 @@ export function RundownEditor({
             }
             data-tip={
               clockSynced
-                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off."
+                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off and step the show yourself."
                 : clockFollow
-                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off."
+                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off and step the show yourself."
                   : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct."
             }
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
@@ -1945,39 +1941,8 @@ export function RundownEditor({
             {/* "Following clock" is a claim about who is driving. "Clock
                 synced" is a claim about where the show IS, and that is the one
                 anybody is actually checking — the two came apart badly enough
-                once to be worth separating for good. "Held" has to stay on
-                this button too: while it is held the clock is NOT advancing
-                anything, so "Following clock" would be untrue. */}
-            ◷{" "}
-            {clockHold
-              ? "Clock held"
-              : clockSynced
-                ? "Clock synced"
-                : clockFollow
-                  ? "Following clock"
-                  : "Follow clock"}
-          </button>
-        )}
-        {/* Taking the wheel for a moment is not the same as switching the clock
-            off, and it is certainly not Pause — Pause stops the SHOW, freezing
-            the item timer for everyone downstream. This stops only the
-            automatic advance: the show runs on and the showcaller steps the cue
-            with Next. Releasing hands it straight back, wherever the show is. */}
-        {isShow && showLive && clockFollow && (
-          <button
-            className={`btn btn-sm ${clockHold ? "is-on" : ""}`}
-            style={clockHold ? { borderColor: "var(--accent)", color: "var(--accent-text)", background: "var(--accent-soft)" } : undefined}
-            data-tip={
-              clockHold
-                ? "Hand the show back to the clock — it picks up from wherever the cue is now"
-                : "The clock stops moving the cue and you step it with Next. The show keeps running and every screen keeps counting — this is not Pause."
-            }
-            onClick={() => channel.sendCmd(clockHold ? "clock_release" : "clock_hold")}
-          >
-            {/* Says what it does. "I'll drive" was a metaphor for a control
-                that already has a plain description: the clock stops moving
-                the cue and you step it with Next. */}
-            {clockHold ? "▶ Back to the clock" : "✋ Step it myself"}
+                once to be worth separating for good. */}
+            ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
           </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are
@@ -2044,6 +2009,10 @@ export function RundownEditor({
             ⚠ {timingGaps.length} timing gap{timingGaps.length === 1 ? "" : "s"} — Reconcile
           </button>
         )}
+        {/* Not while the show is running. Which columns are on screen is a
+            preparation decision, and the live screen is not where anybody
+            should be rearranging the sheet they are calling off. */}
+        {!showLive && (
         <Dropdown label={<>{Icon.columns} Columns</>}>
           <div className="menu-heading">Show columns</div>
           {allRichColumns.map((c) => (
@@ -2075,6 +2044,23 @@ export function RundownEditor({
             </>
           )}
         </Dropdown>
+        )}
+        {/* Testing the two ending layouts against a live sheet needs the switch
+            ON the sheet, not three levels into a menu. Only shown where there
+            is something to switch — a sheet with alternate endings. */}
+        {outcomeGames.length > 0 && (
+          <button
+            className="btn btn-sm"
+            data-tip={
+              outcomeLayout === "layers"
+                ? "Every ending is on the sheet, grouped under the one time its layer starts at. Press to collapse each to a single line until it is called."
+                : "Each set of endings is one line until you call the result. Press to show them all, in layers."
+            }
+            onClick={() => chooseOutcomeLayout(outcomeLayout === "layers" ? "fork" : "layers")}
+          >
+            {outcomeLayout === "layers" ? "⌸ Endings: layered" : "⑂ Endings: one line"}
+          </button>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <RolePicker
             rows={rows}

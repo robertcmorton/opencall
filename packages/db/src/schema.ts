@@ -324,7 +324,6 @@ export const showSessions = pgTable(
     /** Server-driven clock-follow: the scheduler advances this session along the TIME column, no console required. */
     clockFollow: boolean("clock_follow").notNull().default(false),
     /** Clock-follow is on but held: the showcaller is stepping the cue by hand. */
-    clockHold: boolean("clock_hold").notNull().default(false),
   },
   (t) => [
     uniqueIndex("one_live_session_per_rundown")
@@ -333,6 +332,15 @@ export const showSessions = pgTable(
   ],
 );
 
+/**
+ * What the as-run record can contain.
+ *
+ * `clock_hold` and `clock_release` were retired in v1.7 — they stopped the
+ * clock advancing and resumed from its current row, which is what clock_off
+ * and clock_on already did. They stay in this list because shows that really
+ * did use them are in the record, and a history that will not parse is worse
+ * than one naming a command nothing sends any more.
+ */
 export const transitionTypes = [
   "start", "pause", "resume", "next", "prev", "jump", "stop", "fire",
   "clock_on", "clock_off", "clock_hold", "clock_release",

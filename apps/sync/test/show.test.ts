@@ -69,45 +69,37 @@ describe("clock-follow backdating", () => {
   });
 });
 
-describe("taking the wheel from the clock", () => {
-  it("holds and releases without turning clock-follow off", () => {
+/**
+ * Clock-follow is a toggle, and only a toggle.
+ *
+ * There used to be a second pair of commands — clock_hold / clock_release —
+ * that stopped the advance without giving up follow. They were retired in
+ * v1.7: holding and releasing did exactly what clock_off and clock_on do, so
+ * the app carried two controls for one behaviour and neither label could
+ * explain why the other existed.
+ */
+describe("clock-follow", () => {
+  it("switches on and off without touching the show", () => {
     const m = new ShowStateMachine();
     m.apply("start", "row-1", 1000);
-    m.apply("clock_on", undefined, 1100);
-    expect(m.current).toMatchObject({ clockFollow: true, clockHold: false });
-
-    expect(m.apply("clock_hold", undefined, 2000)).toMatchObject({ clockFollow: true, clockHold: true });
-    // The SHOW is untouched: a hold is not a pause, and nothing downstream
-    // should see a frozen timer because the showcaller took the cue by hand.
+    expect(m.apply("clock_on", undefined, 1100)).toMatchObject({ clockFollow: true });
+    // The SHOW is untouched: handing the cue to the clock is not a pause, and
+    // nothing downstream should see a frozen timer because of it.
     expect(m.current.state).toBe("running");
-
-    expect(m.apply("clock_release", undefined, 3000)).toMatchObject({ clockFollow: true, clockHold: false });
+    expect(m.apply("clock_off", undefined, 2000)).toMatchObject({ clockFollow: false });
+    expect(m.current.state).toBe("running");
   });
 
-  it("refuses a hold when the clock is not driving", () => {
+  it("refuses to follow a show that is not live", () => {
     const m = new ShowStateMachine();
-    m.apply("start", "row-1", 1000);
-    expect(m.apply("clock_hold", undefined, 2000)).toBe("the clock is not driving this show");
+    expect(m.apply("clock_on", undefined, 1000)).toBe("not live");
   });
 
-  it("comes back unheld when clock-follow is switched on again", () => {
-    const m = new ShowStateMachine();
-    m.apply("start", "row-1", 1000);
-    m.apply("clock_on", undefined, 1100);
-    m.apply("clock_hold", undefined, 2000);
-    m.apply("clock_off", undefined, 3000);
-    expect(m.current).toMatchObject({ clockFollow: false, clockHold: false });
-    // A hold is a moment, not a setting — inheriting one from an hour ago
-    // would look like a fault the next time the clock was switched on.
-    expect(m.apply("clock_on", undefined, 4000)).toMatchObject({ clockFollow: true, clockHold: false });
-  });
-
-  it("drops the hold when the show ends", () => {
+  it("stops following when the show ends", () => {
     const m = new ShowStateMachine();
     m.apply("start", "row-1", 1000);
     m.apply("clock_on", undefined, 1100);
-    m.apply("clock_hold", undefined, 2000);
-    expect(m.apply("stop", undefined, 3000)).toMatchObject({ clockFollow: false, clockHold: false });
+    expect(m.apply("stop", undefined, 3000)).toMatchObject({ clockFollow: false, state: "ended" });
   });
 });
 

@@ -1,0 +1,12 @@
+-- Clock-hold is gone: it stopped the clock advancing and resumed from the
+-- clock's current row, which is exactly what clock_off and clock_on already
+-- did. A second control for one behaviour.
+--
+-- IF EXISTS because a database that never ran 0005 has no such column, and a
+-- migration that only works on some installations is not a migration.
+--
+-- Only the live session flag is dropped. `show_transitions` keeps its
+-- clock_hold / clock_release rows: shows that really did use them are in the
+-- as-run record, and rewriting history to match today's feature set would be
+-- the wrong kind of tidy.
+ALTER TABLE "show_sessions" DROP COLUMN IF EXISTS "clock_hold";

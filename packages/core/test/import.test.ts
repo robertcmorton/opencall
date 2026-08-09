@@ -651,3 +651,25 @@ describe("outcome branches on a multi-game day", () => {
     expect(games).toEqual(new Set([1, 2]));
   });
 });
+
+describe("values that are not questions", () => {
+  it("ignores a bracketed elapsed marker", () => {
+    // A second clock printed beside the real times. Read as a start it would
+    // put the row at twenty-five past four in the morning.
+    for (const v of ["(0:00)", "(4:25)", "(14:20)"]) expect(looksLikeBotchedValue(v)).toBe(false);
+  });
+
+  it("ignores page furniture caught by the column above it", () => {
+    for (const v of ["Page 1", "Page 12", "page 3"]) expect(looksLikeBotchedValue(v)).toBe(false);
+  });
+
+  it("ignores room allocations in a venue document's time column", () => {
+    for (const v of ["Changeroom 3", "Radio Box No. 2", "TV Suite No. 1", "LEVEL 1 OUTLETS", "G2", "Warm-up Room 1 / 2"])
+      expect(looksLikeBotchedValue(v)).toBe(false);
+  });
+
+  it("still flags anything shaped like a time someone mistyped", () => {
+    for (const v of ["12:", ":30", "7.3O pm", "0:9O:00", "2 mins x", "1030hrs?", "6 mins 15 mins"])
+      expect(looksLikeBotchedValue(v)).toBe(true);
+  });
+});

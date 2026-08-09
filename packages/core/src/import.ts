@@ -312,38 +312,45 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
   };
 
   /**
-   * Where one game's endings stop. A branch runs until the next trigger, and
-   * otherwise until the sheet plainly moves on — the next kick-off, the next
-   * section heading, or a row anchored to its own time.
-   *
-   * Without this a branch ran to the end of the sheet: on a day with four
-   * games, choosing game one's ending would have tagged every row of the
-   * afternoon with it.
+   * A kick-off says the day has moved on to the NEXT match. It closes whatever
+   * ending block is open, and it is the only thing that makes the next banner
+   * a different game's — three endings for one game (win, lose, golden point)
+   * are three blocks, not three games.
    */
-  const endsBlock = (r: ClassifiedRow): boolean =>
-    // NOT a banner: the ending headers themselves are banners, so treating one
-    // as the end closed every block on the row after it opened.
-    // NOT merely a timed row either: branch content carries its own times.
-    // What genuinely says the day has moved on is the next game starting, or a
-    // milestone — the sheet's own marker for a fixed moment.
-    r.kind === "milestone" || /\bkick\s?off\b|\bnext\s+(game|match)\b|\bpre[-\s]?game\b|\bwarm\s?up\b/i.test(r.title);
+  // Deliberately NOT "next match": sheets close their ending blocks with a plug
+  // for the next FIXTURE ("Next Match Round 14"), weeks away. Reading that as a
+  // second game today split one match's win / lose / golden-point blocks across
+  // three games, and the chooser then asked about a game that did not exist.
+  const startsGame = (title: string): boolean =>
+    /\bkick\s?off\b|\bpre[-\s]?game\b|\bwarm\s?up\b/i.test(title);
 
   let current: string | null = null;
   let game = 0;
+  // The first ending banner opens game 1; after that, only a kick-off does.
+  let nextIsNewGame = true;
   for (const r of rows) {
     if (r.kind === "spacer") continue;
     const next = trigger(r.title);
     if (next) {
-      // A new set of endings after a gap is the NEXT game's, not a
-      // continuation of the last one.
-      if (current == null) game += 1;
+      if (nextIsNewGame) {
+        game += 1;
+        nextIsNewGame = false;
+      }
       current = next;
       r.outcome = current;
       r.outcomeGame = game;
       continue;
     }
+    if (startsGame(r.title)) {
+      current = null;
+      nextIsNewGame = true;
+      continue;
+    }
     if (current == null) continue;
-    if (endsBlock(r)) {
+    // A milestone is the sheet's own marker for a fixed moment — the day has
+    // reached something that happens whatever the result, so the block closes.
+    // It is NOT a new game: the next banner is still this match's.
+    if (r.kind === "milestone") {
       current = null;
       continue;
     }
@@ -461,8 +468,41 @@ const ITEM_NUMBER = /^\d{1,4}[a-z]?$/i;
  * mistakes to be corrected; the sheet is right and there is nothing to fix.
  * Only a value that was clearly REACHING for a time deserves to be flagged,
  * and every one of those has a digit in it ("7.3O pm", "0:9O:00", "2 mins").
+ *
+ * Two more that have a digit and still are not attempts at a value:
+ *
+ * - A BRACKETED value — "(4:25)", "(0:00)". Sheets bracket what they mean as
+ *   an aside, and this one is a second clock: the elapsed time within a
+ *   segment, printed beside the real times. Reading it as a start would put
+ *   the row at twenty-five past four in the morning.
+ * - PAGE FURNITURE — "Page 3" — which is not on the row at all; it is the
+ *   footer, caught by the column it happens to sit under.
+ *
+ * Both stay visible verbatim beside the row. They are simply not questions.
  */
-export const looksLikeBotchedValue = (raw: string): boolean => /\d/.test(raw);
+export const looksLikeBotchedValue = (raw: string): boolean => {
+  const v = raw.trim();
+  if (!/\d/.test(v)) return false;
+  if (/^\(.*\)$/.test(v)) return false;
+  if (/^page\s*\d+$/i.test(v)) return false;
+  // A digit alone is not enough. An event plan reuses these columns for room
+  // allocations — "Changeroom 3", "Radio Box No. 2", "LEVEL 1 OUTLETS" — and
+  // asking someone to correct twenty of those as if they were mistyped times
+  // buries the one that really is one. A value reaching for a time is SHAPED
+  // like one: numbers either side of a separator, a unit, a meridiem, or a
+  // bare military figure.
+  return (
+    // A digit against a separator ("12:", ":30", "7.3O") — but "No. 2" has a
+    // space after its dot, and that space is the whole difference between a
+    // mistyped time and a room number.
+    /\d\s*[:.]/.test(v) ||
+    /[:.]\d/.test(v) ||
+    // A number against a unit, spelt any of the usual ways ("2 mins", "1030hrs").
+    /\d\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\b/i.test(v) ||
+    /\b(am|pm)\b/i.test(v) ||
+    /^\d{3,4}$/.test(v)
+  );
+};
 
 export function classifySheet(
   grid: string[][],

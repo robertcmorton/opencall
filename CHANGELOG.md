@@ -9,7 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **The import stopped asking about cells that were never times.** Sheets reuse their TIME and DUR columns: an event plan puts room allocations there ("Changeroom 3", "Radio Box No. 2"), a cue sheet prints a second clock in brackets beside the real one ("(4:25)" — elapsed within a segment), and a page footer lands under whatever column it sits beneath. All of them have a digit in them, and all of them were flagged as times someone had mistyped — twenty and thirty at a time, burying the one that really was. A value now has to be SHAPED like a time to be questioned. Across the example sheets that took the count from about 120 to two, and both survivors are genuinely ambiguous ("6 mins 15 mins").
+- **Three ending blocks for one game are no longer three games.** Sheets close each ending with a plug for the next FIXTURE — "Next Match Round 14", weeks away — and that was read as a second game kicking off, so one match's win, lose and golden-point blocks were split across three games and the chooser asked about games that did not exist. Only a kick-off starts a new game now; a milestone still closes a block without starting one.
 
 ## [0.27.0] — 2026-08-09
 

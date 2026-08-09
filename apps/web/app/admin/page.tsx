@@ -357,6 +357,7 @@ function CreateRundownForm({
 
   return (
     <form
+      className="rundown-create"
       style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 16px 14px" }}
       onSubmit={(e) => {
         e.preventDefault();
@@ -711,29 +712,42 @@ export default function AdminPage() {
       </SideNavSection>
       {me?.role === "admin" && <AdminNavSection />}
       <SideNavSection heading="Credentials">
-        <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "2px 9px", lineHeight: 1.5 }}>
-          {me?.role === "admin" ? (
-            <>
-              Signed in as <strong style={{ color: "var(--text-2)" }}>Administrator</strong> — full access
-            </>
-          ) : me?.role === "company" ? (
-            <>
-              Signed in as <strong style={{ color: "var(--text-2)" }}>{me.teamName}</strong> — company access
-            </>
-          ) : me?.role === "user" ? (
-            <>
-              Signed in as <strong style={{ color: "var(--text-2)" }}>{me.name}</strong>
-              {me.canManage ? " — manager" : " — view access"}
-            </>
-          ) : (
-            "Not signed in"
-          )}
+        {/* Who you are, then what you can do about it.
+            It used to be a line of prose, then a menu item, then ANOTHER line
+            of prose — three things at two different indents, the identity
+            wrapping mid-phrase. Now it is one identity block sitting on the
+            same left edge as the items below it, and the "no sign-in needed"
+            note is part of that block rather than an orphan under the
+            actions, because it describes the session and not an action. */}
+        <div className="sidenav-identity">
+          <strong>
+            {me?.role === "admin"
+              ? "Administrator"
+              : me?.role === "company"
+                ? me.teamName
+                : me?.role === "user"
+                  ? me.name
+                  : "Not signed in"}
+          </strong>
+          <span>
+            {me?.role === "admin"
+              ? "Full access"
+              : me?.role === "company"
+                ? "Company access"
+                : me?.role === "user"
+                  ? me.canManage
+                    ? "Manager"
+                    : "View access"
+                  : getAdminToken()
+                    ? "Session not recognised"
+                    : "Dev-open server — no sign-in needed"}
+          </span>
         </div>
         <Link className="menu-item" href="/account">
           <span className="check" />
           My account
         </Link>
-        {getAdminToken() ? (
+        {getAdminToken() && (
           <button
             type="button"
             className="menu-item"
@@ -751,10 +765,6 @@ export default function AdminPage() {
             <span className="check" />
             Sign out
           </button>
-        ) : (
-          <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "2px 9px" }}>
-            Dev-open server — no sign-in needed.
-          </div>
         )}
       </SideNavSection>
     </>
@@ -1176,7 +1186,7 @@ export default function AdminPage() {
                   !importFor || importFor.eventId !== event.id ? (
                     <button
                       type="button"
-                      className="btn btn-sm"
+                      className="btn btn-import"
                       data-tip="Create a rundown from an XLSX, CSV, or PDF run sheet"
                       onClick={() => setImportFor({ eventId: event.id })}
                     >

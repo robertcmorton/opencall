@@ -64,6 +64,18 @@ export function WithSideNav({
           </Link>
         </nav>
         {settings}
+        {/* The credit sits at the foot of the panel, after everything that
+            does a job — visible on every screen without competing with any of
+            them. "Built by" rather than anything more elaborate: it is the
+            plain description, and a tool people rely on mid-show is not the
+            place for a flourish. */}
+        <div className="sidenav-credit">
+          <span>Built by</span>
+          <strong>Robert C Morton</strong>
+          <a href="https://www.robertcmorton.com" target="_blank" rel="noreferrer noopener">
+            robertcmorton.com
+          </a>
+        </div>
       </aside>
       <div className={`with-sidenav ${open ? "" : "sidenav-closed"}`}>{children}</div>
     </>

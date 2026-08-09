@@ -539,6 +539,9 @@ export function RundownEditor({
   // open). This toggle just flips the session mode; show_state carries it to
   // every screen.
   const clockFollow = channel.show?.clockFollow ?? false;
+  // Clock-follow is on but the showcaller has taken the wheel: the server has
+  // stopped advancing, the show and its timers run on, and Next is theirs.
+  const clockHold = (channel.show?.clockHold ?? false) && clockFollow;
   /**
    * How far the live cue has fallen behind the clock, in rows.
    *
@@ -549,7 +552,7 @@ export function RundownEditor({
    * screen says plainly which row the sheet thinks should be on air.
    */
   const cueDriftRows = (() => {
-    if (!showLive || clockFollow || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
+    if (!showLive || (clockFollow && !clockHold) || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
     const at = rows.findIndex((r) => r.id === activeRowId);
     const want = rows.findIndex((r) => r.id === clockRowId);
     return at >= 0 && want > at ? want - at : 0;
@@ -1449,7 +1452,26 @@ export function RundownEditor({
             data-tip="The SERVER runs the show off the TIME column — every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct; toggle off for manual control."
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
           >
-            ◷ {clockFollow ? "Following clock" : "Follow clock"}
+            ◷ {clockFollow ? (clockHold ? "Clock held" : "Following clock") : "Follow clock"}
+          </button>
+        )}
+        {/* Taking the wheel for a moment is not the same as switching the clock
+            off, and it is certainly not Pause — Pause stops the SHOW, freezing
+            the item timer for everyone downstream. This stops only the
+            automatic advance: the show runs on and the showcaller steps the cue
+            with Next. Releasing hands it straight back, wherever the show is. */}
+        {isShow && showLive && clockFollow && (
+          <button
+            className={`btn btn-sm ${clockHold ? "is-on" : ""}`}
+            style={clockHold ? { borderColor: "var(--accent)", color: "var(--accent-text)", background: "var(--accent-soft)" } : undefined}
+            data-tip={
+              clockHold
+                ? "Hand the show back to the clock — it picks up from wherever the cue is now"
+                : "Take the wheel: the clock stops advancing the cue and you step it with Next. The show keeps running and every screen keeps counting — this is not Pause."
+            }
+            onClick={() => channel.sendCmd(clockHold ? "clock_release" : "clock_hold")}
+          >
+            {clockHold ? "▶ Give it back to the clock" : "✋ I'll drive"}
           </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are

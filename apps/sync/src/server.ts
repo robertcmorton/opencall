@@ -322,7 +322,9 @@ async function clockTick(): Promise<void> {
     for (const { rundownId } of live) {
       const machine = await showStore.get(rundownId);
       const current = machine.current;
-      if (current.state !== "running" || !current.clockFollow) continue; // paused = held
+      // paused = the whole show is held; clockHold = the showcaller has taken
+      // the wheel and is stepping the cue by hand, with the show still running.
+      if (current.state !== "running" || !current.clockFollow || current.clockHold) continue;
 
       const rundown = await dbHandle.db.query.rundowns.findFirst({
         where: eq(schema.rundowns.id, rundownId),

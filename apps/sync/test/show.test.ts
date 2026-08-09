@@ -68,3 +68,45 @@ describe("clock-follow backdating", () => {
     expect(m.apply("next", "row-2", 5_000)).toMatchObject({ activeRowStartedAtMs: 5_000 });
   });
 });
+
+describe("taking the wheel from the clock", () => {
+  it("holds and releases without turning clock-follow off", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1000);
+    m.apply("clock_on", undefined, 1100);
+    expect(m.current).toMatchObject({ clockFollow: true, clockHold: false });
+
+    expect(m.apply("clock_hold", undefined, 2000)).toMatchObject({ clockFollow: true, clockHold: true });
+    // The SHOW is untouched: a hold is not a pause, and nothing downstream
+    // should see a frozen timer because the showcaller took the cue by hand.
+    expect(m.current.state).toBe("running");
+
+    expect(m.apply("clock_release", undefined, 3000)).toMatchObject({ clockFollow: true, clockHold: false });
+  });
+
+  it("refuses a hold when the clock is not driving", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1000);
+    expect(m.apply("clock_hold", undefined, 2000)).toBe("the clock is not driving this show");
+  });
+
+  it("comes back unheld when clock-follow is switched on again", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1000);
+    m.apply("clock_on", undefined, 1100);
+    m.apply("clock_hold", undefined, 2000);
+    m.apply("clock_off", undefined, 3000);
+    expect(m.current).toMatchObject({ clockFollow: false, clockHold: false });
+    // A hold is a moment, not a setting — inheriting one from an hour ago
+    // would look like a fault the next time the clock was switched on.
+    expect(m.apply("clock_on", undefined, 4000)).toMatchObject({ clockFollow: true, clockHold: false });
+  });
+
+  it("drops the hold when the show ends", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1000);
+    m.apply("clock_on", undefined, 1100);
+    m.apply("clock_hold", undefined, 2000);
+    expect(m.apply("stop", undefined, 3000)).toMatchObject({ clockFollow: false, clockHold: false });
+  });
+});

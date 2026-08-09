@@ -199,6 +199,8 @@ export const showSessions = pgTable(
     seq: bigint("seq", { mode: "number" }).notNull().default(0),
     /** Server-driven clock-follow: the scheduler advances this session along the TIME column, no console required. */
     clockFollow: boolean("clock_follow").notNull().default(false),
+    /** Clock-follow is on but held: the showcaller is stepping the cue by hand. */
+    clockHold: boolean("clock_hold").notNull().default(false),
   },
   (t) => [
     uniqueIndex("one_live_session_per_rundown")
@@ -207,7 +209,10 @@ export const showSessions = pgTable(
   ],
 );
 
-export const transitionTypes = ["start", "pause", "resume", "next", "prev", "jump", "stop", "fire", "clock_on", "clock_off"] as const;
+export const transitionTypes = [
+  "start", "pause", "resume", "next", "prev", "jump", "stop", "fire",
+  "clock_on", "clock_off", "clock_hold", "clock_release",
+] as const;
 
 export const showTransitions = pgTable("show_transitions", {
   id: id().primaryKey(),

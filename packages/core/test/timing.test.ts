@@ -317,3 +317,59 @@ describe("findTimingGaps — moments, not links", () => {
     expect(findTimingGaps(rows, computeTiming(rows, NINE_AM))).toHaveLength(1);
   });
 });
+
+describe("computeTiming — a show that runs past midnight", () => {
+  // New Year's Eve: the countdown, the fireworks at 00:00, then egress.
+  const nye = (): PlanRow[] => [
+    row("build", { hardStartSec: 23 * 3600, durationSec: 55 * 60 }),
+    row("countdown", { hardStartSec: 23 * 3600 + 55 * 60, durationSec: 5 * 60 }),
+    row("fireworks", { hardStartSec: 0, durationSec: 12 * 60 }),
+    row("egress", { hardStartSec: 12 * 60, durationSec: 20 * 60 }),
+  ];
+
+  it("counts on past midnight instead of jumping back a day", () => {
+    const t = computeTiming(nye(), 23 * 3600);
+    expect(t.rows.map((r) => r.startSec)).toEqual([
+      23 * 3600,
+      23 * 3600 + 55 * 60,
+      24 * 3600, // 00:00 the next day
+      24 * 3600 + 12 * 60,
+    ]);
+  });
+
+  it("still shows the next day's rows on a wall clock", () => {
+    const t = computeTiming(nye(), 23 * 3600);
+    expect(formatTimeOfDay(t.rows[2]!.startSec!, true)).toBe("00:00:00");
+    expect(formatTimeOfDay(t.endSec!, true)).toBe("00:32:00");
+  });
+
+  it("ends after it starts", () => {
+    const t = computeTiming(nye(), 23 * 3600);
+    expect(t.endSec!).toBeGreaterThan(t.startSec!);
+  });
+
+  it("reports no phantom 24-hour hole at the fireworks", () => {
+    // Every row here follows on exactly; the only "gap" was the rollover.
+    const t = computeTiming(nye(), 23 * 3600);
+    expect(findTimingGaps(nye(), t)).toEqual([]);
+  });
+
+  it("still catches a real hole on the far side of midnight", () => {
+    const rows = nye();
+    rows[3]!.hardStartSec = 30 * 60; // egress at 00:30, but the fireworks end 00:12
+    const gaps = findTimingGaps(rows, computeTiming(rows, 23 * 3600));
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]!.gapSec).toBe(18 * 60);
+  });
+
+  it("does not mistake a small backwards time for a new day", () => {
+    // Ten minutes backwards is a mistake in the sheet, not midnight.
+    const rows: PlanRow[] = [
+      row("a", { hardStartSec: 10 * 3600, durationSec: 600 }),
+      row("b", { hardStartSec: 10 * 3600 - 600 }),
+    ];
+    const t = computeTiming(rows, null);
+    expect(t.rows[1]!.startSec).toBe(10 * 3600 - 600);
+    expect(findTimingGaps(rows, t)).toHaveLength(1);
+  });
+});

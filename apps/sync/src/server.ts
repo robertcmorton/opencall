@@ -8,7 +8,7 @@ import {
   type Role,
   type ServerMsg,
 } from "@opencall/protocol";
-import { computeTiming, zoneSecondsOfDay, type PlanTiming } from "@opencall/core";
+import { absoluteNow, computeTiming, zoneSecondsOfDay, type PlanTiming } from "@opencall/core";
 import { createDb, decodeDoc, ensureSchema, projectRundownDoc, schema } from "@opencall/db";
 import type { ProjectedRow } from "@opencall/db/doc";
 import { and, eq, isNull, ne } from "drizzle-orm";
@@ -298,7 +298,10 @@ heartbeat.unref();
 const projectionCache = new Map<string, { key: string; rows: ProjectedRow[]; timing: PlanTiming }>();
 const timezoneCache = new Map<string, { tz: string | null; at: number }>();
 
-function clockTargetRow(rows: ProjectedRow[], timing: PlanTiming, nowSec: number): string | null {
+function clockTargetRow(rows: ProjectedRow[], timing: PlanTiming, wallSec: number): string | null {
+  // The sheet counts on past midnight; the wall clock resets. Put them on the
+  // same scale or a show running into the small hours stops dead at 23:59.
+  const nowSec = absoluteNow(wallSec, timing);
   let target: string | null = null;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
@@ -375,7 +378,9 @@ async function clockTick(): Promise<void> {
       const targetIndex = rows.findIndex((r) => r.id === target);
       const plannedStartSec = targetIndex >= 0 ? timing.rows[targetIndex]?.startSec ?? null : null;
       const startedAtMs =
-        plannedStartSec != null && plannedStartSec <= nowSec ? nowMs - (nowSec - plannedStartSec) * 1000 : nowMs;
+        plannedStartSec != null && plannedStartSec <= absoluteNow(nowSec, timing)
+          ? nowMs - (absoluteNow(nowSec, timing) - plannedStartSec) * 1000
+          : nowMs;
 
       const result = machine.apply("jump", target, nowMs, startedAtMs);
       if (typeof result === "string") continue;

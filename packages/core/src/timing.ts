@@ -16,10 +16,46 @@ const branchOf = (row: PlanRow): string | null => (row.outcome ? `${row.outcomeG
  *    upward from its own start instead
  *  - `plannedStartSec` acts as a virtual anchor above row 0 when row 0 is unanchored
  */
+/**
+ * A backwards jump this big is the day rolling over, not the show going back in
+ * time. Anything smaller stays what it looks like — a mistake in the sheet.
+ */
+const ROLLOVER_GAP = 12 * 3600;
+
+/**
+ * Absolute start for every anchored row, counting on past midnight.
+ *
+ * A sheet writes times of DAY. A show that runs into the small hours writes
+ * 23:55 and then 00:05, and read as seconds-since-midnight that second one is
+ * twenty-four hours EARLIER than the first — so a New Year's Eve sheet had a
+ * −24:00:00 hole in it at the fireworks, and everything after midnight sorted
+ * before everything before it.
+ *
+ * Run sheets are chronological, so the rollover can simply be counted: each
+ * anchor that lands far enough behind the one above it starts another day.
+ * `formatTimeOfDay` already wraps back to a wall clock, so 24:05 displays as
+ * 00:05 with no other change.
+ */
+function absoluteAnchors(rows: PlanRow[]): (number | null)[] {
+  let day = 0;
+  let prev: number | null = null;
+  return rows.map((row) => {
+    if (row.hardStartSec == null) return null;
+    let abs = row.hardStartSec + day * 86400;
+    if (prev != null && abs < prev - ROLLOVER_GAP) {
+      day += 1;
+      abs += 86400;
+    }
+    prev = abs;
+    return abs;
+  });
+}
+
 export function computeTiming(
   rows: PlanRow[],
   plannedStartSec: number | null = null,
 ): PlanTiming {
+  const anchors = absoluteAnchors(rows);
   const timed: TimedRow[] = rows.map((row) => ({
     id: row.id,
     startSec: null,
@@ -34,9 +70,9 @@ export function computeTiming(
   let cursor: number | null = plannedStartSec;
   let total = 0;
   const step = (i: number): void => {
-    const row = rows[i]!;
     const t = timed[i]!;
-    if (row.hardStartSec != null) cursor = row.hardStartSec;
+    const anchor = anchors[i];
+    if (anchor != null) cursor = anchor;
     if (cursor != null) {
       t.startSec = cursor;
       t.endSec = cursor + t.effectiveDurationSec;
@@ -89,11 +125,10 @@ export function computeTiming(
   // Back-timing pass: fill the open segment above each back-timed anchor upward.
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
-    if (row.hardStartSec == null || !row.backtime) continue;
-    let cursorUp = row.hardStartSec;
+    if (anchors[i] == null || !row.backtime) continue;
+    let cursorUp = anchors[i]!;
     for (let j = i - 1; j >= 0; j--) {
-      const above = rows[j]!;
-      if (above.hardStartSec != null) break; // never override another anchor
+      if (anchors[j] != null) break; // never override another anchor
       const t = timed[j]!;
       t.endSec = cursorUp;
       t.startSec = cursorUp - t.effectiveDurationSec;
@@ -113,6 +148,20 @@ export function computeTiming(
     endSec: cursor ?? last?.endSec ?? null,
     totalDurationSec: total,
   };
+}
+
+/**
+ * "Now", on the same counting-past-midnight scale the sheet uses.
+ *
+ * A wall clock resets at midnight; a sheet that runs into the small hours does
+ * not. Without this every row after the rollover sits twenty-four hours in the
+ * future, the clock never reaches them, and a show that should be calling the
+ * fireworks stops dead at 23:59.
+ */
+export function absoluteNow(nowSec: number, timing: PlanTiming): number {
+  const first = timing.startSec;
+  if (first == null) return nowSec;
+  return nowSec < first - ROLLOVER_GAP ? nowSec + 86400 : nowSec;
 }
 
 // ── Timing reconciliation ─────────────────────────────────────────────────────
@@ -158,6 +207,9 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
   const gaps: TimingGap[] = [];
   let lastAnchor = -1;
   let expected: number | null = null;
+  // Counted past midnight, exactly as the cascade does — otherwise the row
+  // after the fireworks reads as twenty-four hours before the one before it.
+  const anchors = absoluteAnchors(rows as PlanRow[]);
 
   /**
    * How far each row moves the running order on. An ordinary row moves it on by
@@ -204,7 +256,7 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
     let extra = 0;
     let anchorsSkipped = 0;
     for (let j = i + 1; j < rows.length; j++) {
-      const start = rows[j]!.hardStartSec;
+      const start = anchors[j];
       if (start == null) {
         // An unanchored row between the two IS in the chain; its time counts.
         extra += timing.rows[j]?.effectiveDurationSec ?? 0;
@@ -221,9 +273,10 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
 
   rows.forEach((row, i) => {
     const t = timing.rows[i]!;
-    if (row.hardStartSec != null) {
+    const anchor = anchors[i];
+    if (anchor != null) {
       if (lastAnchor >= 0 && expected != null && anchorStart != null) {
-        const gap = row.hardStartSec - expected;
+        const gap = anchor - expected;
         // How much time the rows since the last anchor actually claimed. A run
         // of MILESTONES claims none: "Renee arrives 13:30", "content check
         // 13:40" are two moments, not a chain with ten missing minutes in it.
@@ -242,8 +295,8 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
         }
       }
       lastAnchor = i;
-      anchorStart = row.hardStartSec;
-      expected = row.hardStartSec + t.effectiveDurationSec;
+      anchorStart = anchor;
+      expected = anchor + t.effectiveDurationSec;
     } else if (expected != null) {
       expected += advance[i]!;
     }

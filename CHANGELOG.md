@@ -9,7 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **A show that runs past midnight no longer jumps back a day.** Sheets write times of DAY, so a New Year's Eve sheet goes 23:55 then 00:05 — and read as seconds-since-midnight that second one is twenty-four hours EARLIER. The sheet showed a −24:00:00 hole at the fireworks, everything after midnight sorted before everything before it, and clock-follow picked a row from the small hours while it was still last night. Run sheets are chronological, so the rollover is now simply counted: an anchor far enough behind the one above it starts another day. Times still display on a wall clock.
 
 ## [0.27.3] — 2026-08-09
 

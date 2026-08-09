@@ -7,6 +7,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  absoluteNow,
   computeTiming,
   formatDuration,
   formatTimeOfDay,
@@ -522,7 +523,9 @@ export function RundownEditor({
   // (anchored or cascaded) start has passed. Marked in the grid; clock-follow
   // drives the live show to it.
   const clockTarget = (rowList: ProjectedRow[], t: typeof timing, tz: string | null | undefined): string | null => {
-    const now = zoneSecondsOfDay(channel.serverNow(), tz);
+    // Counted past midnight, like the sheet — a wall clock resets at 00:00 and
+    // a show running into the small hours does not.
+    const now = absoluteNow(zoneSecondsOfDay(channel.serverNow(), tz), t);
     let target: string | null = null;
     for (let i = 0; i < rowList.length; i++) {
       const r = rowList[i]!;

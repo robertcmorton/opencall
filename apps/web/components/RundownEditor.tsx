@@ -23,7 +23,7 @@ import { ReconcilePanel, findTimingGaps } from "./ReconcilePanel";
 import { KeyTimesEditor } from "./KeyTimes";
 import { CellEditor } from "./CellEditor";
 import { GuestPassPanel, HistoryPanel, JoinCodesPanel } from "./SharePanels";
-import { LiveReadouts, TransportBar } from "./TransportBar";
+import { LiveReadouts, ShowStateControls, TransportBar } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
@@ -331,6 +331,13 @@ export function RundownEditor({
   // The timing-check issue currently on screen: its rows are highlighted in
   // the grid and the disagreeing row is scrolled into view.
   const [gapFocus, setGapFocus] = useState<{ fromId: string; toId: string } | null>(null);
+  // Someone may be mid-reconcile when the show is called. Close it for them.
+  const liveNow = channel.show?.state === "running" || channel.show?.state === "paused";
+  useEffect(() => {
+    if (!liveNow) return;
+    setReconciling(false);
+    setGapFocus(null);
+  }, [liveNow]);
   // Row the timing nudges act on when hovering (pointer devices).
   const [nudgeRowAt, setNudgeRowAt] = useState<{ id: string; top: number } | null>(null);
   // The selection bar floats just BELOW the last selected row — never on top
@@ -489,7 +496,18 @@ export function RundownEditor({
     return rows.slice(at + 1).find((r) => r.type === "cue")?.id ?? null;
   })();
   const isPaused = channel.show?.state === "paused";
-  const timingGaps = findTimingGaps(rows, timing);
+  const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
+  /**
+   * The timing check belongs to preparation, not to the show.
+   *
+   * It reports where the sheet's own TIME and DURATION columns disagree — a
+   * question for whoever is building the sheet, answered before anyone goes on
+   * air. Once the show is running the disagreements are the POINT: a game runs
+   * long, an item is cut, the cue is dragged back to now. A live screen that
+   * counts those as faults is crying wolf at the one person who cannot afford
+   * to look away, so the check runs on import and in the walkthrough only.
+   */
+  const timingGaps = showLive ? [] : findTimingGaps(rows, timing);
   const roleColorFor = (name: string): string =>
     roles.find((r) => r.name.toLowerCase() === name.toLowerCase())?.color ?? "#2dd4bf";
   // rowId → the colour of MY role this row involves (rows can match different roles).
@@ -521,7 +539,6 @@ export function RundownEditor({
   // open). This toggle just flips the session mode; show_state carries it to
   // every screen.
   const clockFollow = channel.show?.clockFollow ?? false;
-  const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
   /**
    * How far the live cue has fallen behind the clock, in rows.
    *
@@ -1252,10 +1269,15 @@ export function RundownEditor({
       <div className="show-topbar no-print">
       <header className="topbar-head">
         <div className="topbar-left">
+        <div className="topbar-name">
         <h1 style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}>{meta.name}</h1>
         {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
-        <div className="hide-mobile">
-          <div className="header-label">Planned</div>
+        {/* The sheet's own shape — when it starts, how long it runs, when it
+            ends — belongs UNDER its name, not in the row of live readouts.
+            It is the same three numbers whether or not a show is running, and
+            labelling them "Planned" only invited the question of what the
+            unplanned ones would be. */}
+        <div className="hide-mobile topbar-shape">
           <div
             className="header-clock mono"
             style={canEditContent ? { cursor: "pointer" } : undefined}
@@ -1305,6 +1327,7 @@ export function RundownEditor({
           </div>
         </div>
         </div>
+        </div>
         <div className="topbar-center">
           {live && activeRow && (
             <BigTimer
@@ -1312,6 +1335,14 @@ export function RundownEditor({
               paused={isPaused ?? false}
               title={activeRow.title}
               plannedSec={activeRow.durationSec}
+            />
+          )}
+          {/* The show's state sits directly under the cue timer, centred —
+              that is where the eye already is. */}
+          {isShow && (
+            <ShowStateControls
+              channel={channel}
+              orderedRowIds={rows.filter((r) => !r.skipped || r.id === activeRowId).map((r) => r.id)}
             />
           )}
         </div>

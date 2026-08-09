@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.30.0] — 2026-08-09
+
 ### Changed
 - **One view-only link, replacing join codes and guest passes.** They were two mechanisms doing nearly the same job with nothing on screen to tell them apart — one opened the live document, the other a filtered copy — so a showcaller had to know which was which to know what they had shared. There is now one kind of link. It opens the run sheet read-only, and that is all it can ever do.
 - **Running or editing a show needs an account.** Caller and editor codes have been withdrawn. A code is a thing that gets photographed off a wall and forwarded out of a group chat, and neither should end with a stranger holding the transport. **This is a breaking change:** caller and editor codes already handed out stop working. They are not ignored — whoever holds one is told the code is view-only and to sign in — and they are listed under "No longer working" in the sharing panel so they can be tidied away.

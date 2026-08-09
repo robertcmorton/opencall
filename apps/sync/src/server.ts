@@ -422,11 +422,34 @@ async function clockTick(): Promise<void> {
       const target = clockTargetRow(rows, timing, nowSec);
       if (!target || target === current.activeRowId) continue;
 
+      const targetIndex = rows.findIndex((r) => r.id === target);
+
+      /**
+       * A show never goes backwards.
+       *
+       * On the night the clocks go back, 02:00 to 02:59 happens TWICE — the
+       * wall clock really does return to 02:00 — so a sheet with rows in that
+       * hour would be called a second time, dragging the cue back an hour
+       * while the show carried on forwards. The same guard covers any other
+       * clock that steps back under a running show: a corrected server time, a
+       * machine coming off a bad NTP source, an operator fixing the timezone.
+       *
+       * Only the automatic follower is held to this. A person can still jump
+       * wherever they like — going back is sometimes exactly what is wanted,
+       * and they can see what they are doing.
+       */
+      const currentIndex = current.activeRowId ? rows.findIndex((r) => r.id === current.activeRowId) : -1;
+      if (currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex) {
+        console.warn(
+          `[clock] not moving ${rundownId} back from row ${currentIndex} to ${targetIndex} — the clock stepped backwards`,
+        );
+        continue;
+      }
+
       // The row began when the SHEET says it began, not at the moment the
       // follower noticed. Following the clock means the show is on the clock:
       // backdating keeps the item's countdown honest and the drift at zero,
       // instead of reporting however long ago the row was due to start.
-      const targetIndex = rows.findIndex((r) => r.id === target);
       const plannedStartSec = targetIndex >= 0 ? timing.rows[targetIndex]?.startSec ?? null : null;
       const startedAtMs =
         plannedStartSec != null && plannedStartSec <= absoluteNow(nowSec, timing)

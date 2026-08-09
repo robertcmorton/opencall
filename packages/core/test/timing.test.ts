@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTiming, findTimingGaps, parseDurationShorthand, formatTimeOfDay, type PlanRow } from "../src/index";
+import { absoluteNow, computeTiming, findTimingGaps, parseDurationShorthand, formatTimeOfDay, type PlanRow } from "../src/index";
 
 const row = (id: string, patch: Partial<PlanRow> = {}): PlanRow => ({
   id,
@@ -408,5 +408,31 @@ describe("computeTiming — extra time is a phase, not an alternative", () => {
     const t = computeTiming(game({ golden: false, win: true }), NINE_AM);
     expect(at("win", t).startSec).toBe(NINE_AM + 3600);
     expect(t.totalDurationSec).toBe(3600 + 18 * 60 + 600);
+  });
+});
+
+describe("absoluteNow — the clock against a sheet that runs past midnight", () => {
+  const overnight: PlanRow[] = [
+    row("a", { hardStartSec: 22 * 3600, durationSec: 3600 }),
+    row("b", { hardStartSec: 0, durationSec: 3600 }), // 00:00, the next day
+  ];
+  const t = () => computeTiming(overnight, 22 * 3600);
+
+  it("counts the small hours as later, not earlier", () => {
+    // 00:30 on the wall clock is 24:30 to a sheet that started at 22:00.
+    expect(absoluteNow(30 * 60, t())).toBe(24 * 3600 + 30 * 60);
+  });
+
+  it("leaves an ordinary evening time alone", () => {
+    expect(absoluteNow(22 * 3600 + 30 * 60, t())).toBe(22 * 3600 + 30 * 60);
+  });
+
+  it("leaves a sheet that never crosses midnight alone entirely", () => {
+    // An afternoon sheet has no next day to be in, so an early-morning clock
+    // is not tomorrow — it is somebody looking at the sheet in the morning.
+    const afternoon: PlanRow[] = [row("x", { hardStartSec: 13 * 3600, durationSec: 600 })];
+    const tt = computeTiming(afternoon, 13 * 3600);
+    expect(absoluteNow(2 * 3600, tt)).toBe(2 * 3600);
+    expect(absoluteNow(12 * 3600 + 59 * 60, tt)).toBe(12 * 3600 + 59 * 60);
   });
 });

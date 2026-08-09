@@ -197,7 +197,10 @@ export function computeTiming(
  */
 export function absoluteNow(nowSec: number, timing: PlanTiming): number {
   const first = timing.startSec;
-  if (first == null) return nowSec;
+  // Only a sheet that actually runs past midnight has a next day to be in.
+  // Without this an afternoon sheet would read an early-morning clock as
+  // tomorrow — which is a guess, and one nothing needs it to make.
+  if (first == null || timing.endSec == null || timing.endSec <= 86400) return nowSec;
   return nowSec < first - ROLLOVER_GAP ? nowSec + 86400 : nowSec;
 }
 

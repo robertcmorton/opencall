@@ -288,3 +288,32 @@ describe("findTimingGaps — alternate endings", () => {
     expect(gaps[0]!.gapSec).toBe(35 * 60);
   });
 });
+
+describe("findTimingGaps — moments, not links", () => {
+  it("does not read a gap between two milestones as a hole", () => {
+    // A pre-show call sheet: "Renee arrives 13:30", "content check 13:40".
+    // Two moments. Nothing was ever supposed to fill the ten minutes between.
+    const rows: PlanRow[] = [
+      row("a", { type: "milestone", hardStartSec: NINE_AM }),
+      row("b", { type: "milestone", hardStartSec: NINE_AM + 600 }),
+      row("c", { type: "milestone", hardStartSec: NINE_AM + 2400 }),
+    ];
+    expect(findTimingGaps(rows, computeTiming(rows, NINE_AM))).toEqual([]);
+  });
+
+  it("still reports a segment whose durations contradict the next start", () => {
+    const rows: PlanRow[] = [
+      row("a", { durationSec: 600, hardStartSec: NINE_AM }),
+      row("b", { hardStartSec: NINE_AM + 1800 }),
+    ];
+    expect(findTimingGaps(rows, computeTiming(rows, NINE_AM))).toHaveLength(1);
+  });
+
+  it("reports a start that goes backwards even with nothing claimed", () => {
+    const rows: PlanRow[] = [
+      row("a", { type: "milestone", hardStartSec: NINE_AM + 600 }),
+      row("b", { type: "milestone", hardStartSec: NINE_AM }),
+    ];
+    expect(findTimingGaps(rows, computeTiming(rows, NINE_AM))).toHaveLength(1);
+  });
+});

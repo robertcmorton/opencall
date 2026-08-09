@@ -216,12 +216,25 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
     return false;
   };
 
+  /** Where the last anchor put us, so we can tell how much the rows since claimed. */
+  let anchorStart: number | null = null;
+
   rows.forEach((row, i) => {
     const t = timing.rows[i]!;
     if (row.hardStartSec != null) {
-      if (lastAnchor >= 0 && expected != null) {
+      if (lastAnchor >= 0 && expected != null && anchorStart != null) {
         const gap = row.hardStartSec - expected;
-        if (Math.abs(gap) >= 1) {
+        // How much time the rows since the last anchor actually claimed. A run
+        // of MILESTONES claims none: "Renee arrives 13:30", "content check
+        // 13:40" are two moments, not a chain with ten missing minutes in it.
+        // Nothing was supposed to fill that gap, so there is nothing to
+        // reconcile — and a pre-show call sheet is mostly made of these, which
+        // is why one reported thirty-three problems and had none.
+        //
+        // A start that goes BACKWARDS is still wrong however little was
+        // claimed, so that is reported either way.
+        const claimed = expected - anchorStart;
+        if (Math.abs(gap) >= 1 && (claimed > 0 || gap < 0)) {
           // Alongside the running order → not a disagreement, and it must not
           // become the anchor the following rows are measured from.
           if (runsAlongside(i, expected)) return;
@@ -229,6 +242,7 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
         }
       }
       lastAnchor = i;
+      anchorStart = row.hardStartSec;
       expected = row.hardStartSec + t.effectiveDurationSec;
     } else if (expected != null) {
       expected += advance[i]!;

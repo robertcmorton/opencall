@@ -8,6 +8,21 @@ const gameOf = (row: PlanRow): number | null => (row.outcome ? row.outcomeGame ?
 /** Identifies one branch — game 2's "win" is a different branch from game 1's. */
 const branchOf = (row: PlanRow): string | null => (row.outcome ? `${row.outcomeGame ?? 1}:${row.outcome}` : null);
 
+/** Duration as the SHEET plans it, ignoring what has been skipped live. */
+const plannedDur = (row: PlanRow): number =>
+  row.durationMuted || row.durationSec == null ? 0 : Math.max(0, row.durationSec);
+
+/**
+ * Endings that can only be reached through the extra period.
+ *
+ * A match is not drawn at full time in any competition that has a golden point
+ * — a level score is what SENDS it to the extra period, so a drawn result is
+ * on the far side of it. Only applied when the sheet actually carries an extra
+ * period; in a competition where a draw is the full-time result there is no
+ * golden branch, and this is a no-op.
+ */
+const AFTER_EXTRA_ONLY = new Set(["draw"]);
+
 /**
  * Cascade timing:
  *  - a row's start = previous row's end
@@ -113,48 +128,106 @@ export function computeTiming(
      * skipped, so nothing is a prelude and everything stacks.
      */
     const spans = new Map<string, number>();
+    /**
+     * The same spans ignoring what has been skipped.
+     *
+     * Where a branch SITS is a property of the sheet, not of what has been
+     * called: a drawn match follows the extra period whether or not anybody
+     * has pressed anything yet. Measuring that offset with the live spans made
+     * it collapse to zero before the show started, which put the draw level
+     * with full time — the one place it can never be.
+     */
+    const plannedSpans = new Map<string, number>();
     for (let k = i; k < end; k++) {
       const key = branchOf(rows[k]!)!;
       spans.set(key, (spans.get(key) ?? 0) + timed[k]!.effectiveDurationSec);
+      plannedSpans.set(key, (plannedSpans.get(key) ?? 0) + plannedDur(rows[k]!));
     }
     const goldenKey = `${game}:golden`;
     const goldenSpan = spans.get(goldenKey) ?? 0;
+    const plannedGolden = plannedSpans.get(goldenKey) ?? 0;
+    /** Does this game have an extra period at all? Most kinds of show do not. */
+    const hasExtra = plannedSpans.has(goldenKey);
     const results = [...spans].filter(([k]) => k !== goldenKey).map(([, v]) => v);
     const resultCalled = results.some((v) => v > 0) && results.some((v) => v === 0);
     const prelude = goldenSpan > 0 && resultCalled;
     const afterGolden = blockStart != null && prelude ? blockStart + goldenSpan : blockStart;
+    /**
+     * Where the second layer of endings begins.
+     *
+     * Endings are not a list, they are a diamond. Win and lose hang off full
+     * time AND off the extra period — the same rows, the same winning song,
+     * reached two ways. A draw hangs off the extra period only. So this is the
+     * start of everything on the far side of the extra period, and it exists
+     * on the planned sheet rather than only once a result is called.
+     */
+    const afterExtraStart = blockStart != null && hasExtra ? blockStart + plannedGolden : blockStart;
 
     let branch: string | null = null;
     let branchTotal = 0;
+    /** How far into its own branch this row sits — the offset its other start needs. */
+    let branchOffset = 0;
     /** Longest ending that is not extra time — only one of them is ever played. */
     let longestResult = 0;
     let latestEnd: number | null = null;
     const closeBranch = () => {
       if (branch != null && !branch.endsWith(":golden")) longestResult = Math.max(longestResult, branchTotal);
       branchTotal = 0;
+      branchOffset = 0;
     };
 
     for (let k = i; k < end; k++) {
       const key = branchOf(rows[k]!);
+      const outcome = rows[k]!.outcome ?? "";
+      const afterExtraOnly = hasExtra && AFTER_EXTRA_ONLY.has(outcome);
       if (key !== branch) {
-        // A different ending starts: back to the top of the block — or, for a
-        // result, to the end of any extra time that has already been played. An
-        // anchor inside a branch still wins, exactly as anywhere else in the
+        // A different ending starts: back to the top of the block — or, for an
+        // ending that can only follow the extra period, to the far side of it.
+        // An anchor inside a branch still wins, exactly as anywhere else in the
         // sheet: an imported time is what the sheet says and is not ours to move.
         closeBranch();
         branch = key;
-        cursor = rows[k]!.outcome === "golden" ? blockStart : afterGolden;
+        cursor =
+          outcome === "golden" ? blockStart : afterExtraOnly ? afterExtraStart : prelude ? afterGolden : blockStart;
       }
       step(k);
-      branchTotal += timed[k]!.effectiveDurationSec;
-      const e = timed[k]!.endSec;
+      // The other way in, for the endings that have one. Not set once a result
+      // has been called: the path is known by then, and offering two times for
+      // something that has already happened is worse than useless.
+      const t = timed[k]!;
+      t.altStartSec =
+        hasExtra && !prelude && !afterExtraOnly && outcome !== "golden" && afterExtraStart != null
+          ? afterExtraStart + branchOffset
+          : null;
+      branchOffset += t.effectiveDurationSec;
+      branchTotal += t.effectiveDurationSec;
+      const e = t.endSec;
       if (e != null) latestEnd = latestEnd == null ? e : Math.max(latestEnd, e);
     }
     closeBranch();
 
-    // Extra time and the ending that followed it both happened; otherwise only
-    // one branch of the block is ever played.
-    total += prelude ? goldenSpan + longestResult : Math.max(goldenSpan, longestResult);
+    if (resultCalled) {
+      // The path is known: extra time and the ending that followed it both
+      // happened, or the match was decided at full time and only one did.
+      total += prelude ? goldenSpan + longestResult : Math.max(goldenSpan, longestResult);
+    } else if (hasExtra) {
+      /**
+       * Nothing called yet, so plan for the longest way through — the extra
+       * period AND the longest ending that can follow it. The old reading took
+       * the longest single branch, which is the time the day needs only if the
+       * match is settled at full time. A golden point that is then won needs
+       * both, and a sheet that never says so gets off air late on the one night
+       * it matters.
+       */
+      const afterExtraLongest = Math.max(0, ...[...plannedSpans].filter(([k]) => k !== goldenKey).map(([, v]) => v));
+      const atFullTimeLongest = Math.max(
+        0,
+        ...[...plannedSpans].filter(([k]) => k !== goldenKey && !AFTER_EXTRA_ONLY.has(k.split(":")[1] ?? "")).map(([, v]) => v),
+      );
+      total += Math.max(atFullTimeLongest, plannedGolden + afterExtraLongest);
+    } else {
+      total += Math.max(goldenSpan, longestResult);
+    }
     cursor = latestEnd ?? blockStart;
     i = end;
   }

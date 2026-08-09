@@ -43,6 +43,18 @@ export interface TimedRow {
   /** null when no anchor or planned start exists at-or-above this row. */
   startSec: number | null;
   endSec: number | null;
+  /**
+   * The OTHER time this row could start, when it sits on an ending that is
+   * reachable two ways.
+   *
+   * A win is reachable straight off full time, or off the extra period that
+   * was played because the scores were level — the same rows either way, at
+   * two different times. Until the result is called both are true, and a sheet
+   * that prints only the earlier one is quietly wrong for half the paths
+   * through the day. Null on every row with one way in, which is nearly all of
+   * them.
+   */
+  altStartSec?: number | null;
   /** Duration used by the cascade (0 when muted or null). */
   effectiveDurationSec: number;
   /** True when this row carries a manual anchor. */

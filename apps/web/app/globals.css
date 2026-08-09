@@ -874,6 +874,82 @@ kbd {
   opacity: 0.42;
 }
 
+/* ── Layered endings ──────────────────────────────────────────────────────
+   The endings are a diamond, not a list. Win and lose hang off full time AND
+   off the extra period a level score sends the match to; a draw hangs off the
+   extra period only. A header carries the ONE time its whole layer begins at,
+   because a time printed against each branch is exactly what made three
+   alternatives read as three things that all happen.                        */
+.layer-row > td {
+  background: var(--raised);
+  border-top: 2px solid var(--border);
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: var(--fs-xs);
+}
+.layer-time {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.layer-lbl {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.layer-note {
+  margin-left: 10px;
+  color: var(--text-3);
+}
+/* The second layer is indented, because it is reached THROUGH the first. */
+.layer-row.layer-1 > td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.layer-row.layer-1 .layer-lbl {
+  color: var(--warn);
+}
+/* The other time a shared ending could start. Small and beneath, so the row's
+   own time stays the one the eye lands on. */
+.alt-time {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* ── The fork, when the block is one line until it is called ──────────── */
+.fork-row > td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-top: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.fork-time {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.fork-lead {
+  font-weight: 700;
+}
+.fork-note {
+  margin-left: 10px;
+  margin-right: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.fork-chip {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--branch-rail);
+  border: 1px solid color-mix(in srgb, var(--branch-rail) 55%, transparent);
+  background: color-mix(in srgb, var(--branch-rail) 12%, transparent);
+}
+
 /* Full time is close and no result picked yet — the chooser calls for a decision. */
 .decision-pulse {
   color: var(--warn) !important;

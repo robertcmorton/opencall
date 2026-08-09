@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A drawn match no longer starts at the same moment as the extra period that has to be played before it can happen.** Every ending was being stacked at full time, draw included — so the sheet said the drawn-match wrap began at 3:32 while golden point ran 3:32 to 3:57. Endings are a diamond, not a list: win and lose hang off full time AND off the extra period, golden point hangs off full time only, and a draw hangs off the extra period only.
+- **The day now plans for the extra period AND the ending that follows it.** Twenty-five minutes of golden point and then an eighteen-minute winning presentation is forty-three minutes, not twenty-five. Taking the longest single branch is the time the day needs only if the match is settled at full time, and getting off air is the one thing that cannot be caught up.
+
+### Added
+- **Two ways to read the endings, switchable per device under Endings in the menu.** *Show all, in layers* keeps every branch on the sheet, grouped under a header that carries the one time its whole layer starts at, with the second possible start shown against the endings that have two ways in. *One line until called* collapses the whole block to a single full-time row and lets the chooser at the foot of the screen fill the sheet in. Both run against the same sheet so they can be compared before one wins; the setting is per device and never leaves it, so two screens can disagree on purpose.
+
 ## [0.34.0] — 2026-08-09
 
 ### Added

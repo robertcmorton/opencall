@@ -59,7 +59,29 @@ interface BranchMark {
   blockCloses: boolean;
   /** A result has been called and it was not this one. */
   dim: boolean;
+  /**
+   * Which layer of the ending this row is on.
+   *
+   * 0 is what can happen at full time — win, lose, or the extra period. 1 is
+   * what can happen on the far side of the extra period. A drawn match is only
+   * ever on layer 1; a win is on layer 0 and reachable again from layer 1,
+   * which is why the endings are a diamond rather than a list.
+   */
+  layer: 0 | 1;
+  /** First row of its layer within this block — the layer header goes above it. */
+  layerOpens: boolean;
 }
+
+/**
+ * How the alternate endings are laid out on the sheet.
+ *
+ * `layers` keeps every branch on the page under a header that carries the
+ * layer's one start time. `fork` collapses the whole block to a single row
+ * until a result is called, and lets the chooser at the foot of the screen do
+ * the calling. Both are being tried against real sheets before one wins.
+ */
+type OutcomeLayout = "layers" | "fork";
+const OUTCOME_LAYOUT_KEY = "oc:outcomelayout";
 
 function SortableRow({
   row,
@@ -362,6 +384,23 @@ export function RundownEditor({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [lastSelected, setLastSelected] = useState<string | null>(null);
   const [editingTime, setEditingTime] = useState<string | null>(null); // rowId
+  /**
+   * Which of the two ending layouts this device is using.
+   *
+   * Per device rather than per sheet, and deliberately not synced: the point is
+   * to run the same sheet both ways and compare, which needs two screens
+   * disagreeing. Read after mount so the server render and the first client
+   * render match.
+   */
+  const [outcomeLayout, setOutcomeLayout] = useState<OutcomeLayout>("layers");
+  useEffect(() => {
+    const saved = window.localStorage.getItem(OUTCOME_LAYOUT_KEY);
+    if (saved === "fork" || saved === "layers") setOutcomeLayout(saved);
+  }, []);
+  const chooseOutcomeLayout = (v: OutcomeLayout): void => {
+    setOutcomeLayout(v);
+    window.localStorage.setItem(OUTCOME_LAYOUT_KEY, v);
+  };
   const [durationPopover, setDurationPopover] = useState<string | null>(null); // rowId
   const [panel, setPanel] = useState<"guest" | "history" | "join" | null>(null);
   const [reconciling, setReconciling] = useState(false);
@@ -828,8 +867,53 @@ export function RundownEditor({
     return liveIdx < firstEnding && between <= 6;
   };
 
+  /**
+   * Which layer an ending sits on.
+   *
+   * A drawn match cannot happen at full time in a competition that has an
+   * extra period — a level score is the REASON there is one. So a draw is on
+   * the far side of it, and everything else is offered the moment the siren
+   * goes. Where there is no extra period on the sheet, a draw is an ordinary
+   * full-time result and this is a no-op, which is what Australian rules and
+   * league football need.
+   */
+  const layerOf = (g: number, outcome: string): 0 | 1 =>
+    outcome === "draw" && outcomesOfGame(g).includes("golden") ? 1 : 0;
+
+  /** What the layer header says, and when it begins. */
+  const layerLabel = (g: number, layer: 0 | 1): string =>
+    layer === 1
+      ? `After ${(showType?.extraLabel ?? "extra time").toLowerCase()}`
+      : outcomesOfGame(g).includes("golden")
+        ? "At full time"
+        : "How it ends";
+
   const outcomeStage = (g: number): "full-time" | "extra-time" | "settled" =>
     chosenOf(g) != null ? "settled" : goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
+
+  /**
+   * In `fork` layout, is this row one the sheet is currently hiding?
+   *
+   * The whole block collapses to a single line until somebody calls something.
+   * Once the extra period is under way its rows are back — they are being
+   * played — and once a result is called that branch is back too. Nothing is
+   * deleted; the rows are simply not drawn, so un-calling puts them straight
+   * back and the sheet the crew shares is unchanged.
+   */
+  const forkHides = (i: number): boolean => {
+    if (outcomeLayout !== "fork") return false;
+    const r = rows[i];
+    if (!r?.outcome) return false;
+    const g = r.outcomeGame ?? 1;
+    // Still entirely hypothetical — nothing called, no extra period under way
+    // — so the block collapses to its one fork line.
+    if (chosenOf(g) == null && !goldenPlaying(g)) return true;
+    // After that the RUNNING ORDER decides, which is the only honest test.
+    // Asking "is this the branch that was chosen" instead threw away the extra
+    // period the moment a result was called after it — twenty minutes of
+    // football everybody had just watched, gone off the sheet.
+    return Boolean(r.skipped);
+  };
   /** The game whose full time is nearest the live cue — the one being called. */
   const activeGame = (() => {
     if (outcomeGames.length === 0) return null;
@@ -884,15 +968,23 @@ export function RundownEditor({
     const keyAt = (j: number): string | null => (rows[j]?.outcome ? `${rows[j]!.outcomeGame ?? 1}:${rows[j]!.outcome}` : null);
     const key = `${game}:${r.outcome}`;
     const chosen = chosenOf(game);
+    const layer = layerOf(game, r.outcome);
+    // First row of this layer in this block. The branches of one layer are
+    // contiguous on every sheet we have, so the layer opens wherever the row
+    // above is either outside the block or on the layer before it.
+    const prevGame = gameAt(i - 1);
+    const prevLayer = prevGame === game && rows[i - 1]?.outcome ? layerOf(game, rows[i - 1]!.outcome!) : null;
     return {
       outcome: r.outcome,
       opens: keyAt(i - 1) !== key,
       closes: keyAt(i + 1) !== key,
-      blockOpens: gameAt(i - 1) !== game,
+      blockOpens: prevGame !== game,
       blockCloses: gameAt(i + 1) !== game,
       // Dimmed, never hidden: the endings that were not called stay readable,
       // because a result gets reversed more often than anyone would like.
       dim: chosen != null && chosen !== r.outcome,
+      layer,
+      layerOpens: prevGame !== game || prevLayer !== layer,
     };
   };
 
@@ -1542,6 +1634,30 @@ export function RundownEditor({
 
   const settings = (
     <>
+      {/* Only worth showing on a sheet that HAS alternate endings — on a
+          corporate day it is a setting for something that never happens. */}
+      {outcomeGames.length > 0 && (
+        <SideNavSection heading="Endings">
+          <button
+            type="button"
+            className="menu-item"
+            data-tip="Every ending stays on the sheet, grouped under the one time its layer starts at"
+            onClick={() => chooseOutcomeLayout("layers")}
+          >
+            <span className="check">{outcomeLayout === "layers" && "✓"}</span>
+            Show all, in layers
+          </button>
+          <button
+            type="button"
+            className="menu-item"
+            data-tip="One line at full time; the branch appears once you call the result"
+            onClick={() => chooseOutcomeLayout("fork")}
+          >
+            <span className="check">{outcomeLayout === "fork" && "✓"}</span>
+            One line until called
+          </button>
+        </SideNavSection>
+      )}
       <SideNavSection heading="Views">
         {(["follow", "timer", "prompter"] as const).map((view) => (
           <a
@@ -2224,13 +2340,45 @@ export function RundownEditor({
                 // Imported sheets keep THEIR numbering (blank where the sheet
                 // had none); manual rundowns count sequentially.
                 const mirrored = rows.some((r) => r.sourceNumber != null);
+                /**
+                 * Cells for a full-width banner row inside the table.
+                 *
+                 * A row is a leading number cell and then the sheet's own
+                 * columns, which the user can reorder — so the time has to be
+                 * placed by FINDING the time column rather than by assuming it
+                 * comes first. Getting that wrong put the layer's time in the
+                 * cue-number column, a third of its width.
+                 */
+                const timeIdx = orderedColumns.findIndex((c) => c.kind === "startTime");
+                const bannerCells = (timeSec: number | null, body: React.ReactNode): React.ReactNode => {
+                  const cells: React.ReactNode[] = [<td key="n" />];
+                  const lead = timeIdx < 0 ? 0 : timeIdx;
+                  for (let c = 0; c < lead; c++) cells.push(<td key={`b${c}`} />);
+                  if (timeIdx >= 0)
+                    cells.push(
+                      <td key="t" className="mono layer-time">
+                        {timeSec != null ? formatTimeOfDay(timeSec, meta.use24h) : "—"}
+                      </td>,
+                    );
+                  const used = 1 + lead + (timeIdx >= 0 ? 1 : 0);
+                  const totalCells = orderedColumns.length + (showZero ? 1 : 0) + 1;
+                  cells.push(
+                    <td key="body" colSpan={Math.max(1, totalCells - used)}>
+                      {body}
+                    </td>,
+                  );
+                  return cells;
+                };
                 return rows.map((rowRecord, i) => {
                 const t = timing.rows[i]!;
-                return (
+                const mark = branchAt(i);
+                const game = rowRecord.outcomeGame ?? 1;
+
+                const sheetRow = (
                   <SortableRow
                     key={rowRecord.id}
                     row={rowRecord}
-                    branch={branchAt(i)}
+                    branch={mark}
                     displayNumber={mirrored ? (rowRecord.sourceNumber ?? "") : String(i + 1)}
                     selected={selected.has(rowRecord.id)}
                     active={activeRowId === rowRecord.id}
@@ -2316,7 +2464,23 @@ export function RundownEditor({
                                 —
                               </span>
                             ) : t.startSec != null ? (
-                              formatTimeOfDay(t.startSec, meta.use24h)
+                              <>
+                                {formatTimeOfDay(t.startSec, meta.use24h)}
+                                {/* The other way in. A win reached through the
+                                    extra period runs the same rows later, and a
+                                    sheet printing only the earlier time is
+                                    quietly wrong for half the paths through the
+                                    day. Hidden in fork layout, where the block
+                                    is one line until the path is known. */}
+                                {outcomeLayout === "layers" && t.altStartSec != null && (
+                                  <span
+                                    className="alt-time"
+                                    data-tip={`Or ${formatTimeOfDay(t.altStartSec, meta.use24h)}, if the match goes to ${(showType?.extraLabel ?? "extra time").toLowerCase()} first`}
+                                  >
+                                    or {formatTimeOfDay(t.altStartSec, meta.use24h)}
+                                  </span>
+                                )}
+                              </>
                             ) : (
                               "—"
                             )}
@@ -2348,6 +2512,72 @@ export function RundownEditor({
                     })}
                   </SortableRow>
                 );
+
+                // An ordinary row, or a sheet with no alternate endings at all.
+                if (!mark) return sheetRow;
+
+                /**
+                 * Fork layout: the block is one line until something is called.
+                 *
+                 * Nothing is deleted — the rows are simply not drawn — so
+                 * un-calling a result puts them straight back, and every other
+                 * screen on the sheet is unaffected by which layout this one
+                 * happens to be using.
+                 */
+                if (outcomeLayout === "fork") {
+                  const open = chosenOf(game) == null && !goldenPlaying(game);
+                  const forkRow =
+                    mark.blockOpens && open ? (
+                      <tr key={`fork-${rowRecord.id}`} className="fork-row">
+                        {bannerCells(
+                          t.startSec,
+                          <>
+                            <span className="fork-lead">Full time</span>
+                            <span className="fork-note">
+                              {isShow ? "call it below — the sheet fills in" : "one of these will happen"}
+                            </span>
+                            {visibleOutcomesOf(game).map((o) => (
+                              <span key={o} className={`fork-chip oc-rail-${o}`}>
+                                {outcomeLabel(o)}
+                              </span>
+                            ))}
+                          </>,
+                        )}
+                      </tr>
+                    ) : null;
+                  if (forkHides(i)) return forkRow;
+                  return forkRow ? (
+                    <Fragment key={`fk-${rowRecord.id}`}>
+                      {forkRow}
+                      {sheetRow}
+                    </Fragment>
+                  ) : (
+                    sheetRow
+                  );
+                }
+
+                // Layered layout: a header carries the one time its whole
+                // layer starts at, so no branch row has to repeat it.
+                if (mark.layerOpens)
+                  return (
+                    <Fragment key={`ly-${rowRecord.id}`}>
+                      <tr className={`layer-row layer-${mark.layer}`}>
+                        {bannerCells(
+                          t.startSec,
+                          <>
+                            <span className="layer-lbl">{layerLabel(game, mark.layer)}</span>
+                            <span className="layer-note">
+                              {mark.layer === 1
+                                ? "only if it goes that far — one of these, all from this time"
+                                : "one of these, all from this time"}
+                            </span>
+                          </>,
+                        )}
+                      </tr>
+                      {sheetRow}
+                    </Fragment>
+                  );
+                return sheetRow;
                 });
               })()}
             </tbody>

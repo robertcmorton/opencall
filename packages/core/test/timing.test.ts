@@ -436,3 +436,104 @@ describe("absoluteNow — the clock against a sheet that runs past midnight", ()
     expect(absoluteNow(12 * 3600 + 59 * 60, tt)).toBe(12 * 3600 + 59 * 60);
   });
 });
+
+/**
+ * Endings are a diamond, not a list.
+ *
+ * Win and lose hang off full time AND off the extra period that a level score
+ * sends the match to — the same winning song either way, at two different
+ * times. A draw hangs off the extra period only, because a level score at full
+ * time is not a result in a competition that has a golden point; it is the
+ * reason there is one.
+ *
+ * The bug this pins: every ending, draw included, was starting at full time,
+ * so a sheet said the drawn-match wrap began at the same moment as the extra
+ * period that has to be played before a draw can exist.
+ */
+describe("computeTiming — the second layer of endings", () => {
+  const FULL_TIME = NINE_AM + 3600;
+  // Full time at 10:00. Win 18 min, lose 10, golden point 25, draw 6.
+  const game = (): PlanRow[] => [
+    row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+    row("win", { durationSec: 18 * 60, outcome: "win", outcomeGame: 1 }),
+    row("lose", { durationSec: 10 * 60, outcome: "lose", outcomeGame: 1 }),
+    row("golden", { durationSec: 25 * 60, outcome: "golden", outcomeGame: 1 }),
+    row("draw", { durationSec: 6 * 60, outcome: "draw", outcomeGame: 1 }),
+  ];
+  const at = (id: string, t: ReturnType<typeof computeTiming>) => t.rows.find((r) => r.id === id)!;
+
+  it("starts win, lose and the extra period together at full time", () => {
+    const t = computeTiming(game(), NINE_AM);
+    expect(at("win", t).startSec).toBe(FULL_TIME);
+    expect(at("lose", t).startSec).toBe(FULL_TIME);
+    expect(at("golden", t).startSec).toBe(FULL_TIME);
+  });
+
+  it("puts the drawn ending after the extra period, never level with it", () => {
+    // The whole complaint: a draw cannot happen until golden point has been
+    // played out, so it begins 25 minutes later than the rest.
+    const t = computeTiming(game(), NINE_AM);
+    expect(at("draw", t).startSec).toBe(FULL_TIME + 25 * 60);
+  });
+
+  it("gives win and lose their second start, on the far side of the extra period", () => {
+    const t = computeTiming(game(), NINE_AM);
+    expect(at("win", t).altStartSec).toBe(FULL_TIME + 25 * 60);
+    expect(at("lose", t).altStartSec).toBe(FULL_TIME + 25 * 60);
+  });
+
+  it("offers no second start to the extra period or to the draw", () => {
+    // Neither has two ways in: golden point only follows full time, a draw
+    // only follows golden point.
+    const t = computeTiming(game(), NINE_AM);
+    expect(at("golden", t).altStartSec ?? null).toBeNull();
+    expect(at("draw", t).altStartSec ?? null).toBeNull();
+  });
+
+  it("carries the second start down a multi-row branch", () => {
+    const rows: PlanRow[] = [
+      row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+      row("w1", { durationSec: 240, outcome: "win", outcomeGame: 1 }),
+      row("w2", { durationSec: 480, outcome: "win", outcomeGame: 1 }),
+      row("golden", { durationSec: 25 * 60, outcome: "golden", outcomeGame: 1 }),
+    ];
+    const t = computeTiming(rows, NINE_AM);
+    expect(at("w1", t).altStartSec).toBe(FULL_TIME + 25 * 60);
+    // The second row keeps its place within its own branch.
+    expect(at("w2", t).altStartSec).toBe(FULL_TIME + 25 * 60 + 240);
+  });
+
+  it("plans for the extra period AND the ending that follows it", () => {
+    // 25 minutes of golden point and then an 18-minute winning presentation is
+    // 43, not 25. Taking the longest single branch is the time the day needs
+    // only if the match is settled at full time.
+    const t = computeTiming(game(), NINE_AM);
+    expect(t.totalDurationSec).toBe(3600 + 25 * 60 + 18 * 60);
+  });
+
+  it("drops the second start once the result is actually called", () => {
+    // Golden point played, win called, everything else skipped: the path is
+    // known, so there is one time and offering two would be noise.
+    const rows = game().map((r) =>
+      r.id === "lose" || r.id === "draw" ? { ...r, skipped: true } : r,
+    );
+    const t = computeTiming(rows, NINE_AM);
+    expect(at("win", t).startSec).toBe(FULL_TIME + 25 * 60);
+    expect(at("win", t).altStartSec ?? null).toBeNull();
+  });
+
+  it("leaves a competition with no extra period completely alone", () => {
+    // Australian rules home-and-away: a draw IS the full-time result, there is
+    // no golden branch, and nothing should be pushed anywhere.
+    const rows: PlanRow[] = [
+      row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+      row("win", { durationSec: 18 * 60, outcome: "win", outcomeGame: 1 }),
+      row("lose", { durationSec: 10 * 60, outcome: "lose", outcomeGame: 1 }),
+      row("draw", { durationSec: 6 * 60, outcome: "draw", outcomeGame: 1 }),
+    ];
+    const t = computeTiming(rows, NINE_AM);
+    expect(at("draw", t).startSec).toBe(FULL_TIME);
+    expect(at("win", t).altStartSec ?? null).toBeNull();
+    expect(t.totalDurationSec).toBe(3600 + 18 * 60);
+  });
+});

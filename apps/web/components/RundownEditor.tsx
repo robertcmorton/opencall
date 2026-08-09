@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { ulid } from "ulid";
@@ -1389,8 +1391,16 @@ export function RundownEditor({
       <header className="topbar-head">
         <div className="topbar-left">
         <div className="topbar-name">
-        <h1 style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}>{meta.name}</h1>
-        {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          {/* The way back. It was only in the settings drawer, so getting to
+              the dashboard meant opening a panel and hunting for a link — and
+              after an import there was no back at all. */}
+          <Link className="btn btn-sm btn-ghost back-to-dash" href="/admin" data-tip="Back to the dashboard">
+            ← Dashboard
+          </Link>
+          <h1 style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}>{meta.name}</h1>
+          {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
+        </div>
         {/* The sheet's own shape — when it starts, how long it runs, when it
             ends — belongs UNDER its name, not in the row of live readouts.
             It is the same three numbers whether or not a show is running, and
@@ -1473,7 +1483,7 @@ export function RundownEditor({
         </div>
       </header>
 
-      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="sheet-toolbar no-print" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
         {isShow && (
           <TransportBar
             channel={channel}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   api,
   ApiError,
@@ -473,6 +474,7 @@ function DangerButton({ label, confirmLabel, onConfirm }: { label: string; confi
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<EventSummary[] | null>(null);
   const [locEvent, setLocEvent] = useState<EventSummary | null>(null);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
@@ -1053,9 +1055,12 @@ export default function AdminPage() {
                   replaceRundown={importFor.replace}
                   onClose={() => setImportFor(null)}
                   onDone={(rundownId) => {
+                    // Same window. A new tab for every import leaves a row of
+                    // near-identical tabs and no way back to the dashboard
+                    // except closing one — and on a tablet it is worse.
                     setImportFor(null);
                     reload();
-                    window.open(`/show/${rundownId}`, "_blank");
+                    router.push(`/show/${rundownId}`);
                   }}
                 />
               ) : null}

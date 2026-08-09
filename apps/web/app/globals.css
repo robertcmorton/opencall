@@ -1645,9 +1645,12 @@ th.col-drop-target {
 /* ---------- Mobile ---------- */
 
 .admin-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 3rem 1.5rem;
+  /* The dashboard lists events, run sheets and their crews side by side; a
+     960px column left half a widescreen empty and wrapped rows that had room
+     to sit on one line. */
+  max-width: none;
+  margin: 0;
+  padding: 2.2rem 2rem;
 }
 
 /* Visible only on small screens (the "All columns" toggle, per-entity ⋯ menus). */
@@ -2087,5 +2090,32 @@ th.col-drop-target {
   .outcome-dock .od-reset {
     min-width: 84px;
     height: 34px;
+  }
+}
+
+/* ── One height across the sheet's toolbar ────────────────────────────────
+   The row mixes plain buttons (32px), small buttons (26px) and chips, and
+   they are read as a single row of controls — three heights in it looked
+   like three kinds of thing. Set here rather than at every call site so a
+   new control cannot reintroduce the problem. */
+.sheet-toolbar .btn,
+.sheet-toolbar .btn-sm,
+.sheet-toolbar .chip {
+  height: 30px;
+  padding: 0 11px;
+  font-size: var(--fs-sm);
+  border-radius: var(--r-md);
+}
+.sheet-toolbar .chip {
+  display: inline-flex;
+  align-items: center;
+}
+/* Phones: same idea, one notch smaller. */
+@media (max-width: 760px), (max-height: 500px) {
+  .sheet-toolbar .btn,
+  .sheet-toolbar .btn-sm,
+  .sheet-toolbar .chip {
+    height: 28px;
+    padding: 0 9px;
   }
 }

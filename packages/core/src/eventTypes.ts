@@ -26,7 +26,7 @@ export interface EventTypeDef {
   id: string;
   label: string;
   /** Grouped in the picker: a cricket match and a product launch are not neighbours. */
-  group: "Sport" | "Production";
+  group: "Sport" | "Production" | "Yours";
   /** Endings offered at full time, in the order shown. Empty = no endings. */
   fullTime: OutcomeKey[];
   /**
@@ -170,8 +170,98 @@ export const EVENT_TYPES: EventTypeDef[] = [
 export const eventType = (id: string | null | undefined): EventTypeDef | null =>
   EVENT_TYPES.find((t) => t.id === id) ?? null;
 
+/**
+ * A type as it survives storage and the wire.
+ *
+ * `EventTypeDef` carries a compiled RegExp, which does not survive JSON. This
+ * is the same thing said in data: phrases as they appear on a sheet. A company
+ * adding its own sport types those phrases in ("4th quarter"), and nobody is
+ * ever asked for a regular expression.
+ */
+export interface EventTypeSpec {
+  id: string;
+  label: string;
+  group?: string;
+  fullTime: string[];
+  afterExtra: string[];
+  extraLabel?: string | null;
+  resultDuePhrases?: string[];
+  blurb?: string | null;
+}
+
+const OUTCOME_KEYS: OutcomeKey[] = ["win", "lose", "draw", "golden"];
+const asOutcomes = (v: unknown): OutcomeKey[] =>
+  Array.isArray(v) ? (v.filter((k): k is OutcomeKey => OUTCOME_KEYS.includes(k as OutcomeKey))) : [];
+
+/** Escapes everything a regex treats as syntax, so a phrase stays a phrase. */
+const escapeRe = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Compiles typed-in phrases into the pattern the live screen matches rows on.
+ *
+ * Whitespace inside a phrase matches any run of whitespace, because a sheet
+ * that wraps "4th  quarter" across a cell boundary means the same thing. Every
+ * other character is escaped: the phrases come from a form, and a stray
+ * bracket in one must not become syntax, or fail to compile, or worse.
+ *
+ * The word boundaries are applied PER PHRASE and only where they can match.
+ * `\b` between two non-word characters never matches, so wrapping a phrase
+ * like "Q4 (final)" in boundaries produces a pattern that silently matches
+ * nothing — and a kind of show whose result chooser simply never appears,
+ * with nothing on screen to say why.
+ */
+export function phrasesToPattern(phrases: string[]): RegExp | undefined {
+  const parts = phrases
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const body = escapeRe(p).replace(/\s+/g, "\\s+");
+      const lead = /^\w/.test(p) ? "\\b" : "";
+      const trail = /\w$/.test(p) ? "\\b" : "";
+      return `${lead}${body}${trail}`;
+    });
+  if (parts.length === 0) return undefined;
+  return new RegExp(`(?:${parts.join("|")})`, "i");
+}
+
+/** Turns a stored or transmitted type into one the app can use. */
+export function specToEventType(spec: EventTypeSpec): EventTypeDef {
+  const group = spec.group === "Sport" || spec.group === "Production" ? spec.group : "Yours";
+  return {
+    id: spec.id,
+    label: spec.label,
+    group,
+    fullTime: asOutcomes(spec.fullTime),
+    afterExtra: asOutcomes(spec.afterExtra),
+    ...(spec.extraLabel ? { extraLabel: spec.extraLabel } : {}),
+    ...(() => {
+      const re = phrasesToPattern(spec.resultDuePhrases ?? []);
+      return re ? { resultDueAfter: re } : {};
+    })(),
+    blurb: spec.blurb ?? "",
+  };
+}
+
+/**
+ * Look a type up among the built-ins AND whatever a company has added.
+ *
+ * Everything that decides live behaviour goes through here, so a custom type
+ * behaves exactly like a built-in one rather than being a second-class case
+ * handled in a few places and forgotten in the rest.
+ */
+export function resolveEventType(
+  id: string | null | undefined,
+  custom: EventTypeSpec[] = [],
+): EventTypeDef | null {
+  const built = eventType(id);
+  if (built) return built;
+  const own = custom.find((t) => t.id === id);
+  return own ? specToEventType(own) : null;
+}
+
 /** Does this kind of show have alternate endings to choose between? */
-export const hasOutcomes = (id: string | null | undefined): boolean => (eventType(id)?.fullTime.length ?? 0) > 0;
+export const hasOutcomes = (id: string | null | undefined, custom: EventTypeSpec[] = []): boolean =>
+  (resolveEventType(id, custom)?.fullTime.length ?? 0) > 0;
 
 /**
  * What to offer right now.
@@ -180,11 +270,29 @@ export const hasOutcomes = (id: string | null | undefined): boolean => (eventTyp
  * order — not something the type knows. A type with no `afterExtra` settles at
  * full time and never reaches the second list.
  */
-export function outcomesFor(id: string | null | undefined, extraPlaying: boolean): OutcomeKey[] {
-  const type = eventType(id);
+export function outcomesFor(
+  id: string | null | undefined,
+  extraPlaying: boolean,
+  custom: EventTypeSpec[] = [],
+): OutcomeKey[] {
+  const type = resolveEventType(id, custom);
   if (!type) return [];
   return extraPlaying && type.afterExtra.length > 0 ? type.afterExtra : type.fullTime;
 }
+
+/**
+ * A code that can be stored beside the built-in ids without colliding.
+ *
+ * Prefixed rather than merely checked for collisions: a company naming its type
+ * "Netball" should not silently take over the built-in one, nor be refused
+ * because a name it cannot see is taken.
+ */
+export function customEventTypeCode(label: string): string {
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32);
+  return `own:${slug || "type"}`;
+}
+
+export const isCustomEventType = (id: string | null | undefined): boolean => Boolean(id?.startsWith("own:"));
 
 /**
  * What a view-only link shows before anyone changes it.

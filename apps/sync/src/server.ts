@@ -16,6 +16,7 @@ import type * as Y from "yjs";
 import { ulid } from "ulid";
 import { createDocServer } from "./doc-server";
 import { createApiHandler, logServerError } from "./api";
+import { customEventTypeSpec } from "./eventTypes";
 import { PersistentShowStore } from "./sessions";
 import * as authMod from "./auth";
 
@@ -246,14 +247,21 @@ wss.on("connection", (ws, req) => {
       // The event's location decides the timezone every clock renders in.
       const rundownRow = await dbHandle.db.query.rundowns.findFirst({
         where: eq(schema.rundowns.id, rundownId),
-        columns: { eventId: true },
+        columns: { eventId: true, sport: true },
       });
       const eventRow = rundownRow
         ? await dbHandle.db.query.events.findFirst({
             where: eq(schema.events.id, rundownRow.eventId),
-            columns: { timezone: true, sport: true },
+            columns: { teamId: true, timezone: true, sport: true },
           })
         : null;
+      // THIS sheet's kind of show, falling back to the event's for sheets made
+      // before a sheet could have its own. A match day running netball on one
+      // sheet and rugby league on another needs the answer per sheet.
+      const sport = rundownRow?.sport ?? eventRow?.sport ?? undefined;
+      // Sent whole rather than as a code, so a type a company invented behaves
+      // live exactly like a built-in one without the screen fetching anything.
+      const eventTypeSpec = await customEventTypeSpec(dbHandle.db, sport, eventRow?.teamId);
       send(ws, {
         v: PROTOCOL_VERSION,
         t: "welcome",
@@ -263,7 +271,8 @@ wss.on("connection", (ws, req) => {
         show: (await showStore.get(rundownId)).current,
         doc: { mode: resolved.role === "guest" ? "projection" : "sync" },
         timezone: eventRow?.timezone,
-        sport: eventRow?.sport ?? undefined,
+        sport,
+        ...(eventTypeSpec ? { eventTypeSpec } : {}),
       });
       broadcastPresence(rundownId);
       return;

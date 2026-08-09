@@ -20,7 +20,7 @@ import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
 import { AdminNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
-import { isValidTimeZone, EVENT_TYPES, eventType } from "@opencall/core";
+import { isValidTimeZone, EVENT_TYPES, resolveEventType, type EventTypeSpec } from "@opencall/core";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
 function ImageSlot({ value, hint, onChange }: { value: string | null; hint: string; onChange: (img: string | null) => void }) {
@@ -85,19 +85,30 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
  * anybody's head. The blurb is shown under the choice: nobody should have to
  * guess what picking "AFL" will do.
  */
+/**
+ * Which kind of show a sheet is.
+ *
+ * Lives on the SHEET rather than the event: one match day can run a netball
+ * game off one sheet and a rugby league game off another, and they do not end
+ * the same way. `custom` are the kinds a company added for itself.
+ */
 function EventTypeSelect({
   value,
   onChange,
   compact,
   invalid,
+  custom = [],
+  placeholder = "Choose an event type…",
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   compact?: boolean;
   invalid?: boolean;
+  custom?: EventTypeSpec[];
+  placeholder?: string;
 }) {
   const groups = ["Sport", "Production"] as const;
-  const chosen = eventType(value);
+  const chosen = resolveEventType(value, custom);
   return (
     <span style={{ display: "inline-flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
       <select
@@ -107,7 +118,7 @@ function EventTypeSelect({
         onChange={(e) => onChange(e.target.value || null)}
         style={compact ? { height: 30, fontSize: "var(--fs-sm)", padding: "0 8px" } : undefined}
       >
-        <option value="">Choose an event type…</option>
+        <option value="">{placeholder}</option>
         {groups.map((g) => (
           <optgroup key={g} label={g}>
             {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
@@ -117,10 +128,17 @@ function EventTypeSelect({
             ))}
           </optgroup>
         ))}
+        {custom.length > 0 && (
+          <optgroup label="Yours">
+            {custom.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
-      {chosen && !compact && (
-        <span className="field-hint">{chosen.blurb}</span>
-      )}
+      {chosen?.blurb && !compact && <span className="field-hint">{chosen.blurb}</span>}
     </span>
   );
 }
@@ -243,14 +261,19 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
   // typed is nagging, not help.
   const [tried, setTried] = useState(false);
 
-  /** Everything an event needs before it is worth creating. */
+  /**
+   * Everything an event needs before it is worth creating.
+   *
+   * The kind of show is NOT on this list any more. It belongs to each run
+   * sheet, and a day that runs two sports has no single answer to give here —
+   * so it is offered as a default for the sheets made under it, not demanded.
+   */
   const missing = [
     !name.trim() && "Event name",
     !location.trim() && "Event location",
     !startDate && "Start date",
     !endDate && "End date",
     !isValidTimeZone(timezone) && "A valid time zone",
-    !sport && "Event type",
   ].filter((v): v is string => typeof v === "string");
 
   if (!open)
@@ -324,8 +347,8 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
       </div>
       <TimezoneField value={timezone} onChange={setTimezone} atDate={startDate} />
       <div>
-        <label className="field-label">Event type</label>
-        <EventTypeSelect value={sport} onChange={setSport} invalid={tried && !sport} />
+        <label className="field-label">Usual kind of show</label>
+        <EventTypeSelect value={sport} onChange={setSport} placeholder="Leave to each run sheet…" />
       </div>
       {tried && <MissingFields missing={missing} />}
       <div className="field-actions">
@@ -613,6 +636,8 @@ export default function AdminPage() {
   } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [companies, setCompanies] = useState<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>([]);
+  /** Kinds of show this company added for itself, offered beside the built-ins. */
+  const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
 
   const reload = useCallback(() => {
     api
@@ -628,6 +653,7 @@ export default function AdminPage() {
     api.templates().then(setTemplates).catch(() => undefined);
     api.me().then(setMe).catch(() => undefined);
     api.companies().then(setCompanies).catch(() => setCompanies([]));
+    api.eventTypes().then(setCustomTypes).catch(() => setCustomTypes([]));
   }, [showArchived]);
   useEffect(reload, [reload]);
 
@@ -931,11 +957,9 @@ export default function AdminPage() {
                   Rename
                 </button>
                 <DatesEditor key={`${event.startDate}${event.endDate}`} event={event} onSaved={reload} />
-                <EventTypeSelect
-                  compact
-                  value={event.sport}
-                  onChange={(v) => void api.patchEvent(event.id, { sport: v }).then(reload)}
-                />
+                {/* The kind of show is set per run sheet, on the sheet's own
+                    row — an event can host two sports at once and one setting
+                    up here could only ever describe one of them. */}
                 <button
                   className="btn btn-sm btn-ghost"
                   data-tip="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
@@ -1012,6 +1036,20 @@ export default function AdminPage() {
                         {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
                       </span>
                     </span>
+                    {/* The kind of show belongs to the SHEET: a match day can
+                        run netball off one and rugby league off the next, and
+                        they do not end the same way. */}
+                    {canManageRow(event) && (
+                      <span className="hide-mobile">
+                        <EventTypeSelect
+                          compact
+                          custom={customTypes}
+                          value={r.sport ?? event.sport}
+                          placeholder="Kind of show…"
+                          onChange={(v) => void api.patchRundown(r.id, { sport: v }).then(reload)}
+                        />
+                      </span>
+                    )}
                     {/* One button, decided by YOUR access: managers open the
                         console; view-only access opens the read-only view.
                         The other surfaces live in the ⋯ menu. */}
@@ -1165,7 +1203,15 @@ export default function AdminPage() {
               {importFor?.eventId === event.id ? (
                 <ImportPanel
                   eventId={event.id}
-                  eventType={event.sport}
+                  // Updating a sheet starts from what THAT sheet is; a new one
+                  // starts from the event's default. Seeding an update with the
+                  // event's would quietly retype a netball sheet as whatever
+                  // the day mostly is.
+                  eventType={
+                    importFor.replace
+                      ? (event.rundowns.find((r) => r.id === importFor.replace!.id)?.sport ?? event.sport)
+                      : event.sport
+                  }
                   replaceRundown={importFor.replace}
                   onClose={() => setImportFor(null)}
                   onDone={(rundownId) => {

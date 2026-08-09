@@ -18,6 +18,7 @@ import {
   suggestTimeFix,
   type ClassifiedRow,
   type ColumnTarget,
+  type EventTypeSpec,
 } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { api, fetchRundownSource } from "../lib/api";
@@ -181,10 +182,16 @@ export function ImportPanel({
    *
    * Asked at import because this is the moment somebody is looking at the
    * sheet and knows — and because it decides what the live result chooser
-   * offers, which is the wrong thing to discover at full time. It lives on the
-   * EVENT, so a second sheet for the same day inherits it.
+   * offers, which is the wrong thing to discover at full time. It is stored on
+   * THIS SHEET: a match day can run netball off one sheet and rugby league off
+   * the next, so the event's setting is only where the default comes from.
    */
   const [type, setType] = useState<string | null>(initialType);
+  /** Kinds of show the company added for itself, offered beside the built-ins. */
+  const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
+  useEffect(() => {
+    api.eventTypes().then(setCustomTypes).catch(() => setCustomTypes([]));
+  }, []);
   const [tried, setTried] = useState(false);
   const [rawGrid, setRawGrid] = useState<string[][] | null>(null); // as extracted, pre-merge
   const [lineMeta, setLineMeta] = useState<{ page: number; y: number }[] | undefined>(undefined);
@@ -375,10 +382,6 @@ export function ImportPanel({
   const doImport = () => {
     setTried(true);
     if (missing.length > 0) return;
-    // The type lives on the event, so a second sheet for the same day inherits
-    // it. Written before the rows: if this fails, nothing has been imported
-    // under the wrong kind of show.
-    if (type && type !== initialType) void api.patchEvent(eventId, { sport: type });
     // One conversion, shared with the audit script and the unit tests: what a
     // sheet BECOMES must not be decided by code only a browser can run.
     const built = buildSheet({ headers, mapping, rows }, { widths, roleColumnKey: roleKey, roles });
@@ -403,8 +406,16 @@ export function ImportPanel({
     void buildPayload()
       .then((payload) =>
         replaceRundown
-          ? api.replaceRundownContent(replaceRundown.id, payload).then(() => replaceRundown.id)
-          : api.createRundown({ eventId, name: name.trim() || "Imported rundown", ...payload }).then(({ id }) => id),
+          ? // Updating an existing sheet: the content is replaced, and the kind
+            // of show is set on the sheet itself rather than on the event, so
+            // re-importing a netball sheet cannot retype the rugby one beside it.
+            api
+              .replaceRundownContent(replaceRundown.id, payload)
+              .then(() => (type && type !== initialType ? api.patchRundown(replaceRundown.id, { sport: type }) : null))
+              .then(() => replaceRundown.id)
+          : api
+              .createRundown({ eventId, name: name.trim() || "Imported rundown", sport: type, ...payload })
+              .then(({ id }) => id),
       )
       .then((id) => onDone(id))
       .catch((err) => {
@@ -493,8 +504,8 @@ export function ImportPanel({
               </div>
             )}
             <div>
-              <label className="field-label" data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch">
-                Event type
+              <label className="field-label" data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch. It is set per run sheet, so one event can hold two sports.">
+                Kind of show
               </label>
               <select
                 className={"input " + (tried && !type ? "field-missing" : "")}
@@ -512,6 +523,15 @@ export function ImportPanel({
                     ))}
                   </optgroup>
                 ))}
+                {customTypes.length > 0 && (
+                  <optgroup label="Yours">
+                    {customTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div>

@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-08-09
+
+### Added
+- **Each run sheet says what kind of show it is.** It used to be a property of the event, which cannot describe a match day that runs a netball game off one sheet and a rugby league game off the next — and the setting decides what the result chooser offers at full time, so one answer for both is the wrong answer for one of them. Sheets made before this keep what they had: the move carries the event's setting down onto every existing sheet rather than clearing it. The event keeps its own as the default for the next sheet made under it.
+- **A company can add its own kind of show.** The built-in list was only ever going to cover the sports we had run sheets for. Adding one asks how a match ends in plain terms — whether a level score is the result or sends the match on, and whether the extra period can itself end level — rather than presenting a grid of outcomes and hoping for a coherent combination. Phrases like "4th quarter" are typed as they appear on your own sheets; nobody is asked for a regular expression. A kind you add behaves live exactly like a built-in one, because the definition travels with the show rather than being looked up.
+- **Imported run sheets are reviewable, grouped by kind of show.** The files were already kept so Update import could re-read them; they are now listed and downloadable under Kinds of show. Import rules are the part of this app most likely to be wrong for a sport nobody tested it against, and grouping the evidence by kind is what makes the gaps visible.
+
+### Changed
+- **Creating an event no longer demands a kind of show.** It was a required field describing something that now belongs to each sheet, and a day running two sports had no honest answer to give. It is still offered, as the default sheets inherit.
+- **Import and New rundown name line up.** Two boxes of the same width sitting one above the other read as a pair, so their contents have to start on the same line; the button was centring its label while the input's placeholder sat at its left padding.
+
 ## [0.33.1] — 2026-08-09
 
 ### Fixed

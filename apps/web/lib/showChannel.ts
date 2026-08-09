@@ -8,6 +8,7 @@ import {
   type Role,
   type ShowStatePayload,
 } from "@opencall/protocol";
+import type { EventTypeSpec } from "@opencall/core";
 import { resolveSyncUrl } from "./syncUrl";
 
 const SHOW_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_WS_URL, "ws://localhost:8787");
@@ -18,8 +19,17 @@ export interface ShowChannel {
   role: Role | null;
   /** IANA timezone of the event — governs every clock on this surface. */
   timezone: string | null;
-  /** Event's sport code ("nrl") — drives sport-specific live flows. */
+  /**
+   * The SHEET's kind of show ("nrl"), falling back to the event's — drives
+   * sport-specific live flows.
+   */
   sport: string | null;
+  /**
+   * The whole definition when the sheet uses a kind of show a company added.
+   * Built-in types are already in the client's own list; this arrives only for
+   * the ones that are not, so a custom type behaves live like any other.
+   */
+  eventTypeSpec: EventTypeSpec | null;
   show: ShowStatePayload | null;
   /** Server clock now: Date.now() + measured offset. */
   serverNow: () => number;
@@ -44,6 +54,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const [role, setRole] = useState<Role | null>(null);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
+  const [eventTypeSpec, setEventTypeSpec] = useState<EventTypeSpec | null>(null);
   const [show, setShow] = useState<ShowStatePayload | null>(null);
   const [lastCmdError, setLastCmdError] = useState<{ action: string; msg: string; at: number } | null>(null);
   // command id → what it was trying to do, so a refusal can name the action.
@@ -101,6 +112,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             setRole(msg.role);
             setTimezone(msg.timezone ?? null);
             setSport(msg.sport ?? null);
+            setEventTypeSpec((msg.eventTypeSpec as EventTypeSpec | undefined) ?? null);
             lastSeqRef.current = msg.show.seq;
             setShow(msg.show);
             welcomedRef.current = true;
@@ -158,6 +170,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     role,
     timezone,
     sport,
+    eventTypeSpec,
     show,
     serverNow: () => Date.now() + offsetRef.current,
     lastCmdError,

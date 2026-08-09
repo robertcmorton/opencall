@@ -19,6 +19,19 @@ import {
 import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
 import { grantInScope, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
+import { customEventTypes } from "./eventTypes";
+import { customEventTypeCode } from "@opencall/core";
+
+/**
+ * The endings a caller asked for, keeping only the ones that mean something.
+ *
+ * A type describing itself as ending in "banana" is not an error worth a form
+ * message — it is a client sending nonsense — but it must not be stored, or a
+ * live chooser would render a button nobody can act on.
+ */
+const OUTCOME_KEYS = ["win", "lose", "draw", "golden"] as const;
+const asOutcomeList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((k) => String(k)).filter((k) => (OUTCOME_KEYS as readonly string[]).includes(k)) : [];
 import {
   buildRundownDoc,
   decodeDoc,
@@ -960,6 +973,14 @@ export function createApiHandler(
           }
           await db.update(schema.rundowns).set(patch).where(eq(schema.rundowns.id, id));
         }
+        // What kind of show THIS sheet is. Null clears it, which falls back to
+        // the event's default rather than meaning "no type".
+        if (body.sport === null) {
+          await db.update(schema.rundowns).set({ sport: null }).where(eq(schema.rundowns.id, id));
+        } else if (typeof body.sport === "string") {
+          const sport = body.sport.trim().toLowerCase().slice(0, 40) || null;
+          await db.update(schema.rundowns).set({ sport }).where(eq(schema.rundowns.id, id));
+        }
         json(res, 200, { id });
         return true;
       }
@@ -1011,7 +1032,16 @@ export function createApiHandler(
           if (await canSeeEvent(handle, ctx, e.id, e.teamId)) events.push(e);
         }
         const rundowns = await db.query.rundowns.findMany({
-          columns: { id: true, eventId: true, name: true, description: true, showDate: true, archivedAt: true },
+          columns: {
+            id: true,
+            eventId: true,
+            name: true,
+            description: true,
+            showDate: true,
+            archivedAt: true,
+            sport: true,
+            sourceName: true,
+          },
         });
         json(
           res,
@@ -1064,10 +1094,86 @@ export function createApiHandler(
           startDate: createStart,
           endDate: createEnd,
           timezone: String(body.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
-          sport: typeof body.sport === "string" && body.sport.trim() ? body.sport.trim().toLowerCase().slice(0, 24) : null,
+          sport: typeof body.sport === "string" && body.sport.trim() ? body.sport.trim().toLowerCase().slice(0, 40) : null,
           use24h: Boolean(body.use24h ?? false),
         });
         json(res, 201, { id });
+        return true;
+      }
+
+      /**
+       * Kinds of show a company has added for itself.
+       *
+       * Readable by anyone who may see the company's events, because the
+       * picker on the import screen needs them; writable by whoever
+       * administers its people, which is the same bar as handing out access.
+       */
+      if (req.method === "GET" && pathname === "/event-types") {
+        const ctx = await authContext(handle, req);
+        const teamId = ctx?.kind === "company" ? ctx.teamId : typeof url.searchParams.get("teamId") === "string" ? url.searchParams.get("teamId") : null;
+        json(res, 200, { types: await customEventTypes(db, teamId) });
+        return true;
+      }
+
+      if (req.method === "POST" && pathname === "/event-types") {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const ctx = await authContext(handle, req);
+        const body = await readJson(req);
+        const label = String(body.label ?? "").trim().slice(0, 60);
+        if (!label) {
+          json(res, 400, { error: "Name this kind of show" });
+          return true;
+        }
+        const fullTime = asOutcomeList(body.fullTime);
+        if (fullTime.length === 0) {
+          json(res, 400, { error: "Choose how it can end" });
+          return true;
+        }
+        // Whose it is: a company's own, or the whole installation's when an
+        // administrator adds one without naming a company.
+        const teamId = scope.all ? (typeof body.teamId === "string" ? body.teamId : null) : scope.teamIds[0]!;
+        let code = customEventTypeCode(label);
+        // A second "Water polo" at another company must not collide on the
+        // unique code, and must not quietly overwrite the first.
+        if (await db.query.customEventTypes.findFirst({ where: eq(schema.customEventTypes.code, code) })) {
+          code = `${code}-${ulid().toLowerCase().slice(-6)}`;
+        }
+        const id = ulid();
+        await db.insert(schema.customEventTypes).values({
+          id,
+          teamId,
+          code,
+          label,
+          fullTime,
+          afterExtra: asOutcomeList(body.afterExtra),
+          extraLabel: typeof body.extraLabel === "string" && body.extraLabel.trim() ? body.extraLabel.trim().slice(0, 40) : null,
+          resultDuePhrases: Array.isArray(body.resultDuePhrases)
+            ? (body.resultDuePhrases as unknown[])
+                .map((p) => String(p ?? "").trim().slice(0, 60))
+                .filter(Boolean)
+                .slice(0, 8)
+            : [],
+          blurb: typeof body.blurb === "string" && body.blurb.trim() ? body.blurb.trim().slice(0, 200) : null,
+          createdBy: ctx?.kind === "user" ? ctx.userId : null,
+        });
+        json(res, 201, { id, code });
+        return true;
+      }
+
+      if (req.method === "DELETE" && /^\/event-types\/[^/]+$/.test(pathname)) {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const row = await db.query.customEventTypes.findFirst({
+          where: eq(schema.customEventTypes.id, pathname.split("/")[2]!),
+        });
+        // Another company's type is not merely un-deletable, it is not there.
+        if (!row || (!scope.all && !(row.teamId && scope.teamIds.includes(row.teamId)))) {
+          json(res, 404, { error: "unknown event type" });
+          return true;
+        }
+        await db.delete(schema.customEventTypes).where(eq(schema.customEventTypes.id, row.id));
+        json(res, 200, { ok: true });
         return true;
       }
 
@@ -1139,10 +1245,18 @@ export function createApiHandler(
         }
 
         const sourceFile = sourceFileValue(body.sourceFileB64);
+        // The kind of show is the SHEET's, chosen on the import screen. It
+        // falls back to the event's, which is the default for a day rather
+        // than a description of every sheet on it.
+        const sport =
+          typeof body.sport === "string" && body.sport.trim()
+            ? body.sport.trim().toLowerCase().slice(0, 40)
+            : (event.sport ?? null);
         await db.insert(schema.rundowns).values({
           id,
           eventId,
           name,
+          sport,
           description: body.description ? String(body.description) : null,
           showDate: body.showDate ? String(body.showDate) : null,
           plannedStartSec,
@@ -1152,6 +1266,53 @@ export function createApiHandler(
           sourceFile,
         });
         json(res, 201, { id });
+        return true;
+      }
+
+      /**
+       * The run sheets that have been imported, and what kind of show each was.
+       *
+       * The files were already being kept so Update import could re-read them;
+       * this makes them a corpus. Import rules are the part of this app most
+       * likely to be wrong for a sport nobody has tested it against, and the
+       * honest way to fix that is to look at real sheets — the netball entries
+       * in the built-in list were written from the rules of the game and one
+       * of them was wrong until a real sheet was read.
+       *
+       * Scoped like everything else: a company sees only its own events'.
+       */
+      if (req.method === "GET" && pathname === "/imported-sheets") {
+        const ctx = await authContext(handle, req);
+        const isAdmin = ctx?.kind === "admin";
+        const teamIds =
+          ctx?.kind === "company"
+            ? [ctx.teamId]
+            : ctx?.kind === "user"
+              ? ctx.grants.filter((g) => g.kind === "company").map((g) => g.targetId)
+              : [];
+        if (!isAdmin && teamIds.length === 0) {
+          json(res, 401, { error: "company or admin access required" });
+          return true;
+        }
+        const evs = await db.query.events.findMany({ columns: { id: true, name: true, teamId: true } });
+        const mine = new Set(evs.filter((e) => isAdmin || teamIds.includes(e.teamId)).map((e) => e.id));
+        const rows = await db.query.rundowns.findMany({
+          columns: { id: true, eventId: true, name: true, sport: true, sourceName: true, sourceFile: true, createdAt: true },
+        });
+        json(res, 200, {
+          sheets: rows
+            .filter((r) => r.sourceFile && mine.has(r.eventId))
+            .map((r) => ({
+              rundownId: r.id,
+              name: r.name,
+              eventName: evs.find((e) => e.id === r.eventId)?.name ?? null,
+              sport: r.sport,
+              sourceName: r.sourceName,
+              bytes: r.sourceFile?.length ?? 0,
+              importedAt: r.createdAt.toISOString(),
+            }))
+            .sort((a, b) => b.importedAt.localeCompare(a.importedAt)),
+        });
         return true;
       }
 

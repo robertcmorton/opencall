@@ -119,7 +119,15 @@ export const events = pgTable("events", {
   startDate: text("start_date").notNull(), // ISO date, event-local
   endDate: text("end_date").notNull(),
   timezone: text("timezone").notNull(),
-  /** Sport code ("nrl") — drives sport-specific live flows like outcome picks. */
+  /**
+   * The event's DEFAULT kind of show, inherited by rundowns created under it.
+   *
+   * The live behaviour reads the rundown's own type, not this one: a match day
+   * can run a netball game and a rugby league game off two sheets, and one
+   * setting on the event cannot describe both. Kept because it is a sensible
+   * default for the next sheet somebody makes, and because it is where the
+   * setting lived before rundowns had their own.
+   */
   sport: text("sport"),
   use24h: boolean("use_24h").notNull().default(false),
   image1: text("image1"),
@@ -137,6 +145,14 @@ export const rundowns = pgTable("rundowns", {
   eventId: text("event_id").notNull().references(() => events.id),
   name: text("name").notNull(),
   description: text("description"),
+  /**
+   * What kind of show THIS sheet is — the one the live result chooser reads.
+   *
+   * On the sheet rather than the event because a single match day can host two
+   * different sports at once, and they end differently. Null falls back to the
+   * event's default, which is what every sheet imported before this did.
+   */
+  sport: text("sport"),
   showDate: text("show_date"),
   plannedStartSec: integer("planned_start_sec"),
   doc: bytea("doc"),
@@ -173,6 +189,38 @@ export const templates = pgTable("templates", {
   name: text("name").notNull(),
   description: text("description"),
   doc: bytea("doc").notNull(),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: createdAt(),
+});
+
+/**
+ * Kinds of show a company has added for itself.
+ *
+ * The built-in list covers what we had sheets for; it was never going to cover
+ * what everyone runs. A company doing water polo, esports or a school athletics
+ * carnival can describe its own and have the live result chooser behave, without
+ * waiting for the list to be extended.
+ *
+ * Deliberately NOT a regex field. `resultDuePhrases` holds words as they appear
+ * on the sheet ("4th quarter"), escaped and compiled here — asking somebody
+ * setting up a netball season for a regular expression would be a way of saying
+ * the feature is not really for them.
+ */
+export const customEventTypes = pgTable("custom_event_types", {
+  id: id().primaryKey(),
+  /** Whose it is. Null = added by an administrator for the whole installation. */
+  teamId: text("team_id").references(() => teams.id),
+  /** Stored on rundowns and events, so it must not collide with a built-in id. */
+  code: text("code").notNull().unique(),
+  label: text("label").notNull(),
+  /** Endings offered at full time, in the order shown. Empty = one ending. */
+  fullTime: jsonb("full_time").$type<string[]>().notNull().default([]),
+  /** Endings once the extra period has been played. Empty = full time settles it. */
+  afterExtra: jsonb("after_extra").$type<string[]>().notNull().default([]),
+  extraLabel: text("extra_label"),
+  /** Phrases from the sheet that mean "the result is due after this". */
+  resultDuePhrases: jsonb("result_due_phrases").$type<string[]>().notNull().default([]),
+  blurb: text("blurb"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: createdAt(),
 });

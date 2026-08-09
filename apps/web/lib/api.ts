@@ -1,6 +1,6 @@
 "use client";
 
-import { parseCsv, parseDurationShorthand, parseTimeOfDay } from "@opencall/core";
+import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EventTypeSpec } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { resolveSyncUrl } from "./syncUrl";
 
@@ -13,6 +13,32 @@ export interface RundownSummary {
   description: string | null;
   showDate: string | null;
   archivedAt: string | null;
+  /**
+   * What kind of show THIS sheet is. Null inherits the event's default — one
+   * match day can run two sports, so the answer lives here rather than there.
+   */
+  sport: string | null;
+  /** Filename of the run sheet it was imported from, when it was. */
+  sourceName: string | null;
+}
+
+/**
+ * A company's own kind of show.
+ *
+ * `id` is the code a sheet stores; `rowId` is the record, which is what
+ * removing one needs. They are different on purpose and both are sent.
+ */
+export type CustomEventType = EventTypeSpec & { rowId: string; own: boolean };
+
+/** A run sheet kept from a past import, so the rules can be tuned against it. */
+export interface ImportedSheet {
+  rundownId: string;
+  name: string;
+  eventName: string | null;
+  sport: string | null;
+  sourceName: string | null;
+  bytes: number;
+  importedAt: string;
 }
 
 export interface EventSummary {
@@ -176,6 +202,8 @@ export const api = {
   createRundown: (body: {
     eventId: string;
     name: string;
+    /** What kind of show this SHEET is. Omitted inherits the event's default. */
+    sport?: string | null;
     description?: string;
     showDate?: string;
     plannedStartSec?: number | null;
@@ -273,8 +301,26 @@ export const api = {
   patchEvent: (id: string, body: { name?: string; location?: string; timezone?: string; startDate?: string; endDate?: string; sport?: string | null; image1?: string | null; image2?: string | null }) =>
     request<{ id: string }>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteEvent: (id: string) => request<{ id: string }>(`/events/${id}`, { method: "DELETE" }),
-  patchRundown: (id: string, body: { name?: string }) =>
+  patchRundown: (id: string, body: { name?: string; sport?: string | null }) =>
     request<{ id: string }>(`/rundowns/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  /** Kinds of show a company added for itself, on top of the built-in list. */
+  eventTypes: (teamId?: string) =>
+    request<{ types: CustomEventType[] }>(`/event-types${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`).then(
+      (r) => r.types,
+    ),
+  createEventType: (body: {
+    label: string;
+    fullTime: string[];
+    afterExtra: string[];
+    extraLabel?: string | null;
+    resultDuePhrases?: string[];
+    blurb?: string | null;
+    teamId?: string;
+  }) => request<{ id: string; code: string }>("/event-types", { method: "POST", body: JSON.stringify(body) }),
+  deleteEventType: (id: string) => request<{ ok: true }>(`/event-types/${id}`, { method: "DELETE" }),
+  /** Run sheets kept from past imports, with the kind of show each was for. */
+  importedSheets: () =>
+    request<{ sheets: ImportedSheet[] }>("/imported-sheets").then((r) => r.sheets),
   deleteRundown: (id: string) => request<Record<string, never>>(`/rundowns/${id}`, { method: "DELETE" }),
   duplicateRundown: (id: string) => request<{ id: string }>(`/rundowns/${id}/duplicate`, { method: "POST" }),
 };

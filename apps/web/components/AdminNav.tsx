@@ -11,7 +11,7 @@ export function AdminNavSection({
   active,
   role,
 }: {
-  active?: "users" | "errors";
+  active?: "users" | "errors" | "event-types";
   /** Who is looking. A company administers its own people but not the server. */
   role?: string | null;
 }) {
@@ -21,6 +21,10 @@ export function AdminNavSection({
       <Link className="menu-item" href="/admin/users">
         <span className="check">{active === "users" && "✓"}</span>
         Users &amp; access
+      </Link>
+      <Link className="menu-item" href="/admin/event-types">
+        <span className="check">{active === "event-types" && "✓"}</span>
+        Kinds of show
       </Link>
       {/* The error log is the SERVER's, not any one company's — it carries
           faults from every event on the install. */}

@@ -12,7 +12,7 @@ import {
   absoluteNow,
   computeTiming,
   defaultViewColumns,
-  eventType,
+  resolveEventType,
   outcomesFor,
   formatDuration,
   formatTimeOfDay,
@@ -337,6 +337,23 @@ export function RundownEditor({
     setActiveJoinCode(joinCode ?? null);
     return () => setActiveJoinCode(null);
   }, [joinCode]);
+  /**
+   * What kind of show THIS sheet is, resolved once for the whole screen.
+   *
+   * A kind a company added for itself arrives whole over the channel, because
+   * this client has no list to look it up in. Resolving here rather than at
+   * each use means a custom type reaches the result chooser, the extra-period
+   * label and the blurb by the same path a built-in one does — there is no
+   * second code path to forget about.
+   */
+  const customTypes = useMemo(
+    () => (channel.eventTypeSpec ? [channel.eventTypeSpec] : []),
+    [channel.eventTypeSpec],
+  );
+  const showType = useMemo(
+    () => resolveEventType(channel.sport, customTypes),
+    [channel.sport, customTypes],
+  );
   const live = useLiveTiming(channel, timing);
   const activeRowId = channel.show?.state === "running" || channel.show?.state === "paused" ? channel.show.activeRowId : null;
   // Pre-show walkthrough cursor — shared across every connected device.
@@ -797,7 +814,7 @@ export function RundownEditor({
     // The second half of THIS game: the last one named before its endings.
     // Each kind of show says how far in a result becomes possible — the second
     // half in league and football, the final quarter in Australian rules.
-    const dueAfter = eventType(channel.sport)?.resultDueAfter;
+    const dueAfter = showType?.resultDueAfter;
     let secondHalf = -1;
     for (let i = firstEnding - 1; i >= 0; i--) {
       if (dueAfter && dueAfter.test(rows[i]!.title)) {
@@ -986,7 +1003,7 @@ export function RundownEditor({
    */
   const visibleOutcomesOf = (g: number): string[] => {
     const present = outcomesOfGame(g);
-    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time");
+    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes);
     // A type the app does not know, or a sheet with no type set, shows whatever
     // endings the sheet itself carries — better than offering nothing.
     if (offered.length === 0) return [...present];
@@ -994,7 +1011,7 @@ export function RundownEditor({
   };
   const outcomeLabel = (o: string): string =>
     o === "golden"
-      ? `⚡ ${eventType(channel.sport)?.extraLabel ?? "Extra time"}`
+      ? `⚡ ${showType?.extraLabel ?? "Extra time"}`
       : o === "win"
         ? "Win"
         : o === "lose"
@@ -2353,7 +2370,7 @@ export function RundownEditor({
         <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             {outcomeStage(activeGame) === "extra-time" ? (
-              <span className="od-stage od-golden">⚡ {eventType(channel.sport)?.extraLabel ?? "Extra time"} playing</span>
+              <span className="od-stage od-golden">⚡ {showType?.extraLabel ?? "Extra time"} playing</span>
             ) : outcomeStage(activeGame) === "settled" ? (
               <span className="od-stage od-done">Result called</span>
             ) : (
@@ -2362,10 +2379,10 @@ export function RundownEditor({
             {outcomeGames.length > 1 && <span className="od-game">game {activeGame}</span>}
             <span className="od-hint">
               {outcomeStage(activeGame) === "extra-time"
-                ? `${eventType(channel.sport)?.extraLabel ?? "Extra time"} is in the running order. Call it when it lands.`
+                ? `${showType?.extraLabel ?? "Extra time"} is in the running order. Call it when it lands.`
                 : outcomeStage(activeGame) === "settled"
                   ? "The other endings are skipped. Every screen has followed."
-                  : (eventType(channel.sport)?.blurb ?? "Call the result when it happens.")}
+                  : (showType?.blurb || "Call the result when it happens.")}
             </span>
           </span>
           <span className="od-picks">

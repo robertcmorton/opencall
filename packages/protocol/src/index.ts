@@ -92,8 +92,30 @@ export const WelcomeMsg = z.object({
   doc: z.object({ mode: z.enum(["sync", "projection"]) }),
   /** IANA timezone of the event's location — governs every clock (additive v1.3). */
   timezone: z.string().optional(),
-  /** Event's sport code ("nrl") — drives sport-specific live flows (additive v1.6). */
+  /**
+   * The SHEET's kind of show ("nrl"), falling back to the event's — drives
+   * sport-specific live flows (additive v1.6; became per-sheet in v1.7,
+   * because one match day can run two sports off two sheets).
+   */
   sport: z.string().optional(),
+  /**
+   * The whole definition, when the sheet uses a type a company added rather
+   * than a built-in one (additive v1.7). Sent rather than looked up so a
+   * custom type behaves live exactly like a built-in, with no second fetch
+   * from a phone on venue wifi.
+   */
+  eventTypeSpec: z
+    .object({
+      id: z.string(),
+      label: z.string(),
+      group: z.string().optional(),
+      fullTime: z.array(z.string()),
+      afterExtra: z.array(z.string()),
+      extraLabel: z.string().nullable().optional(),
+      resultDuePhrases: z.array(z.string()).optional(),
+      blurb: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 
 export const PongMsg = z.object({ ...envelope, t: z.literal("pong"), t0: z.number(), t1: z.number() });

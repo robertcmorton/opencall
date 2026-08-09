@@ -2337,3 +2337,56 @@ th.col-drop-target {
     top: calc(100% + 4px);
   }
 }
+
+/* ── "Who's watching?" ────────────────────────────────────────────────────
+   Asked once per device, before the sheet appears — nobody answers a question
+   they can already see past. */
+.viewer-gate {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.viewer-gate .vg-card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 1.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+.viewer-gate .vg-title {
+  margin: 4px 0 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.viewer-gate .vg-blurb {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.viewer-gate .vg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.viewer-gate .vg-form .input {
+  height: 40px;
+  font-size: 1rem;
+}
+.viewer-gate .vg-form .btn {
+  height: 40px;
+}
+/* Said plainly and up front, not buried in a policy nobody opens. */
+.viewer-gate .vg-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}

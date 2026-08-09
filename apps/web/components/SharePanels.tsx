@@ -66,74 +66,83 @@ export function GuestPassPanel({ rundownId, columns, onClose }: { rundownId: str
   );
 }
 
+/**
+ * View-only links, and who is holding them.
+ *
+ * One kind of link now. Caller and editor codes were withdrawn: a code is a
+ * thing that gets photographed off a wall and forwarded out of a group chat,
+ * and neither of those should end with a stranger holding the transport.
+ * Running or editing a show takes an account with a password.
+ *
+ * This replaced two panels that did nearly the same thing — a "join code" and
+ * a "guest pass" — which nothing on screen distinguished.
+ */
 export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onClose: () => void }) {
   const [codes, setCodes] = useState<{ id: string; joinCode: string | null; role: string; label: string | null }[]>([]);
+  const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
   const [name, setName] = useState("");
-  const reload = () => void api.joinCodes(rundownId).then(setCodes);
+  const reload = () => {
+    void api.joinCodes(rundownId).then(setCodes);
+    void api.viewers(rundownId).then(setViewers).catch(() => setViewers([]));
+  };
   useEffect(reload, [rundownId]);
 
-  // The URL a code holder should be handed, by role.
-  const urlFor = (code: string, role: string) => {
-    const route = role === "caller" ? "show" : role === "editor" ? "edit" : "view";
-    return `${window.location.origin}/${route}/${rundownId}?code=${code}`;
-  };
+  const urlFor = (code: string) => `${window.location.origin}/view/${rundownId}?code=${code}`;
+  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+
+  // Codes issued before caller and editor links were withdrawn. They no longer
+  // open anything — saying so is better than leaving them in a list looking
+  // like they work.
+  const withdrawn = codes.filter((c) => c.role !== "follower");
+  const live = codes.filter((c) => c.role === "follower");
 
   return (
     <div className="panel" style={panelStyle}>
-      <strong>Join codes — enter on the landing page or open the copied URL. Caller → console, editor → edit, follower → view.</strong>
+      <strong>View-only links</strong>
+      <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+        A link opens this run sheet read-only and asks for a name before it shows anything. Running or editing the show
+        needs an account.
+      </span>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <button
-          className="btn btn-sm btn-primary"
-          data-tip="Copies a URL that opens this rundown read-only — hand it to camera operators and crew"
-          onClick={() =>
-            void copyViewOnlyLink(rundownId).then((url) => {
-              reload();
-              window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this rundown live.`);
-            })
-          }
-        >
-          Copy view-only link
-        </button>
         <input
           className="input"
-          placeholder="Who is this code for? (e.g. Sarah — Cam 2)"
-          data-tip="The name travels with the code — every screen shows who joined with it"
+          placeholder="Who is this link for? (e.g. Camera crew)"
+          data-tip="Names the link, so you can tell one from another and revoke the right one"
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{ minWidth: 220 }}
         />
-        {(["follower", "editor", "caller"] as const).map((role) => (
-          <button
-            key={role}
-            className="btn btn-sm"
-            onClick={() =>
-              void api.createJoinCode(rundownId, role, name.trim() || undefined).then(() => {
-                setName("");
-                reload();
-              })
-            }
-          >
-            + {role} code
-          </button>
-        ))}
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={() =>
+            void api.createJoinCode(rundownId, "follower", name.trim() || undefined).then(() => {
+              setName("");
+              reload();
+            })
+          }
+        >
+          + View-only link
+        </button>
       </div>
+
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        {codes.map((c) => (
-          <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+        {live.map((c) => (
+          <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
             <code style={{ background: "var(--bg)", border: "1px solid var(--border-subtle)", padding: "3px 8px", borderRadius: 4, fontSize: "1rem", letterSpacing: "0.15em" }}>
               {c.joinCode}
             </code>
-            <span style={{ color: "var(--text-2)", minWidth: 120 }}>{c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed</span>}</span>
-            <span style={{ color: "var(--text-3)" }}>{c.role}</span>
+            <span style={{ color: "var(--text-2)", minWidth: 120 }}>
+              {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed</span>}
+            </span>
             {c.joinCode && (
-              <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(urlFor(c.joinCode!, c.role))}>
-                Copy URL
+              <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(urlFor(c.joinCode!))}>
+                Copy link
               </button>
             )}
             <button
               className="btn btn-sm btn-ghost"
               style={{ color: "var(--over)" }}
-              data-tip="Revoke: this code stops working everywhere immediately"
+              data-tip="Revoke: this link stops working everywhere immediately, and its viewer list goes with it"
               onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
             >
               Revoke
@@ -141,7 +150,49 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
           </li>
         ))}
       </ul>
-      {codes.length === 0 && <span style={{ color: "var(--text-3)" }}>No codes yet.</span>}
+      {live.length === 0 && <span style={{ color: "var(--text-3)" }}>No links yet.</span>}
+
+      {withdrawn.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <strong style={{ color: "var(--warn)" }}>No longer working</strong>
+          <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)", marginBottom: 6 }}>
+            Caller and editor codes have been withdrawn. Anyone holding one is told to sign in. Revoke them to tidy up.
+          </span>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            {withdrawn.map((c) => (
+              <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <code style={{ opacity: 0.6, letterSpacing: "0.15em" }}>{c.joinCode}</code>
+                <span style={{ color: "var(--text-3)" }}>{c.role}</span>
+                <button className="btn btn-sm btn-ghost" onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}>
+                  Revoke
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+        <strong>Who has it open</strong>
+        {viewers.length === 0 ? (
+          <span style={{ display: "block", color: "var(--text-3)" }}>Nobody has opened a link yet.</span>
+        ) : (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            {viewers.map((v) => (
+              <li key={v.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+                <strong style={{ minWidth: 120 }}>{v.name}</strong>
+                <span style={{ color: "var(--text-2)" }}>
+                  {[v.os, v.browser, v.screen].filter(Boolean).join(" · ")}
+                </span>
+                {v.ip && <span style={{ color: "var(--text-3)" }}>{v.ip}</span>}
+                {v.link && <span style={{ color: "var(--text-3)" }}>via {v.link}</span>}
+                <span style={{ color: "var(--text-3)" }}>last seen {when(v.lastSeenAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onClose}>
         Close
       </button>
@@ -149,12 +200,6 @@ export function JoinCodesPanel({ rundownId, onClose }: { rundownId: string; onCl
   );
 }
 
-/**
- * In-place restore, armed two-click (no browser dialogs): replaces THIS
- * rundown's content with the snapshot. The server saves a "Before restore"
- * snapshot first and bumps the doc epoch, so every open screen reloads the
- * restored content and pre-restore edits can't leak back.
- */
 function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   const [armed, setArmed] = useState(false);
   return (

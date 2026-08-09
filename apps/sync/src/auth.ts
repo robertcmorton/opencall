@@ -110,11 +110,22 @@ export function bearerToken(req: IncomingMessage): string | null {
 }
 
 /** Looks up a join code (optionally scoped to one rundown). */
+/**
+ * Resolves a share code.
+ *
+ * Codes are VIEW-ONLY now. Running or editing a show takes an account with a
+ * password — a code is a thing that gets photographed off a wall and forwarded
+ * out of a group chat, and neither of those should end with a stranger holding
+ * the transport. Caller and editor codes issued before this still resolve, so
+ * the doc server can tell their holder to sign in rather than leaving them
+ * staring at a screen that will not load; nothing new is ever issued with
+ * those roles.
+ */
 export async function resolveJoinCode(
   handle: DbHandle,
   code: string,
   rundownId?: string,
-): Promise<{ role: "caller" | "editor" | "follower"; rundownId: string } | null> {
+): Promise<{ role: "caller" | "editor" | "follower"; rundownId: string; tokenId: string } | null> {
   const conditions = [
     eq(schema.shareTokens.joinCode, code.toUpperCase()),
     eq(schema.shareTokens.kind, "join"),
@@ -122,7 +133,8 @@ export async function resolveJoinCode(
   ];
   if (rundownId) conditions.push(eq(schema.shareTokens.rundownId, rundownId));
   const row = await handle.db.query.shareTokens.findFirst({ where: and(...conditions) });
-  if (row && row.role !== "guest") return { role: row.role as "caller" | "editor" | "follower", rundownId: row.rundownId };
+  if (row && row.role !== "guest")
+    return { role: row.role as "caller" | "editor" | "follower", rundownId: row.rundownId, tokenId: row.id };
   return null;
 }
 

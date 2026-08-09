@@ -79,6 +79,12 @@ function describeRefusal(reason: string, identity: string | null, signedIn: bool
       detail: "The sign-in works, but it has not been given access to this event. Ask for access, or open the sheet with a join code.",
       action: "ask-for-access",
     },
+    "code-is-view-only": {
+      title: "This code is for viewing only",
+      detail:
+        "Codes open the run sheet read-only. Running or editing a show needs an account — ask whoever runs the sheet to sign you in.",
+      action: "sign-in",
+    },
     "viewing-closed": {
       title: "This run sheet is closed",
       detail: "The event is over and the showcaller has closed the sheet. Whoever ran the show can open it again if you still need it.",

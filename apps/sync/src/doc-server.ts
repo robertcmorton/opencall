@@ -58,7 +58,8 @@ export type DocRefusal =
   | "not-signed-in"
   | "signin-not-recognised"
   | "no-access-for-this-account"
-  | "viewing-closed";
+  | "viewing-closed"
+  | "code-is-view-only";
 
 export function createDocServer(handle: DbHandle): Hocuspocus {
   const currentEpoch = async (rundownId: string): Promise<number | null> => {
@@ -121,10 +122,12 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         }
         const resolved = await resolveJoinCode(handle, token, rundownId);
         if (resolved) {
-          if (resolved.role === "follower") {
-            if (await viewingClosed(rundownId)) refuse("viewing-closed", rundownId);
-            connection.readOnly = true;
-          }
+          // Every code is view-only. Caller and editor codes were withdrawn;
+          // one issued before that still resolves so its holder gets told to
+          // sign in, rather than a screen that quietly never loads.
+          if (resolved.role !== "follower") refuse("code-is-view-only", rundownId);
+          if (await viewingClosed(rundownId)) refuse("viewing-closed", rundownId);
+          connection.readOnly = true;
           return;
         }
         // A credential that resolves to somebody but carries no grant for this

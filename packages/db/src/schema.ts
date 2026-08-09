@@ -186,6 +186,36 @@ export const shareTokens = pgTable("share_tokens", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });
 
+/**
+ * Who opened a view-only link, and on what.
+ *
+ * A link gets forwarded. Without this a showcaller can see that six devices
+ * are connected and nothing about whose they are — which is no use at all when
+ * the question is "has camera 2 got the running order yet?".
+ *
+ * One row per device per link, updated on each visit rather than appended, so
+ * the list stays a list of PEOPLE and not a log of page loads.
+ *
+ * The address is recorded because venue networks are where this goes wrong and
+ * it is the only way to tell two identical iPads apart. It is personal data:
+ * it belongs to the sharing record, is shown only to whoever can manage the
+ * run sheet, and goes when the link is revoked or the sheet deleted.
+ */
+export const shareViews = pgTable("share_views", {
+  id: id().primaryKey(),
+  shareTokenId: text("share_token_id").notNull().references(() => shareTokens.id, { onDelete: "cascade" }),
+  /** What they typed when the link asked. */
+  name: text("name").notNull(),
+  /** A stable id kept in the device's own storage, so revisits update a row. */
+  deviceId: text("device_id").notNull(),
+  browser: text("browser"),
+  os: text("os"),
+  screen: text("screen"),
+  ip: text("ip"),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── Live show state ────────────────────────────────────────────────────────────
 
 export const showSessionStates = ["running", "paused", "ended"] as const;

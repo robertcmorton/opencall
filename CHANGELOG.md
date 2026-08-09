@@ -9,7 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **One view-only link, replacing join codes and guest passes.** They were two mechanisms doing nearly the same job with nothing on screen to tell them apart — one opened the live document, the other a filtered copy — so a showcaller had to know which was which to know what they had shared. There is now one kind of link. It opens the run sheet read-only, and that is all it can ever do.
+- **Running or editing a show needs an account.** Caller and editor codes have been withdrawn. A code is a thing that gets photographed off a wall and forwarded out of a group chat, and neither should end with a stranger holding the transport. **This is a breaking change:** caller and editor codes already handed out stop working. They are not ignored — whoever holds one is told the code is view-only and to sign in — and they are listed under "No longer working" in the sharing panel so they can be tidied away.
+- **A view-only link asks who is watching.** These links are meant to be forwarded, so a count of connected devices told a showcaller nothing about whether camera 2 had the running order. The name is asked for once per device, before the sheet appears, and appears against that device in the sharing panel. Recorded with it: browser, operating system, screen size and network address — said plainly on the screen that asks, not buried in a policy. It goes when the link is revoked.
+
+### Fixed
+- **The sync server closes its database before it exits.** Nothing did, so every stop was effectively pulling the plug. Postgres survives that; the embedded database used in development does not — killed mid-write it leaves a directory that will not open again, and the next run fails inside initdb with nothing that names the cause. A deploy sends the same signal, so this is the right thing in production too.
 
 ## [0.29.0] — 2026-08-09
 

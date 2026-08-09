@@ -133,6 +133,31 @@ process.on("unhandledRejection", (reason) => {
   logServerError(dbHandle, "process", reason);
 });
 
+/**
+ * Close the database before going.
+ *
+ * Nothing did, so every stop was effectively pulling the plug. Postgres
+ * survives that; the embedded PGlite used in development does not — killed
+ * mid-write it leaves a directory that will not open again, and the next run
+ * aborts inside initdb with nothing that names the cause. Two dev databases
+ * were lost that way before this existed.
+ *
+ * Also the right thing in production: a deploy sends SIGTERM, and a clean
+ * close finishes whatever write is in flight rather than abandoning it.
+ */
+let closing = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    if (closing) return; // a second Ctrl-C should not race the first
+    closing = true;
+    console.log(`[sync] ${signal} — closing the database`);
+    void dbHandle
+      .close()
+      .catch((err) => console.error("[sync] close failed:", err))
+      .finally(() => process.exit(0));
+  });
+}
+
 const docServer = createDocServer(dbHandle);
 
 // HTTP: JSON API for the web app.

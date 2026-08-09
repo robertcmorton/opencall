@@ -1,4 +1,5 @@
 import { RundownEditor } from "../../../components/RundownEditor";
+import { ViewerGate } from "../../../components/ViewerGate";
 
 export default async function Page({
   params,
@@ -9,5 +10,9 @@ export default async function Page({
 }) {
   const { id } = await params;
   const { code } = await searchParams;
-  return <RundownEditor rundownId={id} mode="view" joinCode={code} />;
+  return (
+    <ViewerGate code={code}>
+      <RundownEditor rundownId={id} mode="view" joinCode={code} />
+    </ViewerGate>
+  );
 }

@@ -1547,9 +1547,13 @@ export function RundownEditor({
           {/* Icon only, and a fixed size. As a text button it changed width
               with the label and sat in the same wrapping flex as the sheet
               name, so it moved every time the window did. */}
-          <Link className="back-to-dash" href="/admin" aria-label="Back to the dashboard" data-tip="Back to the dashboard">
-            ←
-          </Link>
+          {/* Not for someone on a view-only link: they have no dashboard, and
+              a back button that lands on a sign-in page is worse than none. */}
+          {mode !== "view" && (
+            <Link className="back-to-dash" href="/admin" aria-label="Back to the dashboard" data-tip="Back to the dashboard">
+              ←
+            </Link>
+          )}
           {/* The sheet's name, changed where it is read. It was set once at
               import from the file name and could only be altered from the
               dashboard — so every sheet was called whatever the PDF was. */}

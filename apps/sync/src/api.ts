@@ -1024,16 +1024,112 @@ export function createApiHandler(
           { length: 6 },
           () => alphabet[Math.floor(Math.random() * alphabet.length)]!,
         ).join("");
+        // Every code is view-only. Running or editing a show takes an account
+        // with a password: a code is a thing that gets photographed off a wall
+        // and forwarded out of a group chat, and neither of those should end
+        // with a stranger holding the transport.
+        if (role !== "follower") {
+          json(res, 400, {
+            error: "Codes are view-only. Running or editing a show needs an account.",
+          });
+          return true;
+        }
         await db.insert(schema.shareTokens).values({
           id: ulid(),
           rundownId,
           kind: "join",
           token: ulid(),
           joinCode: code,
-          role: role as (typeof schema.shareRoles)[number],
+          role: "follower",
           label,
         });
-        json(res, 201, { code, role, label });
+        json(res, 201, { code, role: "follower", label });
+        return true;
+      }
+
+      /**
+       * "This is me, on this device."
+       *
+       * Sent once a viewer has given a name. One row per device per link,
+       * updated on return rather than appended, so what a showcaller reads is
+       * a list of people rather than a log of page loads.
+       */
+      if (req.method === "POST" && /^\/codes\/[^/]+\/viewer$/.test(pathname)) {
+        const code = pathname.split("/")[2]!;
+        const resolved = await resolveJoinCode(handle, code);
+        if (!resolved) {
+          json(res, 404, { error: "unknown code" });
+          return true;
+        }
+        const body = await readJson(req);
+        const str = (v: unknown, max: number): string | null => {
+          const t = typeof v === "string" ? v.trim() : "";
+          return t ? t.slice(0, max) : null;
+        };
+        const name = str(body.name, 60);
+        const deviceId = str(body.deviceId, 64);
+        if (!name || !deviceId) {
+          json(res, 400, { error: "name and deviceId are required" });
+          return true;
+        }
+        // Behind Railway's proxy the socket address is the proxy's; the first
+        // entry of x-forwarded-for is the client. Trusting it is fine for a
+        // record kept for the showcaller's own eyes — it is not a credential.
+        const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",")[0]?.trim();
+        const ip = forwarded || req.socket.remoteAddress || null;
+        const existing = await db.query.shareViews.findFirst({
+          where: and(eq(schema.shareViews.shareTokenId, resolved.tokenId), eq(schema.shareViews.deviceId, deviceId)),
+        });
+        if (existing) {
+          await db
+            .update(schema.shareViews)
+            .set({ name, browser: str(body.browser, 60), os: str(body.os, 40), screen: str(body.screen, 20), ip, lastSeenAt: new Date() })
+            .where(eq(schema.shareViews.id, existing.id));
+        } else {
+          await db.insert(schema.shareViews).values({
+            id: ulid(),
+            shareTokenId: resolved.tokenId,
+            name,
+            deviceId,
+            browser: str(body.browser, 60),
+            os: str(body.os, 40),
+            screen: str(body.screen, 20),
+            ip,
+          });
+        }
+        json(res, 200, { ok: true, rundownId: resolved.rundownId });
+        return true;
+      }
+
+      /** Who has this run sheet open on a view-only link — managers only. */
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/viewers$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const tokens = await db.query.shareTokens.findMany({ where: eq(schema.shareTokens.rundownId, rundownId) });
+        const ids = tokens.map((t) => t.id);
+        if (ids.length === 0) {
+          json(res, 200, []);
+          return true;
+        }
+        const views = await db.query.shareViews.findMany({ where: inArray(schema.shareViews.shareTokenId, ids) });
+        const labelOf = new Map(tokens.map((t) => [t.id, t.label ?? null]));
+        json(
+          res,
+          200,
+          views
+            .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+            .map((v) => ({
+              id: v.id,
+              name: v.name,
+              link: labelOf.get(v.shareTokenId) ?? null,
+              browser: v.browser,
+              os: v.os,
+              screen: v.screen,
+              ip: v.ip,
+              firstSeenAt: v.firstSeenAt.toISOString(),
+              lastSeenAt: v.lastSeenAt.toISOString(),
+            })),
+        );
         return true;
       }
 

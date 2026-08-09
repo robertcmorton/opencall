@@ -206,6 +206,27 @@ export const api = {
     ),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   templates: () => request<TemplateSummary[]>("/templates"),
+  /** "This is me, on this device" — sent once a view-only link has a name. */
+  recordViewer: (code: string, body: { name: string; deviceId: string; browser: string; os: string; screen: string }) =>
+    request<{ ok: true; rundownId: string }>(`/codes/${encodeURIComponent(code)}/viewer`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** Who has this run sheet open on a view-only link. */
+  viewers: (rundownId: string) =>
+    request<
+      {
+        id: string;
+        name: string;
+        link: string | null;
+        browser: string | null;
+        os: string | null;
+        screen: string | null;
+        ip: string | null;
+        firstSeenAt: string;
+        lastSeenAt: string;
+      }[]
+    >(`/rundowns/${rundownId}/viewers`),
   /** Close the sheet to its audience once the event is done, or open it again. */
   setViewing: (rundownId: string, closed: boolean) =>
     request<{ closed: boolean }>(`/rundowns/${rundownId}/viewing`, { method: "POST", body: JSON.stringify({ closed }) }),

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { keepTipsOnScreen } from "../lib/keepTipsOnScreen";
+
 /**
  * Holds the layout still on phones and tablets.
  *
@@ -16,6 +18,10 @@ import { useEffect } from "react";
  * tablet. Scrolling and the browser's own accessibility zoom are untouched.
  */
 export function ViewportLock() {
+  // Tooltips are pseudo-elements and CSS cannot see the edge of the screen;
+  // one listener for the whole app nudges any that would run off it.
+  useEffect(() => keepTipsOnScreen(), []);
+
   useEffect(() => {
     const stop = (e: Event) => e.preventDefault();
     document.addEventListener("gesturestart", stop);

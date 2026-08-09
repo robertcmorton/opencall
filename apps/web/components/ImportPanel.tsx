@@ -182,6 +182,33 @@ export function ImportPanel({
   const [headerIndex, setHeaderIndex] = useState(0);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnTarget[]>([]);
+  const [dragCol, setDragCol] = useState<number | null>(null);
+
+  /**
+   * Moves a source column, before the sheet is imported.
+   *
+   * The grid itself is reordered rather than a display order kept beside it,
+   * so everything downstream — the mapping, the detected roles, the built
+   * columns and their order in the run sheet — behaves exactly as if the
+   * source had come in that way. The mapping moves with its column; leaving
+   * it behind would silently point every dropdown at the wrong data.
+   *
+   * Order matters beyond tidiness: on a narrow screen the run sheet folds
+   * columns from the right, so this is also where you choose what survives.
+   */
+  const moveColumn = (from: number, to: number): void => {
+    if (!grid || from === to || from < 0 || to < 0) return;
+    const width = Math.max(...grid.map((r) => r.length), mapping.length);
+    const move = <T,>(arr: T[], fill: T): T[] => {
+      const padded = [...arr];
+      while (padded.length < width) padded.push(fill);
+      const [taken] = padded.splice(from, 1);
+      padded.splice(to, 0, taken as T);
+      return padded;
+    };
+    setGrid(grid.map((row) => move(row, "")));
+    setMapping(move(mapping, { kind: "skip" } as ColumnTarget));
+  };
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -506,8 +533,32 @@ export function ImportPanel({
                 <tr>
                   <th style={{ width: 90 }}>Row</th>
                   {headers.map((h, i) => (
-                    <th key={i}>
-                      <div style={{ marginBottom: 4 }}>{h.trim() || "—"}</div>
+                    <th
+                      key={i}
+                      className={dragCol === i ? "col-dragging" : ""}
+                      onDragOver={(e) => {
+                        if (dragCol != null) e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragCol != null) moveColumn(dragCol, i);
+                        setDragCol(null);
+                      }}
+                    >
+                      <div
+                        className="col-label"
+                        draggable
+                        data-tip="Drag to move this column — the order here is the order in the run sheet, and what survives on a narrow screen"
+                        style={{ marginBottom: 4, cursor: "grab" }}
+                        onDragStart={(e) => {
+                          setDragCol(i);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", String(i));
+                        }}
+                        onDragEnd={() => setDragCol(null)}
+                      >
+                        {h.trim() || "—"}
+                      </div>
                       <select
                         className="input"
                         style={{ padding: "2px 6px", fontSize: "0.72rem" }}

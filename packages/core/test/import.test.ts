@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
+import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
   it("parses worded durations", () => {
@@ -596,12 +596,22 @@ describe("roles from every column that assigns work", () => {
     expect(built().roleColumnKeys).toEqual(expect.arrayContaining(["who", "scr"]));
   });
 
-  it("never turns the prompter marker into a crew position", () => {
+  it("makes the prompter a role, however the sheet said so", () => {
+    // Recognised from its formatting rather than written in the cue column —
+    // the tag is added after role detection has run, so the same job would
+    // otherwise be a role on one sheet and not on another.
     const withScript = grid();
     withScript.push(["7", "", "", "", "Ladies and gentlemen, please welcome our guest tonight.", ""]);
     const b = buildSheet(planImport(withScript, { italicText: ["Ladies and gentlemen, please welcome our guest tonight."] }));
     expect(b.rows.some((r) => r.cells?.scr === PROMPTER_TAG)).toBe(true);
-    expect(b.roles.map((r) => r.name.toLowerCase())).not.toContain(PROMPTER_TAG);
+    expect(b.roles.map((r) => r.name.toLowerCase())).toContain(PROMPTER_TAG);
+  });
+
+  it("gives the prompter the same colour wherever it lands", () => {
+    const withScript = grid();
+    withScript.push(["7", "", "", "", "Ladies and gentlemen, please welcome our guest tonight.", ""]);
+    const b = buildSheet(planImport(withScript, { italicText: ["Ladies and gentlemen, please welcome our guest tonight."] }));
+    expect(b.roles.find((r) => r.name.toLowerCase() === PROMPTER_TAG)?.color).toBe(PROMPTER_COLOR);
   });
 });
 

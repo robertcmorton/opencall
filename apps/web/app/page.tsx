@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, getAdminToken, setAdminToken } from "../lib/api";
+import { BrandWordmark } from "../components/ui";
 
 const ROUTE_BY_ROLE = { caller: "show", editor: "edit", follower: "view" } as const;
 
@@ -118,7 +119,9 @@ export default function Landing() {
       }}
     >
       <div style={{ textAlign: "center" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: 750, letterSpacing: "-0.03em", margin: 0 }}>OpenCall</h1>
+        <h1 style={{ margin: 0 }}>
+          <BrandWordmark size={32} />
+        </h1>
         <p style={{ color: "var(--text-2)", margin: "6px 0 0" }}>
           Rundowns, show calling, and companion screens for live events.
         </p>

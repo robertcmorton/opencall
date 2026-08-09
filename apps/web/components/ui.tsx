@@ -90,6 +90,36 @@ const stroke = {
 } as const;
 
 /** The favicon's mark — a tiny rundown with its live row and go dot. */
+/**
+ * The product's name, in ONE place.
+ *
+ * It appears in the sidebar, the landing page, the dashboard, both exports,
+ * the diagnostics line and the PWA manifest. Spelt out at each of those it is
+ * eight edits and a missed one; here it is a single line, which is what makes
+ * a change of name a decision rather than a project.
+ */
+export const BRAND = { first: "Open", second: "Call" } as const;
+export const BRAND_NAME = `${BRAND.first}${BRAND.second}`;
+
+/**
+ * The name set as a logotype rather than left as running text.
+ *
+ * It reads as a set with the mark and the app icons: the same accent blue as
+ * the live row in the mark, the weight split across the two halves so the
+ * word has a stress, and the tracking pulled in so it sits as one shape.
+ */
+export function BrandWordmark({ size = 20, mark = true }: { size?: number; mark?: boolean }) {
+  return (
+    <span className="brand-wordmark" style={{ fontSize: size }}>
+      {mark && <BrandMark size={Math.round(size * 1.05)} />}
+      <span className="bw-text">
+        <span className="bw-first">{BRAND.first}</span>
+        <span className="bw-second">{BRAND.second}</span>
+      </span>
+    </span>
+  );
+}
+
 export function BrandMark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 96 96" aria-hidden style={{ flexShrink: 0 }}>

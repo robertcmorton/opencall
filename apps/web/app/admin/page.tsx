@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BrandWordmark } from "../../components/ui";
 import {
   api,
   ApiError,
@@ -649,8 +650,7 @@ export default function AdminPage() {
         <header style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "1.5rem" }}>
           <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-              <BrandMark size={28} />
-              OpenCall{" "}
+              <BrandWordmark size={22} />{" "}
               <span style={{ color: "var(--text-3)", fontWeight: 500 }}>
                 {me?.role === "company" ? me.teamName : me?.role === "user" ? me.name : "admin"}
               </span>

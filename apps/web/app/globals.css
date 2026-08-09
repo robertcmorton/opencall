@@ -1469,7 +1469,9 @@ kbd {
   left: 3px;
 }
 .grid-scroll .rundown-grid {
-  min-width: 680px;
+  /* Was 680px, to force the old side-scroll. The sheet fits now, and a
+     min-width is exactly the thing that would stop it. */
+  min-width: 0;
 }
 
 /* ---------- Timing nudges (row-level ± seconds and CUE) ---------- */
@@ -1874,9 +1876,13 @@ th.col-drop-target {
     content: attr(data-tip);
     left: 50%;
     bottom: calc(100% + 8px);
-    transform: translateX(-50%);
+    /* --tip-shift is set by keepTipsOnScreen when the bubble would run off an
+       edge; it is the exact overflow, so a tooltip with room to spare stays
+       centred on the thing it describes. */
+    transform: translateX(calc(-50% + var(--tip-shift, 0px)));
     width: max-content;
-    max-width: 280px;
+    /* Never wider than the screen, whatever the sentence. */
+    max-width: min(280px, calc(100vw - 20px));
     white-space: normal;
     text-align: left;
     padding: 6px 9px;
@@ -2151,11 +2157,15 @@ th.col-drop-target {
   min-width: 0;
 }
 
-/* The grid fills its container at every size — never wider. */
+/* The grid fills its container at every size — never wider. Fixed layout is
+   what guarantees that; the item column is left unsized so it takes whatever
+   the sized ones leave, rather than every column sharing the room equally. */
 .rundown-grid {
   width: 100%;
   table-layout: fixed;
 }
+/* The number column's width is set on the header cell, where the layout can
+   see it — a rule here would fight the narrow/wide sets. */
 .rundown-grid td,
 .rundown-grid th {
   overflow-wrap: anywhere;
@@ -2181,20 +2191,22 @@ th.col-drop-target {
   }
 }
 
-/* A time or a duration never breaks mid-number: "1:00:00" split as "1:00:0"
-   and "0" is not a duration, it is two bits of one. Let them shrink instead. */
+/* A time or a duration never breaks mid-number, at any width: "1:00:00" split
+   as "1:00:0" and "0" is not a duration, it is two bits of one. The cell
+   clips instead — and a clipped time is obvious, where a broken one is not.
+   The item cell is the exception: it is prose and must wrap. */
+.rundown-grid td.mono {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Shrink to fit before clipping: a time is short and reads fine a point
+     smaller, where "12:00:…" reads as nothing at all. */
+  font-size: clamp(0.66rem, 0.9vw + 0.4rem, 0.85rem);
+}
 @media (max-width: 760px), (max-height: 500px) {
-  .rundown-grid td.mono,
-  .rundown-grid td.mono-progress {
-    white-space: nowrap;
-    overflow-wrap: normal;
+  .rundown-grid td.mono {
     font-size: 0.72rem;
-  }
-  /* The item text is the exception — it is prose and must wrap. */
-  .rundown-grid td.mono-progress {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    font-size: inherit;
   }
 }
 
@@ -2237,5 +2249,91 @@ th.col-drop-target {
   }
   .import-grid td:empty {
     display: none;
+  }
+}
+
+/* The sheet's name is editable in place — say so on hover without shouting. */
+.sheet-name.editable {
+  cursor: text;
+  border-radius: var(--r-sm);
+  padding: 0 4px;
+  margin-left: -4px !important;
+  transition: background var(--t-fast) var(--ease);
+}
+.sheet-name.editable:hover {
+  background: var(--raised);
+}
+
+/* ── The wordmark ─────────────────────────────────────────────────────────
+   Set as a logotype rather than left as running text, and built to read as a
+   set with the app icon: the icon's accent blue on the second half, the
+   weight split so the word has a stress, tracking pulled in so it sits as one
+   shape rather than nine letters. */
+.brand-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.brand-wordmark .bw-text {
+  letter-spacing: -0.035em;
+  font-feature-settings: "kern" 1;
+}
+.brand-wordmark .bw-first {
+  font-weight: 450;
+  color: var(--text-2);
+}
+.brand-wordmark .bw-second {
+  font-weight: 750;
+  color: var(--text);
+}
+/* The accent carries the mark's live-cue blue into the name. */
+.brand-wordmark .bw-second::after {
+  content: "";
+  display: inline-block;
+  width: 0.3em;
+  height: 0.3em;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 0.22em;
+  vertical-align: 0.05em;
+}
+
+/* The way back: one fixed square, so it cannot change width with its label
+   and cannot move when the header rewraps. */
+.back-to-dash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: 0.95rem;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.back-to-dash:hover {
+  background: var(--overlay);
+  color: var(--text);
+}
+
+/* No room above — the top bar's own controls would explain themselves off the
+   top of the screen. Set by keepTipsOnScreen. */
+@media (hover: hover) {
+  [data-tip].tip-below::after {
+    bottom: auto;
+    top: calc(100% + 8px);
+  }
+  [data-tip].tip-below::before {
+    bottom: auto;
+    top: calc(100% + 4px);
   }
 }

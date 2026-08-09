@@ -1046,6 +1046,9 @@ export function suggestDurationFix(raw: string): string | null {
 // ── Role detection ────────────────────────────────────────────────────────────
 
 /** Distinct, readable highlight colours assigned to detected roles in order. */
+/** The prompter's colour, fixed: it is the same job on every sheet. */
+export const PROMPTER_COLOR = "#c084fc";
+
 export const ROLE_COLORS = [
   "#2dd4bf", "#f59e0b", "#818cf8", "#f472b6", "#34d399", "#38bdf8",
   "#fb923c", "#a78bfa", "#4ade80", "#facc15", "#f87171", "#22d3ee",
@@ -1107,8 +1110,12 @@ export function detectRoles(
         if (!v || v.length > 24) continue;
         if (/^\d/.test(v)) continue; // numbering, times, "2 x wedges"…
         if (parseTimeLoose(v) != null || parseDurationLoose(v) != null) continue;
-        // The prompter marker is something this app writes, not a crew position.
-        if (v.toLowerCase() === PROMPTER_TAG) continue;
+        // The prompter marker used to be skipped here as "something this app
+        // writes, not a crew position". It is both: whoever runs the prompter
+        // is a position like any other, and wants to pick it as their role,
+        // see their rows lit up, and find them on the role bar. It still
+        // drives the prompter view — that is what the tag is for — and now it
+        // is a role as well.
         const key = v.toLowerCase();
         const entry = counts.get(key);
         if (entry) entry.count += 1;
@@ -1121,7 +1128,12 @@ export function detectRoles(
     .filter((e) => e.count >= minCount)
     .sort((a, b) => b.count - a.count)
     .slice(0, max)
-    .map((e, i) => ({ name: e.name, color: ROLE_COLORS[i % ROLE_COLORS.length]! }));
+    .map((e, i) => ({
+      name: e.name,
+      // The prompter always gets the same colour wherever it lands in the
+      // order — it is the one role that is the same job on every sheet.
+      color: e.name.toLowerCase() === PROMPTER_TAG ? PROMPTER_COLOR : ROLE_COLORS[i % ROLE_COLORS.length]!,
+    }));
 }
 
 // ── Plan → rundown ────────────────────────────────────────────────────────────
@@ -1284,6 +1296,17 @@ export function buildSheet(
       cells: { ...r.cells, ...spilled, ...(assigned ? { roles: assigned } : {}) },
     };
   });
+
+  // Whoever runs the prompter is a position like any other: they want to pick
+  // it as their role, see their rows lit up and find them on the role bar.
+  // A sheet that WRITES "prompter" in its cue column is picked up by the
+  // ordinary detection; a sheet whose scripts were recognised from their
+  // formatting gets the tag added here, after that detection has run — so
+  // without this the same job is a role on one sheet and not on another.
+  const hasPrompter = rows.some((r) => Object.values(r.cells ?? {}).some((v) => v.trim().toLowerCase() === PROMPTER_TAG));
+  if (hasPrompter && !roles.some((r) => r.name.toLowerCase() === PROMPTER_TAG)) {
+    roles.push({ name: PROMPTER_TAG.toUpperCase(), color: PROMPTER_COLOR });
+  }
 
   // The structural columns keep the sheet's own header names. Several bands can
   // map to one structural target (a centred header and the data beneath it);

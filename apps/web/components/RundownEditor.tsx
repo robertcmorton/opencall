@@ -161,7 +161,17 @@ const HIDDEN_COLS_KEY = (rundownId: string) => `oc:hiddencols:${rundownId}`;
 const COL_WIDTHS_KEY = (rundownId: string) => `oc:colwidths:${rundownId}`;
 
 /** What the fixed columns cost, for working out how many others still fit. */
-const COL_W = { rownum: 38, time: 74, dur: 58 } as const;
+/**
+ * The fixed columns, including the cell padding a value has to live inside.
+ *
+ * Two sets, because a width that fits "12:00:00 AM" comfortably on a laptop
+ * is most of a phone. On the narrow set the number reads downwards and the
+ * type is a size smaller, so the same values still fit.
+ */
+const COL_W_WIDE = { rownum: 46, time: 120, dur: 78, extra: 118 } as const;
+const COL_W_NARROW = { rownum: 26, time: 88, dur: 58, extra: 96 } as const;
+/** Below this the sheet is on a phone, whichever way up it is held. */
+const NARROW_GRID = 560;
 
 /**
  * Progress-bar fill that only ever animates forwards. Chrome will start the
@@ -704,6 +714,40 @@ export function RundownEditor({
     return null;
   };
   /** What the chooser is asking about right now. */
+  /**
+   * Is the result worth asking about yet?
+   *
+   * A match is eighty minutes and the chooser is a bar across the foot of the
+   * sheet — up all afternoon it is just something covering rows. In the NRL
+   * nothing can be called before the second half, so that is when it appears:
+   * once the live cue reaches this game's second half, and until the result
+   * has been called and the sheet has moved past the endings.
+   *
+   * Without a recognisable second half (another sport, a sheet that words it
+   * differently) it falls back to proximity — within a few cues of the
+   * endings — which is what the pulse already used.
+   */
+  const resultDue = (g: number): boolean => {
+    if (!showLive) return false;
+    if (chosenOf(g) != null || goldenPlaying(g)) return true; // already in it
+    const firstEnding = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === g);
+    if (firstEnding < 0) return false;
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    if (liveIdx < 0) return false;
+    // The second half of THIS game: the last one named before its endings.
+    let secondHalf = -1;
+    for (let i = firstEnding - 1; i >= 0; i--) {
+      if (/\b(second|2nd)\s+half\b/i.test(rows[i]!.title)) {
+        secondHalf = i;
+        break;
+      }
+      if (/\bkick\s?off\b/i.test(rows[i]!.title)) break; // gone past this game
+    }
+    if (secondHalf >= 0) return liveIdx >= secondHalf;
+    const between = rows.slice(liveIdx + 1, firstEnding).filter((r) => r.type === "cue" && !r.skipped).length;
+    return liveIdx < firstEnding && between <= 6;
+  };
+
   const outcomeStage = (g: number): "full-time" | "extra-time" | "settled" =>
     chosenOf(g) != null ? "settled" : goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
   /** The game whose full time is nearest the live cue — the one being called. */
@@ -1146,6 +1190,23 @@ export function RundownEditor({
   // place, drag it to reorder the column (the document's column order is the
   // truth, so every screen and export follows).
   const [editingCol, setEditingCol] = useState<string | null>(null); // column id
+  const [editingName, setEditingName] = useState(false);
+  /**
+   * Renames the sheet. The name lives in the document, so it reaches every
+   * open screen at once; the dashboard's copy is updated too, or the list
+   * would still show the old one.
+   */
+  const commitName = (value: string): void => {
+    const name = value.trim();
+    setEditingName(false);
+    if (!name || name === meta.name) return;
+    doc.getMap("meta").set("name", name);
+    void api.patchRundown(rundownId, { name }).catch(() => {
+      // The document is the source of truth for what everyone sees; a failed
+      // dashboard write is worth knowing about but must not undo the rename.
+      console.warn("[sheet] renamed in the document but not on the dashboard");
+    });
+  };
   const [dragCol, setDragCol] = useState<string | null>(null); // column key
   const [dropCol, setDropCol] = useState<string | null>(null); // column key
 
@@ -1201,7 +1262,9 @@ export function RundownEditor({
    * Folding runs right to left, which makes the column ORDER the priority
    * order: drag a column left to keep it, and it survives a narrower window.
    */
-  const MIN_TITLE = 190; // the action text is the thing being read
+  const narrow = gridWidth != null && gridWidth < NARROW_GRID;
+  const COL_W = narrow ? COL_W_NARROW : COL_W_WIDE;
+  const MIN_TITLE = narrow ? 140 : 190; // the action text is the thing being read
   const MIN_EXTRA = 92; // narrower than this and a column is unreadable anyway
   const foldedKeys = (() => {
     const extras = shown.filter((c) => c.kind === "richtext");
@@ -1213,6 +1276,26 @@ export function RundownEditor({
     return new Set(extras.slice(keep).map((c) => c.key));
   })();
   const orderedColumns = shown.filter((c) => !foldedKeys.has(c.key));
+  /**
+   * The item column, sized rather than left to the browser.
+   *
+   * Fixed layout is what keeps the table inside its container, but a
+   * fixed-layout table does not reliably hand its spare width to the one
+   * column left on `auto` — it left a 218px item column beside 439px of
+   * nothing. Measuring the grid and doing the subtraction here is not clever,
+   * but it is exact, and the item column is the one that must not be guessed.
+   */
+  const titleWidth = (() => {
+    if (gridWidth == null) return null;
+    const others = orderedColumns.reduce(
+      (sum, c) =>
+        sum +
+        (colWidths[c.key] ??
+          (c.kind === "startTime" ? COL_W.time : c.kind === "duration" ? COL_W.dur : c.kind === "richtext" ? (c.width ?? COL_W.extra) : 0)),
+      colWidths["rownum"] ?? COL_W.rownum,
+    );
+    return Math.max(MIN_TITLE, gridWidth - others - 2);
+  })();
   /** The folded columns, in sheet order, for the line under the item. */
   const foldedColumns = shown.filter((c) => foldedKeys.has(c.key));
   const orderedColKeys = [
@@ -1447,8 +1530,10 @@ export function RundownEditor({
       // --diag-h is published by the diagnostics bar; dockBottom is the role
       // bar's height. Both are fixed to the bottom of the screen, and the sheet
       // has to end ABOVE them — a row hidden under a bar is a row not read.
+      // The sheet is the page. Side padding was costing 48px of grid at every
+      // width, and the bottom only has to clear whatever is docked there.
       style={{
-        padding: "0.6rem 1.5rem calc(1.25rem + var(--diag-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
+        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
       }}
     >
       <div className="show-topbar no-print">
@@ -1459,10 +1544,38 @@ export function RundownEditor({
           {/* The way back. It was only in the settings drawer, so getting to
               the dashboard meant opening a panel and hunting for a link — and
               after an import there was no back at all. */}
-          <Link className="btn btn-sm btn-ghost back-to-dash" href="/admin" data-tip="Back to the dashboard">
-            ← Dashboard
+          {/* Icon only, and a fixed size. As a text button it changed width
+              with the label and sat in the same wrapping flex as the sheet
+              name, so it moved every time the window did. */}
+          <Link className="back-to-dash" href="/admin" aria-label="Back to the dashboard" data-tip="Back to the dashboard">
+            ←
           </Link>
-          <h1 style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}>{meta.name}</h1>
+          {/* The sheet's name, changed where it is read. It was set once at
+              import from the file name and could only be altered from the
+              dashboard — so every sheet was called whatever the PDF was. */}
+          {editingName ? (
+            <input
+              className="inline-edit"
+              autoFocus
+              defaultValue={meta.name}
+              style={{ font: "inherit", fontSize: "1.15rem", fontWeight: 650, letterSpacing: "-0.01em", minWidth: 220 }}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={(e) => commitName(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitName(e.currentTarget.value);
+                if (e.key === "Escape") setEditingName(false);
+              }}
+            />
+          ) : (
+            <h1
+              className={canEditContent ? "sheet-name editable" : "sheet-name"}
+              style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}
+              data-tip={canEditContent ? "Click to rename this sheet" : undefined}
+              onClick={canEditContent ? () => setEditingName(true) : undefined}
+            >
+              {meta.name || "Untitled sheet"}
+            </h1>
+          )}
           {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
         </div>
         {/* The sheet's own shape — when it starts, how long it runs, when it
@@ -1918,9 +2031,27 @@ export function RundownEditor({
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: colWidths["rownum"] }}>{resizeHandle("rownum", nextColKey("rownum"))}</th>
+              <th data-colkey="rownum" style={{ width: colWidths["rownum"] ?? COL_W.rownum }}>
+                {resizeHandle("rownum", nextColKey("rownum"))}
+              </th>
               {orderedColumns.map((c) => {
-                const w = c.kind === "richtext" ? (colWidths[c.key] ?? c.width) : colWidths[c.key];
+                /**
+                 * The item column takes whatever the others leave.
+                 *
+                 * The table is fixed-layout so it can never be wider than its
+                 * container — but fixed layout with no widths divides the room
+                 * equally, which gave a 90px item column beside a 90px DUR and
+                 * turned every line of action text into a column of single
+                 * words. Sizing the structural and folded columns and leaving
+                 * the item alone hands it the surplus, which is right: it is
+                 * the thing being read.
+                 */
+                const w =
+                  c.kind === "title"
+                    ? (colWidths[c.key] ?? titleWidth ?? undefined)
+                    : c.kind === "richtext"
+                      ? (colWidths[c.key] ?? c.width ?? COL_W.extra)
+                      : (colWidths[c.key] ?? (c.kind === "startTime" ? COL_W.time : c.kind === "duration" ? COL_W.dur : undefined));
                 const th = (
                   <th
                     key={c.id}
@@ -2144,7 +2275,7 @@ export function RundownEditor({
           bottom of the screen, not the row of buttons above the grid. It
           stacks ABOVE the cue-point dock and the role bar, so it never covers
           either, and it only exists while there is a result still to call. */}
-      {isShow && activeGame != null && (
+      {isShow && activeGame != null && resultDue(activeGame) && (
         <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             {outcomeStage(activeGame) === "extra-time" ? (
@@ -2293,17 +2424,7 @@ export function RundownEditor({
         <span>Generated {printedAt} · OpenCall</span>
       </div>
 
-      <p className="no-print hide-mobile" style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: "1rem" }}>
-        {canEditContent ? (
-          <>
-            Double-click a cell to edit · double-click Start to set a fixed time (clear it to return to auto flow) ·
-            double-click Duration to edit, hide, or mute · <kbd>⇧</kbd>/<kbd>⌘</kbd>-click row numbers for multi-select
-            · drag row numbers to reorder · edits sync live.
-          </>
-        ) : (
-          <>Read-only view — live position highlights as the show runs. Use the Columns menu to tailor what you see.</>
-        )}
-      </p>
+
     </div>
     </WithSideNav>
   );

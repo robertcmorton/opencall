@@ -9,11 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.29.0] — 2026-08-09
+
 ### Added
 - **Golden point now flows on to the result it produces.** The two-stage flow a level score really takes: at full time the choice is Win, Lose or ⚡ Golden point — never Draw, because in the NRL a level score does not end the match, it sends it to extra time. Picking golden point plays that block and asks again, now with Win, Lose and Draw, since a draw is only a real ending once extra time has been played out. Calling the result then keeps the extra time in the running order — it happened — and runs the winner's ending after it rather than on top of it. Previously the second pick skipped the golden block, so the twenty minutes everyone had just watched vanished from the sheet and every time below it jumped back.
 - **The result is asked for at the foot of the sheet, not in the toolbar.** At full time the showcaller is watching the game and the bottom of the screen, not a row of buttons above the grid. The chooser is now a docked overlay stacked above the cue-point dock and the role bar — never covering either — with every pick the same size, and it pulses as the endings come into range.
 
 ### Changed
+- **The run sheet is the page.** It takes the full width and height of the window: the side padding was costing 48px of grid at every size, and the strip of keyboard hints along the bottom was costing a row of the sheet to say things you learn once. The item column is now sized by measurement rather than left to the browser — a fixed-layout table does not reliably hand its spare width to the column left on auto, and it had been giving the action text 218px while 439px sat empty beside it.
+- **The way back is one fixed square.** As a text button it changed width with its label and sat in the same wrapping row as the sheet name, so it moved whenever the window did.
+- **The result chooser only appears when a result is possible.** In the NRL nothing can be called before the second half, so the bar stays out of the way until the live cue reaches it — up all afternoon it was just something covering rows. Without a recognisable second half it falls back to appearing as the endings come into range.
+- **A tooltip cannot run off the screen.** The bubbles are centred on whatever they describe, which is right until the thing being described is in a corner — and the controls most likely to need explaining are the ones in the corners. They are nudged back by exactly the overflow, and flip below when there is no room above.
+- **The prompter is a role.** It was deliberately excluded from role detection as "something the app writes, not a crew position". It is both: whoever runs the prompter wants to pick it as their role, see their rows lit and find them on the role bar. It still drives the prompter view, and it keeps the same colour on every sheet.
+- **The sheet's name is changed by clicking it.** It was set once from the file name at import and could only be altered from the dashboard, so every sheet was called whatever the PDF was.
+- **Columns can be dragged into order on the import screen**, not only after. The grid itself is reordered, so the mapping, the detected roles and the run sheet's own column order all follow — and since a narrow screen folds columns from the right, this is also where you choose what survives.
 - **The run sheet never scrolls sideways, at any size.** A horizontal scrollbar hides half of every row behind an edge and asks someone calling a show to go looking for it — one-handed, mid-item. The grid now always fits, and what will not fit as a column of its own is folded under the item it belongs to, labelled. Folding runs right to left, so the column ORDER is the priority order: drag a column left and it survives a narrower window. The "All columns" toggle is gone; its only job was to turn the side-scroll back on.
 - **The item number reads down instead of across on a narrow screen.** Stacked one digit per line it costs about a character, and every one of those characters goes to the action text instead.
 - **Importing a run sheet opens it in the same window.** Every import spawned a new tab, so a few sheets left a row of near-identical tabs and no way back to the dashboard except closing one.

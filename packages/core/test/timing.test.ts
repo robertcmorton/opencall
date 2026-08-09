@@ -373,3 +373,40 @@ describe("computeTiming — a show that runs past midnight", () => {
     expect(findTimingGaps(rows, t)).toHaveLength(1);
   });
 });
+
+describe("computeTiming — extra time is a phase, not an alternative", () => {
+  // Second half ends 10:00. Golden point runs 25 min; the win ending 18 min.
+  const game = (picked: { golden: boolean; win: boolean }): PlanRow[] => [
+    row("half", { durationSec: 3600, hardStartSec: NINE_AM }),
+    row("win", { durationSec: 18 * 60, outcome: "win", outcomeGame: 1, skipped: !picked.win }),
+    row("lose", { durationSec: 10 * 60, outcome: "lose", outcomeGame: 1, skipped: true }),
+    row("golden", { durationSec: 25 * 60, outcome: "golden", outcomeGame: 1, skipped: !picked.golden }),
+    row("after", { durationSec: 600 }),
+  ];
+  const at = (id: string, t: ReturnType<typeof computeTiming>) => t.rows.find((r) => r.id === id)!;
+
+  it("stacks everything level while the result is still open", () => {
+    const t = computeTiming(game({ golden: true, win: true }).map((r) => ({ ...r, skipped: false })), NINE_AM);
+    expect(at("win", t).startSec).toBe(NINE_AM + 3600);
+    expect(at("golden", t).startSec).toBe(NINE_AM + 3600);
+  });
+
+  it("runs the winner's ending AFTER the extra time that produced it", () => {
+    const t = computeTiming(game({ golden: true, win: true }), NINE_AM);
+    expect(at("golden", t).startSec).toBe(NINE_AM + 3600);
+    expect(at("win", t).startSec).toBe(NINE_AM + 3600 + 25 * 60);
+    // The day resumes after extra time AND the ending: 25 + 18 minutes.
+    expect(at("after", t).startSec).toBe(NINE_AM + 3600 + 43 * 60);
+  });
+
+  it("counts both toward the running time when both are played", () => {
+    const t = computeTiming(game({ golden: true, win: true }), NINE_AM);
+    expect(t.totalDurationSec).toBe(3600 + 25 * 60 + 18 * 60 + 600);
+  });
+
+  it("counts only the ending when the match never went to extra time", () => {
+    const t = computeTiming(game({ golden: false, win: true }), NINE_AM);
+    expect(at("win", t).startSec).toBe(NINE_AM + 3600);
+    expect(t.totalDurationSec).toBe(3600 + 18 * 60 + 600);
+  });
+});

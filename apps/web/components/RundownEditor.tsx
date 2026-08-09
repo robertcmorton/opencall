@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { ulid } from "ulid";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -368,6 +368,26 @@ export function RundownEditor({
   // Sheet-building controls are tucked away while the show is live.
   const [editTools, setEditTools] = useState(false);
   const [dockBottom, setDockBottom] = useState(0);
+  /**
+   * Publishes a fixed bar's height as a CSS variable.
+   *
+   * Three things are pinned to the bottom of this screen — the role bar, the
+   * cue-point dock and the result chooser — and each has to know how tall the
+   * ones below it are, or they stack on top of each other and the sheet ends
+   * underneath them. A row hidden behind a bar is a row not read.
+   */
+  const publishHeight = (name: string) => (el: HTMLDivElement | null) => {
+    const root = document.documentElement;
+    if (!el) {
+      root.style.removeProperty(name);
+      return;
+    }
+    const measure = () => root.style.setProperty(name, `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    measure();
+    new ResizeObserver(measure).observe(el);
+  };
+  const publishNudgeHeight = useCallback(publishHeight("--nudgedock-h"), []);
+  const publishOutcomeHeight = useCallback(publishHeight("--outcomedock-h"), []);
   useEffect(() => {
     const measure = () => {
       const bar = document.querySelector(".role-bar") as HTMLElement | null;
@@ -634,14 +654,43 @@ export function RundownEditor({
   const rowsOfGame = (g: number) => outcomeRows.filter((r) => (r.outcomeGame ?? 1) === g);
   const outcomesOfGame = (g: number) =>
     (["golden", "win", "lose", "draw"] as const).filter((o) => rowsOfGame(g).some((r) => r.outcome === o));
+  /** Is this ending playing — its rows in the running order? */
+  const playing = (g: number, o: string): boolean => {
+    const mine = rowsOfGame(g).filter((r) => r.outcome === o);
+    return mine.length > 0 && mine.every((r) => !r.skipped);
+  };
+  /**
+   * Extra time is being played (or was). It is not a RESULT — golden point is a
+   * period of football, and the match still has to end in a win, a loss or a
+   * draw afterwards.
+   */
+  const goldenPlaying = (g: number): boolean => {
+    if (!outcomesOfGame(g).includes("golden") || !playing(g, "golden")) return false;
+    // Before anything is called NOTHING is skipped, so every ending is
+    // technically "playing" — including golden. Extra time is only under way
+    // once it has been chosen, which is to say once the results are skipped.
+    const results = rowsOfGame(g).filter((r) => r.outcome !== "golden");
+    return results.length > 0 && results.every((r) => r.skipped);
+  };
+  /**
+   * The result that has been called, or null while it is still open.
+   *
+   * Golden point is skipped over deliberately: once extra time is playing the
+   * question is still open, and once a result is called after it the golden
+   * block STAYS in the running order — it happened. Reading it as the answer
+   * left the chooser saying "golden point" after the match had been won.
+   */
   const chosenOf = (g: number): string | null => {
-    for (const o of outcomesOfGame(g)) {
-      const mine = rowsOfGame(g).filter((r) => r.outcome === o);
-      const others = rowsOfGame(g).filter((r) => r.outcome !== o);
-      if (mine.length > 0 && mine.every((r) => !r.skipped) && others.length > 0 && others.every((r) => r.skipped)) return o;
+    const results = outcomesOfGame(g).filter((o) => o !== "golden");
+    for (const o of results) {
+      const others = rowsOfGame(g).filter((r) => r.outcome !== o && r.outcome !== "golden");
+      if (playing(g, o) && others.length > 0 && others.every((r) => r.skipped)) return o;
     }
     return null;
   };
+  /** What the chooser is asking about right now. */
+  const outcomeStage = (g: number): "full-time" | "extra-time" | "settled" =>
+    chosenOf(g) != null ? "settled" : goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
   /** The game whose full time is nearest the live cue — the one being called. */
   const activeGame = (() => {
     if (outcomeGames.length === 0) return null;
@@ -656,8 +705,16 @@ export function RundownEditor({
     return outcomeGames[outcomeGames.length - 1]!;
   })();
   const pickOutcome = (o: string, game: number): void => {
+    // Extra time that has already been played stays played. Picking the result
+    // AFTER golden point used to skip the golden block, so the twenty minutes
+    // of football everyone just watched vanished out of the running order and
+    // every time below it jumped back.
+    const keepGolden = o !== "golden" && goldenPlaying(game) && outcomesOfGame(game).includes("golden");
     doc.transact(() => {
-      for (const r of rowsOfGame(game)) yRows.get(r.id)?.set("skipped", r.outcome !== o);
+      for (const r of rowsOfGame(game)) {
+        const keep = r.outcome === o || (keepGolden && r.outcome === "golden");
+        yRows.get(r.id)?.set("skipped", !keep);
+      }
     });
     if (showLive) {
       const first = rows.find((r) => (r.outcomeGame ?? 1) === game && r.outcome === o && r.type === "cue");
@@ -792,10 +849,25 @@ export function RundownEditor({
   // level score goes to golden point, never straight to a draw). Once golden
   // point is playing, the final pick returns as Win / Lose / Draw. Events
   // without a sport show every tagged ending.
+  /**
+   * What to offer, and it changes once during a game.
+   *
+   *   FULL TIME     Win · Lose · ⚡ Golden point
+   *                 No Draw: in the NRL a level score at full time does not end
+   *                 the match, it sends it to extra time.
+   *   EXTRA TIME    Win · Lose · Draw
+   *                 Golden point drops off the list — it is playing. A draw is
+   *                 only a real ending once extra time has been played out.
+   *   SETTLED       the called result, and Reset.
+   *
+   * An event with no sport set gets every ending the sheet has, in one list.
+   */
   const visibleOutcomesOf = (g: number): string[] => {
     const present = outcomesOfGame(g);
     if (channel.sport !== "nrl") return [...present];
-    return chosenOf(g) === "golden" ? present.filter((o) => o !== "golden") : present.filter((o) => o !== "draw");
+    return outcomeStage(g) === "extra-time"
+      ? present.filter((o) => o !== "golden")
+      : present.filter((o) => o !== "draw");
   };
   const outcomeLabel = (o: string): string =>
     o === "golden" ? "⚡ Golden point" : o === "win" ? "Win" : o === "lose" ? "Lose" : "Draw";
@@ -1309,7 +1381,9 @@ export function RundownEditor({
       // --diag-h is published by the diagnostics bar; dockBottom is the role
       // bar's height. Both are fixed to the bottom of the screen, and the sheet
       // has to end ABOVE them — a row hidden under a bar is a row not read.
-      style={{ padding: "0.6rem 1.5rem calc(1.25rem + var(--diag-h, 0px) + var(--rolebar-h, 0px))" }}
+      style={{
+        padding: "0.6rem 1.5rem calc(1.25rem + var(--diag-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
+      }}
     >
       <div className="show-topbar no-print">
       <header className="topbar-head">
@@ -1441,51 +1515,6 @@ export function RundownEditor({
               );
             })()}
           </>
-        )}
-        {isShow && activeGame != null && (
-          // One chooser per game — a day can hold several, and the one being
-          // called is the one whose endings still lie ahead of the live cue.
-          <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-            <span
-              className={`chip ${decisionSoon ? "decision-pulse" : ""}`}
-              data-tip="This sheet has alternate endings. Pick the real result when it happens — the other branches skip themselves and every screen follows. Golden point loops back here for the final pick."
-            >
-              {decisionSoon ? "Full time — pick the result" : "Full time:"}
-              {outcomeGames.length > 1 ? ` game ${activeGame}` : ""}
-            </span>
-            {chosenOf(activeGame) === "golden" && (
-              <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} data-tip="Golden point is playing — pick the final result when it lands">
-                ⚡ Golden point playing
-              </span>
-            )}
-            {visibleOutcomesOf(activeGame).map((o) => (
-              <button
-                key={o}
-                className={`btn btn-sm ${chosenOf(activeGame) === o ? "is-on" : ""}`}
-                style={
-                  chosenOf(activeGame) === o
-                    ? {
-                        borderColor: o === "win" ? "var(--under)" : o === "lose" ? "var(--over)" : o === "draw" ? "var(--accent)" : "var(--warn)",
-                        color: o === "win" ? "var(--under)" : o === "lose" ? "var(--over)" : o === "draw" ? "var(--accent)" : "var(--warn)",
-                      }
-                    : undefined
-                }
-                data-tip={
-                  o === "golden"
-                    ? "Scores level — play the golden-point block; the final pick comes back after it"
-                    : `Play the ${o} ending and skip the others`
-                }
-                onClick={() => pickOutcome(o, activeGame)}
-              >
-                {outcomeLabel(o)}
-              </button>
-            ))}
-            {chosenOf(activeGame) && (
-              <button className="btn btn-sm btn-ghost" data-tip="Un-choose: all endings visible again" onClick={() => clearOutcomeOf(activeGame)}>
-                Reset
-              </button>
-            )}
-          </span>
         )}
         {isShow && showLive && (
           <button
@@ -2040,13 +2069,62 @@ export function RundownEditor({
       {/* Cue pool parked for now (2026-08-08, user call) — flip to re-enable. */}
       {/* Touch devices cannot hover, so the nudges dock at the bottom and act
           on the row you picked — or the live cue when nothing is selected. */}
+      {/* ── The result, asked for where the show is being called ──────────────
+          Docked at the foot of the sheet rather than tucked in the toolbar at
+          the top: at full time the showcaller is watching the game and the
+          bottom of the screen, not the row of buttons above the grid. It
+          stacks ABOVE the cue-point dock and the role bar, so it never covers
+          either, and it only exists while there is a result still to call. */}
+      {isShow && activeGame != null && (
+        <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
+          <span className="od-what">
+            {outcomeStage(activeGame) === "extra-time" ? (
+              <span className="od-stage od-golden">⚡ Golden point playing</span>
+            ) : outcomeStage(activeGame) === "settled" ? (
+              <span className="od-stage od-done">Result called</span>
+            ) : (
+              <span className={`od-stage ${decisionSoon ? "od-soon" : ""}`}>{decisionSoon ? "Full time — pick the result" : "Full time"}</span>
+            )}
+            {outcomeGames.length > 1 && <span className="od-game">game {activeGame}</span>}
+            <span className="od-hint">
+              {outcomeStage(activeGame) === "extra-time"
+                ? "Extra time is in the running order. Call it when it lands."
+                : outcomeStage(activeGame) === "settled"
+                  ? "The other endings are skipped. Every screen has followed."
+                  : "Level at full time goes to golden point, not a draw."}
+            </span>
+          </span>
+          <span className="od-picks">
+            {visibleOutcomesOf(activeGame).map((o) => (
+              <button
+                key={o}
+                className={`btn od-pick od-${o} ${chosenOf(activeGame) === o ? "is-on" : ""}`}
+                data-tip={
+                  o === "golden"
+                    ? "Scores level — play the golden-point block. The final result is asked for again once it lands."
+                    : `Play the ${o} ending and skip the others`
+                }
+                onClick={() => pickOutcome(o, activeGame)}
+              >
+                {outcomeLabel(o)}
+              </button>
+            ))}
+            {chosenOf(activeGame) && (
+              <button className="btn od-reset" data-tip="Un-call it: every ending comes back" onClick={() => clearOutcomeOf(activeGame)}>
+                Reset
+              </button>
+            )}
+          </span>
+        </div>
+      )}
+
       {canEditContent &&
         (() => {
           const targetId = selected.size === 1 ? [...selected][0]! : activeRowId;
           const target = targetId ? rows.find((r) => r.id === targetId) : null;
           if (!target) return null;
           return (
-            <div className="timing-nudge-dock" style={{ bottom: dockBottom }}>
+            <div className="timing-nudge-dock" ref={publishNudgeHeight} style={{ bottom: dockBottom }}>
               <span className="tn-target" data-tip={target.title || "untitled"}>
                 {selected.size === 1 ? "Selected" : "Live"}: {target.title || "untitled"}
               </span>

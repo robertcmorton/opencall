@@ -97,27 +97,64 @@ export function computeTiming(
     let end = i;
     while (end < rows.length && gameOf(rows[end]!) === game) end += 1;
     const blockStart = cursor;
+
+    /**
+     * Extra time is a PHASE, not an alternative — but only once a result has
+     * been called.
+     *
+     * Golden point sits among the endings because at full time it is one of the
+     * things that might happen next, and while the result is still open it
+     * stacks level with the rest. Once extra time has been played AND a result
+     * called, both are in the running order: the winner's lap FOLLOWS the extra
+     * time rather than sharing its start.
+     *
+     * "A result has been called" is visible in the rows themselves — one
+     * ending playing while another is skipped. Before any pick nothing is
+     * skipped, so nothing is a prelude and everything stacks.
+     */
+    const spans = new Map<string, number>();
+    for (let k = i; k < end; k++) {
+      const key = branchOf(rows[k]!)!;
+      spans.set(key, (spans.get(key) ?? 0) + timed[k]!.effectiveDurationSec);
+    }
+    const goldenKey = `${game}:golden`;
+    const goldenSpan = spans.get(goldenKey) ?? 0;
+    const results = [...spans].filter(([k]) => k !== goldenKey).map(([, v]) => v);
+    const resultCalled = results.some((v) => v > 0) && results.some((v) => v === 0);
+    const prelude = goldenSpan > 0 && resultCalled;
+    const afterGolden = blockStart != null && prelude ? blockStart + goldenSpan : blockStart;
+
     let branch: string | null = null;
     let branchTotal = 0;
-    let longest = 0;
+    /** Longest ending that is not extra time — only one of them is ever played. */
+    let longestResult = 0;
     let latestEnd: number | null = null;
+    const closeBranch = () => {
+      if (branch != null && !branch.endsWith(":golden")) longestResult = Math.max(longestResult, branchTotal);
+      branchTotal = 0;
+    };
+
     for (let k = i; k < end; k++) {
       const key = branchOf(rows[k]!);
       if (key !== branch) {
-        // A different ending starts: rewind to the top of the block. An anchor
-        // inside a branch still wins, exactly as anywhere else in the sheet —
-        // an imported time is what the sheet says and is not ours to move.
+        // A different ending starts: back to the top of the block — or, for a
+        // result, to the end of any extra time that has already been played. An
+        // anchor inside a branch still wins, exactly as anywhere else in the
+        // sheet: an imported time is what the sheet says and is not ours to move.
+        closeBranch();
         branch = key;
-        cursor = blockStart;
-        longest = Math.max(longest, branchTotal);
-        branchTotal = 0;
+        cursor = rows[k]!.outcome === "golden" ? blockStart : afterGolden;
       }
       step(k);
       branchTotal += timed[k]!.effectiveDurationSec;
       const e = timed[k]!.endSec;
       if (e != null) latestEnd = latestEnd == null ? e : Math.max(latestEnd, e);
     }
-    total += Math.max(longest, branchTotal);
+    closeBranch();
+
+    // Extra time and the ending that followed it both happened; otherwise only
+    // one branch of the block is ever played.
+    total += prelude ? goldenSpan + longestResult : Math.max(goldenSpan, longestResult);
     cursor = latestEnd ?? blockStart;
     i = end;
   }

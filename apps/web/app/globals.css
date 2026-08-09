@@ -1985,3 +1985,107 @@ th.col-drop-target {
     transform-origin: top center;
   }
 }
+
+/* ── The result chooser, docked at the foot of the sheet ──────────────────
+   At full time the showcaller is watching the game and the bottom of the
+   screen, not a row of buttons above the grid. It stacks above the cue-point
+   dock and the role bar — never over either — and the picks are one size,
+   large enough to hit without looking. */
+.outcome-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 9px 14px;
+  background: var(--overlay);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
+}
+.outcome-dock .od-what {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.outcome-dock .od-stage {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--text-2);
+}
+.outcome-dock .od-golden {
+  color: var(--warn);
+}
+.outcome-dock .od-done {
+  color: var(--under);
+}
+.outcome-dock .od-soon {
+  color: var(--warn);
+}
+.outcome-dock .od-game {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.outcome-dock .od-hint {
+  font-size: 0.74rem;
+  color: var(--text-3);
+}
+.outcome-dock .od-picks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* One size for every pick — a result is not a small decision. */
+.outcome-dock .od-pick,
+.outcome-dock .od-reset {
+  min-width: 104px;
+  height: 38px;
+  font-weight: 650;
+}
+.outcome-dock .od-win.is-on {
+  border-color: var(--under);
+  color: var(--under);
+  background: var(--under-soft);
+}
+.outcome-dock .od-lose.is-on {
+  border-color: var(--over);
+  color: var(--over);
+  background: var(--over-soft);
+}
+.outcome-dock .od-draw.is-on {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+.outcome-dock .od-golden.is-on,
+.outcome-dock .od-pick.od-golden.is-on {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+/* Full time is close and nothing called yet. */
+.outcome-dock.pressing {
+  border-top-color: var(--warn);
+  animation: decision-pulse 1.2s ease-in-out infinite;
+}
+@media (max-width: 760px), (max-height: 500px) {
+  .outcome-dock {
+    gap: 6px 10px;
+    padding: 7px 10px;
+  }
+  .outcome-dock .od-hint {
+    display: none;
+  }
+  .outcome-dock .od-pick,
+  .outcome-dock .od-reset {
+    min-width: 84px;
+    height: 34px;
+  }
+}

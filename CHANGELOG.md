@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Golden point now flows on to the result it produces.** The two-stage flow a level score really takes: at full time the choice is Win, Lose or ⚡ Golden point — never Draw, because in the NRL a level score does not end the match, it sends it to extra time. Picking golden point plays that block and asks again, now with Win, Lose and Draw, since a draw is only a real ending once extra time has been played out. Calling the result then keeps the extra time in the running order — it happened — and runs the winner's ending after it rather than on top of it. Previously the second pick skipped the golden block, so the twenty minutes everyone had just watched vanished from the sheet and every time below it jumped back.
+- **The result is asked for at the foot of the sheet, not in the toolbar.** At full time the showcaller is watching the game and the bottom of the screen, not a row of buttons above the grid. The chooser is now a docked overlay stacked above the cue-point dock and the role bar — never covering either — with every pick the same size, and it pulses as the endings come into range.
+
 ### Fixed
 - **A show that runs past midnight no longer jumps back a day.** Sheets write times of DAY, so a New Year's Eve sheet goes 23:55 then 00:05 — and read as seconds-since-midnight that second one is twenty-four hours EARLIER. The sheet showed a −24:00:00 hole at the fireworks, everything after midnight sorted before everything before it, and clock-follow picked a row from the small hours while it was still last night. Run sheets are chronological, so the rollover is now simply counted: an anchor far enough behind the one above it starts another day. Times still display on a wall clock.
 

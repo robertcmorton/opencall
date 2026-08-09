@@ -1,1 +1,1 @@
-ALTER TABLE "show_sessions" ADD COLUMN "clock_hold" boolean DEFAULT false NOT NULL;
+ALTER TABLE "show_sessions" ADD COLUMN IF NOT EXISTS "clock_hold" boolean DEFAULT false NOT NULL;

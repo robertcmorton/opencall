@@ -206,6 +206,11 @@ export const api = {
     ),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   templates: () => request<TemplateSummary[]>("/templates"),
+  /** Close the sheet to its audience once the event is done, or open it again. */
+  setViewing: (rundownId: string, closed: boolean) =>
+    request<{ closed: boolean }>(`/rundowns/${rundownId}/viewing`, { method: "POST", body: JSON.stringify({ closed }) }),
+  rundownEpoch: (rundownId: string) =>
+    request<{ epoch: number; viewingClosed: boolean }>(`/rundowns/${rundownId}/epoch`),
   saveTemplate: (body: { rundownId: string; name: string }) =>
     request<{ id: string }>("/templates", { method: "POST", body: JSON.stringify(body) }),
   // ── Landing & admin ──

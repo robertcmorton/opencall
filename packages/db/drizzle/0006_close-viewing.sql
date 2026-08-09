@@ -1,0 +1,1 @@
+ALTER TABLE "rundowns" ADD COLUMN IF NOT EXISTS "viewing_closed_at" timestamp with time zone;

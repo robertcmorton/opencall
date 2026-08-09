@@ -984,6 +984,23 @@ export function createApiHandler(
         return true;
       }
 
+      // Close the sheet to its audience, or open it again. Only the read-only
+      // ways in are affected — crew codes, guest passes, accounts that can see
+      // the event but not run it. Whoever calls or edits the show keeps their
+      // way in, or nobody could ever undo this.
+      if (req.method === "POST" && /^\/rundowns\/[^/]+\/viewing$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const body = await readJson(req);
+        const closed = (body as { closed?: unknown }).closed !== false;
+        await db
+          .update(schema.rundowns)
+          .set({ viewingClosedAt: closed ? new Date() : null, updatedAt: new Date() })
+          .where(eq(schema.rundowns.id, rundownId));
+        json(res, 200, { closed });
+        return true;
+      }
+
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/join-codes$/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!;
         if (!(await requireEditor(rundownId))) return true;
@@ -1104,6 +1121,13 @@ export function createApiHandler(
           json(res, 404, { error: "rundown not found" });
           return true;
         }
+        // Closed by the showcaller once the event was done. A pass that WAS
+        // valid is a different story from one that never was, and the page
+        // showing this has to be able to say which.
+        if (rundown.viewingClosedAt) {
+          json(res, 403, { error: "This run sheet is closed", closed: true });
+          return true;
+        }
         const { meta, keyTimes, columns, rows } = projectRundownDoc(decodeDoc(rundown.doc));
         const visibility = pass.columnVisibility ?? {};
         const visibleColumns = columns.filter(
@@ -1182,13 +1206,16 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/epoch$/.test(pathname)) {
         const row = await db.query.rundowns.findFirst({
           where: eq(schema.rundowns.id, pathname.split("/")[2]!),
-          columns: { docEpoch: true },
+          columns: { docEpoch: true, viewingClosedAt: true },
         });
         if (!row) {
           json(res, 404, { error: "rundown not found" });
           return true;
         }
-        json(res, 200, { epoch: row.docEpoch });
+        // Every screen asks for the epoch before it opens a connection, so the
+        // answer carries whether the sheet is still open to its audience —
+        // saving a second round-trip on the one request nobody can skip.
+        json(res, 200, { epoch: row.docEpoch, viewingClosed: row.viewingClosedAt != null });
         return true;
       }
 

@@ -43,6 +43,13 @@
       "when": 1786239520715,
       "tag": "0005_clock-hold",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786239669973,
+      "tag": "0006_close-viewing",
+      "breakpoints": true
     }
   ]
 }

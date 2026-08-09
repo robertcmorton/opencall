@@ -947,6 +947,32 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * Closing the sheet at the end of the event. Crew codes, guest passes and
+   * read-only accounts stop opening it; whoever calls or edits the show is
+   * unaffected, so this is always reversible by the people who did it.
+   */
+  const [viewingClosed, setViewingClosed] = useState(false);
+  useEffect(() => {
+    void api
+      .rundownEpoch(rundownId)
+      .then((r) => setViewingClosed(r.viewingClosed))
+      .catch(() => {});
+  }, [rundownId]);
+  const setViewing = (closed: boolean): void => {
+    if (
+      closed &&
+      !window.confirm(
+        "Close this run sheet?\n\nCrew codes, guest passes and view-only accounts will stop opening it. You and anyone who can edit the sheet keep your access, and you can open it again from here.",
+      )
+    )
+      return;
+    void api
+      .setViewing(rundownId, closed)
+      .then(() => setViewingClosed(closed))
+      .catch((err: unknown) => window.alert(`Couldn't change this: ${String((err as Error)?.message ?? err)}`));
+  };
+
   const saveAsTemplate = (): void => {
     const name = window.prompt("Template name", `${meta.name} template`);
     if (!name) return;
@@ -1235,6 +1261,19 @@ export function RundownEditor({
       </SideNavSection>
       {isShow && (
         <SideNavSection heading="Show settings">
+          <button
+            type="button"
+            className="menu-item"
+            data-tip={
+              viewingClosed
+                ? "Let crew codes, guest passes and view-only accounts open this sheet again"
+                : "The event is done: stop crew codes, guest passes and view-only accounts from opening this sheet. You keep yours."
+            }
+            onClick={() => setViewing(!viewingClosed)}
+          >
+            <span className={`check ${viewingClosed ? "on" : ""}`} />
+            {viewingClosed ? "Closed to viewers — reopen" : "Close to viewers"}
+          </button>
           <button type="button" className="menu-item" onClick={saveAsTemplate}>
             <span className="check" />
             Save as template

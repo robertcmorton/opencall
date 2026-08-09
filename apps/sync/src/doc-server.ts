@@ -57,7 +57,8 @@ export type DocRefusal =
   | "sheet-restored-reload"
   | "not-signed-in"
   | "signin-not-recognised"
-  | "no-access-for-this-account";
+  | "no-access-for-this-account"
+  | "viewing-closed";
 
 export function createDocServer(handle: DbHandle): Hocuspocus {
   const currentEpoch = async (rundownId: string): Promise<number | null> => {
@@ -66,6 +67,20 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
       columns: { docEpoch: true },
     });
     return row?.docEpoch ?? null;
+  };
+
+  /**
+   * The showcaller has closed the sheet to its audience now the event is done.
+   * Only the read-only ways in are affected — crew codes and accounts that can
+   * see the event but not run it. Whoever calls or edits the show still gets
+   * in, or nobody could ever open it again.
+   */
+  const viewingClosed = async (rundownId: string): Promise<boolean> => {
+    const row = await handle.db.query.rundowns.findFirst({
+      where: eq(schema.rundowns.id, rundownId),
+      columns: { viewingClosedAt: true },
+    });
+    return row?.viewingClosedAt != null;
   };
 
   return Server.configure({
@@ -98,6 +113,7 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
               columns: { teamId: true },
             });
             if (event && (await canSeeEvent(handle, bearer, rundown.eventId, event.teamId))) {
+              if (await viewingClosed(rundownId)) refuse("viewing-closed", rundownId);
               connection.readOnly = true;
               return;
             }
@@ -105,7 +121,10 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         }
         const resolved = await resolveJoinCode(handle, token, rundownId);
         if (resolved) {
-          if (resolved.role === "follower") connection.readOnly = true;
+          if (resolved.role === "follower") {
+            if (await viewingClosed(rundownId)) refuse("viewing-closed", rundownId);
+            connection.readOnly = true;
+          }
           return;
         }
         // A credential that resolves to somebody but carries no grant for this

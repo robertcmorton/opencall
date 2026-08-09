@@ -117,6 +117,13 @@ export const rundowns = pgTable("rundowns", {
   sourceName: text("source_name"),
   sourceFile: bytea("source_file"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
+  /**
+   * The event is over and the sheet is closed to its audience: crew codes,
+   * guest passes and read-only accounts stop opening it. The people who run
+   * the show — callers, editors, the company, admins — are unaffected, and
+   * either of them can open it again.
+   */
+  viewingClosedAt: timestamp("viewing_closed_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -79,6 +79,11 @@ function describeRefusal(reason: string, identity: string | null, signedIn: bool
       detail: "The sign-in works, but it has not been given access to this event. Ask for access, or open the sheet with a join code.",
       action: "ask-for-access",
     },
+    "viewing-closed": {
+      title: "This run sheet is closed",
+      detail: "The event is over and the showcaller has closed the sheet. Whoever ran the show can open it again if you still need it.",
+      action: "none",
+    },
   };
   // With no credential at all there is no identity worth reporting — saying
   // "not recognised" implies a sign-in that failed, which is a different story.

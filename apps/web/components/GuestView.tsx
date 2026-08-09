@@ -20,17 +20,32 @@ interface GuestProjection {
 export function GuestView({ token }: { token: string }) {
   const [data, setData] = useState<GuestProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A sheet the showcaller closed at the end of the event is a different
+  // story from a pass that was never any good, and the page has to say which.
+  const [closed, setClosed] = useState(false);
   const { widths, handle, tableStyle } = useColWidths(`oc:colwidths:guest:${token}`);
 
   useEffect(() => {
     fetch(`${API_URL}/guest/${token}`)
       .then(async (res) => {
+        if (res.status === 403) {
+          setClosed(true);
+          setError("closed");
+          return;
+        }
         if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `${res.status}`);
         setData((await res.json()) as GuestProjection);
       })
       .catch((err) => setError(String(err.message ?? err)));
   }, [token]);
 
+  if (closed)
+    return (
+      <main style={{ padding: "4rem", textAlign: "center", color: "var(--text-2)" }}>
+        <p style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--text)" }}>This run sheet is closed</p>
+        <p>The event is over and the showcaller has closed the sheet.</p>
+      </main>
+    );
   if (error)
     return (
       <main style={{ padding: "4rem", textAlign: "center", color: "var(--over)" }}>

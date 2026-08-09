@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.27.3] — 2026-08-09
+
 ### Fixed
 - **A phone turned sideways is no longer treated as a desktop.** Every mobile rule keyed off screen WIDTH alone, so rotating a phone to landscape switched the whole mobile treatment off at the exact moment the screen got shortest: the run sheet came back with one row visible under a full stack of chrome. Short now counts as small, and on a landscape phone the chrome gives up its height to the sheet.
 - **Crew initials stopped eating the sheet's own words.** Positions are short — GA, SC, MC, VT — and were matched anywhere inside a string, so "GAME ONE" was drawn as "GA" + "ME ONE" and "SCORES LEVEL" as "SC" + "ORES LEVEL". Rows also lit up as somebody's work because their initials happened to be spelt inside an unrelated word. A role now has to appear as a whole word.

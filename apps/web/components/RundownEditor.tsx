@@ -1932,11 +1932,14 @@ export function RundownEditor({
             data-tip={
               clockHold
                 ? "Hand the show back to the clock — it picks up from wherever the cue is now"
-                : "Take the wheel: the clock stops advancing the cue and you step it with Next. The show keeps running and every screen keeps counting — this is not Pause."
+                : "The clock stops moving the cue and you step it with Next. The show keeps running and every screen keeps counting — this is not Pause."
             }
             onClick={() => channel.sendCmd(clockHold ? "clock_release" : "clock_hold")}
           >
-            {clockHold ? "▶ Give it back to the clock" : "✋ I'll drive"}
+            {/* Says what it does. "I'll drive" was a metaphor for a control
+                that already has a plain description: the clock stops moving
+                the cue and you step it with Next. */}
+            {clockHold ? "▶ Back to the clock" : "✋ Step it myself"}
           </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are
@@ -2695,7 +2698,11 @@ export function RundownEditor({
             type="button"
             className="btn btn-sm"
             data-tip="Move the live cue to the row the sheet says should be on air now"
-            onClick={() => clockRowId && channel.sendCmd("jump", clockRowId)}
+            // `atPlanned`: this is a claim about where the show ALREADY is, so
+            // the row takes the sheet's start time. Stamping it "now" reported
+            // the show as late by exactly however overdue the row was — press
+            // catch-up, watch it jump to +1:19.
+            onClick={() => clockRowId && channel.sendCmd("jump", clockRowId, { atPlanned: true })}
           >
             Catch up now
           </button>

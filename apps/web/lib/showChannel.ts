@@ -33,7 +33,12 @@ export interface ShowChannel {
   show: ShowStatePayload | null;
   /** Server clock now: Date.now() + measured offset. */
   serverNow: () => number;
-  sendCmd: (action: CmdAction, rowId?: string) => void;
+  /**
+   * `atPlanned` marks a jump as "put the show where the SHEET says it is"
+   * rather than "take this row now" — sync cue and catch-up, not an ordinary
+   * jump. The row then inherits its planned start instead of starting now.
+   */
+  sendCmd: (action: CmdAction, rowId?: string, opts?: { atPlanned?: boolean }) => void;
   /**
    * The last transport command the SERVER refused, with the reason it gave.
    * A rejected command used to be dropped on the floor: the button appeared
@@ -175,13 +180,14 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     serverNow: () => Date.now() + offsetRef.current,
     lastCmdError,
     clearCmdError: () => setLastCmdError(null),
-    sendCmd: (action, rowId) => {
+    sendCmd: (action, rowId, opts) => {
       const id = ulid();
       // Remember what each id was for, so a refusal can name the button.
       sentRef.current.set(id, action);
       if (sentRef.current.size > 50) sentRef.current.delete(sentRef.current.keys().next().value!);
       const payload: Record<string, unknown> = { v: PROTOCOL_VERSION, t: "cmd", id, action };
       if (rowId) payload.rowId = rowId;
+      if (opts?.atPlanned) payload.atPlanned = true;
       if (action === "stop") payload.confirm = true;
       const frame = JSON.stringify(payload);
       const ws = wsRef.current;

@@ -304,7 +304,24 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
-      const result = (await showStore.get(ctx.rundownId)).apply(msg.action, msg.rowId);
+      /**
+       * "Put the show where the sheet says it is" — not "take this row now".
+       *
+       * An ordinary jump starts the row at the moment it is pressed, because
+       * the showcaller is taking it now. Sync cue is a claim about where the
+       * show ALREADY was, so the row inherits its planned start. Without this
+       * the button reported the show as late by exactly however overdue the
+       * row it had just synced to was — press sync, watch the show go +1:19.
+       */
+      let startedAtMs: number | undefined;
+      if (msg.action === "jump" && msg.atPlanned && msg.rowId) {
+        const sheet = await sheetNow(ctx.rundownId);
+        if (sheet) {
+          const idx = sheet.rows.findIndex((r) => r.id === msg.rowId);
+          if (idx >= 0) startedAtMs = plannedStartMs(sheet.timing, idx, sheet.nowMs, sheet.nowSec);
+        }
+      }
+      const result = (await showStore.get(ctx.rundownId)).apply(msg.action, msg.rowId, undefined, startedAtMs);
       if (typeof result === "string") {
         send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: result });
         return;
@@ -373,6 +390,79 @@ function clockTargetRow(rows: ProjectedRow[], timing: PlanTiming, wallSec: numbe
   return target;
 }
 
+/**
+ * The rows, their timing and the event's clock — as the follower sees them.
+ *
+ * Shared with the sync-cue jump so both agree about where the sheet says the
+ * show is. Two readings of that would be two answers to the same question, and
+ * the one the button gives has to match the one the follower would.
+ */
+async function sheetNow(
+  rundownId: string,
+): Promise<{ rows: ProjectedRow[]; timing: PlanTiming; nowMs: number; nowSec: number } | null> {
+  const rundown = await dbHandle.db.query.rundowns.findFirst({
+    where: eq(schema.rundowns.id, rundownId),
+    columns: { doc: true, docEpoch: true, docUpdatedAt: true, eventId: true, plannedStartSec: true },
+  });
+  if (!rundown?.doc) return null;
+
+  // The live in-memory doc (when anyone is editing) beats the debounced
+  // store — on-the-fly time changes take effect within a tick.
+  const liveDoc = docServer.documents.get(`${rundownId}@${rundown.docEpoch}`) as Y.Doc | undefined;
+  let rows: ProjectedRow[];
+  let timing: PlanTiming;
+  if (liveDoc) {
+    const projected = projectRundownDoc(liveDoc);
+    rows = projected.rows;
+    timing = computeTiming(rows, projected.meta.plannedStartSec ?? rundown.plannedStartSec);
+  } else {
+    const key = `${rundown.docEpoch}:${rundown.docUpdatedAt?.getTime() ?? 0}`;
+    let cached = projectionCache.get(rundownId);
+    if (!cached || cached.key !== key) {
+      const projected = projectRundownDoc(decodeDoc(rundown.doc));
+      cached = {
+        key,
+        rows: projected.rows,
+        timing: computeTiming(projected.rows, projected.meta.plannedStartSec ?? rundown.plannedStartSec),
+      };
+      projectionCache.set(rundownId, cached);
+    }
+    rows = cached.rows;
+    timing = cached.timing;
+  }
+
+  let tzEntry = timezoneCache.get(rundown.eventId);
+  if (!tzEntry || Date.now() - tzEntry.at > 60_000) {
+    const event = await dbHandle.db.query.events.findFirst({
+      where: eq(schema.events.id, rundown.eventId),
+      columns: { timezone: true },
+    });
+    tzEntry = { tz: event?.timezone ?? null, at: Date.now() };
+    timezoneCache.set(rundown.eventId, tzEntry);
+  }
+
+  const nowMs = Date.now();
+  return { rows, timing, nowMs, nowSec: zoneSecondsOfDay(nowMs, tzEntry.tz ?? undefined) };
+}
+
+/**
+ * When a row that is due to be on air NOW should be recorded as having begun.
+ *
+ * The sheet's own start, whenever that has already passed. Following the clock
+ * means the show is ON the clock: a row stamped with the moment somebody
+ * noticed it reports the show as late by exactly however overdue the row was.
+ */
+function plannedStartMs(
+  timing: PlanTiming,
+  targetIndex: number,
+  nowMs: number,
+  nowSec: number,
+): number {
+  const plannedStartSec = targetIndex >= 0 ? (timing.rows[targetIndex]?.startSec ?? null) : null;
+  const absNow = absoluteNow(nowSec, timing);
+  return plannedStartSec != null && plannedStartSec <= absNow ? nowMs - (absNow - plannedStartSec) * 1000 : nowMs;
+}
+
 let clockTicking = false;
 async function clockTick(): Promise<void> {
   if (clockTicking) return; // never overlap slow ticks
@@ -389,45 +479,9 @@ async function clockTick(): Promise<void> {
       // the wheel and is stepping the cue by hand, with the show still running.
       if (current.state !== "running" || !current.clockFollow || current.clockHold) continue;
 
-      const rundown = await dbHandle.db.query.rundowns.findFirst({
-        where: eq(schema.rundowns.id, rundownId),
-        columns: { doc: true, docEpoch: true, docUpdatedAt: true, eventId: true, plannedStartSec: true },
-      });
-      if (!rundown?.doc) continue;
-
-      // The live in-memory doc (when anyone is editing) beats the debounced
-      // store — on-the-fly time changes take effect within a tick.
-      const liveDoc = docServer.documents.get(`${rundownId}@${rundown.docEpoch}`) as Y.Doc | undefined;
-      let rows: ProjectedRow[];
-      let timing: PlanTiming;
-      if (liveDoc) {
-        const projected = projectRundownDoc(liveDoc);
-        rows = projected.rows;
-        timing = computeTiming(rows, projected.meta.plannedStartSec ?? rundown.plannedStartSec);
-      } else {
-        const key = `${rundown.docEpoch}:${rundown.docUpdatedAt?.getTime() ?? 0}`;
-        let cached = projectionCache.get(rundownId);
-        if (!cached || cached.key !== key) {
-          const projected = projectRundownDoc(decodeDoc(rundown.doc));
-          cached = { key, rows: projected.rows, timing: computeTiming(projected.rows, projected.meta.plannedStartSec ?? rundown.plannedStartSec) };
-          projectionCache.set(rundownId, cached);
-        }
-        rows = cached.rows;
-        timing = cached.timing;
-      }
-
-      let tzEntry = timezoneCache.get(rundown.eventId);
-      if (!tzEntry || Date.now() - tzEntry.at > 60_000) {
-        const event = await dbHandle.db.query.events.findFirst({
-          where: eq(schema.events.id, rundown.eventId),
-          columns: { timezone: true },
-        });
-        tzEntry = { tz: event?.timezone ?? null, at: Date.now() };
-        timezoneCache.set(rundown.eventId, tzEntry);
-      }
-
-      const nowMs = Date.now();
-      const nowSec = zoneSecondsOfDay(nowMs, tzEntry.tz ?? undefined);
+      const sheet = await sheetNow(rundownId);
+      if (!sheet) continue;
+      const { rows, timing, nowMs, nowSec } = sheet;
       const target = clockTargetRow(rows, timing, nowSec);
       if (!target || target === current.activeRowId) continue;
 
@@ -459,13 +513,7 @@ async function clockTick(): Promise<void> {
       // follower noticed. Following the clock means the show is on the clock:
       // backdating keeps the item's countdown honest and the drift at zero,
       // instead of reporting however long ago the row was due to start.
-      const plannedStartSec = targetIndex >= 0 ? timing.rows[targetIndex]?.startSec ?? null : null;
-      const startedAtMs =
-        plannedStartSec != null && plannedStartSec <= absoluteNow(nowSec, timing)
-          ? nowMs - (absoluteNow(nowSec, timing) - plannedStartSec) * 1000
-          : nowMs;
-
-      const result = machine.apply("jump", target, nowMs, startedAtMs);
+      const result = machine.apply("jump", target, nowMs, plannedStartMs(timing, targetIndex, nowMs, nowSec));
       if (typeof result === "string") continue;
       broadcast(rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
       showStore.persist(rundownId, result, "jump", target);

@@ -37,11 +37,12 @@ export class ShowStateMachine {
   /**
    * Apply a transport command. Returns the new state, or an error string.
    *
-   * `startedAtMs` backdates the row's start, and exists for one caller: the
-   * clock follower. When the show is driven by the wall clock, moving onto a
-   * row does NOT mean the row has just begun — the sheet may say it started
-   * half an hour ago — and recording it as beginning now makes the item
-   * countdown and the show's drift both wrong by that amount.
+   * `startedAtMs` backdates the row's start. Two callers want it: the clock
+   * follower, and a sync-cue jump. Both are saying the same thing — the show
+   * is where the SHEET says it is — and moving onto a row that way does NOT
+   * mean the row has just begun. The sheet may say it started half an hour
+   * ago, and recording it as beginning now makes the item countdown and the
+   * show's drift both wrong by that amount.
    */
   apply(
     action: CmdAction,

@@ -38,7 +38,10 @@ const TARGET_OPTIONS: { value: string; label: string }[] = [
   { value: "start", label: "Start time" },
   { value: "duration", label: "Duration" },
   ...DEFAULT_COLUMNS.filter((c) => c.kind === "richtext").map((c) => ({ value: `dept:${c.key}`, label: c.title })),
-  { value: "custom", label: "New column (keep header)" },
+  // Short enough to READ in the column it sits in. "New column (keep header)"
+  // was the honest description and about twice the available width, so every
+  // column that used it showed a bare ellipsis where its mapping should be.
+  { value: "custom", label: "New column" },
   { value: "skip", label: "Skip" },
 ];
 
@@ -203,6 +206,8 @@ export function ImportPanel({
   const [grid, setGrid] = useState<string[][] | null>(null);
   const [headerIndex, setHeaderIndex] = useState(0);
   const [headers, setHeaders] = useState<string[]>([]);
+  /** Which column heading is being renamed, if any. */
+  const [editingHeader, setEditingHeader] = useState<number | null>(null);
   const [mapping, setMapping] = useState<ColumnTarget[]>([]);
   const [dragCol, setDragCol] = useState<number | null>(null);
 
@@ -230,6 +235,31 @@ export function ImportPanel({
     };
     setGrid(grid.map((row) => move(row, "")));
     setMapping(move(mapping, { kind: "skip" } as ColumnTarget));
+    setHeaders(move(headers, ""));
+  };
+
+  /**
+   * Rename a column heading before it is imported.
+   *
+   * Sheets arrive with whatever the last person typed at the top of the
+   * column — "WHO / DEPT", a stray date, sometimes nothing at all — and this
+   * is the moment somebody is looking at it and knows what it should say. A
+   * column mapped to its own column carries the heading through, so the title
+   * is re-derived here rather than left pointing at the old words.
+   */
+  const renameHeader = (i: number, value: string): void => {
+    const name = value.trim();
+    const next = [...headers];
+    while (next.length <= i) next.push("");
+    next[i] = name;
+    setHeaders(next);
+    setEditingHeader(null);
+    const target = mapping[i];
+    if (target && targetToValue(target) === "custom") {
+      const remapped = [...mapping];
+      remapped[i] = valueToTarget("custom", name, i);
+      setMapping(remapped);
+    }
   };
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -621,22 +651,43 @@ export function ImportPanel({
                         setDragCol(null);
                       }}
                     >
-                      <div
-                        className="col-label"
-                        draggable
-                        data-tip="Drag to move this column — the order here is the order in the run sheet, and what survives on a narrow screen"
-                        style={{ marginBottom: 4, cursor: "grab" }}
-                        onDragStart={(e) => {
-                          setDragCol(i);
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", String(i));
-                        }}
-                        onDragEnd={() => setDragCol(null)}
-                      >
-                        {h.trim() || "—"}
-                      </div>
+                      {editingHeader === i ? (
+                        <input
+                          className="inline-edit"
+                          autoFocus
+                          defaultValue={h}
+                          style={{ width: "100%", marginBottom: 4, boxSizing: "border-box" }}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onBlur={(e) => renameHeader(i, e.currentTarget.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") renameHeader(i, e.currentTarget.value);
+                            if (e.key === "Escape") setEditingHeader(null);
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="col-label"
+                          draggable
+                          data-tip="Double-click to rename this column. Drag to move it — the order here is the order in the run sheet, and what survives on a narrow screen"
+                          style={{ marginBottom: 4, cursor: "grab" }}
+                          onDoubleClick={() => setEditingHeader(i)}
+                          onDragStart={(e) => {
+                            setDragCol(i);
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", String(i));
+                          }}
+                          onDragEnd={() => setDragCol(null)}
+                        >
+                          {h.trim() || "—"}
+                        </div>
+                      )}
                       <select
                         className="input"
+                        title={
+                          targetToValue(mapping[i] ?? { kind: "skip" }) === "custom"
+                            ? "Imported as its own column, keeping this heading"
+                            : undefined
+                        }
                         style={{ padding: "2px 6px", fontSize: "0.72rem" }}
                         value={targetToValue(mapping[i] ?? { kind: "skip" })}
                         onChange={(e) => {

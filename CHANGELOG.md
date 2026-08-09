@@ -10,6 +10,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Catching up to the clock no longer reports the show as late.** Following the clock and then pressing catch-up made the show read +1:19 — the size of exactly the overdue it had just corrected. The jump stamped the row as starting at the moment the button was pressed, but catching up is a claim about where the show ALREADY was, so the row now inherits its planned start. The automatic follower had always done this; a hand-pressed catch-up went down a different path and did not. An ordinary jump still starts the row when you take it, because that one really does mean "we are taking this now".
+- **Menus stay on the screen.** A menu was anchored to one side of its button — a decision made before anything knows how wide the menu is or where the button ended up — so the ⋯ on a row near the right edge put Rename, Archive and Delete past the window. It is now placed against the viewport, flipping above the button when there is no room below.
+- **The import screen shows what each column will become.** Every column mapped to its own column displayed a bare ellipsis: the option read "New column (keep header)" in a box about half that wide. It says "New column", with the rest in the tooltip.
+
+### Added
+- **Rename a column heading on the import screen by double-clicking it.** Sheets arrive with whatever the last person typed at the top of the column, and this is the moment somebody is looking at it and knows what it should say. A column kept as its own carries the new heading through.
+
+### Changed
+- **"I'll drive" is now "Step it myself".** The control stops the clock advancing the cue so you step it with Next — which the old label described only by metaphor.
+
+### Fixed
 - **A drawn match no longer starts at the same moment as the extra period that has to be played before it can happen.** Every ending was being stacked at full time, draw included — so the sheet said the drawn-match wrap began at 3:32 while golden point ran 3:32 to 3:57. Endings are a diamond, not a list: win and lose hang off full time AND off the extra period, golden point hangs off full time only, and a draw hangs off the extra period only.
 - **The day now plans for the extra period AND the ending that follows it.** Twenty-five minutes of golden point and then an eighteen-minute winning presentation is forty-three minutes, not twenty-five. Taking the longest single branch is the time the day needs only if the match is settled at full time, and getting off air is the one thing that cannot be caught up.
 

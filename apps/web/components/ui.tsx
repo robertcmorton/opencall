@@ -38,6 +38,67 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Keep the menu on the screen.
+   *
+   * It is anchored to one side of its button, which is a decision made before
+   * anything knows how wide the menu is or where the button ended up. On a row
+   * whose ⋯ sits near the right edge that put half the items past the window,
+   * and the items that fell off were the ones a menu keeps for last — rename,
+   * archive, delete.
+   *
+   * Measured after opening and nudged back by however much it overhangs, which
+   * needs no flipping rules and cannot pick the wrong side. Re-measured on
+   * resize because a menu can be open across one.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const el = menuRef.current;
+      const wrap = ref.current;
+      if (!el || !wrap) return;
+      const pad = 8;
+      const w = wrap.getBoundingClientRect();
+      // Measured from the BUTTON and the menu's layout box, never from the
+      // menu's own rect: it opens with an animation that moves `transform`,
+      // so a rect read while that is running is 4px out AND the animation
+      // overrides any transform written back. Position wins where transform
+      // would have been fought over.
+      const mw = el.offsetWidth;
+      const mh = el.offsetHeight;
+
+      let x = align === "left" ? w.left : w.right - mw;
+      x = Math.max(pad, Math.min(x, window.innerWidth - pad - mw));
+
+      let y = w.bottom + 5;
+      if (y + mh > window.innerHeight - pad) {
+        // Hang it above the button when there is room; otherwise sit it as low
+        // as it fits. Never push the top off — losing the first item is no
+        // better than losing the last.
+        const above = w.top - 5 - mh;
+        y = above > pad ? above : Math.max(pad, window.innerHeight - pad - mh);
+      }
+
+      el.style.left = `${Math.round(x - w.left)}px`;
+      el.style.right = "auto";
+      el.style.top = `${Math.round(y - w.top)}px`;
+    };
+    place();
+    // The menu's height settles after its first paint (and can change if its
+    // contents do), so re-place on both.
+    const raf = requestAnimationFrame(place);
+    const ro = new ResizeObserver(place);
+    if (menuRef.current) ro.observe(menuRef.current);
+    window.addEventListener("resize", place);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [open, align, ref]);
+
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
       <button type="button" className={`${className} ${open ? "is-on" : ""}`} onClick={() => setOpen((o) => !o)}>
@@ -45,6 +106,7 @@ export function Dropdown({
       </button>
       {open && (
         <div
+          ref={menuRef}
           className="menu"
           style={{ top: "calc(100% + 5px)", [align]: 0 } as React.CSSProperties}
           onClick={(e) => {

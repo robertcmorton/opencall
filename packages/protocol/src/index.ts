@@ -51,6 +51,18 @@ export const CmdMsg = z
     action: CmdAction,
     rowId: z.string().optional(),
     confirm: z.boolean().optional(),
+    /**
+     * This jump means "put the show where the SHEET says it is", not "take
+     * this row now" (additive v1.7).
+     *
+     * The two are different and only the caller knows which is meant. An
+     * ordinary jump starts the row at the moment it is pressed, because the
+     * showcaller is taking it now. Syncing to the clock is a claim about where
+     * the show already was, so the row inherits its planned start — otherwise
+     * pressing sync reports the show as late by exactly however overdue the
+     * row was, which is the opposite of what the button just did.
+     */
+    atPlanned: z.boolean().optional(),
   })
   .refine((m) => m.action !== "jump" || !!m.rowId, { message: "jump requires rowId" })
   .refine((m) => m.action !== "fire" || !!m.rowId, { message: "fire requires rowId" })

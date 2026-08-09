@@ -110,3 +110,35 @@ describe("taking the wheel from the clock", () => {
     expect(m.apply("stop", undefined, 3000)).toMatchObject({ clockFollow: false, clockHold: false });
   });
 });
+
+/**
+ * Catching up to the clock is a claim about where the show already is.
+ *
+ * Reported from a live show: follow clock, then catch up, and the show
+ * immediately read +1:19. The jump stamped the row as starting at the moment
+ * the button was pressed, so the drift became exactly however overdue that row
+ * was — the opposite of what pressing "catch up" had just asserted. Clock-follow
+ * had backdated for this reason since it was written; a hand-pressed catch-up
+ * went down a different path and did not.
+ */
+describe("catch up to the clock", () => {
+  it("records the row as starting when the SHEET says, not when the button was pressed", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1_000);
+    const plannedStartMs = 10_000_000;
+    const pressedAtMs = plannedStartMs + 79_000; // the reported 1:19 late
+    const state = m.apply("jump", "row-9", pressedAtMs, plannedStartMs);
+    expect(typeof state).not.toBe("string");
+    expect((state as Exclude<typeof state, string>).activeRowStartedAtMs).toBe(plannedStartMs);
+  });
+
+  it("still starts an ordinary jump at the moment it is taken", () => {
+    // Jumping somewhere on purpose means "we are taking this now" — only a
+    // catch-up asks for the sheet's time.
+    const m = new ShowStateMachine();
+    m.apply("start", "row-1", 1_000);
+    const takenAtMs = 10_079_000;
+    const state = m.apply("jump", "row-9", takenAtMs);
+    expect((state as Exclude<typeof state, string>).activeRowStartedAtMs).toBe(takenAtMs);
+  });
+});

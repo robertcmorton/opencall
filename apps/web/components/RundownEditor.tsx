@@ -11,6 +11,8 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   absoluteNow,
   computeTiming,
+  eventType,
+  outcomesFor,
   formatDuration,
   formatTimeOfDay,
   parseDurationShorthand,
@@ -735,9 +737,12 @@ export function RundownEditor({
     const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
     if (liveIdx < 0) return false;
     // The second half of THIS game: the last one named before its endings.
+    // Each kind of show says how far in a result becomes possible — the second
+    // half in league and football, the final quarter in Australian rules.
+    const dueAfter = eventType(channel.sport)?.resultDueAfter;
     let secondHalf = -1;
     for (let i = firstEnding - 1; i >= 0; i--) {
-      if (/\b(second|2nd)\s+half\b/i.test(rows[i]!.title)) {
+      if (dueAfter && dueAfter.test(rows[i]!.title)) {
         secondHalf = i;
         break;
       }
@@ -923,13 +928,20 @@ export function RundownEditor({
    */
   const visibleOutcomesOf = (g: number): string[] => {
     const present = outcomesOfGame(g);
-    if (channel.sport !== "nrl") return [...present];
-    return outcomeStage(g) === "extra-time"
-      ? present.filter((o) => o !== "golden")
-      : present.filter((o) => o !== "draw");
+    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time");
+    // A type the app does not know, or a sheet with no type set, shows whatever
+    // endings the sheet itself carries — better than offering nothing.
+    if (offered.length === 0) return [...present];
+    return offered.filter((o) => present.includes(o));
   };
   const outcomeLabel = (o: string): string =>
-    o === "golden" ? "⚡ Golden point" : o === "win" ? "Win" : o === "lose" ? "Lose" : "Draw";
+    o === "golden"
+      ? `⚡ ${eventType(channel.sport)?.extraLabel ?? "Extra time"}`
+      : o === "win"
+        ? "Win"
+        : o === "lose"
+          ? "Lose"
+          : "Draw";
   // Position-based nudge — never clock-based, so stoppage time, injuries and
   // penalties can stretch the game freely: once the live row is within two
   // cues of THIS game's ending blocks and no result is picked, the chooser
@@ -2283,7 +2295,7 @@ export function RundownEditor({
         <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             {outcomeStage(activeGame) === "extra-time" ? (
-              <span className="od-stage od-golden">⚡ Golden point playing</span>
+              <span className="od-stage od-golden">⚡ {eventType(channel.sport)?.extraLabel ?? "Extra time"} playing</span>
             ) : outcomeStage(activeGame) === "settled" ? (
               <span className="od-stage od-done">Result called</span>
             ) : (
@@ -2292,10 +2304,10 @@ export function RundownEditor({
             {outcomeGames.length > 1 && <span className="od-game">game {activeGame}</span>}
             <span className="od-hint">
               {outcomeStage(activeGame) === "extra-time"
-                ? "Extra time is in the running order. Call it when it lands."
+                ? `${eventType(channel.sport)?.extraLabel ?? "Extra time"} is in the running order. Call it when it lands.`
                 : outcomeStage(activeGame) === "settled"
                   ? "The other endings are skipped. Every screen has followed."
-                  : "Level at full time goes to golden point, not a draw."}
+                  : (eventType(channel.sport)?.blurb ?? "Call the result when it happens.")}
             </span>
           </span>
           <span className="od-picks">

@@ -1053,6 +1053,10 @@ kbd {
   position: fixed;
   top: 10px;
   z-index: 45;
+  /* Square, and big enough to be a target on a tablet. */
+  width: 34px;
+  height: 34px;
+  padding: 0;
   transition: left var(--t-med) var(--ease);
 }
 .sidenav-brand {
@@ -1870,16 +1874,28 @@ th.col-drop-target {
     pointer-events: none;
     transition: opacity 90ms var(--ease);
     position: absolute;
-    z-index: 200;
+    /* Over the sticky header, the docked bars and the side panel — a tooltip
+       explains something on top of everything else, so it belongs on top. */
+    z-index: 9999;
+  }
+  /* The pointer is dropped: a fixed bubble is no longer anchored to the
+     element's box, so an arrow drawn from that box would point at nothing. */
+  [data-tip]::before {
+    content: none;
   }
   [data-tip]::after {
     content: attr(data-tip);
-    left: 50%;
-    bottom: calc(100% + 8px);
-    /* --tip-shift is set by keepTipsOnScreen when the bubble would run off an
-       edge; it is the exact overflow, so a tooltip with room to spare stays
-       centred on the thing it describes. */
-    transform: translateX(calc(-50% + var(--tip-shift, 0px)));
+    /* FIXED, and placed by keepTipsOnScreen.
+       As an absolutely-positioned child the bubble was at the mercy of its
+       parent: clipped by any ancestor with hidden overflow (the back button's
+       tooltip lost its first three words), and painted UNDER the grid's sticky
+       header, which sits in a different stacking context (the Undo tooltip had
+       "ITEM / ACTION" showing through it). Taken out of the flow it belongs to
+       nobody, so neither can happen. */
+    position: fixed;
+    left: var(--tip-left, 0px);
+    top: var(--tip-top, 0px);
+    transform: none;
     width: max-content;
     /* Never wider than the screen, whatever the sentence. */
     max-width: min(280px, calc(100vw - 20px));
@@ -2327,16 +2343,7 @@ th.col-drop-target {
 
 /* No room above — the top bar's own controls would explain themselves off the
    top of the screen. Set by keepTipsOnScreen. */
-@media (hover: hover) {
-  [data-tip].tip-below::after {
-    bottom: auto;
-    top: calc(100% + 8px);
-  }
-  [data-tip].tip-below::before {
-    bottom: auto;
-    top: calc(100% + 4px);
-  }
-}
+
 
 /* ── "Who's watching?" ────────────────────────────────────────────────────
    Asked once per device, before the sheet appears — nobody answers a question
@@ -2389,4 +2396,34 @@ th.col-drop-target {
   color: var(--text-3);
   font-size: 0.72rem;
   line-height: 1.45;
+}
+
+/* ── What is still missing ────────────────────────────────────────────────
+   Named, not just highlighted: "three fields are red" makes someone hunt,
+   "Event name, Event type" tells them what to do. */
+.missing-fields {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.missing-fields strong {
+  color: var(--warn);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.missing-fields ul {
+  margin: 0;
+  padding-left: 18px;
+}
+/* The field itself, so the list and the form agree. */
+.field-missing {
+  border-color: var(--warn) !important;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BrandWordmark } from "./ui";
+import { BrandWordmark, Icon } from "./ui";
 
 /**
  * App shell with the persistent left settings panel: navigation (main page,
@@ -34,13 +34,18 @@ export function WithSideNav({
 
   return (
     <>
+      {/* A hamburger, not a triangle. The triangle read as "there is something
+          to the left", which is true but not the point — three bars is the one
+          shape everybody already knows means a menu. */}
       <button
-        className="btn btn-sm sidenav-toggle no-print"
+        className="btn sidenav-toggle no-print"
         onClick={toggle}
-        title={open ? "Collapse panel" : "Open settings panel"}
+        aria-label={open ? "Close the menu" : "Open the menu"}
+        aria-expanded={open}
+        title={open ? "Close the menu" : "Menu"}
         style={{ left: open ? 208 : 10 }}
       >
-        {open ? "◂" : "▸"}
+        {open ? Icon.close : Icon.menu}
       </button>
       <aside className={`sidenav no-print ${open ? "" : "closed"}`}>
         <Link href="/" className="sidenav-brand">

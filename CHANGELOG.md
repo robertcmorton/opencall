@@ -9,7 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Event types.** What kind of show this is now lives in one place and says what changes: which endings are offered at full time, whether a level score goes somewhere before it can be a draw, what that period is called, and how far into the match the result is worth asking about. Rugby league, Australian rules, football, cricket and netball; corporate events, concerts and performance recordings, which have one running order and one ending. Adding another is data, not a hunt through the app — it replaced a `sport` string with one value tested for in half a dozen places.
+- **A form says what is still missing.** Creating an event named every empty field rather than refusing silently, which is indistinguishable from being broken. The fields are listed by name, so nobody has to hunt the form for the empty one.
+
+### Changed
+- **The drawer opens with a hamburger.** The small triangle said "there is something to the left", which is true but not the point.
+- **Tooltips are placed in viewport coordinates.** As children of the thing they describe they were at its mercy: clipped by any ancestor with hidden overflow — the back button's tooltip lost its first three words — and painted under the grid's sticky header, which sits in a different stacking context, so "ITEM / ACTION" showed through the Undo tooltip. Out of the flow they belong to nobody, so neither can happen.
+
+### Fixed
+- **A second sync server refuses to start instead of taking the database with it.** It opened the store first and discovered the port clash afterwards, so it died half-way through initialising — and an embedded database abandoned at that point will not open again, failing next time inside WASM with nothing that names the cause. The port is checked before anything is opened, and the message says what to do.
 
 ## [0.30.0] — 2026-08-09
 

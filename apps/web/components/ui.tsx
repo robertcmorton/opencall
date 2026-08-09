@@ -134,6 +134,17 @@ export function BrandMark({ size = 22 }: { size?: number }) {
 }
 
 export const Icon = {
+  /** Three bars. The one shape everybody reads as "there is a menu here". */
+  menu: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M2.5 4h11M2.5 8h11M2.5 12h11" {...stroke} strokeWidth={1.7} />
+    </svg>
+  ),
+  close: (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" {...stroke} strokeWidth={1.7} />
+    </svg>
+  ),
   play: (
     <svg width="13" height="13" viewBox="0 0 16 16">
       <path d="M4 2.5v11l9-5.5z" fill="currentColor" />
@@ -185,3 +196,25 @@ export const Icon = {
     </svg>
   ),
 };
+
+/**
+ * What is still missing, said before anyone presses the button.
+ *
+ * A form that refuses silently is indistinguishable from one that is broken,
+ * and a form that lets a half-filled thing through leaves the gap for someone
+ * to find at a venue. Every field is named, so the fix is obvious without
+ * hunting the form for the empty one.
+ */
+export function MissingFields({ missing }: { missing: string[] }) {
+  if (missing.length === 0) return null;
+  return (
+    <div className="missing-fields" role="alert">
+      <strong>Still needed</strong>
+      <ul>
+        {missing.map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -14,14 +14,14 @@ import {
   type EventSummary,
   type TemplateSummary,
 } from "../../lib/api";
-import { BrandMark, Dropdown, Icon } from "../../components/ui";
+import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
 import { SideNavSection, WithSideNav } from "../../components/SideNav";
 import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
 import { AdminNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
-import { isValidTimeZone } from "@opencall/core";
+import { isValidTimeZone, EVENT_TYPES, eventType } from "@opencall/core";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
 function ImageSlot({ value, hint, onChange }: { value: string | null; hint: string; onChange: (img: string | null) => void }) {
@@ -78,24 +78,51 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
 }
 
 /** Sports with a live outcome flow (full time win/lose/draw, golden point…). */
-const SPORTS: [string, string][] = [["nrl", "NRL"]];
-
-function SportSelect({ value, onChange, compact }: { value: string | null; onChange: (v: string | null) => void; compact?: boolean }) {
+/**
+ * What KIND of show this is. Drives the live result flow — and only that, so
+ * getting it wrong costs a dropdown, not a re-import.
+ *
+ * Grouped, because a cricket match and a product launch are not neighbours in
+ * anybody's head. The blurb is shown under the choice: nobody should have to
+ * guess what picking "AFL" will do.
+ */
+function EventTypeSelect({
+  value,
+  onChange,
+  compact,
+  invalid,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  compact?: boolean;
+  invalid?: boolean;
+}) {
+  const groups = ["Sport", "Production"] as const;
+  const chosen = eventType(value);
   return (
-    <select
-      className="input"
-      data-tip="Sport drives the live outcome flow — NRL adds the full-time Win / Lose / Golden point pick"
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || null)}
-      style={compact ? { height: 30, fontSize: "var(--fs-sm)", padding: "0 8px" } : undefined}
-    >
-      <option value="">No sport</option>
-      {SPORTS.map(([v, label]) => (
-        <option key={v} value={v}>
-          {label}
-        </option>
-      ))}
-    </select>
+    <span style={{ display: "inline-flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+      <select
+        className={`input ${invalid ? "field-missing" : ""}`}
+        data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={compact ? { height: 30, fontSize: "var(--fs-sm)", padding: "0 8px" } : undefined}
+      >
+        <option value="">Choose an event type…</option>
+        {groups.map((g) => (
+          <optgroup key={g} label={g}>
+            {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {chosen && !compact && (
+        <span style={{ color: "var(--text-3)", fontSize: "0.72rem", maxWidth: 320 }}>{chosen.blurb}</span>
+      )}
+    </span>
   );
 }
 
@@ -124,6 +151,19 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
   const today = localToday();
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  // Only after a first attempt: naming everything wrong before anyone has
+  // typed is nagging, not help.
+  const [tried, setTried] = useState(false);
+
+  /** Everything an event needs before it is worth creating. */
+  const missing = [
+    !name.trim() && "Event name",
+    !location.trim() && "Event location",
+    !startDate && "Start date",
+    !endDate && "End date",
+    !isValidTimeZone(timezone) && "A valid time zone",
+    !sport && "Event type",
+  ].filter((v): v is string => typeof v === "string");
 
   if (!open)
     return (
@@ -138,7 +178,8 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
       style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", margin: "0 0 4px" }}
       onSubmit={(e) => {
         e.preventDefault();
-        if (!name.trim() || !isValidTimeZone(timezone)) return;
+        setTried(true);
+        if (missing.length > 0) return;
         void api.createEvent({ name: name.trim(), location: location.trim() || undefined, startDate, endDate, timezone, sport, teamId }).then(() => {
           setName("");
           setLocation("");
@@ -149,11 +190,22 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
     >
       <div>
         <label className="field-label">Event name</label>
-        <input className="input" autoFocus placeholder="Launch Night" value={name} onChange={(e) => setName(e.target.value)} />
+        <input
+          className={`input ${tried && !name.trim() ? "field-missing" : ""}`}
+          autoFocus
+          placeholder="Launch Night"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </div>
       <div>
         <label className="field-label">Event location</label>
-        <input className="input" placeholder="Main arena" value={location} onChange={(e) => setLocation(e.target.value)} />
+        <input
+          className={`input ${tried && !location.trim() ? "field-missing" : ""}`}
+          placeholder="Main arena"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+        />
       </div>
       <div>
         <label className="field-label">Starts</label>
@@ -184,9 +236,10 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
       </div>
       <TimezoneField value={timezone} onChange={setTimezone} atDate={startDate} />
       <div>
-        <label className="field-label">Sport</label>
-        <SportSelect value={sport} onChange={setSport} />
+        <label className="field-label">Event type</label>
+        <EventTypeSelect value={sport} onChange={setSport} invalid={tried && !sport} />
       </div>
+      {tried && <MissingFields missing={missing} />}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="btn btn-primary" type="submit">
           Create event
@@ -818,7 +871,7 @@ export default function AdminPage() {
                   Rename
                 </button>
                 <DatesEditor key={`${event.startDate}${event.endDate}`} event={event} onSaved={reload} />
-                <SportSelect
+                <EventTypeSelect
                   compact
                   value={event.sport}
                   onChange={(v) => void api.patchEvent(event.id, { sport: v }).then(reload)}

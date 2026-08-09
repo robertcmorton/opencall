@@ -25,6 +25,32 @@ const PORT = Number(process.env.PORT ?? process.env.SYNC_PORT ?? 8787);
 const HELLO_TIMEOUT_MS = 5000;
 const HEARTBEAT_MS = 15000;
 
+/**
+ * Refuse to start if something is already on the port — BEFORE touching the
+ * database.
+ *
+ * The old order opened the database first and discovered the clash afterwards,
+ * so a second instance would get as far as initialising the store and then die
+ * on `listen`. In development that store is an embedded PGlite directory, and
+ * one abandoned half-way through initdb will not open again — the next start
+ * fails inside WASM with nothing that names the cause. Three dev databases
+ * were lost to exactly this before the check existed.
+ */
+const PORT_IN_USE = await new Promise<boolean>((resolve) => {
+  const probe = createServer();
+  probe.once("error", (err: NodeJS.ErrnoException) => resolve(err.code === "EADDRINUSE"));
+  probe.once("listening", () => probe.close(() => resolve(false)));
+  probe.listen(Number(process.env.PORT ?? 8787));
+});
+if (PORT_IN_USE) {
+  console.error(
+    `[sync] port ${process.env.PORT ?? 8787} is already in use — another sync server is running.\n` +
+      `       Stop it first (Ctrl-C, or kill -INT <pid>) so it can close its database cleanly.\n` +
+      `       Nothing has been opened, so nothing is at risk.`,
+  );
+  process.exit(1);
+}
+
 // PGlite lives at the repo root so seed + sync share one database in dev.
 // PGLITE_DIR points a second instance at its own database — one directory can
 // only be opened by one process, so test instances (the auth matrix) need it.

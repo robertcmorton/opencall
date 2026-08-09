@@ -15,6 +15,8 @@
  * worst case and pushing short tooltips off-centre for no reason.
  */
 const MARGIN = 8;
+/** How far above (or below) the thing being described the bubble sits. */
+const OFFSET = 8;
 
 function place(el: HTMLElement): void {
   const rect = el.getBoundingClientRect();
@@ -23,20 +25,19 @@ function place(el: HTMLElement): void {
   const height = parseFloat(after.height);
   if (!Number.isFinite(width) || width <= 0) return;
 
-  // Horizontal: the bubble is centred on the element, so it runs from
-  // centre − half to centre + half. Shift it back by however much of that
-  // falls outside the viewport.
+  // Centred on the element, then pulled back inside the viewport. The nudge is
+  // the exact overflow, so a tooltip with room to spare stays centred on the
+  // thing it describes rather than drifting for no reason.
   const centre = rect.left + rect.width / 2;
-  const half = width / 2;
-  const overRight = centre + half - (window.innerWidth - MARGIN);
-  const overLeft = MARGIN - (centre - half);
-  const shift = overRight > 0 ? -overRight : overLeft > 0 ? overLeft : 0;
-  el.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
+  const left = Math.min(Math.max(MARGIN, centre - width / 2), window.innerWidth - width - MARGIN);
 
-  // Vertical: above by default, below when there is no room above — the top
-  // bar's own controls would otherwise explain themselves off the top.
-  const roomAbove = rect.top;
-  el.classList.toggle("tip-below", Number.isFinite(height) && roomAbove < height + 16);
+  // Above by default; below when there is no room, which is most of the top
+  // bar — its own controls would otherwise explain themselves off the screen.
+  const roomAbove = rect.top - OFFSET;
+  const top = roomAbove >= height ? rect.top - height - OFFSET : rect.bottom + OFFSET;
+
+  el.style.setProperty("--tip-left", `${Math.round(left)}px`);
+  el.style.setProperty("--tip-top", `${Math.round(top)}px`);
 }
 
 export function keepTipsOnScreen(): () => void {
@@ -47,8 +48,18 @@ export function keepTipsOnScreen(): () => void {
   // Capture: some tooltip carriers stop bubbling for their own reasons.
   document.addEventListener("mouseover", onOver, true);
   document.addEventListener("focusin", onOver, true);
+  // A fixed bubble is placed in viewport coordinates, so it has to be replaced
+  // when the page moves under it — otherwise it hangs where the button WAS.
+  const onMove = () => {
+    const hovered = document.querySelector("[data-tip]:hover");
+    if (hovered instanceof HTMLElement) place(hovered);
+  };
+  window.addEventListener("scroll", onMove, true);
+  window.addEventListener("resize", onMove);
   return () => {
     document.removeEventListener("mouseover", onOver, true);
     document.removeEventListener("focusin", onOver, true);
+    window.removeEventListener("scroll", onMove, true);
+    window.removeEventListener("resize", onMove);
   };
 }

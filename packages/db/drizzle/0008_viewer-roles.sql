@@ -1,0 +1,1 @@
+ALTER TABLE "share_views" ADD COLUMN IF NOT EXISTS "roles" text;

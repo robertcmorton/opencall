@@ -57,6 +57,13 @@
       "when": 1786245007867,
       "tag": "0007_share-views",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786246912205,
+      "tag": "0008_viewer-roles",
+      "breakpoints": true
     }
   ]
 }

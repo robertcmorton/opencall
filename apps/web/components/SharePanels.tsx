@@ -264,6 +264,14 @@ export function JoinCodesPanel({
             {viewers.map((v) => (
               <li key={v.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
                 <strong style={{ minWidth: 120 }}>{v.name}</strong>
+                {v.roles && (
+                  <span
+                    style={{ color: "var(--accent-text)", background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: 4, padding: "0 5px", fontWeight: 600 }}
+                    data-tip="What they picked as their role — their own words, not an assignment"
+                  >
+                    {v.roles}
+                  </span>
+                )}
                 <span style={{ color: "var(--text-2)" }}>
                   {[v.os, v.browser, v.screen].filter(Boolean).join(" · ")}
                 </span>

@@ -208,6 +208,15 @@ export const shareViews = pgTable("share_views", {
   name: text("name").notNull(),
   /** A stable id kept in the device's own storage, so revisits update a row. */
   deviceId: text("device_id").notNull(),
+  /**
+   * The roles this viewer picked for themselves ("CAM 2", "AUD").
+   *
+   * The picker was per-browser and went no further, so a showcaller could see
+   * that eight people had the sheet open and not which of them was on camera.
+   * Self-declared, like the name — it says who BELIEVES they are covering
+   * what, which is the useful thing to know before a show.
+   */
+  roles: text("roles"),
   browser: text("browser"),
   os: text("os"),
   screen: text("screen"),

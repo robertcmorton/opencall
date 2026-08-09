@@ -21,6 +21,7 @@ import {
   serializeCsv,
   zoneSecondsOfDay,
 } from "@opencall/core";
+import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { api, setActiveJoinCode } from "../lib/api";
 import { exportRundownPdf } from "../lib/exportPdf";
 import { projectRundownDoc, type ColumnDef, type ProjectedRow } from "@opencall/db/doc";
@@ -398,6 +399,8 @@ export function RundownEditor({
       .catch(() => setViewColumns(null));
   }, [mode, joinCode]);
 
+
+
   useEffect(() => {
     if (mode !== "view" || columns.length === 0) return;
     const show = new Set(
@@ -418,6 +421,23 @@ export function RundownEditor({
   const [followScroll, setFollowScroll] = useState(true);
   // A user can hold several roles at once (Camera 1 AND PA). Stored per browser.
   const [myRoles, setMyRoles] = useState<string[]>([]);
+
+  /**
+   * Tell the showcaller what this viewer says they are covering.
+   *
+   * The role picker was per-browser and went no further, so a showcaller could
+   * see that eight people had the sheet open and not which of them was on
+   * camera. Sent whenever it changes, and only from a link — someone signed in
+   * is already on the crew list by name.
+   */
+  useEffect(() => {
+    if (mode !== "view" || !joinCode) return;
+    const known = viewerName();
+    if (!known) return; // the gate has not been answered yet
+    void api.recordViewer(joinCode, { ...describeDevice(known), roles: myRoles }).catch(() => {
+      // Never worth interrupting someone reading a run sheet over.
+    });
+  }, [mode, joinCode, myRoles.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   // Touch devices have no hover, so the nudges dock at the bottom instead —
   // clear of the role bar, which is also fixed to the bottom.
   // Sheet-building controls are tucked away while the show is live.

@@ -1089,16 +1089,28 @@ export function createApiHandler(
         const existing = await db.query.shareViews.findFirst({
           where: and(eq(schema.shareViews.shareTokenId, resolved.tokenId), eq(schema.shareViews.deviceId, deviceId)),
         });
+        // Roles are sent every time the viewer changes them, so a null here
+        // means "not mentioned" and must not wipe what they already said.
+        const roles = body.roles === undefined ? undefined : str(Array.isArray(body.roles) ? body.roles.join(", ") : body.roles, 120);
         if (existing) {
           await db
             .update(schema.shareViews)
-            .set({ name, browser: str(body.browser, 60), os: str(body.os, 40), screen: str(body.screen, 20), ip, lastSeenAt: new Date() })
+            .set({
+              name,
+              ...(roles !== undefined ? { roles } : {}),
+              browser: str(body.browser, 60),
+              os: str(body.os, 40),
+              screen: str(body.screen, 20),
+              ip,
+              lastSeenAt: new Date(),
+            })
             .where(eq(schema.shareViews.id, existing.id));
         } else {
           await db.insert(schema.shareViews).values({
             id: ulid(),
             shareTokenId: resolved.tokenId,
             name,
+            roles: roles ?? null,
             deviceId,
             browser: str(body.browser, 60),
             os: str(body.os, 40),
@@ -1130,6 +1142,7 @@ export function createApiHandler(
             .map((v) => ({
               id: v.id,
               name: v.name,
+              roles: v.roles,
               link: labelOf.get(v.shareTokenId) ?? null,
               browser: v.browser,
               os: v.os,

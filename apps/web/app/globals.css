@@ -2359,6 +2359,8 @@ th.col-drop-target {
   width: min(440px, 100%);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 12px;
   padding: 1.6rem;
   background: var(--surface);
@@ -2382,6 +2384,11 @@ th.col-drop-target {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+}
+/* The prose is centred with the mark, but a name is typed left to right. */
+.viewer-gate .vg-form .input {
+  text-align: left;
 }
 .viewer-gate .vg-form .input {
   height: 40px;

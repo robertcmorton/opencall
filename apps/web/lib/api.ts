@@ -212,7 +212,10 @@ export const api = {
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   templates: () => request<TemplateSummary[]>("/templates"),
   /** "This is me, on this device" — sent once a view-only link has a name. */
-  recordViewer: (code: string, body: { name: string; deviceId: string; browser: string; os: string; screen: string }) =>
+  recordViewer: (
+    code: string,
+    body: { name: string; deviceId: string; browser: string; os: string; screen: string; roles?: string[] },
+  ) =>
     request<{ ok: true; rundownId: string }>(`/codes/${encodeURIComponent(code)}/viewer`, {
       method: "POST",
       body: JSON.stringify(body),
@@ -223,6 +226,7 @@ export const api = {
       {
         id: string;
         name: string;
+        roles: string | null;
         link: string | null;
         browser: string | null;
         os: string | null;

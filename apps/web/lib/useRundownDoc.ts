@@ -116,13 +116,14 @@ export function useRundownDoc(
   const [blocked, setBlocked] = useState<DocBlock | null>(null);
   const [, setTick] = useState(0);
 
-  const fetchEpoch = (id: string): Promise<number> =>
+  /** null = the rundown does not exist; the caller must not open a socket for it. */
+  const fetchEpoch = (id: string): Promise<number | null> =>
     fetch(`${API_URL}/rundowns/${id}/epoch`)
       .then((r) => {
+        if (r.status === 404) return null;
         if (!r.ok) throw new Error(`epoch HTTP ${r.status}`);
-        return r.json() as Promise<{ epoch?: number }>;
+        return (r.json() as Promise<{ epoch?: number }>).then((b) => b.epoch ?? 0);
       })
-      .then((b) => b.epoch ?? 0)
       .catch((err) => {
         // The API being unreachable is itself the diagnosis worth showing.
         setLastError(`epoch: ${String(err?.message ?? err)}`);
@@ -133,7 +134,18 @@ export function useRundownDoc(
     let cancelled = false;
     setPhase("fetching epoch");
     void fetchEpoch(rundownId).then((e) => {
-      if (!cancelled) setEpoch(e);
+      if (cancelled) return;
+      // A deleted rundown is settled here, before any socket is opened. Asking
+      // the document server for one it does not have gets a refusal that it
+      // journals as a server error — a stale tab or bookmark then reports a
+      // fault on every load, for something the client already knew.
+      if (e === null) {
+        setPhase("no such rundown");
+        setLastError("this run sheet no longer exists");
+        setBlocked(describeRefusal("no-such-rundown", null, false));
+        return;
+      }
+      setEpoch(e);
     });
     return () => {
       cancelled = true;
@@ -204,7 +216,7 @@ export function useRundownDoc(
         // why, which is exactly the failure a crew member cannot report.
         void fetchEpoch(rundownId).then(async (current) => {
           if (cancelled) return;
-          if (current !== epoch) {
+          if (current !== null && current !== epoch) {
             concluded = false; // a moved epoch is a fresh start, not a refusal
             setEpoch(current);
             return;

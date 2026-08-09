@@ -11,6 +11,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 _Nothing yet._
 
+## [0.24.2] — 2026-08-09
+
+### Fixed
+- **A link to a deleted run sheet no longer reports a server fault.** Opening one asked the document server for it anyway, was refused, and the refusal was journalled as a server error — so a stale tab or an old bookmark filed a fault on every load, for something the app already knew. The page now settles it before opening any connection: same message on screen, nothing sent, nothing logged.
+
+
 ## [0.24.1] — 2026-08-09
 
 ### Added

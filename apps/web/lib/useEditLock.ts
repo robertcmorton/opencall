@@ -34,7 +34,12 @@ export function useEditLock(rundownId: string, wanted: boolean): EditLockHandle 
   const [view, setView] = useState<EditLockView | null>(null);
   const [mine, setMine] = useState(false);
   const [refused, setRefused] = useState(false);
+  // Kept for the tab, so a reload does not arrive looking like a stranger.
+  const storeKey = `oc:editlock:${rundownId}`;
   const tokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    tokenRef.current = sessionStorage.getItem(storeKey);
+  }, [storeKey]);
   const mineRef = useRef(false);
   mineRef.current = mine;
 
@@ -42,15 +47,24 @@ export function useEditLock(rundownId: string, wanted: boolean): EditLockHandle 
     try {
       const r = await api.claimEditLock(rundownId, tokenRef.current);
       tokenRef.current = r.token;
+      sessionStorage.setItem(storeKey, r.token);
       setMine(true);
       setRefused(false);
       setView({ kind: "yours" });
       return true;
     } catch {
+      // Refused — but the server is the judge of whether that "somebody" is
+      // in fact you on another tab, so ask rather than assume.
+      const status = await api.editLock(rundownId).catch(() => null);
+      if (status?.mine) {
+        setMine(true);
+        setRefused(false);
+        setView({ kind: "yours" });
+        return true;
+      }
       setMine(false);
       setRefused(true);
-      // Whoever has it, and since when — so the screen can name them.
-      await api.editLock(rundownId).then(setView).catch(() => undefined);
+      if (status) setView(status.view);
       return false;
     }
   }, [rundownId]);
@@ -58,16 +72,17 @@ export function useEditLock(rundownId: string, wanted: boolean): EditLockHandle 
   const release = useCallback(async (): Promise<void> => {
     const token = tokenRef.current;
     tokenRef.current = null;
+    sessionStorage.removeItem(storeKey);
     setMine(false);
     if (token) await api.releaseEditLock(rundownId, token).catch(() => undefined);
-    await api.editLock(rundownId).then(setView).catch(() => undefined);
+    await api.editLock(rundownId).then((s) => setView(s.view)).catch(() => undefined);
   }, [rundownId]);
 
   // Claim when editing starts; hand back when it stops.
   useEffect(() => {
     if (!wanted) {
       if (mineRef.current) void release();
-      else void api.editLock(rundownId).then(setView).catch(() => undefined);
+      else void api.editLock(rundownId).then((s) => setView(s.view)).catch(() => undefined);
       return;
     }
     void claim();
@@ -86,7 +101,16 @@ export function useEditLock(rundownId: string, wanted: boolean): EditLockHandle 
   useEffect(() => {
     if (!wanted || mine) return;
     const id = setInterval(() => {
-      void api.editLock(rundownId).then(setView).catch(() => undefined);
+      void api
+        .editLock(rundownId)
+        .then((s) => {
+          // It may have become ours meanwhile — another of our own tabs let go.
+          if (s.mine) {
+            setMine(true);
+            setView({ kind: "yours" });
+          } else setView(s.view);
+        })
+        .catch(() => undefined);
     }, 5000);
     return () => clearInterval(id);
   }, [wanted, mine, rundownId]);

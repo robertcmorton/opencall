@@ -93,3 +93,29 @@ export function describeLock(
   if (nowMs - lock.lastSeenMs > staleMs) return { kind: "stale", by: lock.heldBy, lastSeenMs: lock.lastSeenMs };
   return { kind: "held", by: lock.heldBy, sinceMs: lock.sinceMs };
 }
+
+/**
+ * Is this sheet held by the person asking — whatever tab they are in?
+ *
+ * Reported within an hour of shipping the lock: "it's saying somebody is
+ * editing this sheet when I am the one editing it." Every tab mints its own
+ * token, so one person with the console on one screen and the sheet on
+ * another — or the same tab after a reload — looked like two people and was
+ * locked out of their own sheet.
+ *
+ * The token identifies a TAB, which is what a heartbeat needs. Identity
+ * decides whose sheet it is. Those are different questions and answering the
+ * second with the first is what caused the bug.
+ */
+export function heldByMe(
+  holderKey: string | null,
+  requesterKey: string | null,
+  lock: EditLock,
+  nowMs: number,
+  staleMs = EDIT_LOCK_STALE_MS,
+): boolean {
+  if (!holderKey || !requesterKey || holderKey !== requesterKey) return false;
+  // A lock of your own that has gone stale is not "yours" — it is free, and
+  // saying otherwise would hide the fact that anyone can now take it.
+  return !lockIsFree(lock, nowMs, staleMs);
+}

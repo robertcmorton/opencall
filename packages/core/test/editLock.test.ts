@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EDIT_LOCK_STALE_MS,
   describeLock,
+  heldByMe,
   lockIsFree,
   lockIsStale,
   mayClaim,
@@ -86,5 +87,49 @@ describe("what the person looking at it is told", () => {
   it("does not mistake a second tab for the holder", () => {
     // Knowing the holder's NAME is not holding the lock; only the token is.
     expect(describeLock(held(NOW), "another-tab", "tok", NOW)).toMatchObject({ kind: "held" });
+  });
+});
+
+/**
+ * You are not somebody else.
+ *
+ * Shipped and reported within the hour: "it's saying somebody is editing this
+ * sheet when I am the one editing it." Each tab mints its own token, so one
+ * person with the console on one screen and the sheet on another — or the
+ * same tab after a reload — looked like two people and was locked out of
+ * their own sheet.
+ *
+ * The lock exists to stop two PEOPLE editing. The token proves a request came
+ * from a particular tab; identity is what decides whether it is your sheet.
+ */
+describe("one person, several windows", () => {
+  it("does not treat your own second tab as a stranger", () => {
+    // The bug: each tab has its own token, so the console and the editor open
+    // side by side locked the same person out of their own sheet.
+    expect(heldByMe("user:u1", "user:u1", held(NOW - 5_000), NOW)).toBe(true);
+  });
+
+  it("still keeps a genuinely different person out", () => {
+    expect(heldByMe("user:u1", "user:u2", held(NOW - 5_000), NOW)).toBe(false);
+  });
+
+  it("does not call a stale lock of your own yours", () => {
+    // It is free — anyone may take it — and pretending otherwise would hide
+    // that from the person looking at it.
+    expect(heldByMe("user:u1", "user:u1", held(NOW - EDIT_LOCK_STALE_MS - 1), NOW)).toBe(false);
+  });
+
+  it("says nothing is yours when nobody holds it", () => {
+    expect(heldByMe(null, "user:u1", nobody, NOW)).toBe(false);
+  });
+
+  /**
+   * The token still identifies a TAB, which is what a heartbeat needs: two of
+   * your own tabs must not each take the other's heartbeat for their own.
+   */
+  it("keeps the token meaningful for heartbeats", () => {
+    const lock = held(NOW - 5_000);
+    expect(mayClaim(lock, "tab-one", "tab-one", NOW)).toBe(true);
+    expect(mayClaim(lock, "tab-two", "tab-one", NOW)).toBe(false);
   });
 });

@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **You are no longer told that somebody else is editing your own sheet.** Every tab was given its own lock token, so the console on one screen and the sheet on another — or the same tab after a refresh — looked like two different people, and locked you out of a sheet you were editing. The token identifies a TAB, which is what the heartbeat needs; whose sheet it is, is a question of identity. Answering the second with the first was the bug. A genuinely different person is still kept out.
+
 ### Added
 - **One person edits a run sheet at a time.** Opening a sheet to edit takes it; the next person sees who has it and reads along until it is handed back. The document underneath merges cleanly — that was never the problem. The problem is a run sheet being a shared statement of what will happen, and two producers quietly rewriting the same block both believing theirs is the sheet.
 - **A lock nobody can be stranded by.** There is no Save button in this app — the sheet stores itself continuously — so the lock is released by finishing: press **Done editing**, close the tab, or go quiet. A holder who shuts their laptop stops counting after forty-five seconds, and the sheet says who had it and offers it to whoever wants it. A run sheet nobody can edit because a producer went home is a worse problem than the one locking solves.

@@ -20,7 +20,7 @@ import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
 import { grantInScope, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
-import { customEventTypeCode, describeLock, mayClaim, type EditLock } from "@opencall/core";
+import { customEventTypeCode, describeLock, heldByMe, mayClaim, type EditLock } from "@opencall/core";
 
 /**
  * The lock as everyone else may see it.
@@ -1363,6 +1363,7 @@ export function createApiHandler(
           columns: {
             editLockBy: true,
             editLockUserId: true,
+            editLockHolderKey: true,
             editLockToken: true,
             editLockAt: true,
             editLockSince: true,
@@ -1373,6 +1374,18 @@ export function createApiHandler(
           return true;
         }
         const now = Date.now();
+        const who = await authContext(handle, req);
+        /**
+         * Who is asking, in the same form the holder is stored as.
+         *
+         * The lock exists to stop two PEOPLE editing. One person with the
+         * console open on one screen and the sheet on another — or the same
+         * tab after a reload — is not two people, and telling them "somebody
+         * else is editing this sheet" when that somebody is them is the
+         * worst possible version of this feature.
+         */
+        const requesterKey =
+          who?.kind === "user" ? `user:${who.userId}` : who?.kind === "company" ? `company:${who.teamId}` : "admin";
         const lock: EditLock = {
           heldBy: row.editLockBy,
           heldByUserId: row.editLockUserId,
@@ -1382,7 +1395,7 @@ export function createApiHandler(
         // Just looking: every screen polls this to know whether to go
         // read-only, so it must never change anything.
         if (req.method === "GET") {
-          json(res, 200, { lock: publicLock(lock, now) });
+          json(res, 200, { lock: publicLock(lock, now), mine: heldByMe(row.editLockHolderKey, requesterKey, lock, now) });
           return true;
         }
 
@@ -1390,7 +1403,9 @@ export function createApiHandler(
           const given = String((await readJson(req)).token ?? "");
           // Only the holder hands it back. Anyone else wanting it takes it
           // through a claim, which has the staleness rule in front of it.
-          if (row.editLockToken && given !== row.editLockToken) {
+          // Yours by identity counts too: a tab that lost its token on a
+          // reload must still be able to hand the sheet back.
+          if (row.editLockToken && given !== row.editLockToken && row.editLockHolderKey !== requesterKey) {
             json(res, 409, { error: "not yours to release", lock: publicLock(lock, now) });
             return true;
           }
@@ -1402,16 +1417,13 @@ export function createApiHandler(
         // POST: claim it, or say who has it.
         const posted = await readJson(req);
         const given = typeof posted.token === "string" ? posted.token : null;
-        if (!mayClaim(lock, given, row.editLockToken, now)) {
+        if (!mayClaim(lock, given, row.editLockToken, now) && row.editLockHolderKey !== requesterKey) {
           json(res, 409, { error: "someone else is editing", lock: publicLock(lock, now) });
           return true;
         }
-        const ctx = await authContext(handle, req);
+        const ctx = who;
         const mine = given && given === row.editLockToken ? given : `lock_${ulid().toLowerCase()}`;
-        // Identity as the doc socket sees it, so that channel can tell the
-        // holder's connection from everybody else's without a name to go on.
-        const holderKey =
-          ctx?.kind === "user" ? `user:${ctx.userId}` : ctx?.kind === "company" ? `company:${ctx.teamId}` : "admin";
+        const holderKey = requesterKey;
         const name =
           typeof posted.name === "string" && posted.name.trim()
             ? posted.name.trim().slice(0, 60)
@@ -1430,7 +1442,10 @@ export function createApiHandler(
             editLockAt: new Date(now),
             // Taking over a lock that was already yours keeps the original
             // "since", so a heartbeat does not reset how long you have had it.
-            editLockSince: given && given === row.editLockToken && row.editLockSince ? row.editLockSince : new Date(now),
+            editLockSince:
+              row.editLockSince && (given === row.editLockToken || row.editLockHolderKey === requesterKey)
+                ? row.editLockSince
+                : new Date(now),
           })
           .where(eq(schema.rundowns.id, id));
         json(res, 200, {

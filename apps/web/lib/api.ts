@@ -330,7 +330,13 @@ export const api = {
     request<{ sheets: ImportedSheet[] }>("/imported-sheets").then((r) => r.sheets),
   /** Who is editing this sheet, if anybody. Safe to poll — it changes nothing. */
   editLock: (id: string) =>
-    request<{ lock: EditLockStatus }>(`/rundowns/${id}/lock`).then((r) => r.lock as unknown as EditLockView),
+    request<{ lock: EditLockStatus; mine: boolean }>(`/rundowns/${id}/lock`).then((r) => ({
+      view: r.lock as unknown as EditLockView,
+      // The SERVER decides whether this is you, by identity. The client cannot:
+      // a second tab has its own token and would otherwise conclude that you
+      // are somebody else.
+      mine: r.mine,
+    })),
   /** Take it, or keep it: re-claiming with your own token is the heartbeat. */
   claimEditLock: (id: string, token: string | null) =>
     request<{ token: string }>(`/rundowns/${id}/lock`, {

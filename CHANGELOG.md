@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **"Done editing" no longer strands you on a sheet you cannot edit.** Handing the sheet back left the editing screen with no banner and no way to take it again: a page that says EDIT, refuses every keystroke, and explains nothing. The same silence covered a first claim that never landed because the server was briefly unreachable. Not holding the sheet is now always stated, with **Start editing** to take it — a read-only screen must say that it is read-only.
+- **The live console no longer asks who holds the edit lock.** Only the editing screen ever shows a lock, so the request every console made on load was answered and thrown away.
+
+### Fixed
 - **The live console has its cue buttons back.** Taking the edit lock on every surface that can change a sheet cost the showcaller console its CUE buttons, its timing nudges, its Undo and its "Edit sheet" toggle the moment anybody else held the lock — which is exactly what the lock was never supposed to do. The lock now lives on the editing screen only; whoever is calling a show keeps every control they had, whoever else is editing.
 - **The edit lock is no longer enforced on the sync channel.** That channel cannot tell somebody CALLING a show from somebody editing it, so a lock held on the edit screen silently turned a live console read-only — cue, nudges and undo dead, with nothing on screen to say why. A lock that can do that during a show is more dangerous than the problem it exists to solve. It is advisory on the editing surface until the connection can declare which it is.
 

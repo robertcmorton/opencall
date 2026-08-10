@@ -81,8 +81,9 @@ export function useEditLock(rundownId: string, wanted: boolean): EditLockHandle 
   // Claim when editing starts; hand back when it stops.
   useEffect(() => {
     if (!wanted) {
+      // Only the edit screen renders the lock at all, so asking a surface that
+      // will never show it costs a request per console load and buys nothing.
       if (mineRef.current) void release();
-      else void api.editLock(rundownId).then((s) => setView(s.view)).catch(() => undefined);
       return;
     }
     void claim();

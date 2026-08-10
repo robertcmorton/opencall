@@ -2795,6 +2795,27 @@ export function RundownEditor({
         </div>
       )}
 
+      {/* On the edit screen without the sheet, and nobody else has it either:
+          after pressing Done, or when the first claim never landed because the
+          server was briefly unreachable. Both used to render NOTHING — a page
+          that says EDIT, refuses every keystroke, and offers no way back in.
+          The state has to be visible, and it has to be reversible. */}
+      {mayEditSheet && !lock.mine && (!lock.view || lock.view.kind === "free" || lock.view.kind === "yours") && (
+        <div className="edit-lock-bar no-print" role="status">
+          <span>
+            This sheet is read-only — you are not holding it. Nobody else is editing it.
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            data-tip="Take the sheet so you can change it. Nobody else can edit while you hold it."
+            onClick={() => void lock.claim()}
+          >
+            Start editing
+          </button>
+        </div>
+      )}
+
       {/* Holding it. "Done" is this app's save: the sheet stores itself
           continuously, so finishing is the moment that matters to anyone
           waiting for it. */}

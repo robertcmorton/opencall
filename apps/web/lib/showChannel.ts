@@ -14,6 +14,23 @@ import { resolveSyncUrl } from "./syncUrl";
 const SHOW_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_WS_URL, "ws://localhost:8787");
 const OFFSET_SAMPLES = 5;
 
+/**
+ * How long the channel may be silent before we stop believing it.
+ *
+ * The server sends a heartbeat every 15 seconds, so this is roughly three
+ * missed beats. It exists because a TCP connection can die WITHOUT a close
+ * event — a laptop sleeps, wifi drops, a proxy times the socket out — and the
+ * browser goes on reporting `readyState === OPEN` to a socket with nothing at
+ * the other end.
+ *
+ * That is not a theoretical failure. A show was left open and ended on the
+ * server, but the screen went on counting from state frozen at the moment the
+ * connection died, and Stop went into the dead socket and vanished. The page
+ * had to be reloaded before the show could be stopped. A timer that is wrong
+ * and a Stop that does nothing are the two worst things this app can do.
+ */
+const CHANNEL_STALE_MS = 40_000;
+
 export interface ShowChannel {
   connected: boolean;
   role: Role | null;
@@ -71,6 +88,8 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   // queued and flushed once the server has welcomed us — never thrown at a
   // socket that isn't ready. Stale entries (>15s) are dropped at flush.
   const welcomedRef = useRef(false);
+  /** When the server was last heard from — any frame, heartbeats included. */
+  const lastHeardRef = useRef(Date.now());
   const pendingRef = useRef<{ frame: string; at: number }[]>([]);
   const flushPending = () => {
     const ws = wsRef.current;
@@ -94,6 +113,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
 
       ws.onopen = () => {
         retryDelay = 500;
+        lastHeardRef.current = Date.now();
         // A join code always wins (it carries the role). Otherwise any stored
         // sign-in token authenticates — consoles AND companions (follow /
         // timer / prompter opened from the dashboard have no code, and the
@@ -109,6 +129,9 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       };
 
       ws.onmessage = (event) => {
+        // Anything at all counts as proof of life, including the server's
+        // heartbeat, which is otherwise ignored below.
+        lastHeardRef.current = Date.now();
         const msg = JSON.parse(String(event.data));
         if (msg.v !== PROTOCOL_VERSION) return;
         switch (msg.t) {
@@ -163,9 +186,50 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       };
     };
 
+    /**
+     * Stop trusting a socket that has gone quiet.
+     *
+     * Closing it is what starts the reconnect — and the reconnect is what
+     * re-reads the show state, so a screen that has been counting a show that
+     * already ended corrects itself instead of waiting for somebody to reload.
+     */
+    const checkAlive = () => {
+      if (closed) return;
+      const quietFor = Date.now() - lastHeardRef.current;
+      const live = ws && ws.readyState === WebSocket.OPEN;
+      if (live && quietFor > CHANNEL_STALE_MS) {
+        // The browser still calls this OPEN. It is not.
+        ws.close();
+      } else if (ws && ws.readyState === WebSocket.CLOSED) {
+        connect();
+      }
+    };
+    const watchdog = setInterval(checkAlive, 5_000);
+
+    /**
+     * Check the moment the machine comes back, not on the next tick.
+     *
+     * A sleeping laptop does not run intervals, so on waking the watchdog is
+     * as far behind as the sleep was long. These events fire first, which is
+     * the difference between a screen that is right when you look at it and
+     * one that is right five seconds later.
+     */
+    const wake = () => {
+      if (document.visibilityState === "visible") checkAlive();
+    };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", checkAlive);
+    window.addEventListener("focus", checkAlive);
+    window.addEventListener("pageshow", checkAlive);
+
     connect();
     return () => {
       closed = true;
+      clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", checkAlive);
+      window.removeEventListener("focus", checkAlive);
+      window.removeEventListener("pageshow", checkAlive);
       ws?.close();
     };
   }, [rundownId, device, joinCode]);
@@ -191,7 +255,12 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       if (action === "stop") payload.confirm = true;
       const frame = JSON.stringify(payload);
       const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current) ws.send(frame);
+      // A socket that has gone quiet still reports OPEN, and sending into it
+      // succeeds silently — which is how a Stop disappeared and a show could
+      // not be stopped without reloading. Treat silence as not connected, so
+      // the command is QUEUED and goes out on the reconnect instead.
+      const quiet = Date.now() - lastHeardRef.current > CHANNEL_STALE_MS;
+      if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current && !quiet) ws.send(frame);
       else {
         // Not connected: queue it, but say so — a command that has not left
         // the device must never look like one the server accepted.

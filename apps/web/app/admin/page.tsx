@@ -594,20 +594,42 @@ function promptDates(event: { id: string; startDate: string; endDate: string }, 
     .catch((err) => window.alert(String(err)));
 }
 
-/** Armed two-click destructive button (no browser dialogs). */
-function DangerButton({ label, confirmLabel, onConfirm }: { label: string; confirmLabel: string; onConfirm: () => void }) {
+/**
+ * Armed two-click destructive button (no browser dialogs).
+ *
+ * On confirm it goes at once, rather than sitting there until the server has
+ * answered and the list has reloaded. Pressing a delete button and watching it
+ * hold reads as "that did not work" — and the second press it invites is the
+ * one you cannot take back.
+ *
+ * It comes back if the delete actually fails, which is the only honest reason
+ * for it to reappear.
+ */
+function DangerButton({
+  label,
+  confirmLabel,
+  onConfirm,
+}: {
+  label: string;
+  confirmLabel: string;
+  onConfirm: () => void | Promise<unknown>;
+}) {
   const [armed, setArmed] = useState(false);
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
   return (
     <button
       className={`btn btn-sm btn-danger ${armed ? "is-on" : ""}`}
       onClick={() => {
-        if (armed) {
-          onConfirm();
-          setArmed(false);
-        } else {
+        if (!armed) {
           setArmed(true);
           window.setTimeout(() => setArmed(false), 3000);
+          return;
         }
+        setArmed(false);
+        setGone(true);
+        // Awaited only to put the button back when the delete did not happen.
+        void Promise.resolve(onConfirm()).catch(() => setGone(false));
       }}
     >
       {armed ? confirmLabel : label}
@@ -888,7 +910,7 @@ export default function AdminPage() {
                         <DangerButton
                           label="Delete company"
                           confirmLabel={`Delete company + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
-                          onConfirm={() => void api.deleteCompany(group.id).then(reload)}
+                          onConfirm={() => api.deleteCompany(group.id).then(reload)}
                         />
                       </span>
                       <MobileActions>
@@ -919,7 +941,7 @@ export default function AdminPage() {
                           <DangerButton
                             label="Delete company"
                             confirmLabel={`Delete + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
-                            onConfirm={() => void api.deleteCompany(group.id).then(reload)}
+                            onConfirm={() => api.deleteCompany(group.id).then(reload)}
                           />
                         </div>
                       </MobileActions>
@@ -976,7 +998,7 @@ export default function AdminPage() {
                 <DangerButton
                   label="Delete"
                   confirmLabel="Delete event + rundowns?"
-                  onConfirm={() => void api.deleteEvent(event.id).then(reload)}
+                  onConfirm={() => api.deleteEvent(event.id).then(reload)}
                 />
                 </span>
                 <MobileActions>
@@ -1005,7 +1027,7 @@ export default function AdminPage() {
                     <DangerButton
                       label="Delete event"
                       confirmLabel="Delete event + rundowns?"
-                      onConfirm={() => void api.deleteEvent(event.id).then(reload)}
+                      onConfirm={() => api.deleteEvent(event.id).then(reload)}
                     />
                   </div>
                 </MobileActions>
@@ -1138,7 +1160,7 @@ export default function AdminPage() {
                           <DangerButton
                             label="Delete"
                             confirmLabel="Really delete?"
-                            onConfirm={() => void api.deleteRundown(r.id).then(reload)}
+                            onConfirm={() => api.deleteRundown(r.id).then(reload)}
                           />
                         </div>
                       </Dropdown>
@@ -1187,7 +1209,7 @@ export default function AdminPage() {
                         <DangerButton
                           label="Delete"
                           confirmLabel="Really delete?"
-                          onConfirm={() => void api.deleteRundown(r.id).then(reload)}
+                          onConfirm={() => api.deleteRundown(r.id).then(reload)}
                         />
                       </div>
                     </MobileActions>

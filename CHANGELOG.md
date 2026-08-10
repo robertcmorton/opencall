@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A show that has ended no longer keeps counting on a screen that was left open.** A connection can die without a close event — a laptop sleeps, wifi drops, a proxy times the socket out — and the browser goes on reporting the socket as open to something with nothing at the other end. The screen kept counting from state frozen at the moment the connection died, and Stop went into the dead socket and vanished, so the page had to be reloaded before the show could be stopped. The channel now treats forty seconds of silence as death, reconnects, and re-reads the show. It also checks the instant the machine wakes or the tab is looked at again, rather than on the next tick — a sleeping laptop runs no timers, so waking is exactly when the screen is most likely to be wrong.
+- **A transport command is no longer sent into a dead socket.** While the channel is silent, commands are queued for the reconnect instead of being handed to a socket that only looks open. A Stop that disappears is the worst thing this app can do.
+- **Delete disappears the moment you confirm it.** It used to sit there until the server had answered and the list had reloaded, which reads as "that did not work" — and the second press it invites is the one you cannot take back. It comes back only if the delete actually failed.
+
+### Fixed
 - **You are no longer told that somebody else is editing your own sheet.** Every tab was given its own lock token, so the console on one screen and the sheet on another — or the same tab after a refresh — looked like two different people, and locked you out of a sheet you were editing. The token identifies a TAB, which is what the heartbeat needs; whose sheet it is, is a question of identity. Answering the second with the first was the bug. A genuinely different person is still kept out.
 
 ### Added

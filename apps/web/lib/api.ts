@@ -1,6 +1,6 @@
 "use client";
 
-import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EventTypeSpec } from "@opencall/core";
+import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EditLockView, type EventTypeSpec } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { resolveSyncUrl } from "./syncUrl";
 
@@ -57,6 +57,13 @@ export interface EventSummary {
   use24h: boolean;
   rundowns: RundownSummary[];
 }
+
+/** The lock as everyone else may see it — never carrying the holder's token. */
+export type EditLockStatus = EditLockView & {
+  heldBy: string | null;
+  sinceMs: number | null;
+  lastSeenMs: number | null;
+};
 
 export interface TemplateSummary {
   id: string;
@@ -321,6 +328,35 @@ export const api = {
   /** Run sheets kept from past imports, with the kind of show each was for. */
   importedSheets: () =>
     request<{ sheets: ImportedSheet[] }>("/imported-sheets").then((r) => r.sheets),
+  /** Who is editing this sheet, if anybody. Safe to poll — it changes nothing. */
+  editLock: (id: string) =>
+    request<{ lock: EditLockStatus }>(`/rundowns/${id}/lock`).then((r) => r.lock as unknown as EditLockView),
+  /** Take it, or keep it: re-claiming with your own token is the heartbeat. */
+  claimEditLock: (id: string, token: string | null) =>
+    request<{ token: string }>(`/rundowns/${id}/lock`, {
+      method: "POST",
+      body: JSON.stringify(token ? { token } : {}),
+    }),
+  releaseEditLock: (id: string, token: string) =>
+    request<{ lock: EditLockStatus }>(`/rundowns/${id}/lock`, { method: "DELETE", body: JSON.stringify({ token }) }),
+  /**
+   * Hand it back as the tab closes.
+   *
+   * `keepalive` so the request survives the page going away — an ordinary
+   * fetch is cancelled on unload, which is precisely when a lock most needs
+   * releasing.
+   */
+  releaseEditLockBeacon: (id: string, token: string): void => {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    const admin = getAdminToken();
+    if (admin) headers.authorization = `Bearer ${admin}`;
+    void fetch(`${API_URL}/rundowns/${id}/lock`, {
+      method: "DELETE",
+      headers,
+      body: JSON.stringify({ token }),
+      keepalive: true,
+    }).catch(() => undefined);
+  },
   deleteRundown: (id: string) => request<Record<string, never>>(`/rundowns/${id}`, { method: "DELETE" }),
   duplicateRundown: (id: string) => request<{ id: string }>(`/rundowns/${id}/duplicate`, { method: "POST" }),
 };

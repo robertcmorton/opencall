@@ -85,6 +85,13 @@
       "when": 1786281714008,
       "tag": "0011_retire-clock-hold",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786346686636,
+      "tag": "0012_edit-lock",
+      "breakpoints": true
     }
   ]
 }

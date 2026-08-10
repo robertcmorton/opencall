@@ -2699,3 +2699,35 @@ th.col-drop-target {
   color: var(--text-3);
   font-size: 0.72rem;
 }
+
+/* ── One editor at a time ─────────────────────────────────────────────────
+   Sits at the foot of the screen with the other live bars. Opaque, for the
+   same reason the drift bar is: a message about why the sheet will not accept
+   your typing is the worst one to have the sheet showing through.          */
+.edit-lock-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + var(--rolebar-h, 0px));
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: min(680px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 14%, var(--overlay));
+  border: 1px solid var(--accent);
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-lg);
+}
+/* Yours: quieter. It is a reminder, not a warning — the thing worth noticing
+   is somebody ELSE holding the sheet. */
+.edit-lock-bar.is-mine {
+  background: var(--overlay);
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}

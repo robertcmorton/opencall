@@ -170,6 +170,35 @@ export const rundowns = pgTable("rundowns", {
    * either of them can open it again.
    */
   viewingClosedAt: timestamp("viewing_closed_at", { withTimezone: true }),
+  /**
+   * Who is editing this sheet, if anybody.
+   *
+   * One editor at a time. Not because the document would corrupt — it is a
+   * CRDT and merges — but because a run sheet is a shared statement of what
+   * will happen, and two people quietly rewriting the same block both believe
+   * theirs is the sheet.
+   *
+   * `editLockAt` is a HEARTBEAT, not a timestamp of when it was taken: a lock
+   * that had to be released by hand would strand a sheet the moment somebody
+   * shut their laptop. Silence for long enough and it is anyone's.
+   *
+   * The token is what proves a request is the holder's rather than a second
+   * tab that merely knows their name.
+   */
+  editLockBy: text("edit_lock_by"),
+  editLockUserId: text("edit_lock_user_id").references(() => users.id),
+  /**
+   * WHO holds it, in a form the doc channel can compare against.
+   *
+   * "user:<id>", "company:<teamId>", "admin". Not the user id alone, because
+   * a company token and an admin token hold locks too and have no user row —
+   * and the doc socket has to be able to tell "this connection is the holder"
+   * apart from "this connection is somebody else" without a name to go on.
+   */
+  editLockHolderKey: text("edit_lock_holder_key"),
+  editLockToken: text("edit_lock_token"),
+  editLockAt: timestamp("edit_lock_at", { withTimezone: true }),
+  editLockSince: timestamp("edit_lock_since", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

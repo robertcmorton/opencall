@@ -20,7 +20,34 @@ import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
 import { grantInScope, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
-import { customEventTypeCode } from "@opencall/core";
+import { customEventTypeCode, describeLock, mayClaim, type EditLock } from "@opencall/core";
+
+/**
+ * The lock as everyone else may see it.
+ *
+ * The TOKEN never leaves the server except to the client that just claimed
+ * it: it is the proof of ownership, so handing it out with the status would
+ * let any reader take over.
+ */
+const publicLock = (lock: EditLock, nowMs: number) => ({
+  ...describeLock(lock, null, "held", nowMs),
+  heldBy: lock.heldBy,
+  sinceMs: lock.sinceMs,
+  lastSeenMs: lock.lastSeenMs,
+});
+
+const clearLock = (db: DbHandle["db"], rundownId: string) =>
+  db
+    .update(schema.rundowns)
+    .set({
+      editLockBy: null,
+      editLockUserId: null,
+      editLockHolderKey: null,
+      editLockToken: null,
+      editLockAt: null,
+      editLockSince: null,
+    })
+    .where(eq(schema.rundowns.id, rundownId));
 
 /**
  * The endings a caller asked for, keeping only the ones that mean something.
@@ -1312,6 +1339,106 @@ export function createApiHandler(
               importedAt: r.createdAt.toISOString(),
             }))
             .sort((a, b) => b.importedAt.localeCompare(a.importedAt)),
+        });
+        return true;
+      }
+
+      /**
+       * Who is editing this sheet — claim, keep, or hand back.
+       *
+       * One editor at a time. The token handed out on a successful claim is
+       * the only proof a later request is the holder's: a second tab knows
+       * the holder's NAME, so a name would let it steal the lock from itself
+       * and then fight over it.
+       *
+       * Everything here is guarded by `requireRundownManage`, which is the
+       * same bar as editing the sheet at all. Somebody with view-only access
+       * cannot take a lock they could not use.
+       */
+      if (/^\/rundowns\/[^/]+\/lock$/.test(pathname) && ["GET", "POST", "DELETE"].includes(req.method ?? "")) {
+        const id = pathname.split("/")[2]!;
+        if (!(await requireRundownManage(id))) return true;
+        const row = await db.query.rundowns.findFirst({
+          where: eq(schema.rundowns.id, id),
+          columns: {
+            editLockBy: true,
+            editLockUserId: true,
+            editLockToken: true,
+            editLockAt: true,
+            editLockSince: true,
+          },
+        });
+        if (!row) {
+          json(res, 404, { error: "rundown not found" });
+          return true;
+        }
+        const now = Date.now();
+        const lock: EditLock = {
+          heldBy: row.editLockBy,
+          heldByUserId: row.editLockUserId,
+          sinceMs: row.editLockSince?.getTime() ?? null,
+          lastSeenMs: row.editLockAt?.getTime() ?? null,
+        };
+        // Just looking: every screen polls this to know whether to go
+        // read-only, so it must never change anything.
+        if (req.method === "GET") {
+          json(res, 200, { lock: publicLock(lock, now) });
+          return true;
+        }
+
+        if (req.method === "DELETE") {
+          const given = String((await readJson(req)).token ?? "");
+          // Only the holder hands it back. Anyone else wanting it takes it
+          // through a claim, which has the staleness rule in front of it.
+          if (row.editLockToken && given !== row.editLockToken) {
+            json(res, 409, { error: "not yours to release", lock: publicLock(lock, now) });
+            return true;
+          }
+          await clearLock(db, id);
+          json(res, 200, { lock: publicLock({ heldBy: null, heldByUserId: null, sinceMs: null, lastSeenMs: null }, now) });
+          return true;
+        }
+
+        // POST: claim it, or say who has it.
+        const posted = await readJson(req);
+        const given = typeof posted.token === "string" ? posted.token : null;
+        if (!mayClaim(lock, given, row.editLockToken, now)) {
+          json(res, 409, { error: "someone else is editing", lock: publicLock(lock, now) });
+          return true;
+        }
+        const ctx = await authContext(handle, req);
+        const mine = given && given === row.editLockToken ? given : `lock_${ulid().toLowerCase()}`;
+        // Identity as the doc socket sees it, so that channel can tell the
+        // holder's connection from everybody else's without a name to go on.
+        const holderKey =
+          ctx?.kind === "user" ? `user:${ctx.userId}` : ctx?.kind === "company" ? `company:${ctx.teamId}` : "admin";
+        const name =
+          typeof posted.name === "string" && posted.name.trim()
+            ? posted.name.trim().slice(0, 60)
+            : ctx?.kind === "user"
+              ? ctx.name
+              : ctx?.kind === "company"
+                ? ctx.teamName
+                : "Somebody";
+        await db
+          .update(schema.rundowns)
+          .set({
+            editLockBy: name,
+            editLockUserId: ctx?.kind === "user" ? ctx.userId : null,
+            editLockHolderKey: holderKey,
+            editLockToken: mine,
+            editLockAt: new Date(now),
+            // Taking over a lock that was already yours keeps the original
+            // "since", so a heartbeat does not reset how long you have had it.
+            editLockSince: given && given === row.editLockToken && row.editLockSince ? row.editLockSince : new Date(now),
+          })
+          .where(eq(schema.rundowns.id, id));
+        json(res, 200, {
+          token: mine,
+          lock: publicLock(
+            { heldBy: name, heldByUserId: null, sinceMs: now, lastSeenMs: now },
+            now,
+          ),
         });
         return true;
       }

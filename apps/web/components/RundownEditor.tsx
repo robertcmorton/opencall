@@ -37,6 +37,7 @@ import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
 import { RichCellText } from "./RichCellText";
 import { useColWidths } from "../lib/useColWidths";
+import { useEditLock } from "../lib/useEditLock";
 import { DiagnosticsBar } from "./DiagnosticsBar";
 import { DocBlockedPanel } from "./DocBlockedPanel";
 import { useShowChannel } from "../lib/showChannel";
@@ -360,7 +361,18 @@ export function RundownEditor({
   joinCode?: string;
 }) {
   const isShow = mode === "show";
-  const canEditContent = mode !== "view";
+  /**
+   * One editor at a time.
+   *
+   * The lock is taken while a surface that can change the sheet is open, and
+   * handed back on Done, on leaving, or by going quiet. The showcaller console
+   * takes it too — it can edit — but the TRANSPORT is never locked: calling a
+   * show is not editing, and a lock that stopped somebody pressing Next would
+   * be a far worse fault than the one it prevents.
+   */
+  const mayEditSheet = mode !== "view";
+  const lock = useEditLock(rundownId, mayEditSheet);
+  const canEditContent = mayEditSheet && lock.mine;
   const { doc, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode);
   // The hook re-renders on every doc update, so projecting during render stays fresh.
   const { meta, keyTimes, roles, columns, rows } = projectRundownDoc(doc);
@@ -2753,6 +2765,47 @@ export function RundownEditor({
           channel={channel}
           activeRowId={activeRowId}
         />
+      )}
+
+      {/* Somebody else has the sheet. Say who, and — once they have gone quiet
+          — offer it, because a sheet nobody can edit because a producer went
+          home is worse than the problem the lock solves. */}
+      {mayEditSheet && !lock.mine && lock.view && lock.view.kind !== "yours" && lock.view.kind !== "free" && (
+        <div className="edit-lock-bar no-print" role="status">
+          <span>
+            <strong>{lock.view.by}</strong>{" "}
+            {lock.view.kind === "stale"
+              ? "left this sheet open and has gone quiet — you can take over."
+              : "is editing this sheet. You can watch, and call the show, but not change it."}
+          </span>
+          {lock.view.kind === "stale" && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              data-tip="Take the sheet. Their screen goes read-only the moment they come back."
+              onClick={() => void lock.claim()}
+            >
+              Take over
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Holding it. "Done" is this app's save: the sheet stores itself
+          continuously, so finishing is the moment that matters to anyone
+          waiting for it. */}
+      {mayEditSheet && lock.mine && (
+        <div className="edit-lock-bar is-mine no-print" role="status">
+          <span>You are editing this sheet — nobody else can change it until you finish.</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            data-tip="Hand the sheet back so somebody else can edit it. Everything is already saved."
+            onClick={() => void lock.release()}
+          >
+            Done editing
+          </button>
+        </div>
       )}
 
       {/* Driven by hand and left behind: say so, and offer the two ways out. */}

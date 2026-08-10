@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **One person edits a run sheet at a time.** Opening a sheet to edit takes it; the next person sees who has it and reads along until it is handed back. The document underneath merges cleanly — that was never the problem. The problem is a run sheet being a shared statement of what will happen, and two producers quietly rewriting the same block both believing theirs is the sheet.
+- **A lock nobody can be stranded by.** There is no Save button in this app — the sheet stores itself continuously — so the lock is released by finishing: press **Done editing**, close the tab, or go quiet. A holder who shuts their laptop stops counting after forty-five seconds, and the sheet says who had it and offers it to whoever wants it. A run sheet nobody can edit because a producer went home is a worse problem than the one locking solves.
+- **Calling a show is never locked.** The transport, the result chooser and clock-follow stay open to whoever is running the show. A lock that stopped somebody pressing Next would be a far worse fault than the one it prevents.
+
 ### Fixed
 - **Calling the result no longer cuts what is on air.** Pressing Win took the show to the winning song immediately — but the siren has gone and the second half is still on screen. Calling the result says which ending WILL be played, not that it starts now; the chosen branch is simply the next thing in the running order, so the show reaches it when the current item ends, by Next or by the clock, exactly as it would have anyway.
 - **Floating bars are readable again.** The "live cue is behind the clock" bar and the refused-command bar were painted in a 12%-alpha tint with nothing behind them, so the run sheet read straight through the words — worst for exactly the messages that say something is wrong.

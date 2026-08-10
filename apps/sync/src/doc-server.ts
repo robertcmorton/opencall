@@ -1,7 +1,6 @@
 import { Server, type Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
-import { EDIT_LOCK_STALE_MS } from "@opencall/core";
 import { schema, type DbHandle } from "@opencall/db";
 import { adminToken, canManageEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth";
 
@@ -87,25 +86,18 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
 
 
   /**
-   * Somebody ELSE is editing this sheet.
+   * The edit lock is NOT enforced on this channel.
    *
-   * The lock is enforced here rather than only in the screen, because the
-   * screen is not the write path — this socket is. A read-only banner with a
-   * live document behind it is not a lock, it is a suggestion.
+   * It was, and it was wrong: this socket cannot tell somebody CALLING a show
+   * from somebody editing it, so a lock held by a producer on the edit screen
+   * silently turned the live console read-only — cue, nudges and undo all
+   * dead, with no way to tell why. A lock that can do that during a show is
+   * more dangerous than the two-people-editing problem it exists to prevent.
    *
-   * Silence for long enough and it stops counting: a holder whose laptop shut
-   * must not leave a sheet uneditable, so the same staleness rule the rest of
-   * the app uses applies here too.
+   * The lock lives on the editing surface, which knows which it is. Enforcing
+   * it here again needs the connection to declare its purpose (calling or
+   * editing) at authentication time — worth doing, and not worth guessing at.
    */
-  const lockedByAnotherThan = async (rundownId: string, holderKey: string): Promise<boolean> => {
-    const row = await handle.db.query.rundowns.findFirst({
-      where: eq(schema.rundowns.id, rundownId),
-      columns: { editLockHolderKey: true, editLockAt: true },
-    });
-    if (!row?.editLockHolderKey || !row.editLockAt) return false;
-    if (Date.now() - row.editLockAt.getTime() > EDIT_LOCK_STALE_MS) return false; // gone quiet
-    return row.editLockHolderKey !== holderKey;
-  };
 
   return Server.configure({
     async onAuthenticate({ documentName, token, connection }) {
@@ -116,14 +108,8 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
       // Dev-open has no identities, so the lock cannot tell two connections
       // apart — but it is still applied, because a deployment that later gains
       // an ADMIN_TOKEN should not quietly change behaviour here.
-      if (isOpenAccess()) {
-        if (await lockedByAnotherThan(rundownId, "admin")) connection.readOnly = true;
-        return;
-      }
-      if (token && token === adminToken()) {
-        if (await lockedByAnotherThan(rundownId, "admin")) connection.readOnly = true;
-        return;
-      }
+      if (isOpenAccess()) return; // dev-open deployment
+      if (token && token === adminToken()) return;
       // "dev" is what a client with no stored credential sends; on a locked
       // deployment that is simply nobody, and saying so is the whole point.
       if (token && token !== "dev") {
@@ -132,24 +118,15 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         // literal ADMIN_TOKEN string was accepted above, so signing in with an
         // admin ACCOUNT (email and password) was refused on this channel while
         // the HTTP API happily treated the same session as an admin.
-        if (bearer?.kind === "admin") {
-          if (await lockedByAnotherThan(rundownId, "admin")) connection.readOnly = true;
-          return;
-        }
-        if (bearer?.kind === "company" && (await teamIdForRundown(handle, rundownId)) === bearer.teamId) {
-          if (await lockedByAnotherThan(rundownId, `company:${bearer.teamId}`)) connection.readOnly = true;
-          return;
-        }
+        if (bearer?.kind === "admin") return;
+        if (bearer?.kind === "company" && (await teamIdForRundown(handle, rundownId)) === bearer.teamId) return;
         if (bearer?.kind === "user") {
           const rundown = await handle.db.query.rundowns.findFirst({
             where: eq(schema.rundowns.id, rundownId),
             columns: { eventId: true },
           });
           if (rundown) {
-            if (await canManageEvent(handle, bearer, rundown.eventId)) {
-              if (await lockedByAnotherThan(rundownId, `user:${bearer.userId}`)) connection.readOnly = true;
-              return;
-            }
+            if (await canManageEvent(handle, bearer, rundown.eventId)) return;
             const event = await handle.db.query.events.findFirst({
               where: eq(schema.events.id, rundown.eventId),
               columns: { teamId: true },

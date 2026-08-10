@@ -362,17 +362,21 @@ export function RundownEditor({
 }) {
   const isShow = mode === "show";
   /**
-   * One editor at a time.
+   * One editor at a time — on the EDITING surface only.
    *
-   * The lock is taken while a surface that can change the sheet is open, and
-   * handed back on Done, on leaving, or by going quiet. The showcaller console
-   * takes it too — it can edit — but the TRANSPORT is never locked: calling a
-   * show is not editing, and a lock that stopped somebody pressing Next would
-   * be a far worse fault than the one it prevents.
+   * The showcaller console is deliberately outside this. I first took the lock
+   * on every surface that can change a sheet, console included, and it cost
+   * the console its CUE buttons, its timing nudges, its Undo and its "Edit
+   * sheet" toggle the moment somebody else held the lock. A live console that
+   * cannot cue is a far worse fault than two people editing a sheet, which is
+   * the whole reason the transport was never supposed to be locked.
+   *
+   * So: /edit takes the lock and honours it. /show never does — whoever is
+   * calling the show keeps every control they had.
    */
-  const mayEditSheet = mode !== "view";
+  const mayEditSheet = mode === "edit";
   const lock = useEditLock(rundownId, mayEditSheet);
-  const canEditContent = mayEditSheet && lock.mine;
+  const canEditContent = mode === "show" ? true : mayEditSheet ? lock.mine : false;
   const { doc, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode);
   // The hook re-renders on every doc update, so projecting during render stays fresh.
   const { meta, keyTimes, roles, columns, rows } = projectRundownDoc(doc);

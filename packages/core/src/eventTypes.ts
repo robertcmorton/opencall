@@ -37,9 +37,16 @@ export interface EventTypeDef {
   /** What the extra period is called on this sheet ("Golden point", "Extra time"). */
   extraLabel?: string;
   /**
-   * How far into the match the result is worth asking about. A phrase the
-   * sheet's own rows are searched for; the chooser appears once the live cue
-   * reaches it. Falls back to proximity when a sheet words it differently.
+   * The period in which a result becomes possible at all.
+   *
+   * A phrase the sheet's own rows are searched for. It does NOT decide when
+   * the chooser appears — that is the last half-minute of the item running
+   * into the endings — it decides whether the question can be asked yet. A
+   * sheet with an ad break between the second half and the endings would
+   * otherwise be asked for the result at the end of the ad break.
+   *
+   * A sheet that words its periods differently falls back to the buffer
+   * alone, which asks late rather than never.
    */
   resultDueAfter?: RegExp;
   /** Shown under the picker so the choice is not a guess. */

@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Calling the result no longer cuts what is on air.** Pressing Win took the show to the winning song immediately — but the siren has gone and the second half is still on screen. Calling the result says which ending WILL be played, not that it starts now; the chosen branch is simply the next thing in the running order, so the show reaches it when the current item ends, by Next or by the clock, exactly as it would have anyway.
+- **Floating bars are readable again.** The "live cue is behind the clock" bar and the refused-command bar were painted in a 12%-alpha tint with nothing behind them, so the run sheet read straight through the words — worst for exactly the messages that say something is wrong.
+
+### Changed
+- **The result chooser appears 30 seconds before the end of the half, not throughout it.** A bar across the foot of a live screen for the whole second half is something covering rows, and it stops being seen. It now arrives for the last half-minute of whatever runs into the decision — sliding up, bordered in amber, pulsing, with the seconds counting down — and the same again at the end of the extra period rather than for the whole twenty minutes of it. It stays if the show reaches the endings with nothing called, because otherwise there would be no way to call the result at all.
+- **A kind of show's named period now means "no result before this"** rather than "ask from here on". The buffer decides the moment; the phrase decides whether the question can be asked yet — so a sheet with an ad break between the second half and the endings is not asked for the result at the end of the ad break.
+
 ### Added
 - **A switch on the run sheet toggles the two ending layouts** — layered, or one line until called — so they can be compared against a live sheet without going three levels into a menu. It appears only on a sheet that has alternate endings.
 

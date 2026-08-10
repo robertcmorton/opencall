@@ -37,8 +37,8 @@ export function EventTypesPanel() {
               <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
               <span style={{ color: "var(--text-2)" }}>{describeEndings(t)}</span>
               {(t.resultDuePhrases?.length ?? 0) > 0 && (
-                <span className="chip" data-tip="The chooser appears once the live cue reaches a row worded like this">
-                  after “{t.resultDuePhrases!.join("” / “")}”
+                <span className="chip" data-tip="No result is asked for before the show reaches a row worded like this">
+                  not before “{t.resultDuePhrases!.join("” / “")}”
                 </span>
               )}
               <span style={{ flex: 1 }} />
@@ -188,9 +188,9 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
         <div>
           <label
             className="field-label"
-            data-tip="Words as they appear on your run sheets. The result chooser stays out of the way until the live cue reaches a row worded like this."
+            data-tip="Words as they appear on your run sheets. The chooser appears in the last 30 seconds of the item before the endings — this stops it appearing before the match has reached the period where a result is possible at all."
           >
-            Ask for the result after (optional)
+            No result before (optional)
           </label>
           <input
             className="input"
@@ -199,7 +199,10 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
             onChange={(e) => setPhrases(e.target.value)}
             style={{ minWidth: 240 }}
           />
-          <span className="field-hint">Separate with commas. Matched against the row titles on your sheet.</span>
+          <span className="field-hint">
+            Separate with commas. Matched against the row titles on your sheet — leave empty and the chooser simply
+            appears 30 seconds before the endings.
+          </span>
         </div>
       )}
       <div className="field-actions">

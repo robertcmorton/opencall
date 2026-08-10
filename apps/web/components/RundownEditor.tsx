@@ -13,6 +13,7 @@ import {
   computeTiming,
   defaultViewColumns,
   resolveEventType,
+  resultDueNow,
   outcomesFor,
   formatDuration,
   formatTimeOfDay,
@@ -82,6 +83,17 @@ interface BranchMark {
  */
 type OutcomeLayout = "layers" | "fork";
 const OUTCOME_LAYOUT_KEY = "oc:outcomelayout";
+
+/**
+ * How long before the end of the half the result chooser appears.
+ *
+ * A decision buffer, not a warning. The showcaller needs long enough to read
+ * three buttons and press the right one while the siren is going and a
+ * producer is talking in their ear — but the chooser is a bar across the foot
+ * of a live screen, and up for the whole second half it is just something
+ * covering rows.
+ */
+const RESULT_BUFFER_SEC = 30;
 
 function SortableRow({
   row,
@@ -852,28 +864,47 @@ export function RundownEditor({
    * differently) it falls back to proximity — within a few cues of the
    * endings — which is what the pulse already used.
    */
+  /**
+   * Is the result worth asking about yet?
+   *
+   * The rule itself lives in core and is tested there — it turns on a
+   * thirty-second boundary, and the only way to check that from here is to sit
+   * and watch a clock. This gathers what the rule needs from the sheet.
+   */
   const resultDue = (g: number): boolean => {
     if (!showLive) return false;
-    if (chosenOf(g) != null || goldenPlaying(g)) return true; // already in it
-    const firstEnding = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === g);
-    if (firstEnding < 0) return false;
-    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-    if (liveIdx < 0) return false;
-    // The second half of THIS game: the last one named before its endings.
-    // Each kind of show says how far in a result becomes possible — the second
-    // half in league and football, the final quarter in Australian rules.
+    const liveIndex = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    const firstEndingIndex = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === g);
+
+    let lastExtraIndex = -1;
+    for (let i = 0; i < rows.length; i++)
+      if ((rows[i]!.outcomeGame ?? 1) === g && rows[i]!.outcome === "golden") lastExtraIndex = i;
+
+    // The period before which a result cannot be asked for. Read off the
+    // sheet's own wording, stopping at the kick-off so a later game's second
+    // half is never mistaken for this one's.
+    let notBeforeIndex = -1;
     const dueAfter = showType?.resultDueAfter;
-    let secondHalf = -1;
-    for (let i = firstEnding - 1; i >= 0; i--) {
-      if (dueAfter && dueAfter.test(rows[i]!.title)) {
-        secondHalf = i;
-        break;
+    if (dueAfter && firstEndingIndex > 0) {
+      for (let i = firstEndingIndex - 1; i >= 0; i--) {
+        if (dueAfter.test(rows[i]!.title)) {
+          notBeforeIndex = i;
+          break;
+        }
+        if (/\bkick\s?off\b/i.test(rows[i]!.title)) break;
       }
-      if (/\bkick\s?off\b/i.test(rows[i]!.title)) break; // gone past this game
     }
-    if (secondHalf >= 0) return liveIdx >= secondHalf;
-    const between = rows.slice(liveIdx + 1, firstEnding).filter((r) => r.type === "cue" && !r.skipped).length;
-    return liveIdx < firstEnding && between <= 6;
+
+    return resultDueNow({
+      liveIndex,
+      firstEndingIndex,
+      lastExtraIndex,
+      extraPlaying: goldenPlaying(g),
+      remainingInRowSec: live?.remainingInRowSec ?? null,
+      notBeforeIndex,
+      called: chosenOf(g) != null,
+      bufferSec: RESULT_BUFFER_SEC,
+    });
   };
 
   /**
@@ -948,10 +979,12 @@ export function RundownEditor({
         yRows.get(r.id)?.set("skipped", !keep);
       }
     });
-    if (showLive) {
-      const first = rows.find((r) => (r.outcomeGame ?? 1) === game && r.outcome === o && r.type === "cue");
-      if (first) channel.sendCmd("jump", first.id);
-    }
+    // Deliberately NOT a jump. Calling the result says which ending WILL be
+    // played, not that it starts now — the siren has gone but the second half
+    // is still on air, and taking the show off it the instant somebody presses
+    // Win cuts the thing that is actually happening. The chosen branch is the
+    // next unskipped row, so the show reaches it when the current item ends,
+    // by Next or by the clock, exactly as it would have anyway.
   };
   const clearOutcomeOf = (game: number): void => {
     doc.transact(() => {
@@ -1118,17 +1151,30 @@ export function RundownEditor({
         : o === "lose"
           ? "Lose"
           : "Draw";
-  // Position-based nudge — never clock-based, so stoppage time, injuries and
-  // penalties can stretch the game freely: once the live row is within two
-  // cues of THIS game's ending blocks and no result is picked, the chooser
-  // pulses.
-  const decisionSoon = (() => {
-    if (!showLive || activeGame == null || chosenOf(activeGame) || !activeRowId) return false;
-    const firstOutcomeIdx = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === activeGame);
-    const activeIdx = rows.findIndex((r) => r.id === activeRowId);
-    if (firstOutcomeIdx < 0 || activeIdx < 0 || activeIdx >= firstOutcomeIdx) return false;
-    const between = rows.slice(activeIdx + 1, firstOutcomeIdx).filter((r) => r.type === "cue" && !r.skipped).length;
-    return between <= 2;
+  /**
+   * The chooser is asking, and nobody has answered.
+   *
+   * It used to mean "within two cues of the endings", because the chooser sat
+   * on screen for the whole second half and needed a separate signal for when
+   * it mattered. It no longer does — it appears in the last half-minute and
+   * not before — so its being there IS the signal, and this simply says
+   * whether it is still waiting on a press.
+   */
+  const decisionSoon =
+    showLive && activeGame != null && resultDue(activeGame) && chosenOf(activeGame) == null;
+
+  /**
+   * Seconds until the thing on air ends, while the chooser is up.
+   *
+   * Shown counting down so the press has a deadline attached to it rather than
+   * a bar that merely appeared. Clamped at zero: past the siren the question
+   * is still open, and a negative number would read as an error.
+   */
+  const decisionCountdown = (() => {
+    if (!decisionSoon) return null;
+    const remaining = live?.remainingInRowSec;
+    if (remaining == null || remaining > RESULT_BUFFER_SEC) return null;
+    return Math.max(0, Math.ceil(remaining));
   })();
 
   const selectRow = (rowId: string, e: React.MouseEvent): void => {
@@ -2626,20 +2672,27 @@ export function RundownEditor({
       {isShow && activeGame != null && resultDue(activeGame) && (
         <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
-            {outcomeStage(activeGame) === "extra-time" ? (
-              <span className="od-stage od-golden">⚡ {showType?.extraLabel ?? "Extra time"} playing</span>
-            ) : outcomeStage(activeGame) === "settled" ? (
+            {outcomeStage(activeGame) === "settled" ? (
               <span className="od-stage od-done">Result called</span>
             ) : (
-              <span className={`od-stage ${decisionSoon ? "od-soon" : ""}`}>{decisionSoon ? "Full time — pick the result" : "Full time"}</span>
+              <span className={`od-stage ${decisionSoon ? "od-soon" : ""}`}>
+                {outcomeStage(activeGame) === "extra-time"
+                  ? `⚡ ${showType?.extraLabel ?? "Extra time"} — call the result`
+                  : "Full time — call the result"}
+              </span>
+            )}
+            {/* A deadline, not just a prompt. The chooser is only up for the
+                last half-minute, so the number says how much of it is left. */}
+            {decisionCountdown != null && (
+              <span className="od-count" aria-live="polite">
+                {decisionCountdown}s
+              </span>
             )}
             {outcomeGames.length > 1 && <span className="od-game">game {activeGame}</span>}
             <span className="od-hint">
-              {outcomeStage(activeGame) === "extra-time"
-                ? `${showType?.extraLabel ?? "Extra time"} is in the running order. Call it when it lands.`
-                : outcomeStage(activeGame) === "settled"
-                  ? "The other endings are skipped. Every screen has followed."
-                  : (showType?.blurb || "Call the result when it happens.")}
+              {outcomeStage(activeGame) === "settled"
+                ? "The other endings are skipped — the show carries on to it when this item finishes."
+                : "Pick one. The show stays on what is on air and moves to it when this item ends."}
             </span>
           </span>
           <span className="od-picks">

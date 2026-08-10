@@ -1914,7 +1914,9 @@ th.col-drop-target {
   max-width: min(560px, calc(100vw - 24px));
   padding: 9px 12px;
   border-radius: var(--r-md);
-  background: var(--over-soft);
+  /* Opaque base — see .cue-drift. A refusal has to be readable over the
+     sheet it is refusing something on. */
+  background: color-mix(in srgb, var(--over) 14%, var(--overlay));
   border: 1px solid var(--over);
   color: var(--over);
   font-size: var(--fs-sm);
@@ -2047,7 +2049,10 @@ th.col-drop-target {
   max-width: min(620px, calc(100vw - 24px));
   padding: 10px 14px;
   border-radius: var(--r-md);
-  background: var(--warn-soft);
+  /* Tint over an OPAQUE base. `--warn-soft` is 12% alpha, so on its own the
+     rows of the sheet showed straight through the message — which is worst
+     for exactly the message that says something is wrong. */
+  background: color-mix(in srgb, var(--warn) 14%, var(--overlay));
   border: 1px solid var(--warn);
   color: var(--warn);
   font-size: var(--fs-sm);
@@ -2170,9 +2175,55 @@ th.col-drop-target {
   background: var(--warn-soft);
 }
 /* Full time is close and nothing called yet. */
+/* ── Calling the result ───────────────────────────────────────────────────
+   The chooser is only on screen for the last half-minute of the half, so its
+   ARRIVAL is the alert. It has to be caught out of the corner of an eye by
+   somebody watching a match, not a screen: it slides up, it is bordered in
+   the warning colour, and it keeps pulsing until somebody presses something.
+   None of that is decoration — a missed full time is a missed cue.          */
 .outcome-dock.pressing {
-  border-top-color: var(--warn);
-  animation: decision-pulse 1.2s ease-in-out infinite;
+  border-top: 2px solid var(--warn);
+  background: linear-gradient(to top, color-mix(in srgb, var(--warn) 12%, var(--overlay)), var(--overlay));
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.55), 0 -1px 0 var(--warn);
+  animation:
+    decision-arrive var(--t-med, 220ms) var(--ease) both,
+    decision-pulse 1.2s ease-in-out infinite 220ms;
+}
+/* Comes UP from the foot of the screen — movement is what the eye catches. */
+@keyframes decision-arrive {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+/* The seconds left before the item on air ends. Monospaced so it does not
+   jitter as it counts down, and big enough to read without looking straight
+   at it. */
+.outcome-dock .od-count {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 999px;
+  padding: 1px 9px;
+  min-width: 46px;
+  text-align: center;
+}
+.outcome-dock.pressing .od-pick {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+/* Somebody who has asked for less motion still needs to SEE it — the colour
+   and the border stay, only the movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  .outcome-dock.pressing {
+    animation: none;
+  }
 }
 @media (max-width: 760px), (max-height: 500px) {
   .outcome-dock {

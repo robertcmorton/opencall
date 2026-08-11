@@ -96,17 +96,37 @@ export interface ResultDueInput {
   notBeforeIndex: number;
   /** A result has already been called for this game. */
   called: boolean;
+  /**
+   * The last row of this game's endings, across every branch. -1 when the
+   * sheet does not say. Once the show is past it the result is history.
+   */
+  lastEndingIndex: number;
   /** How long before the end to ask. */
   bufferSec: number;
 }
 
 export function resultDueNow(input: ResultDueInput): boolean {
-  const { liveIndex, firstEndingIndex, lastExtraIndex, extraPlaying, remainingInRowSec, notBeforeIndex, called, bufferSec } =
-    input;
+  const {
+    liveIndex,
+    firstEndingIndex,
+    lastExtraIndex,
+    extraPlaying,
+    remainingInRowSec,
+    notBeforeIndex,
+    called,
+    lastEndingIndex,
+    bufferSec,
+  } = input;
 
-  // Called already: the chooser stays, so it can be reset and so the screen
-  // keeps saying what was called.
-  if (called) return true;
+  // Called already: keep the chooser up while the show is still IN the
+  // endings, so a wrong call can be reset and the screen keeps saying what was
+  // called. Once the chosen ending has played out and the show has moved past
+  // the whole block, the decision is history and the bar is only taking up a
+  // strip of a live screen. It used to stay for the rest of the day.
+  if (called) {
+    if (lastEndingIndex < 0 || liveIndex < 0) return true;
+    return liveIndex <= lastEndingIndex;
+  }
   if (liveIndex < 0 || firstEndingIndex < 0) return false;
 
   // Negative counts as due: a half that has run over is past the point of

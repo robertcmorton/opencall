@@ -896,6 +896,12 @@ export function RundownEditor({
     for (let i = 0; i < rows.length; i++)
       if ((rows[i]!.outcomeGame ?? 1) === g && rows[i]!.outcome === "golden") lastExtraIndex = i;
 
+    // The far edge of this game's endings, across every branch — where the
+    // decision stops being live and becomes something that already happened.
+    let lastEndingIndex = -1;
+    for (let i = 0; i < rows.length; i++)
+      if (rows[i]!.outcome && (rows[i]!.outcomeGame ?? 1) === g) lastEndingIndex = i;
+
     // The period before which a result cannot be asked for. Read off the
     // sheet's own wording, stopping at the kick-off so a later game's second
     // half is never mistaken for this one's.
@@ -919,6 +925,7 @@ export function RundownEditor({
       remainingInRowSec: live?.remainingInRowSec ?? null,
       notBeforeIndex,
       called: chosenOf(g) != null,
+      lastEndingIndex,
       bufferSec: RESULT_BUFFER_SEC,
     });
   };

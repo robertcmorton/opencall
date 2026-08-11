@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The result bar goes once the ending it chose has played.** Calling the result left it across the foot of the screen for the rest of the day — on a sheet with four games, three of those bars were reporting decisions made hours earlier. It now stays while the show is still inside that game's endings, so a wrong call can still be Reset and the screen keeps saying what was called, and disappears once the show has moved past the block. A sheet that cannot say where its endings finish keeps the old behaviour rather than guessing.
 - **The prompter no longer opens on a sentence saying your script does not exist.** An empty sheet reads as "nothing marked to read yet" — a claim about the sheet, not about the network — so that was the first thing on screen while the rows were still arriving, followed by a resize and a jump as they landed. It now says it is loading, settles the size and the scroll position, and reveals once. It reveals on a timer regardless, because a screen held blank by a flag that never fired would be far worse.
 - **Sync Cue no longer drags scrollbars onto the page.** Its shared style animates `transform`, and a CSS animation overrides an inline one — so the centring was wiped the moment it appeared and the button sat with its full width hanging off to the right, pushing the page wide. It is centred with auto margins now, which no animation can touch.
 

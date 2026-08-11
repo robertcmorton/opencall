@@ -17,6 +17,7 @@ const base: ResultDueInput = {
   remainingInRowSec: 600,
   notBeforeIndex: 3,
   called: false,
+  lastEndingIndex: 8, // the endings run rows 4-8
   bufferSec: 30,
 };
 const at = (patch: Partial<ResultDueInput>) => resultDueNow({ ...base, ...patch });
@@ -48,6 +49,22 @@ describe("when the result chooser is due", () => {
 
   it("stays after a result is called, so it can be undone", () => {
     expect(at({ called: true, liveIndex: 0, remainingInRowSec: 9999 })).toBe(true);
+    // Still inside the endings: the chosen branch is on air and a wrong call
+    // is still worth being able to take back.
+    expect(at({ called: true, liveIndex: 6, remainingInRowSec: 10 })).toBe(true);
+    expect(at({ called: true, liveIndex: 8, remainingInRowSec: 10 })).toBe(true);
+  });
+
+  // It used to stay up for the rest of the day. Once the ending it chose has
+  // played out, the decision is history and the bar is a strip of a live
+  // screen doing nothing.
+  it("goes once the show is past the endings it chose between", () => {
+    expect(at({ called: true, liveIndex: 9, remainingInRowSec: 10 })).toBe(false);
+    expect(at({ called: true, liveIndex: 40, remainingInRowSec: 10 })).toBe(false);
+  });
+
+  it("stays put when the sheet cannot say where the endings finish", () => {
+    expect(at({ called: true, liveIndex: 99, lastEndingIndex: -1 })).toBe(true);
   });
 
   it("will not ask before the period where a result is possible", () => {

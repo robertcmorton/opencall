@@ -62,15 +62,36 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   useEffect(() => {
     if (!followId || followId === lastActiveRef.current) return;
-    const el = document.getElementById(`prompt-${followId}`);
-    // The sheet streams in, so the row we want to sit on is often not on the
-    // page yet the first time we know its id. Marking it handled before the
-    // scroll actually happened means the first render wins the race and the
-    // screen never moves again — which is what it did: the right row marked
-    // NEXT, and scrollTop stuck at 0. Only record it once it has moved.
-    if (!el) return;
-    lastActiveRef.current = followId;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Getting here is not the same as having moved, and the difference is the
+    // whole bug. At first paint the container is not scrollable yet — before
+    // the text reflows, every read fits on one screen — so the scroll is a
+    // silent no-op. Treating "the element exists" as done meant the right row
+    // was marked NEXT and the screen never moved: scrollTop stuck at 0.
+    //
+    // So: place it by hand, check it took, and re-assert for a few frames
+    // until it holds. Only then is it recorded as done.
+    let raf = 0;
+    let tries = 0;
+    const place = () => {
+      const box = containerRef.current;
+      const el = document.getElementById(`prompt-${followId}`);
+      if (box && el && box.clientHeight > 0) {
+        // Land it on the read-position caret rather than the top edge — that
+        // fixed marker is where the reader's eye is.
+        const caret = box.clientHeight * 0.3;
+        const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - caret;
+        if (Math.abs(delta) <= 2) {
+          lastActiveRef.current = followId;
+          return;
+        }
+        box.scrollTop += delta;
+      }
+      if (++tries < 30) raf = requestAnimationFrame(place);
+      else lastActiveRef.current = followId; // give up rather than spin
+    };
+    raf = requestAnimationFrame(place);
+    return () => cancelAnimationFrame(raf);
   }, [followId, cues.length]);
 
   // Auto-scroll loop.

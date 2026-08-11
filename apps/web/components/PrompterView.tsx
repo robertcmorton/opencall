@@ -56,9 +56,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // sheet strikes: never fight somebody who has taken hold of the script, and
   // give them one button to hand it back.
   const [followScroll, setFollowScroll] = useState(true);
+  // Pace the words to the item, rather than to a speed somebody guessed.
+  // Touching size or speed by hand turns it off — you have said what you want.
+  const [autoPace, setAutoPace] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<string | null>(null);
-  const programmaticScroll = useRef(false);
 
   // What to read, in order of how explicit the sheet was:
   //  1. rows marked "prompter" in the sheet's own cue column — set on import
@@ -177,23 +179,13 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       return box.scrollTop >= box.scrollHeight - box.clientHeight - 2;
     };
 
-    // Our own scrolling must not read as the reader taking hold of the script.
-    programmaticScroll.current = true;
-    const release = () => {
-      window.setTimeout(() => {
-        programmaticScroll.current = false;
-      }, 400);
-    };
-
     if (place()) {
       lastActiveRef.current = scrollTargetId;
-      release();
       return;
     }
     timer = setInterval(() => {
       if (!place()) return;
       lastActiveRef.current = scrollTargetId;
-      release();
       if (timer) clearInterval(timer);
     }, 200);
     return () => {
@@ -207,9 +199,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   useEffect(() => {
     const box = containerRef.current;
     if (!box) return;
-    const letGo = () => {
-      if (!programmaticScroll.current) setFollowScroll(false);
-    };
+    // No guard needed against our own scrolling: `wheel` and `touchmove` are
+    // user-input events and are never dispatched by writing scrollTop. A flag
+    // here was worse than useless — the pacing loop left it raised, so a hand
+    // on the script could not take it off follow and Sync never appeared.
+    const letGo = () => setFollowScroll(false);
     box.addEventListener("wheel", letGo, { passive: true });
     box.addEventListener("touchmove", letGo, { passive: true });
     return () => {
@@ -217,6 +211,102 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       box.removeEventListener("touchmove", letGo);
     };
   }, []);
+
+  /**
+   * Pace the read to the item it belongs to.
+   *
+   * A prompter set to a fixed speed is a guess: the same slider carries a
+   * forty-word welcome and a three-minute address, and one of them runs out
+   * of words while the other is still talking. What the reader actually has
+   * is a slot — this row's duration — and the words have to land inside it.
+   *
+   * So the speed is not chosen, it is solved, every frame: the distance still
+   * to travel divided by the time still left. That self-corrects for free — a
+   * pause, an overrun, a jump — because both halves are re-read from the live
+   * clock rather than integrated from a starting guess.
+   */
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  useEffect(() => {
+    if (!autoPace || !onAirId || !showLive) return;
+    let raf = 0;
+    let last = performance.now();
+    // Sub-pixel movement has to be banked, not written. A slow read is a
+    // fraction of a pixel per frame, and `scrollTop += 0.13` reads back
+    // rounded — so every frame re-adds the same fraction to the same integer
+    // and the script never moves at all. Measured exactly that: 870px to
+    // travel over 110s, scrollTop pinned at 85 while the clock ran down.
+    let carry = 0;
+    const step = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      const box = containerRef.current;
+      const el = document.getElementById(`prompt-${onAirId}`);
+      const remain = liveRef.current?.remainingInRowSec ?? null;
+      if (box && el && remain != null && remain > 0.5) {
+        const room = box.clientHeight * (1 - CARET_AT);
+        // How far past the bottom of the screen this read still runs. A read
+        // that already fits below the caret needs no movement at all — it is
+        // read where it sits, and scrolling would carry it out of view.
+        const toGo =
+          el.getBoundingClientRect().bottom - box.getBoundingClientRect().top - box.clientHeight * CARET_AT - room;
+        if (toGo > 1) {
+          carry += (toGo / remain) * dt;
+          const px = Math.floor(carry);
+          if (px > 0) {
+            box.scrollTop += px;
+            carry -= px;
+          }
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [autoPace, onAirId, showLive]);
+
+  /**
+   * Size the read to the slot too.
+   *
+   * Given a whole item to say forty words in, they should be enormous; given
+   * ninety seconds and three hundred words, they have to come down or the
+   * screen becomes a blur nobody can read. Height grows roughly with the
+   * SQUARE of the font size — fewer characters per line and taller lines —
+   * so one proportional step lands close and a second settles it.
+   */
+  const fontRef = useRef(fontSize);
+  fontRef.current = fontSize;
+  useEffect(() => {
+    if (!autoPace || !onAirId) return;
+    let cancelled = false;
+    // Settle ONCE per read. Keeping fontSize in the dependencies restarted
+    // this on its own output: the pass counter reset every time, it never
+    // stopped resizing, and each growth spurt pushed the end of the read
+    // further away — so the pacer below was chasing a target it was itself
+    // moving, and fell behind instead of converging.
+    let pass = 0;
+    const fit = () => {
+      if (cancelled || pass >= 4) return;
+      const box = containerRef.current;
+      const words = document.querySelector(`[id="prompt-${onAirId}"] [data-read-body]`) as HTMLElement | null;
+      if (!box || !words || box.clientHeight === 0) return;
+      // The room a read may occupy: from the caret to the foot of the screen.
+      const room = box.clientHeight * (1 - CARET_AT) - 24;
+      const have = words.getBoundingClientRect().height;
+      if (have <= 0 || room <= 0) return;
+      pass++;
+      const next = Math.round(Math.max(28, Math.min(160, fontRef.current * Math.sqrt(room / have))));
+      if (Math.abs(next - fontRef.current) > 2) {
+        setFontSize(next);
+        requestAnimationFrame(fit); // measure again once it has painted
+      }
+    };
+    const id = requestAnimationFrame(fit);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [autoPace, onAirId]);
 
   // Auto-scroll loop.
   useEffect(() => {
@@ -346,6 +436,34 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           scroll measured from the container, which the status bar above would
           now pull apart by its own height. Same box, one percentage, no drift. */}
       <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex" }}>
+        {/* Top-centre and over the script, exactly where the run sheet puts
+            it — the same button in the same place doing the same job, so it
+            is found without being looked for. */}
+        {liveId && !followScroll && (
+          <button
+            className="btn btn-primary sync-cue"
+            // The run sheet's .sync-cue centres itself with left:0/right:0 and
+            // auto margins, which does not survive inside this flex wrapper —
+            // it came out as a full-height bar down the left edge. Pin it here
+            // instead; the class still carries the pill shape and shadow.
+            style={{
+              position: "absolute",
+              top: 12,
+              left: "50%",
+              right: "auto",
+              transform: "translateX(-50%)",
+              width: "fit-content",
+              height: "auto",
+            }}
+            data-tip="Jump back to the live cue and follow along again"
+            onClick={() => {
+              lastActiveRef.current = null;
+              setFollowScroll(true);
+            }}
+          >
+            ⇣ Sync Cue
+          </button>
+        )}
         <div
           style={{
             position: "absolute",
@@ -431,7 +549,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   // The words to say. Only these answer to the size controls —
                   // making the whole sheet this big would bury the script in the
                   // running order it is meant to stand out from.
-                  <div style={{ fontSize, lineHeight: 1.45, color: "#f2f2f2", fontWeight: 500 }}>{words}</div>
+                  <div data-read-body style={{ fontSize, lineHeight: 1.45, color: "#f2f2f2", fontWeight: 500 }}>
+                    {words}
+                  </div>
                 ) : (
                   // Everything else is the shape of the show around the script:
                   // there to be glanced at, never read aloud.
@@ -462,18 +582,6 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         <BackLink />
         {/* The same offer the run sheet makes: you scrolled away, here is the
             way back to the show. Only shown when it would do something. */}
-        {liveId && !followScroll && (
-          <button
-            className="btn btn-sm btn-primary"
-            data-tip="Jump back to the live cue and follow along again"
-            onClick={() => {
-              lastActiveRef.current = null;
-              setFollowScroll(true);
-            }}
-          >
-            ⇣ Sync
-          </button>
-        )}
         {/* Sync to clock — the same control the run sheet carries, driving the
             same server command. Same three labels for the same three states. */}
         {showLive && (
@@ -498,9 +606,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
           </button>
         )}
-        <button className="btn btn-sm" onClick={() => setScrolling((s) => !s)}>
-          {scrolling ? "⏸" : "▶"}
-        </button>
+        {/* No play/pause: the show starts the words. Space still toggles a
+            hand-driven scroll for a rehearsal with nothing running. */}
         <label>
           speed{" "}
           <input
@@ -508,17 +615,34 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             min={10}
             max={300}
             value={speed}
-            onChange={(e) => setSpeed(Number(e.target.value))}
+            onChange={(e) => {
+              setAutoPace(false);
+              setSpeed(Number(e.target.value));
+            }}
           />
         </label>
-        <button className="btn btn-sm" onClick={() => setFontSize((f) => Math.max(20, f - 4))}>
+        <button className="btn btn-sm" onClick={() => { setAutoPace(false); setFontSize((f) => Math.max(20, f - 4)); }}>
           A−
         </button>
-        <button className="btn btn-sm" onClick={() => setFontSize((f) => Math.min(96, f + 4))}>
+        <button className="btn btn-sm" onClick={() => { setAutoPace(false); setFontSize((f) => Math.min(160, f + 4)); }}>
           A+
         </button>
         <button className="btn btn-sm" onClick={() => setMirror((m) => !m)}>
           {mirror ? "unmirror" : "mirror"}
+        </button>
+        {/* Says which of the two is driving the words. Turning it back on is
+            the way out of whatever you set by hand. */}
+        <button
+          className={`btn btn-sm ${autoPace ? "is-on" : ""}`}
+          style={autoPace ? { borderColor: "var(--under)", color: "var(--under)" } : undefined}
+          data-tip={
+            autoPace
+              ? "The words are paced to the item: sized to the time available and scrolled to finish as it ends. Press to set size and speed by hand."
+              : "Size and speed are set by hand. Press to pace the words to the item again."
+          }
+          onClick={() => setAutoPace((a) => !a)}
+        >
+          {autoPace ? "auto pace" : "manual"}
         </button>
         {/* A refused command must never look like a broken button. The server
             decides whether this device may drive the show; if it says no, say

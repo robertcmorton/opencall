@@ -15,6 +15,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **The script fills the width of the screen.** Side padding of 8vw was throwing away a sixth of a surface whose whole job is fitting words on it; the scrollbar is gone too, since nothing on this screen is dragged.
 
 ### Added
+- **The words are paced to the item they belong to.** A fixed scroll speed is a guess — the same slider carries a forty-word welcome and a three-minute address, and one of them runs out of words while the other is still talking. The script is now sized to fit the time available and scrolled so it lands exactly as the item ends, solved continuously from the live clock rather than set once, so a pause, an overrun or a jump corrects itself. Touching size or speed by hand takes it off auto; the button puts it back.
+
+### Changed
+- **Sync Cue sits top-centre on the prompter**, over the script, where the run sheet puts it — the same button in the same place doing the same job.
+- **The play/pause button is gone from the prompter.** The show starts the words; the space bar still drives a hand-scrolled rehearsal when nothing is running.
+
+### Added
 - **The prompter carries the clock and CUE, the same as the run sheet.** `◷ Follow clock` hands the show to the server to run off the TIME column, reading `Following clock` while it drives and `Clock synced` once the live cue is actually on the row the sheet points at — the same three states, the same command. Every row that is not live carries a `CUE` that takes the show there. A button rather than a tappable row: a stray touch on a page somebody is reading from must never move the show.
 - **A refused command says so on the prompter.** Whether this device may drive the show is the server's decision, and a press that silently did nothing is indistinguishable from a broken button when you are live.
 

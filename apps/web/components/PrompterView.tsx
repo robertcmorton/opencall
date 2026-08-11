@@ -61,11 +61,17 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   });
 
   useEffect(() => {
-    if (followId && followId !== lastActiveRef.current) {
-      lastActiveRef.current = followId;
-      document.getElementById(`prompt-${followId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [followId]);
+    if (!followId || followId === lastActiveRef.current) return;
+    const el = document.getElementById(`prompt-${followId}`);
+    // The sheet streams in, so the row we want to sit on is often not on the
+    // page yet the first time we know its id. Marking it handled before the
+    // scroll actually happened means the first render wins the race and the
+    // screen never moves again — which is what it did: the right row marked
+    // NEXT, and scrollTop stuck at 0. Only record it once it has moved.
+    if (!el) return;
+    lastActiveRef.current = followId;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [followId, cues.length]);
 
   // Auto-scroll loop.
   useEffect(() => {

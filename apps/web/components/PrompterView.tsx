@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
-import { computeTiming, formatTimeOfDay, PROMPTER_TAG } from "@opencall/core";
+import { computeTiming, followRead, formatTimeOfDay, PROMPTER_TAG } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
 
@@ -45,14 +45,27 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const wordCount = cues.reduce((n, r) => n + wordsOf(r).split(/\s+/).filter(Boolean).length, 0);
   const estMinutes = Math.max(1, Math.round(wordCount / 150));
 
-  // Follow the caller: smooth-jump to the active cue when it changes.
+  // Follow the caller.
+  //
+  // The live cue is almost never one of these rows — this screen shows only
+  // what is to be READ, a handful out of a whole sheet — so looking the active
+  // row up by id found nothing and scrolled nowhere for the entire show, while
+  // the corner said "following". What the person holding the prompter needs is
+  // not "the show is on a row you cannot see", it is WHAT THEY READ NEXT: the
+  // first read at or after wherever the show has got to.
+  const rowIndexById = new Map(rows.map((r, i) => [r.id, i]));
+  const liveId = show?.state === "running" || show?.state === "paused" ? show.activeRowId : null;
+  const { onAirId, followId } = followRead({
+    liveIndex: liveId != null ? (rowIndexById.get(liveId) ?? -1) : -1,
+    reads: cues.map((c) => ({ id: c.id, index: rowIndexById.get(c.id) ?? -1 })),
+  });
+
   useEffect(() => {
-    const activeId = show?.state === "running" || show?.state === "paused" ? show.activeRowId : null;
-    if (activeId && activeId !== lastActiveRef.current) {
-      lastActiveRef.current = activeId;
-      document.getElementById(`prompt-${activeId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (followId && followId !== lastActiveRef.current) {
+      lastActiveRef.current = followId;
+      document.getElementById(`prompt-${followId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [show?.activeRowId, show?.state]);
+  }, [followId]);
 
   // Auto-scroll loop.
   useEffect(() => {
@@ -92,7 +105,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const activeId = show?.state === "running" || show?.state === "paused" ? show.activeRowId : null;
+  // Marked on the page: blue for the read that is ON AIR, and the one coming
+  // up called NEXT. They must not look the same — reading the next one early
+  // is exactly the mistake this screen exists to prevent.
+  const activeId = onAirId;
+  const nextId = onAirId ? null : followId;
 
   return (
     <main style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
@@ -149,6 +166,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   </span>
                 )}
                 <span style={{ color: "#444" }}>{row.sourceNumber ? `#${row.sourceNumber}` : `${i + 1}`}</span>
+                {activeId === row.id && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
+                {nextId === row.id && <span style={{ color: "#d29922", fontWeight: 700 }}>NEXT</span>}
               </div>
               {words && (
                 <div style={{ fontSize, lineHeight: 1.45, color: "#f2f2f2", fontWeight: 500 }}>{words}</div>
@@ -194,8 +213,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         </button>
         <span style={{ marginLeft: "auto" }}>
           {wordCount} words · ~{estMinutes}m ·{" "}
-          <span style={{ color: channel.connected ? "#3fb950" : "#f85149" }}>
-            {channel.connected ? "following" : "reconnecting…"}
+          {/* "following" used to mean nothing more than "the socket is open",
+              so it read as following all through a show it was not tracking.
+              It now says which of the three it actually is. */}
+          <span style={{ color: !channel.connected ? "#f85149" : followId ? "#3fb950" : "#8b949e" }}>
+            {!channel.connected ? "reconnecting…" : followId ? "following" : "show not running"}
           </span>
         </span>
       </footer>

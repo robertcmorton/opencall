@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The prompter follows the show again.** It scrolled to the live cue by looking that row up on the page — but this screen shows only the rows to be READ, a handful out of a whole sheet, so for almost every cue the lookup found nothing and the page sat still. It appeared to follow only on the rare cue that was itself a read. It now follows the show's position in the sheet: the read that is on air, or the next one coming, marked **ON AIR** and **NEXT** so the two can never be confused. Once every read is behind, it holds the last one instead of snapping back to the top of the day.
+- **"following" now means following.** It reported the state of the websocket, so it said "following" for hours while the screen tracked nothing. It distinguishes reconnecting, following, and a show that is not running.
+
+### Fixed
 - **"Done editing" no longer strands you on a sheet you cannot edit.** Handing the sheet back left the editing screen with no banner and no way to take it again: a page that says EDIT, refuses every keystroke, and explains nothing. The same silence covered a first claim that never landed because the server was briefly unreachable. Not holding the sheet is now always stated, with **Start editing** to take it — a read-only screen must say that it is read-only.
 - **The live console no longer asks who holds the edit lock.** Only the editing screen ever shows a lock, so the request every console made on load was answered and thrown away.
 

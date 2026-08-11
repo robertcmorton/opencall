@@ -131,3 +131,48 @@ export function resultDueNow(input: ResultDueInput): boolean {
   // Otherwise: only on the row running into the endings, in its last seconds.
   return liveIndex === firstEndingIndex - 1 && withinBuffer;
 }
+
+/** One row that carries words to be read aloud, with its place in the sheet. */
+export interface ReadRow {
+  id: string;
+  /** Index of this row in the FULL sheet, not among the reads. */
+  index: number;
+}
+
+export interface FollowReadInput {
+  /** Index of the live cue in the full sheet; -1 when no show is running. */
+  liveIndex: number;
+  /** The reads, in sheet order. */
+  reads: ReadRow[];
+}
+
+export interface FollowRead {
+  /** A read that is on air right now — the live cue IS this read. */
+  onAirId: string | null;
+  /** What the prompter should be showing: on air, else the next one coming. */
+  followId: string | null;
+}
+
+/**
+ * Which read the prompter should be sitting on.
+ *
+ * The prompter renders only the rows to be READ — a handful out of a whole
+ * sheet — so "scroll to the live cue" finds nothing for almost the entire
+ * show. It followed on the rare tick when the cue happened to be a read, and
+ * sat still through everything else while reporting that it was following.
+ *
+ * What the person holding it needs is the next thing they have to say. So:
+ * the read on air if the show is on one, otherwise the first read at or after
+ * where the show has got to; and once every read is behind us, the last one —
+ * holding the words just read rather than snapping back to the top of the day.
+ */
+export function followRead(input: FollowReadInput): FollowRead {
+  const { liveIndex, reads } = input;
+  if (liveIndex < 0 || reads.length === 0) return { onAirId: null, followId: null };
+
+  const onAir = reads.find((r) => r.index === liveIndex);
+  if (onAir) return { onAirId: onAir.id, followId: onAir.id };
+
+  const upcoming = reads.find((r) => r.index >= liveIndex);
+  return { onAirId: null, followId: upcoming?.id ?? reads[reads.length - 1]!.id };
+}

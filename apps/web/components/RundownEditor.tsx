@@ -1607,7 +1607,19 @@ export function RundownEditor({
         className={richColClass(column)}
         onDoubleClick={canEditContent ? () => setActiveCell({ rowId: rowRecord.id, columnId: column.id }) : undefined}
       >
-        {richXml ? <RichCellText xml={richXml} /> : highlightRoles(rowRecord.cells[column.key] ?? "", roles)}
+        {/* A read written to be spoken is a paragraph, and a paragraph in a
+            grid row pushes every other row off the screen. The sheet shows the
+            first couple of lines and trails off; the prompter, which exists to
+            be read from, still carries every word. */}
+        {column.kind === "title" ? (
+          <span className="cell-clamp">
+            {richXml ? <RichCellText xml={richXml} /> : highlightRoles(rowRecord.cells[column.key] ?? "", roles)}
+          </span>
+        ) : richXml ? (
+          <RichCellText xml={richXml} />
+        ) : (
+          highlightRoles(rowRecord.cells[column.key] ?? "", roles)
+        )}
         {column.kind === "title" && foldedLine(rowRecord)}
       </td>
     );

@@ -2763,3 +2763,24 @@ th.col-drop-target {
   border-color: #2f81f7;
   color: #2f81f7;
 }
+
+/* A read is written to be spoken, so it arrives as a paragraph. Two lines of
+   it in the sheet, then it trails off — the prompter is where the whole thing
+   is meant to be read, and a grid row that grows to forty words buries every
+   other item on the screen. Printing and PDF export get the full text: paper
+   has no live show to run. */
+.cell-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media print {
+  .cell-clamp {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
+}

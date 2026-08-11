@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The prompter no longer opens on a sentence saying your script does not exist.** An empty sheet reads as "nothing marked to read yet" — a claim about the sheet, not about the network — so that was the first thing on screen while the rows were still arriving, followed by a resize and a jump as they landed. It now says it is loading, settles the size and the scroll position, and reveals once. It reveals on a timer regardless, because a screen held blank by a flag that never fired would be far worse.
+- **Sync Cue no longer drags scrollbars onto the page.** Its shared style animates `transform`, and a CSS animation overrides an inline one — so the centring was wiped the moment it appeared and the button sat with its full width hanging off to the right, pushing the page wide. It is centred with auto margins now, which no animation can touch.
+
+### Changed
+- **A long read is trimmed in the run sheet and whole in the prompter.** A passage written to be spoken is a paragraph, and a paragraph in a grid row buries every other item on screen. The sheet shows two lines and trails off; the prompter, which exists to be read from, carries every word. Printing and PDF export keep the full text — paper has no live show to run.
+
+
 ### Changed
 - **The prompter now shows the whole run sheet and scrolls through it like the sheet does.** It used to render only the rows there were words for, so the live cue was usually not on the page and a reader could not see where the show had got to. The running order is there in small grey type, the words to be read are set large among it, and the caret follows the show item by item.
 - **The size controls only touch the words to be read.** Making the running order that big would bury the script in the very context it needs to stand out from.

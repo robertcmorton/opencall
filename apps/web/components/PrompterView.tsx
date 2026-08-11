@@ -38,7 +38,7 @@ const CARET_AT = 0.3;
 
 export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
   useWakeLock();
-  const { doc } = useRundownDoc(rundownId);
+  const { doc, synced } = useRundownDoc(rundownId);
   const { columns, rows, meta } = projectRundownDoc(doc);
   const channel = useShowChannel(rundownId, "companion", joinCode);
   const show = channel.show;
@@ -59,6 +59,20 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // Pace the words to the item, rather than to a speed somebody guessed.
   // Touching size or speed by hand turns it off — you have said what you want.
   const [autoPace, setAutoPace] = useState(true);
+  /**
+   * Hold the script back until it is worth looking at.
+   *
+   * Opening the prompter used to show a half-built screen: an empty sheet
+   * reads as "nothing marked to read yet", which is a claim about the sheet
+   * and not about the network, so the first thing a reader saw was a sentence
+   * saying their script did not exist. Then the rows landed, the size fitter
+   * resized everything, and the follow-scroll jumped it somewhere else.
+   *
+   * So: settle first, reveal once. It FAILS OPEN on a timer — a screen held
+   * blank by a condition that never fired would be far worse than one that
+   * appears mid-settle.
+   */
+  const [ready, setReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<string | null>(null);
 
@@ -181,11 +195,13 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
     if (place()) {
       lastActiveRef.current = scrollTargetId;
+      setReady(true);
       return;
     }
     timer = setInterval(() => {
       if (!place()) return;
       lastActiveRef.current = scrollTargetId;
+      setReady(true);
       if (timer) clearInterval(timer);
     }, 200);
     return () => {
@@ -225,6 +241,19 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
    * pause, an overrun, a jump — because both halves are re-read from the live
    * clock rather than integrated from a starting guess.
    */
+  // Reveal once the sheet is here and has had a moment to settle, and always
+  // reveal eventually whatever happens — nothing about a live show should be
+  // waiting on a flag of ours.
+  useEffect(() => {
+    if (!synced || ready) return;
+    const t = window.setTimeout(() => setReady(true), 900);
+    return () => window.clearTimeout(t);
+  }, [synced, ready]);
+  // Nothing to place against: no show running means no scroll to wait for.
+  useEffect(() => {
+    if (synced && !liveId) setReady(true);
+  }, [synced, liveId]);
+
   const liveRef = useRef(live);
   liveRef.current = live;
   useEffect(() => {
@@ -435,23 +464,47 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           position" is. The caret used to be fixed to the viewport while the
           scroll measured from the container, which the status bar above would
           now pull apart by its own height. Same box, one percentage, no drift. */}
-      <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex" }}>
+      {/* clipped: the script does its own scrolling, so nothing overlaid here
+          may ever reach the page and raise scrollbars on it. */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex", overflow: "hidden" }}>
+        {/* Says the sheet is on its way, rather than letting an empty one
+            speak for it. */}
+        {!ready && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#555",
+              fontSize: "1rem",
+              letterSpacing: "0.08em",
+              pointerEvents: "none",
+            }}
+          >
+            LOADING THE SHEET…
+          </div>
+        )}
         {/* Top-centre and over the script, exactly where the run sheet puts
             it — the same button in the same place doing the same job, so it
             is found without being looked for. */}
         {liveId && !followScroll && (
           <button
             className="btn btn-primary sync-cue"
-            // The run sheet's .sync-cue centres itself with left:0/right:0 and
-            // auto margins, which does not survive inside this flex wrapper —
-            // it came out as a full-height bar down the left edge. Pin it here
-            // instead; the class still carries the pill shape and shadow.
+            // Centred WITHOUT transform. .sync-cue carries `animation:
+            // menu-in`, which animates transform to `none` — and a CSS
+            // animation beats an inline style, so a translateX(-50%) here was
+            // wiped the moment it rendered. The button then sat at left:50%
+            // with its whole width hanging off to the right, pushing the page
+            // wide enough to raise scrollbars. Auto margins owe nothing to
+            // transform, so the animation cannot touch them.
             style={{
               position: "absolute",
               top: 12,
-              left: "50%",
-              right: "auto",
-              transform: "translateX(-50%)",
+              left: 0,
+              right: 0,
+              marginInline: "auto",
               width: "fit-content",
               height: "auto",
             }}
@@ -488,9 +541,12 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           // margin left is only enough to clear the caret.
           padding: "30vh 1rem 60vh 40px",
           transform: mirror ? "scaleX(-1)" : undefined,
+          // Sized and placed before it is looked at, then shown in one go.
+          opacity: ready ? 1 : 0,
+          transition: "opacity 160ms linear",
         }}
       >
-        {cues.length === 0 && (
+        {synced && cues.length === 0 && (
           <div style={{ color: "#777", fontSize: "1.1rem", lineHeight: 1.6, maxWidth: "40ch" }}>
             Nothing marked to read yet. Mark a row <strong style={{ color: "#f2f2f2" }}>{PROMPTER_TAG}</strong> in the
             run sheet&rsquo;s cue column — those words then appear here at full size. The rest of the sheet is listed

@@ -71,27 +71,41 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     //
     // So: place it by hand, check it took, and re-assert for a few frames
     // until it holds. Only then is it recorded as done.
-    let raf = 0;
-    let tries = 0;
-    const place = () => {
+    // Keep trying until it has ACTUALLY moved. The previous attempt gave up
+    // after half a second and then marked the row handled — but the sheet
+    // arrives over a websocket and is routinely slower than that, so the
+    // retries expired before there was anything to scroll to and nothing ever
+    // ran again. Never record this as done on a timer; only on the result.
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const place = (): boolean => {
       const box = containerRef.current;
       const el = document.getElementById(`prompt-${followId}`);
-      if (box && el && box.clientHeight > 0) {
-        // Land it on the read-position caret rather than the top edge — that
-        // fixed marker is where the reader's eye is.
-        const caret = box.clientHeight * 0.3;
-        const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - caret;
-        if (Math.abs(delta) <= 2) {
-          lastActiveRef.current = followId;
-          return;
-        }
-        box.scrollTop += delta;
-      }
-      if (++tries < 30) raf = requestAnimationFrame(place);
-      else lastActiveRef.current = followId; // give up rather than spin
+      if (!box || !el || box.clientHeight === 0) return false;
+      // Land it on the read-position caret rather than the top edge — that
+      // fixed marker is where the reader's eye is.
+      const caret = box.clientHeight * 0.3;
+      const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - caret;
+      if (Math.abs(delta) <= 2) return true;
+      box.scrollTop += delta;
+      if (Math.abs(el.getBoundingClientRect().top - box.getBoundingClientRect().top - caret) <= 2) return true;
+      // A read near the end may not be able to reach the caret. Hitting the
+      // bottom of the scroll IS as far as it goes — settled, not failed, or
+      // this retries forever.
+      return box.scrollTop >= box.scrollHeight - box.clientHeight - 2;
     };
-    raf = requestAnimationFrame(place);
-    return () => cancelAnimationFrame(raf);
+
+    if (place()) {
+      lastActiveRef.current = followId;
+      return;
+    }
+    timer = setInterval(() => {
+      if (!place()) return;
+      lastActiveRef.current = followId;
+      if (timer) clearInterval(timer);
+    }, 200);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [followId, cues.length]);
 
   // Auto-scroll loop.

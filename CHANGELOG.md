@@ -10,6 +10,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The prompter now shows the whole run sheet and scrolls through it like the sheet does.** It used to render only the rows there were words for, so the live cue was usually not on the page and a reader could not see where the show had got to. The running order is there in small grey type, the words to be read are set large among it, and the caret follows the show item by item.
+- **The size controls only touch the words to be read.** Making the running order that big would bury the script in the very context it needs to stand out from.
+- **The script fills the width of the screen.** Side padding of 8vw was throwing away a sixth of a surface whose whole job is fitting words on it; the scrollbar is gone too, since nothing on this screen is dragged.
+
+### Added
+- **A countdown to being on camera, and the reads either side.** A bar across the top carries what was read last, what is read next, and how long until it — measured from where the show ACTUALLY is (what is left of the item on air, then everything planned in between), not from the clock time the sheet plans. It turns amber inside the last thirty seconds and red while a read is on air, the same colours the rest of the app uses.
+- **A Sync button on the prompter**, the same bargain the run sheet strikes: scrolling by hand takes the script off follow rather than fighting you, and one button hands it back and jumps to the live cue.
+
+### Changed
 - **Links inside the app open where you are, not in a new tab.** Opening the follow, timer or prompter view from a run sheet spawned a tab, and so did Open on a view-only link. Piling up tabs during a show is its own small mess, and the one you wanted is never the one in front of you.
 
 ### Added

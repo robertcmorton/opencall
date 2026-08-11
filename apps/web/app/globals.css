@@ -2731,3 +2731,17 @@ th.col-drop-target {
   border-color: var(--border-strong);
   color: var(--text-2);
 }
+
+/* ── Prompter ─────────────────────────────────────────────────────────────
+   The script is the only thing on this screen that matters, so it gets the
+   whole width. The scrollbar is pure cost here: it steals a strip off every
+   line, and nobody drags it — the position is the caret, and the movement is
+   the space bar, the follow-scroll, or the speed slider. */
+.prompter-script {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.prompter-script::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

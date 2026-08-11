@@ -2,16 +2,37 @@
 
 import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
-import { computeTiming, followRead, formatTimeOfDay, PROMPTER_TAG } from "@opencall/core";
+import {
+  computeTiming,
+  followRead,
+  formatDuration,
+  formatTimeOfDay,
+  PROMPTER_TAG,
+  secondsUntilRow,
+} from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
+import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
 
 /**
- * Prompter: renders the script column full-screen with auto-scroll (Space to
- * start/stop, arrows for speed), font-size controls, mirror mode, a fixed
- * read-position caret, and follow-the-caller (jumps to the active cue).
+ * Prompter: the whole run sheet, scrolled through like the sheet itself, with
+ * the words to be read set large and everything else kept small around them —
+ * the shape of the show a reader is standing in. Carries the countdown to
+ * being on camera, the reads either side, auto-scroll (Space to start/stop,
+ * arrows for speed), size controls that touch only the script, mirror mode, a
+ * read-position caret, and follow-the-caller with a Sync back to it.
  */
+
+/**
+ * Where the read position sits, as a fraction of the scrolling area.
+ *
+ * One number, used by both the caret and the follow-scroll. They are the same
+ * claim about the screen, and two copies of it drift the moment anything above
+ * the script changes height.
+ */
+const CARET_AT = 0.3;
+
 export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
   useWakeLock();
   const { doc } = useRundownDoc(rundownId);
@@ -23,8 +44,13 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const [mirror, setMirror] = useState(false);
   const [scrolling, setScrolling] = useState(false);
   const [speed, setSpeed] = useState(60); // px per second
+  // Tracking the show, until the reader scrolls by hand. Same bargain the run
+  // sheet strikes: never fight somebody who has taken hold of the script, and
+  // give them one button to hand it back.
+  const [followScroll, setFollowScroll] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<string | null>(null);
+  const programmaticScroll = useRef(false);
 
   // What to read, in order of how explicit the sheet was:
   //  1. rows marked "prompter" in the sheet's own cue column — set on import
@@ -46,23 +72,59 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const wordCount = cues.reduce((n, r) => n + wordsOf(r).split(/\s+/).filter(Boolean).length, 0);
   const estMinutes = Math.max(1, Math.round(wordCount / 150));
 
+  // Live countdowns, recomputed locally from timestamps like every other
+  // surface — never from streamed ticks.
+  const live = useLiveTiming(channel, timing);
+
   // Follow the caller.
   //
-  // The live cue is almost never one of these rows — this screen shows only
-  // what is to be READ, a handful out of a whole sheet — so looking the active
-  // row up by id found nothing and scrolled nowhere for the entire show, while
-  // the corner said "following". What the person holding the prompter needs is
-  // not "the show is on a row you cannot see", it is WHAT THEY READ NEXT: the
-  // first read at or after wherever the show has got to.
+  // This screen shows the WHOLE sheet and scrolls through it like the run
+  // sheet does, so the caret sits on whatever is happening — not only on the
+  // handful of rows there are words for. Showing the reads alone meant the
+  // live cue was usually not on the page at all, which is both a screen that
+  // never moved and a reader with no idea where the show had got to.
   const rowIndexById = new Map(rows.map((r, i) => [r.id, i]));
   const liveId = show?.state === "running" || show?.state === "paused" ? show.activeRowId : null;
+  const liveIndex = liveId != null ? (rowIndexById.get(liveId) ?? -1) : -1;
+  // Which READ is on air or coming — still the question the status bar answers,
+  // even though the scroll now follows the show itself.
   const { onAirId, followId } = followRead({
-    liveIndex: liveId != null ? (rowIndexById.get(liveId) ?? -1) : -1,
+    liveIndex,
     reads: cues.map((c) => ({ id: c.id, index: rowIndexById.get(c.id) ?? -1 })),
   });
 
+  // The scroll follows the SHOW. Before it starts there is nothing to follow,
+  // so the script simply sits at the top where a reader can look ahead.
+  const scrollTargetId = liveId;
+  const isRead = (r: (typeof rows)[number]): boolean => cues.some((c) => c.id === r.id);
+
+  // Where the followed read sits among the reads, so the one before and the
+  // one after can be named. A reader wants the shape of their own night: what
+  // they just said, what they say next, and how long they have.
+  const followPos = followId ? cues.findIndex((c) => c.id === followId) : -1;
+  const prevRead = (followPos > 0 ? cues[followPos - 1] : null) ?? null;
+  const nextRead = (followPos >= 0 ? cues[followPos + 1] : null) ?? null;
+
+  // How long until it is on camera. Measured from where the show ACTUALLY is —
+  // what is left of the row on air, then every planned row in between — not
+  // from the clock time the sheet plans, which is only ever a plan.
+  const secondsUntilOn = secondsUntilRow({
+    durationsSec: timing.rows.map((r) => r.effectiveDurationSec),
+    liveIndex,
+    targetIndex: followId ? (rowIndexById.get(followId) ?? -1) : -1,
+    remainingInRowSec: live?.remainingInRowSec ?? null,
+  });
+  // The same question for the read after, so a reader can see two moves ahead.
+  const secondsUntilNext = secondsUntilRow({
+    durationsSec: timing.rows.map((r) => r.effectiveDurationSec),
+    liveIndex,
+    targetIndex: nextRead ? (rowIndexById.get(nextRead.id) ?? -1) : -1,
+    remainingInRowSec: live?.remainingInRowSec ?? null,
+  });
+
   useEffect(() => {
-    if (!followId || followId === lastActiveRef.current) return;
+    if (!followScroll) return;
+    if (!scrollTargetId || scrollTargetId === lastActiveRef.current) return;
 
     // Getting here is not the same as having moved, and the difference is the
     // whole bug. At first paint the container is not scrollable yet — before
@@ -80,11 +142,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     let timer: ReturnType<typeof setInterval> | undefined;
     const place = (): boolean => {
       const box = containerRef.current;
-      const el = document.getElementById(`prompt-${followId}`);
+      const el = document.getElementById(`prompt-${scrollTargetId}`);
       if (!box || !el || box.clientHeight === 0) return false;
       // Land it on the read-position caret rather than the top edge — that
       // fixed marker is where the reader's eye is.
-      const caret = box.clientHeight * 0.3;
+      const caret = box.clientHeight * CARET_AT;
       const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - caret;
       if (Math.abs(delta) <= 2) return true;
       box.scrollTop += delta;
@@ -95,19 +157,46 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       return box.scrollTop >= box.scrollHeight - box.clientHeight - 2;
     };
 
+    // Our own scrolling must not read as the reader taking hold of the script.
+    programmaticScroll.current = true;
+    const release = () => {
+      window.setTimeout(() => {
+        programmaticScroll.current = false;
+      }, 400);
+    };
+
     if (place()) {
-      lastActiveRef.current = followId;
+      lastActiveRef.current = scrollTargetId;
+      release();
       return;
     }
     timer = setInterval(() => {
       if (!place()) return;
-      lastActiveRef.current = followId;
+      lastActiveRef.current = scrollTargetId;
+      release();
       if (timer) clearInterval(timer);
     }, 200);
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [followId, cues.length]);
+  }, [scrollTargetId, followScroll, rows.length]);
+
+  // A hand on the script wins. Wheel and touch only — not the scroll events
+  // our own placement fires, and not the auto-scroll, which IS the reader
+  // driving and should never turn following off behind their back.
+  useEffect(() => {
+    const box = containerRef.current;
+    if (!box) return;
+    const letGo = () => {
+      if (!programmaticScroll.current) setFollowScroll(false);
+    };
+    box.addEventListener("wheel", letGo, { passive: true });
+    box.addEventListener("touchmove", letGo, { passive: true });
+    return () => {
+      box.removeEventListener("wheel", letGo);
+      box.removeEventListener("touchmove", letGo);
+    };
+  }, []);
 
   // Auto-scroll loop.
   useEffect(() => {
@@ -153,48 +242,139 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const activeId = onAirId;
   const nextId = onAirId ? null : followId;
 
+  // The state of the read being followed, in the words a reader thinks in.
+  const onAirNow = onAirId != null;
+  const cueLabel = onAirNow
+    ? "ON AIR"
+    : secondsUntilOn == null
+      ? "STANDING BY"
+      : secondsUntilOn <= 30
+        ? "STAND BY"
+        : "ON IN";
+  const cueValue = onAirNow
+    ? live?.remainingInRowSec != null
+      ? formatDuration(Math.max(0, Math.round(live.remainingInRowSec)))
+      : "—"
+    : secondsUntilOn != null
+      ? formatDuration(Math.round(secondsUntilOn))
+      : "—";
+  // Red on air, amber in the last thirty seconds — the same colours the timer
+  // and the run sheet use, so they mean one thing across the whole app.
+  const cueColour = onAirNow ? "#f85149" : secondsUntilOn != null && secondsUntilOn <= 30 ? "#d29922" : "#3fb950";
+
+  const readTitle = (r: (typeof rows)[number] | null): string => {
+    if (!r) return "—";
+    const t = wordsOf(r).trim() || r.title;
+    return t.length > 90 ? `${t.slice(0, 90)}…` : t;
+  };
+
   return (
     <main style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
-      {/* Read-position caret */}
+      {/* What a reader needs without taking their eyes off the words: what
+          they just read, how long until they are on, and what follows. Fixed
+          at the top because it must never scroll away mid-read. */}
       <div
+        className="prompter-status"
         style={{
-          position: "fixed",
-          left: 8,
-          top: "30vh",
-          width: 0,
-          height: 0,
-          borderTop: "14px solid transparent",
-          borderBottom: "14px solid transparent",
-          borderLeft: "20px solid #b91c1c",
-          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: "2vw",
+          padding: "10px 16px",
+          background: "#0d0d0d",
+          borderBottom: "1px solid #222",
+          fontSize: "0.8rem",
+          color: "#8b949e",
+          flexShrink: 0,
         }}
-      />
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>PREVIOUS</div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6e7681" }}>
+            {readTitle(prevRead)}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>{cueLabel}</div>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontVariantNumeric: "tabular-nums",
+              fontSize: "clamp(1.4rem, 3.4vw, 2.4rem)",
+              fontWeight: 700,
+              lineHeight: 1.05,
+              color: cueColour,
+            }}
+          >
+            {cueValue}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>
+            NEXT{secondsUntilNext != null ? ` · ${formatDuration(Math.round(secondsUntilNext))}` : ""}
+          </div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6e7681" }}>
+            {readTitle(nextRead)}
+          </div>
+        </div>
+      </div>
+
+      {/* The caret and the follow-scroll have to agree on where "the read
+          position" is. The caret used to be fixed to the viewport while the
+          scroll measured from the container, which the status bar above would
+          now pull apart by its own height. Same box, one percentage, no drift. */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex" }}>
+        <div
+          style={{
+            position: "absolute",
+            left: 8,
+            top: `${CARET_AT * 100}%`,
+            width: 0,
+            height: 0,
+            borderTop: "14px solid transparent",
+            borderBottom: "14px solid transparent",
+            borderLeft: "20px solid #b91c1c",
+            zIndex: 10,
+          }}
+        />
       <div
         ref={containerRef}
+        className="prompter-script"
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "30vh 8vw 60vh",
+          // Edge to edge. 8vw of side padding was throwing away a sixth of the
+          // screen on a surface whose whole job is fitting words on it; the
+          // margin left is only enough to clear the caret.
+          padding: "30vh 1rem 60vh 40px",
           transform: mirror ? "scaleX(-1)" : undefined,
         }}
       >
         {cues.length === 0 && (
           <div style={{ color: "#777", fontSize: "1.1rem", lineHeight: 1.6, maxWidth: "40ch" }}>
-            Nothing to read yet. Mark a row <strong style={{ color: "#f2f2f2" }}>{PROMPTER_TAG}</strong> in the run
-            sheet&rsquo;s cue column — the words in that row then appear here, with the time they are due.
+            Nothing marked to read yet. Mark a row <strong style={{ color: "#f2f2f2" }}>{PROMPTER_TAG}</strong> in the
+            run sheet&rsquo;s cue column — those words then appear here at full size. The rest of the sheet is listed
+            below either way, so the show can still be followed.
           </div>
         )}
-        {cues.map((row, i) => {
+        {rows.map((row, i) => {
           const startSec = startById.get(row.id) ?? null;
-          const words = wordsOf(row);
+          const read = isRead(row);
+          const words = read ? wordsOf(row) : row.title;
+          const isLiveRow = liveId === row.id;
           return (
-            <section key={row.id} id={`prompt-${row.id}`} style={{ marginBottom: "1.2em" }}>
+            <section
+              key={row.id}
+              id={`prompt-${row.id}`}
+              style={{ marginBottom: read ? "1.2em" : "0.35em", opacity: read || isLiveRow ? 1 : 0.55 }}
+            >
               <div
                 style={{
-                  color: activeId === row.id ? "#2f81f7" : "#555",
+                  color: isLiveRow ? "#2f81f7" : "#555",
                   fontSize: "0.85rem",
                   letterSpacing: "0.1em",
-                  marginBottom: 6,
+                  marginBottom: read ? 6 : 2,
                   display: "flex",
                   gap: 12,
                 }}
@@ -208,15 +388,27 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   </span>
                 )}
                 <span style={{ color: "#444" }}>{row.sourceNumber ? `#${row.sourceNumber}` : `${i + 1}`}</span>
-                {activeId === row.id && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
+                {isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
+                {activeId === row.id && !isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {nextId === row.id && <span style={{ color: "#d29922", fontWeight: 700 }}>NEXT</span>}
               </div>
-              {words && (
-                <div style={{ fontSize, lineHeight: 1.45, color: "#f2f2f2", fontWeight: 500 }}>{words}</div>
-              )}
+              {words &&
+                (read ? (
+                  // The words to say. Only these answer to the size controls —
+                  // making the whole sheet this big would bury the script in the
+                  // running order it is meant to stand out from.
+                  <div style={{ fontSize, lineHeight: 1.45, color: "#f2f2f2", fontWeight: 500 }}>{words}</div>
+                ) : (
+                  // Everything else is the shape of the show around the script:
+                  // there to be glanced at, never read aloud.
+                  <div style={{ fontSize: "1.05rem", lineHeight: 1.35, color: "#8b949e", fontWeight: 400 }}>
+                    {words}
+                  </div>
+                ))}
             </section>
           );
         })}
+      </div>
       </div>
 
       <footer
@@ -234,6 +426,20 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         {/* First in the bar, because leaving is the one thing you could not
             do from this screen at all. */}
         <BackLink />
+        {/* The same offer the run sheet makes: you scrolled away, here is the
+            way back to the show. Only shown when it would do something. */}
+        {liveId && !followScroll && (
+          <button
+            className="btn btn-sm btn-primary"
+            data-tip="Jump back to the live cue and follow along again"
+            onClick={() => {
+              lastActiveRef.current = null;
+              setFollowScroll(true);
+            }}
+          >
+            ⇣ Sync
+          </button>
+        )}
         <button className="btn btn-sm" onClick={() => setScrolling((s) => !s)}>
           {scrolling ? "⏸" : "▶"}
         </button>

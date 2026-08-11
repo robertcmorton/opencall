@@ -176,3 +176,41 @@ export function followRead(input: FollowReadInput): FollowRead {
   const upcoming = reads.find((r) => r.index >= liveIndex);
   return { onAirId: null, followId: upcoming?.id ?? reads[reads.length - 1]!.id };
 }
+
+export interface SecondsUntilInput {
+  /** Planned duration of every row, in sheet order. Skipped rows are 0. */
+  durationsSec: number[];
+  /** Index of the live cue; -1 when nothing is running. */
+  liveIndex: number;
+  /** Index of the row we are counting down to. */
+  targetIndex: number;
+  /**
+   * Seconds left in the live row, from the live clock. Negative when it has
+   * run over — the show is late, and what is next starts when it is called,
+   * so an overrun contributes nothing rather than counting backwards.
+   */
+  remainingInRowSec: number | null;
+}
+
+/**
+ * How long until a row goes on.
+ *
+ * For the prompter this is the only number that matters: not the clock time a
+ * read is due, which is a plan, but how long the person holding the script has
+ * before they are on camera. So it is measured from the show's ACTUAL position
+ * — what is left of the row on air, then every planned row between here and
+ * there.
+ *
+ * Null when there is nothing to count: no show running, or the row is already
+ * on air or behind us.
+ */
+export function secondsUntilRow(input: SecondsUntilInput): number | null {
+  const { durationsSec, liveIndex, targetIndex, remainingInRowSec } = input;
+  if (liveIndex < 0 || targetIndex < 0 || targetIndex >= durationsSec.length) return null;
+  if (targetIndex <= liveIndex) return null;
+
+  // An overrun does not push the next item further away.
+  let total = Math.max(0, remainingInRowSec ?? 0);
+  for (let i = liveIndex + 1; i < targetIndex; i++) total += Math.max(0, durationsSec[i] ?? 0);
+  return total;
+}

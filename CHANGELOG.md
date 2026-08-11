@@ -17,6 +17,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ### Added
 - **The words are paced to the item they belong to.** A fixed scroll speed is a guess — the same slider carries a forty-word welcome and a three-minute address, and one of them runs out of words while the other is still talking. The script is now sized to fit the time available and scrolled so it lands exactly as the item ends, solved continuously from the live clock rather than set once, so a pause, an overrun or a jump corrects itself. Touching size or speed by hand takes it off auto; the button puts it back.
 
+### Added
+- **A Prompter button sits with the transport on the run sheet**, beside Prev/Next and the clock, rather than three levels into the Views menu — it is opened mid-show by somebody already holding the sheet. Same tab, like every link in the app; the prompter carries its own way back.
+
 ### Changed
 - **Sync Cue sits top-centre on the prompter**, over the script, where the run sheet puts it — the same button in the same place doing the same job.
 - **The play/pause button is gone from the prompter.** The show starts the words; the space bar still drives a hand-scrolled rehearsal when nothing is running.

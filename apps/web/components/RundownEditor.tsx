@@ -2121,6 +2121,18 @@ export function RundownEditor({
             {outcomeLayout === "layers" ? "⌸ Endings: layered" : "⑂ Endings: one line"}
           </button>
         )}
+        {/* The prompter, out here with the transport rather than three levels
+            into the Views menu — it is opened mid-show, by somebody who is
+            already holding the sheet. Same tab, like every link in the app;
+            the prompter has its own way back. */}
+        <Link
+          className="btn btn-sm"
+          style={{ textDecoration: "none" }}
+          href={`/prompter/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
+          data-tip="Open the prompter: the sheet with the words to be read set large, paced to the item they belong to"
+        >
+          ▤ Prompter
+        </Link>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <RolePicker
             rows={rows}

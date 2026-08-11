@@ -214,3 +214,36 @@ export function secondsUntilRow(input: SecondsUntilInput): number | null {
   for (let i = liveIndex + 1; i < targetIndex; i++) total += Math.max(0, durationsSec[i] ?? 0);
   return total;
 }
+
+export interface ClockTargetRow {
+  id: string;
+  type: string;
+  skipped?: boolean;
+  untimed?: boolean;
+  hardStartSec?: number | null;
+}
+
+/**
+ * The row the event's clock is standing on: the last one whose planned start
+ * has passed.
+ *
+ * Groups are headings, skipped rows are not happening, and an untimed row with
+ * no hard start has no moment to have passed. `nowAbsSec` is counted past
+ * midnight like the sheet — a wall clock resets at 00:00 and a show running
+ * into the small hours does not.
+ */
+export function clockTargetRow(
+  rows: readonly ClockTargetRow[],
+  startSecs: readonly (number | null)[],
+  nowAbsSec: number,
+): string | null {
+  let target: string | null = null;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    if (r.type === "group" || r.skipped) continue;
+    if (r.untimed && r.hardStartSec == null) continue;
+    const start = startSecs[i] ?? null;
+    if (start != null && start <= nowAbsSec) target = r.id;
+  }
+  return target;
+}

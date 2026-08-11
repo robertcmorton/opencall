@@ -15,6 +15,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **The script fills the width of the screen.** Side padding of 8vw was throwing away a sixth of a surface whose whole job is fitting words on it; the scrollbar is gone too, since nothing on this screen is dragged.
 
 ### Added
+- **The prompter carries the clock and CUE, the same as the run sheet.** `◷ Follow clock` hands the show to the server to run off the TIME column, reading `Following clock` while it drives and `Clock synced` once the live cue is actually on the row the sheet points at — the same three states, the same command. Every row that is not live carries a `CUE` that takes the show there. A button rather than a tappable row: a stray touch on a page somebody is reading from must never move the show.
+- **A refused command says so on the prompter.** Whether this device may drive the show is the server's decision, and a press that silently did nothing is indistinguishable from a broken button when you are live.
+
+### Changed
+- **The script starts prompter-sized.** 42px was a big paragraph on a web page, not something read off a stand across a room; it now opens at 84px, and the scroll speed starts in the middle of its range so the first press of play is a usable reading pace.
+
+### Added
 - **A countdown to being on camera, and the reads either side.** A bar across the top carries what was read last, what is read next, and how long until it — measured from where the show ACTUALLY is (what is left of the item on air, then everything planned in between), not from the clock time the sheet plans. It turns amber inside the last thirty seconds and red while a read is on air, the same colours the rest of the app uses.
 - **A Sync button on the prompter**, the same bargain the run sheet strikes: scrolling by hand takes the script off follow rather than fighting you, and one button hands it back and jumps to the live cue.
 

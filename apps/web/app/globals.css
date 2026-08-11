@@ -2745,3 +2745,21 @@ th.col-drop-target {
   width: 0;
   height: 0;
 }
+
+/* CUE on the prompter: legible enough to hit deliberately, quiet enough that a
+   page of them does not compete with the words. */
+.prompter-cue {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #6e7681;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  padding: 0 6px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.prompter-cue:hover {
+  border-color: #2f81f7;
+  color: #2f81f7;
+}

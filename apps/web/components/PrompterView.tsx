@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import {
+  absoluteNow,
+  clockTargetRow,
   computeTiming,
   followRead,
   formatDuration,
   formatTimeOfDay,
   PROMPTER_TAG,
   secondsUntilRow,
+  zoneSecondsOfDay,
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
@@ -40,10 +43,15 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const channel = useShowChannel(rundownId, "companion", joinCode);
   const show = channel.show;
 
-  const [fontSize, setFontSize] = useState(42);
+  // Prompter-sized, not document-sized. 42px was a big paragraph on a web
+  // page; this is meant to be read off a stand at arm's length or further, and
+  // the A−/A+ controls are there for the room you are actually in.
+  const [fontSize, setFontSize] = useState(84);
   const [mirror, setMirror] = useState(false);
   const [scrolling, setScrolling] = useState(false);
-  const [speed, setSpeed] = useState(60); // px per second
+  // Middle of the slider (10–300), so the first press of play is a usable
+  // reading pace and the adjustment goes both ways from there.
+  const [speed, setSpeed] = useState(155); // px per second
   // Tracking the show, until the reader scrolls by hand. Same bargain the run
   // sheet strikes: never fight somebody who has taken hold of the script, and
   // give them one button to hand it back.
@@ -75,6 +83,18 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // Live countdowns, recomputed locally from timestamps like every other
   // surface — never from streamed ticks.
   const live = useLiveTiming(channel, timing);
+
+  // Clock-follow, exactly as the run sheet offers it: the SERVER drives the
+  // show off the TIME column. "Following clock" says who is driving; "Clock
+  // synced" says the show is actually on the row the sheet points at. They are
+  // different claims and the second is the one anybody is checking.
+  const showLive = show?.state === "running" || show?.state === "paused";
+  const clockFollow = show?.clockFollow ?? false;
+  const clockRowId = clockTargetRow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+    absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing),
+  );
 
   // Follow the caller.
   //
@@ -241,6 +261,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // is exactly the mistake this screen exists to prevent.
   const activeId = onAirId;
   const nextId = onAirId ? null : followId;
+  const clockSynced = clockFollow && !!liveId && !!clockRowId && liveId === clockRowId;
 
   // The state of the read being followed, in the words a reader thinks in.
   const onAirNow = onAirId != null;
@@ -391,6 +412,19 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                 {isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {activeId === row.id && !isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {nextId === row.id && <span style={{ color: "#d29922", fontWeight: 700 }}>NEXT</span>}
+                {/* CUE means the same thing here as on the run sheet: take
+                    this row NOW. A button rather than a tappable row, because
+                    a stray touch on a page somebody is reading from must never
+                    move the show. */}
+                {showLive && !isLiveRow && row.type !== "group" && (
+                  <button
+                    className="prompter-cue"
+                    data-tip="Take this row now — the show jumps here"
+                    onClick={() => channel.sendCmd("jump", row.id)}
+                  >
+                    CUE
+                  </button>
+                )}
               </div>
               {words &&
                 (read ? (
@@ -440,6 +474,30 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             ⇣ Sync
           </button>
         )}
+        {/* Sync to clock — the same control the run sheet carries, driving the
+            same server command. Same three labels for the same three states. */}
+        {showLive && (
+          <button
+            className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
+            style={
+              clockSynced
+                ? { borderColor: "var(--under)", color: "var(--under)", background: "var(--under-soft)" }
+                : clockFollow
+                  ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }
+                  : undefined
+            }
+            data-tip={
+              clockSynced
+                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off."
+                : clockFollow
+                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off."
+                  : "Hand the show to the SERVER: every item starts at its scheduled moment, even with every console closed."
+            }
+            onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
+          >
+            ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
+          </button>
+        )}
         <button className="btn btn-sm" onClick={() => setScrolling((s) => !s)}>
           {scrolling ? "⏸" : "▶"}
         </button>
@@ -462,6 +520,17 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         <button className="btn btn-sm" onClick={() => setMirror((m) => !m)}>
           {mirror ? "unmirror" : "mirror"}
         </button>
+        {/* A refused command must never look like a broken button. The server
+            decides whether this device may drive the show; if it says no, say
+            so rather than leaving a press that did nothing. */}
+        {channel.lastCmdError && (
+          <span style={{ color: "#f85149" }} role="status">
+            {channel.lastCmdError.action}: {channel.lastCmdError.msg}{" "}
+            <button className="btn btn-sm" onClick={channel.clearCmdError}>
+              dismiss
+            </button>
+          </span>
+        )}
         <span style={{ marginLeft: "auto" }}>
           {wordCount} words · ~{estMinutes}m ·{" "}
           {/* "following" used to mean nothing more than "the socket is open",

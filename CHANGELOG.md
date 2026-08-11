@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Links inside the app open where you are, not in a new tab.** Opening the follow, timer or prompter view from a run sheet spawned a tab, and so did Open on a view-only link. Piling up tabs during a show is its own small mess, and the one you wanted is never the one in front of you.
+
+### Added
+- **Every companion screen has a way back.** Follow, timer and prompter had no exit at all — closing the tab was the way out, which stops being an answer the moment they open in place. Back returns you to the sheet you came from, or to the dashboard when there is nothing behind it, so a link opened cold on a borrowed phone is not a dead end. On the timer it is deliberately faint: that screen is pointed at a speaker.
+
 ### Fixed
 - **The prompter follows the show again.** It scrolled to the live cue by looking that row up on the page — but this screen shows only the rows to be READ, a handful out of a whole sheet, so for almost every cue the lookup found nothing and the page sat still. It appeared to follow only on the rare cue that was itself a read. It now follows the show's position in the sheet: the read that is on air, or the next one coming, marked **ON AIR** and **NEXT** so the two can never be confused. Once every read is behind, it holds the last one instead of snapping back to the top of the day.
 - **"following" now means following.** It reported the state of the websocket, so it said "following" for hours while the screen tracked nothing. It distinguishes reconnecting, following, and a show that is not running.

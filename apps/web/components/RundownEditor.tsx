@@ -1735,8 +1735,6 @@ export function RundownEditor({
             key={view}
             className="menu-item"
             href={`/${view}/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
-            target="_blank"
-            rel="noreferrer"
           >
             <span className="check" />
             {view[0]!.toUpperCase() + view.slice(1)}

@@ -5,6 +5,7 @@ import { projectRundownDoc } from "@opencall/db/doc";
 import { useShowChannel } from "../lib/showChannel";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
+import { BackLink } from "./BackLink";
 
 /**
  * Companion follower surface: glanceable current/next cue, live countdown,
@@ -28,8 +29,13 @@ export function FollowerView({ rundownId, joinCode }: { rundownId: string; joinC
 
   return (
     <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", padding: "1.2rem", gap: "1rem" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={{ fontSize: "0.8rem", color: "var(--text-2)" }}>{meta.name}</div>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <BackLink />
+          <div style={{ fontSize: "0.8rem", color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {meta.name}
+          </div>
+        </div>
         <div style={{ fontSize: "0.7rem", color: channel.connected ? "var(--under)" : "var(--over)" }}>
           {channel.connected ? (isLive ? (show?.state === "paused" ? "PAUSED" : "● FOLLOWING") : "standing by") : "reconnecting…"}
         </div>

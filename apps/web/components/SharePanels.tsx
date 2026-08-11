@@ -42,7 +42,7 @@ export function GuestPassPanel({ rundownId, columns, onClose }: { rundownId: str
           <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(url)}>
             Copy
           </button>
-          <a className="btn btn-sm" href={url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
+          <a className="btn btn-sm" href={url} style={{ textDecoration: "none" }}>
             Open
           </a>
         </div>

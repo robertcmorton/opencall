@@ -5,6 +5,7 @@ import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
 import { useLiveTiming } from "../lib/useLiveTiming";
+import { BackLink } from "./BackLink";
 
 /**
  * Speaker Timer: fullscreen countdown for the active cue. Green while on time,
@@ -51,6 +52,10 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
         padding: "0 2vw",
       }}
     >
+      {/* Held back to a whisper: this screen is pointed at a speaker or a
+          confidence monitor, where a bright button beside the countdown would
+          be a distraction. Still there when somebody looks for it. */}
+      <BackLink style={{ position: "fixed", top: 12, left: 12, opacity: 0.35, zIndex: 5 }} />
       <div
         style={{
           color: "var(--text-2)",

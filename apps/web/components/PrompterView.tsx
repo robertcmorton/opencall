@@ -5,6 +5,7 @@ import { projectRundownDoc } from "@opencall/db/doc";
 import { computeTiming, followRead, formatTimeOfDay, PROMPTER_TAG } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
+import { BackLink } from "./BackLink";
 
 /**
  * Prompter: renders the script column full-screen with auto-scroll (Space to
@@ -230,6 +231,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           color: "#9a9a9a",
         }}
       >
+        {/* First in the bar, because leaving is the one thing you could not
+            do from this screen at all. */}
+        <BackLink />
         <button className="btn btn-sm" onClick={() => setScrolling((s) => !s)}>
           {scrolling ? "⏸" : "▶"}
         </button>

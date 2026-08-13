@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A reconnecting show channel no longer throws.** Every socket handler closed over whichever socket was current rather than the one it belonged to, so when a reconnect replaced it, a late "open" from the abandoned socket sent the greeting down a socket that was still opening — `Failed to execute 'send' on 'WebSocket': Still in CONNECTING state`, uncaught, recorded three times in production. Handlers now belong to the socket that raised them. A socket that has already been replaced also no longer starts its own reconnect, which could leave two channels each reconnecting the other's losses.
+
 - **A show no longer reports a whole day of drift the moment it crosses midnight.** The sheet's own clock counts past midnight — 24:00 is the small hours of the second day — while the wall clock wraps to zero, and the two were subtracted from each other. A show sitting exactly on its cue read **−24:00:00** on the readout a caller uses to know whether they are late. Caught on a 48-hour sheet running across a real midnight: `+00:00` before, `−24:00:00` after. The day is now chosen by nearness rather than assumed, so it holds on the third day too, where a single day's correction would still have been wrong.
 - **End times on a multi-day sheet say which day they are.** `end 12:00:00 AM` on a three-day run sheet reads as tonight; it was midnight three days out. The summary end and the projected end now carry `+1d` / `+2d` when the sheet has run past midnight, and are untouched on an ordinary same-day sheet.
 

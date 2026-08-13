@@ -107,11 +107,20 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
 
     const connect = () => {
       if (closed) return;
-      ws = new WebSocket(`${SHOW_WS_URL}/?rundown=${encodeURIComponent(rundownId)}`);
-      wsRef.current = ws;
+      // Bound to THIS socket, not to whichever one is current.
+      //
+      // Every handler used to close over the mutable `ws`, so a reconnect
+      // pointed them at the new socket. A late onopen from a socket that had
+      // already been replaced then sent the hello down a socket still opening:
+      // "Failed to execute 'send' on 'WebSocket': Still in CONNECTING state",
+      // uncaught, three times in production. A handler belongs to the socket
+      // that raised it.
+      const sock = new WebSocket(`${SHOW_WS_URL}/?rundown=${encodeURIComponent(rundownId)}`);
+      ws = sock;
+      wsRef.current = sock;
       const pings: number[] = [];
 
-      ws.onopen = () => {
+      sock.onopen = () => {
         retryDelay = 500;
         lastHeardRef.current = Date.now();
         // A join code always wins (it carries the role). Otherwise any stored
@@ -125,10 +134,11 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
           : device === "console" || stored
             ? { kind: "session" as const, token: stored ?? "dev" }
             : { kind: "join" as const, code: "DEV123" };
-        ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined }));
+        if (sock.readyState !== WebSocket.OPEN) return;
+        sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined }));
       };
 
-      ws.onmessage = (event) => {
+      sock.onmessage = (event) => {
         // Anything at all counts as proof of life, including the server's
         // heartbeat, which is otherwise ignored below.
         lastHeardRef.current = Date.now();
@@ -146,7 +156,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             welcomedRef.current = true;
             flushPending();
             for (let i = 0; i < OFFSET_SAMPLES; i++)
-              setTimeout(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "ping", t0: Date.now() })), i * 200);
+              setTimeout(() => sock.readyState === WebSocket.OPEN && sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "ping", t0: Date.now() })), i * 200);
             break;
           }
           case "pong": {
@@ -177,7 +187,12 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         }
       };
 
-      ws.onclose = () => {
+      sock.onclose = () => {
+        // A socket that has already been replaced is not the one to reconnect
+        // from — the watchdog closes a quiet socket and reconnects, and if the
+        // dying socket also reconnected there would be two of them, each
+        // reconnecting the other's losses.
+        if (wsRef.current !== sock) return;
         setConnected(false);
         welcomedRef.current = false;
         if (closed) return;

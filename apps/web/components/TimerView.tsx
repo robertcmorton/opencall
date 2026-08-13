@@ -77,7 +77,14 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
           maxWidth: "96vw",
           fontFamily: "var(--font-mono)",
           fontWeight: 700,
-          fontSize: "min(22vw, 52vh)",
+          // Sized to the DIGITS THERE ARE, not to a guess.
+          //
+          // 22vw fits "02:10". It does not fit "+5:53:45" — an item running an
+          // hour over gains three characters and the last of them went off the
+          // side of the screen, on the one surface whose entire job is being
+          // readable from the back of a room. The cap keeps the familiar size
+          // for ordinary times and only ever shrinks.
+          fontSize: `min(22vw, ${((96 - 8) / (Math.max(5, (isLive ? display : "--:--").length) * 0.62)).toFixed(1)}vw, 52vh)`,
           lineHeight: 1.05,
           color,
           fontVariantNumeric: "tabular-nums",

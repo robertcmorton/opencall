@@ -106,6 +106,16 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // different claims and the second is the one anybody is checking.
   const showLive = show?.state === "running" || show?.state === "paused";
   const clockFollow = show?.clockFollow ?? false;
+  /**
+   * May this device drive the show at all?
+   *
+   * The server decides from identity, and it refuses anything below caller. A
+   * prompter opened on a crew join code was still being offered the clock and
+   * a CUE on every row, and every press came back "caller role required" — a
+   * screen full of buttons that cannot work is worse than a screen without
+   * them, particularly the one somebody is reading from.
+   */
+  const mayDrive = channel.role === "caller" || channel.role === "admin";
   const clockRowId = clockTargetRow(
     rows,
     timing.rows.map((r) => r.startSec),
@@ -590,7 +600,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                     this row NOW. A button rather than a tappable row, because
                     a stray touch on a page somebody is reading from must never
                     move the show. */}
-                {showLive && !isLiveRow && row.type !== "group" && (
+                {showLive && mayDrive && !isLiveRow && row.type !== "group" && (
                   <button
                     className="prompter-cue"
                     data-tip="Take this row now — the show jumps here"
@@ -640,7 +650,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             way back to the show. Only shown when it would do something. */}
         {/* Sync to clock — the same control the run sheet carries, driving the
             same server command. Same three labels for the same three states. */}
-        {showLive && (
+        {showLive && mayDrive && (
           <button
             className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
             style={

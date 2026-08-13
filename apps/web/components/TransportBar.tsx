@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { formatDuration, formatTimeOfDay, type LiveShowTiming } from "@opencall/core";
+import { formatDuration, formatTimeOfDay,
+  formatTimeOfDayWithDay, type LiveShowTiming } from "@opencall/core";
 import type { ShowChannel } from "../lib/showChannel";
 import { Icon } from "./ui";
 
@@ -34,7 +35,7 @@ export function LiveReadouts({ live, use24h }: { live: LiveShowTiming | null; us
       <div>
         <div className="header-label">Proj. end</div>
         <div className="header-clock mono">
-          {live.projectedEndSec != null ? formatTimeOfDay(Math.round(live.projectedEndSec), use24h) : "—"}
+          {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
         </div>
       </div>
     </>

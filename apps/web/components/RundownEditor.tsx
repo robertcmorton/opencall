@@ -17,6 +17,7 @@ import {
   outcomesFor,
   formatDuration,
   formatTimeOfDay,
+  formatTimeOfDayWithDay,
   parseDurationShorthand,
   parseTimeOfDay,
   serializeCsv,
@@ -1921,9 +1922,9 @@ export function RundownEditor({
                 !endish.test(rows[lastIdx]!.title);
               if (openEnded) {
                 const approx = timing.rows[lastIdx]!.startSec! + 30 * 60;
-                return <span data-tip="The last item has no duration — assuming 30 minutes">≈{formatTimeOfDay(approx, meta.use24h)}</span>;
+                return <span data-tip="The last item has no duration — assuming 30 minutes">≈{formatTimeOfDayWithDay(approx, meta.use24h)}</span>;
               }
-              return timing.endSec != null ? formatTimeOfDay(timing.endSec, meta.use24h) : "—";
+              return timing.endSec != null ? formatTimeOfDayWithDay(timing.endSec, meta.use24h) : "—";
             })()}
           </div>
         </div>

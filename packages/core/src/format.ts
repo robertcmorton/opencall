@@ -63,3 +63,19 @@ export function formatDuration(sec: number): string {
   const ss = String(s % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${String(m).padStart(2, "0")}:${ss}`;
 }
+
+/**
+ * A clock time, plus which day of the run it falls on.
+ *
+ * A sheet that runs past midnight keeps counting — 25:00:00 is one in the
+ * morning of the second day. `formatTimeOfDay` throws that away with `% 86400`,
+ * which is right in the TIME column (a row shows the wall clock somebody will
+ * read) and wrong in a summary: "end 12:00:00 AM" on a three-day sheet reads
+ * as tonight, when it is midnight two days out. Only says "+2d" when there is
+ * a day to say, so ordinary same-day sheets are untouched.
+ */
+export function formatTimeOfDayWithDay(sec: number, use24h = false): string {
+  const day = Math.floor(sec / 86400);
+  const time = formatTimeOfDay(sec, use24h);
+  return day > 0 ? `${time} +${day}d` : time;
+}

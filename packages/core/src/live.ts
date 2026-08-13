@@ -51,7 +51,20 @@ export function computeLiveTiming(input: LiveShowInput): LiveShowTiming | null {
   let showDriftSec: number | null = null;
   let projectedEndSec: number | null = null;
   if (active.startSec != null) {
-    const actualStartSec = toSecondsOfDay(activeRowStartedAtMs);
+    // Lift the wall clock into the SHEET's frame before comparing.
+    //
+    // `startSec` counts past midnight — 86400 is midnight of the second day —
+    // while the clock wraps to zero. Subtracting one from the other across a
+    // rollover produced exactly the day it had crossed: a show sitting right
+    // on its cue read "-24:00:00", on the readout a caller uses to know
+    // whether they are late. Measured on a 48-hour sheet at 00:00:38: +00:00
+    // before midnight, -24:00:00 after.
+    //
+    // The day is chosen by nearness, not by a single +1 — a three-day sheet
+    // is two days out by the end. A row starts within hours of its planned
+    // time, never a day from it, so the nearest offset is the right one.
+    const wallSec = toSecondsOfDay(activeRowStartedAtMs);
+    const actualStartSec = wallSec + Math.round((active.startSec - wallSec) / 86400) * 86400;
     showDriftSec = actualStartSec - active.startSec + rowOverSec;
     if (timing.endSec != null) projectedEndSec = timing.endSec + showDriftSec;
   }

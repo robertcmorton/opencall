@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A show no longer reports a whole day of drift the moment it crosses midnight.** The sheet's own clock counts past midnight — 24:00 is the small hours of the second day — while the wall clock wraps to zero, and the two were subtracted from each other. A show sitting exactly on its cue read **−24:00:00** on the readout a caller uses to know whether they are late. Caught on a 48-hour sheet running across a real midnight: `+00:00` before, `−24:00:00` after. The day is now chosen by nearness rather than assumed, so it holds on the third day too, where a single day's correction would still have been wrong.
+- **End times on a multi-day sheet say which day they are.** `end 12:00:00 AM` on a three-day run sheet reads as tonight; it was midnight three days out. The summary end and the projected end now carry `+1d` / `+2d` when the sheet has run past midnight, and are untouched on an ordinary same-day sheet.
+
 - **The speaker timer no longer cuts the end off a long overrun.** It was sized for `02:10`; an item running an hour over gains three characters, and the last of them went off the side of the screen — on the one surface whose whole job is being readable from the back of a room. Measured at 800px wide: 216px of the time was cut off. The size now takes account of how many digits there actually are, and only ever shrinks, so ordinary times look exactly as they did.
 - **The prompter no longer offers controls the server will refuse.** Opened on a crew join code it still showed the clock and a CUE on every row, and every press came back "caller role required". Whether a device may drive the show is decided from identity, so those controls now appear only for someone who can use them. The script, the countdown and the follow are untouched — reading is not driving.
 

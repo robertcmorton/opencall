@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Cricket is two kinds of show, not one.** A Test can be drawn because time runs out; a T20 cannot be drawn at all — a tie goes to a super over, which is played until somebody wins. One cricket type offering Win/Lose/Draw put a Draw button on a format that cannot produce one, the same mistake netball had. Sheets already set to Cricket keep the drawn-match flow they were set up with, now named **Cricket — Test match**, and **Cricket — T20** joins it.
+
 ### Fixed
 - **A reconnecting show channel no longer throws.** Every socket handler closed over whichever socket was current rather than the one it belonged to, so when a reconnect replaced it, a late "open" from the abandoned socket sent the greeting down a socket that was still opening — `Failed to execute 'send' on 'WebSocket': Still in CONNECTING state`, uncaught, recorded three times in production. Handlers now belong to the socket that raised them. A socket that has already been replaced also no longer starts its own reconnect, which could leave two channels each reconnecting the other's losses.
 

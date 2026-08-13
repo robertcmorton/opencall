@@ -87,6 +87,8 @@ const SECOND_HALF = /\b(second|2nd)\s+half\b/i;
 // Real netball cue sheets word it "4th Quarter Commences (15mins)"; AFL sheets
 // use both "quarter" and "term".
 const FINAL_QUARTER = /\b(final|fourth|4th)\s+(quarter|term)\b/i;
+// Cricket sheets name the innings rather than a half or a quarter.
+const SECOND_INNINGS = /\b(second|2nd)\s+innings\b/i;
 
 export const EVENT_TYPES: EventTypeDef[] = [
   {
@@ -132,11 +134,22 @@ export const EVENT_TYPES: EventTypeDef[] = [
     blurb: "Level at full time goes to extra time, then penalties. Somebody goes through.",
   },
   {
+    // Kept as `cricket` rather than renamed: the id is stored on events that
+    // already exist, and its behaviour — win, loss or draw — is the long
+    // format's, so those events keep the flow they were set up with.
     id: "cricket",
-    label: "Cricket",
+    label: "Cricket — Test match",
     group: "Sport",
     ...drawAtFullTime,
-    blurb: "Win, loss or draw. Long formats can end without a result at all.",
+    blurb: "Five days, and time can run out: a draw is an ordinary result, not a level score.",
+  },
+  {
+    id: "cricket-t20",
+    label: "Cricket — T20",
+    group: "Sport",
+    ...extraMustSettle("Super over"),
+    resultDueAfter: SECOND_INNINGS,
+    blurb: "A short-format match cannot be drawn: a tie goes to a super over, and it is played until somebody wins.",
   },
   {
     // Checked against real Super Netball cue sheets: they call the period

@@ -48,7 +48,7 @@ describe("what each kind of show can end as", () => {
     // Netball extra time runs on until somebody leads; a football knockout has
     // penalties behind it; an AFL final is played out. A Draw button here is
     // an outcome the competition cannot produce.
-    for (const id of ["netball", "soccer-knockout", "afl-finals"]) {
+    for (const id of ["netball", "soccer-knockout", "afl-finals", "cricket-t20"]) {
       expect(outcomesFor(id, true), id).toEqual(["win", "lose"]);
     }
   });
@@ -62,6 +62,31 @@ describe("what each kind of show can end as", () => {
       // Nothing to advance to, so asking again must not change the answer.
       expect(outcomesFor(id, true), id).toEqual(["win", "lose", "draw"]);
     }
+  });
+
+  // Cricket was one type doing the work of two. A Test can be drawn because
+  // time runs out; a T20 cannot be drawn at all — a tie goes to a super over.
+  // Offering Draw on a T20 is the netball mistake in another sport.
+  it("separates the cricket that can be drawn from the cricket that cannot", () => {
+    expect(outcomesFor("cricket", false)).toEqual(["win", "lose", "draw"]);
+    expect(eventType("cricket")!.afterExtra).toEqual([]);
+
+    expect(outcomesFor("cricket-t20", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("cricket-t20", true)).toEqual(["win", "lose"]);
+    expect(eventType("cricket-t20")!.extraLabel).toBe("Super over");
+  });
+
+  it("keeps the stored `cricket` id working as the long format", () => {
+    // Events already carry this id. Its behaviour must not move under them.
+    expect(eventType("cricket")).not.toBeNull();
+    expect(eventType("cricket")!.label).toContain("Test");
+  });
+
+  it("reads a cricket sheet's own wording for when a result is possible", () => {
+    const due = eventType("cricket-t20")!.resultDueAfter!;
+    expect(due.test("2nd Innings commences")).toBe(true);
+    expect(due.test("SECOND INNINGS — start")).toBe(true);
+    expect(due.test("1st Innings")).toBe(false);
   });
 
   it("names the extra period the way the sheets do", () => {

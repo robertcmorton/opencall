@@ -856,7 +856,13 @@ export default function AdminPage() {
         <div style={{ display: "grid", gap: 20 }}>
           {groups.map((group) => (
             <section key={group.id}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 2px 8px" }}>
+              {/* Lands the company's own actions on the same right edge as
+                  every event's and every sheet's, which they hung 17px outside
+                  of. 19px = the cards' 16px padding, their 1px border, and the
+                  2px by which their flex gap (12) exceeds this row's (10) —
+                  both rows end in a mobile-only menu that is hidden here, so
+                  the last visible button sits one gap in from the edge. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 19px 8px 2px" }}>
                 {"logo" in group && (group as { logo?: string | null }).logo && (
                   <img
                     src={(group as { logo?: string | null }).logo!}
@@ -1040,7 +1046,10 @@ export default function AdminPage() {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      padding: "9px 10px",
+                      // 14px on the right, not 10: the sheet's last control
+                      // then finishes on the same line as the event's and the
+                      // company's above it, instead of 4px outside them.
+                      padding: "9px 14px 9px 10px",
                       borderTop: "1px solid var(--border-subtle)",
                       flexWrap: "wrap",
                       opacity: r.archivedAt ? 0.55 : 1,

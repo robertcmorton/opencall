@@ -2863,7 +2863,12 @@ export function RundownEditor({
         </div>
       )}
 
-      {/* Driven by hand and left behind: say so, and offer the two ways out. */}
+      {/* Driven by hand and left behind: say so, and offer the way out.
+          One button, not two. "Catch up now" jumped to the row the sheet
+          pointed at and left you driving; Follow clock goes to the same row
+          and keeps going, so the pair read as a choice when one was simply
+          the other's first move. Catching up without handing over is still
+          there — it is cueing the row, which is what that button did. */}
       {cueDriftRows >= 3 && (
         <div className="cue-drift no-print" role="status">
           <span>
@@ -2874,22 +2879,10 @@ export function RundownEditor({
           <button
             type="button"
             className="btn btn-sm btn-primary"
-            data-tip="Hand the show to the clock: the server advances it along the TIME column from now on"
+            data-tip="Hand the show to the clock: it jumps to the row the sheet says should be on air, and the server advances it from there"
             onClick={() => channel.sendCmd("clock_on")}
           >
             Follow clock
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            data-tip="Move the live cue to the row the sheet says should be on air now"
-            // `atPlanned`: this is a claim about where the show ALREADY is, so
-            // the row takes the sheet's start time. Stamping it "now" reported
-            // the show as late by exactly however overdue the row was — press
-            // catch-up, watch it jump to +1:19.
-            onClick={() => clockRowId && channel.sendCmd("jump", clockRowId, { atPlanned: true })}
-          >
-            Catch up now
           </button>
         </div>
       )}

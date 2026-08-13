@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The dashboard's actions finish on one line.** A company's own buttons hung 17px outside the events beneath them, and each sheet's row 4px outside that — three ragged right edges down a screen that is mostly a list. All three land together now.
+- **One way out of a show that has fallen behind, not two.** "Catch up now" jumped to the row the sheet pointed at and left you driving; Follow clock goes to the same row and keeps going, so the pair read as a choice when one was simply the other's first move. Catching up without handing over is still there — it is cueing the row, which is all that button did.
+
+
 ### Added
 - **Cricket is two kinds of show, not one.** A Test can be drawn because time runs out; a T20 cannot be drawn at all — a tie goes to a super over, which is played until somebody wins. One cricket type offering Win/Lose/Draw put a Draw button on a format that cannot produce one, the same mistake netball had. Sheets already set to Cricket keep the drawn-match flow they were set up with, now named **Cricket — Test match**, and **Cricket — T20** joins it.
 

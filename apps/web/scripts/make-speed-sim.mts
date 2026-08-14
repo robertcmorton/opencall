@@ -101,14 +101,34 @@ const sourceTiming = computeTiming(planRows, null);
 const first = sourceTiming.startSec;
 const beats: Beat[] = [];
 if (first != null) {
+  /**
+   * Where the last row sat, so a row whose own time is WRONG still lands
+   * where it belongs in the order.
+   *
+   * A sheet can carry a time that contradicts it — this one has "5:26:00 am"
+   * typed for a bell in an afternoon sheet — and subtracting the sheet's start
+   * from that gives a NEGATIVE offset. Formatted as a clock it wraps round
+   * midnight, so the bell reappeared in the small hours and pulled its
+   * neighbours' apparent order with it: six disagreements in the copy where
+   * the source has four, none of them in the same place.
+   *
+   * The simulation is meant to reproduce the source's faults, not invent new
+   * ones out of them. A row that cannot say when it happens is placed where
+   * it sits in the running order instead.
+   */
+  let lastOffset = 0;
   built.rows.forEach((row, i) => {
     const t = sourceTiming.rows[i]!;
     if (t.startSec == null) return;
+    const raw = t.startSec - first;
+    const offsetSec = raw >= 0 ? raw : lastOffset;
+    lastOffset = offsetSec;
     beats.push({
       row,
-      offsetSec: t.startSec - first,
+      offsetSec,
       lengthSec: t.effectiveDurationSec,
-      anchored: row.hardStartSec != null,
+      // A row placed by its neighbour has no time of its own to print.
+      anchored: row.hardStartSec != null && raw >= 0,
       smallSec: 0,
     });
   });
@@ -178,7 +198,13 @@ for (let c = 0; c < cycles; c++) {
     n += 1;
     out.push({
       n: String(n),
-      time: hhmmss(at + smallOffset(b.offsetSec)),
+      // Only the rows the SOURCE pinned get a printed time. Writing one on
+      // every row turns a cascading sheet into a wall of hard anchors, and
+      // then every place the source's own chain disagreed with its anchors —
+      // which is what the timing check is for — becomes a fresh disagreement
+      // of its own. The uncompressed round trip reported six where the source
+      // has three, and that was the whole difference.
+      time: b.anchored ? hhmmss(at + smallOffset(b.offsetSec)) : "",
       dur: b.smallSec > 0 ? dur(b.smallSec) : "",
       title: String(b.row.title ?? "").replace(/\s*\n\s*/g, " · ").trim() || "—",
       who: (b.row.cells?.["who"] ?? b.row.cells?.["roles"] ?? "").split("\n")[0]!.trim(),

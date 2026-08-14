@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
+import { useIsPhone } from "../lib/useIsPhone";
+import { Stopwatch } from "./Stopwatch";
 import { ulid } from "ulid";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -1502,6 +1505,15 @@ export function RundownEditor({
   // truth, so every screen and export follows).
   const [editingCol, setEditingCol] = useState<string | null>(null); // column id
   const [editingName, setEditingName] = useState(false);
+  const router = useRouter();
+  const isPhone = useIsPhone();
+  /**
+   * The sheet's name doubles as the way back on a phone.
+   *
+   * Not for a view-only link — those have no dashboard to go back to, and a
+   * heading that lands on a sign-in page is worse than one that does nothing.
+   */
+  const tapBack = isPhone && mode !== "view";
   /**
    * Renames the sheet. The name lives in the document, so it reaches every
    * open screen at once; the dashboard's copy is updated too, or the list
@@ -1937,10 +1949,21 @@ export function RundownEditor({
             />
           ) : (
             <h1
-              className={canEditContent ? "sheet-name editable" : "sheet-name"}
+              className={`${canEditContent && !tapBack ? "sheet-name editable" : "sheet-name"} ${tapBack ? "tap-back" : ""}`}
               style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}
-              data-tip={canEditContent ? "Click to rename this sheet" : undefined}
-              onClick={canEditContent ? () => setEditingName(true) : undefined}
+              data-tip={
+                tapBack
+                  ? "Back to the dashboard"
+                  : canEditContent
+                    ? "Click to rename this sheet"
+                    : undefined
+              }
+              onClick={
+                // On a phone the name is the way back, because the arrow that
+                // used to do it sat underneath the menu button. Renaming a
+                // sheet is a desk job and stays on the wide layout.
+                tapBack ? () => router.push("/admin") : canEditContent ? () => setEditingName(true) : undefined
+              }
             >
               {meta.name || "Untitled sheet"}
             </h1>
@@ -2036,6 +2059,11 @@ export function RundownEditor({
             orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
           />
         )}
+        {/* A stopwatch for the things the sheet does not time: how long the
+            band actually played, how long the crowd took to clear. Local to
+            this screen — the cue timer is the shared truth, and a second
+            shared clock beside it would be a second thing to be wrong about. */}
+        {isShow && <Stopwatch />}
         {isShow && !showLive && rows.length > 0 && (
           <>
             {/* Pre-show walkthrough: step the shared cursor through the sheet

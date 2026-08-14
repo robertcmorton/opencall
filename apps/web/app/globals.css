@@ -1374,6 +1374,49 @@ kbd {
   border-top: 2px solid var(--warn);
 }
 
+/* ---------- Stopwatch ---------- */
+
+.stopwatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* The face is the button — pressing the number starts and stops it, which is
+   what a stopwatch is. Fixed width so the toolbar does not jump every tenth. */
+.stopwatch .sw-face {
+  min-width: 84px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.stopwatch .sw-laps {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  max-width: 44ch;
+}
+.stopwatch .sw-lap b {
+  color: var(--text-3);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.stopwatch .sw-lap i {
+  color: var(--text-3);
+  font-style: normal;
+}
+/* Phones: the face and start/stop only. Laps are a desk activity and the row
+   is already the last line before the sheet. */
+@media (max-width: 760px) {
+  .stopwatch .btn:not(.sw-face),
+  .stopwatch .sw-laps {
+    display: none;
+  }
+  .stopwatch .sw-face {
+    min-width: 76px;
+  }
+}
+
 /* ---------- Things happening at the same time ---------- */
 
 /* A run sheet is not a queue. A pre-record is shot while the game is on, an
@@ -1592,16 +1635,28 @@ kbd {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* The back button is pinned in the corner, so the name no longer needs to
-     be pushed clear of it — that padding was what stopped it centring. */
+  /* No back ARROW on a phone. Pinning it to the corner put it underneath the
+     menu button, which is fixed at left:10 and 34px wide — two round controls
+     in one place, and the sheet's name shouldered off centre by both. The
+     name IS the way back here; see the tooltip on it. */
+  .show-page .back-to-dash {
+    display: none;
+  }
+  /* Symmetric room for the menu button — it is fixed at left:10 and 34px
+     wide — so the name clears it AND still reads as centred. Padding on one
+     side only centres the name in what is left over, which is not the middle
+     of anything. Reserved here and nowhere else. */
+  .show-page .topbar-head {
+    padding-inline: 48px;
+  }
   .show-page .topbar-left {
     padding-left: 0;
   }
-  .show-page .back-to-dash {
-    position: absolute;
-    left: 0.7rem;
-    top: 0.5rem;
-    z-index: 3;
+  .show-page .sheet-name.tap-back {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-underline-offset: 3px;
   }
   /* The live readouts and the event clock on ONE centred line. */
   .topbar-right {
@@ -1811,10 +1866,11 @@ th.col-drop-target {
     padding-left: 0.7rem;
     padding-right: 0.7rem;
   }
-  /* The sheet's name starts clear of the menu button pinned to the corner. */
-  .show-page .topbar-left {
-    padding-left: 34px;
-  }
+  /* Room for the menu button is reserved ONCE, symmetrically, on the header
+     itself — see `.topbar-head` above. This rule used to add 34px on the left
+     only, which stacked with two others and shouldered the sheet's name a
+     hundred and thirty pixels off centre while leaving forty-eight on the
+     right. Three paddings for one menu button, and none of them centred it. */
 }
 
 /* Event artwork slots: the ✕ appears on hover only. */

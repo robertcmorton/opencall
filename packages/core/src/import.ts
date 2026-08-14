@@ -520,9 +520,117 @@ export function classifySheet(
       if (ITEM_NUMBER.test(value)) r.sourceNumber = value;
     }
   }
+  adoptInlineStarts(rows);
+  adoptInlineDurations(rows);
   detectOutcomes(rows);
   detectScript(rows, italicText);
   return rows;
+}
+
+/** A clock time with a meridiem, sitting at the very end of the text. */
+const TRAILING_CLOCK = /[\s(\[|-]*\b(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*([ap])\.?\s*m\.?\s*$/i;
+
+/**
+ * Takes the time a row wrote into its title.
+ *
+ * Run sheets are typed by people, and a row whose TIME cell is empty often
+ * carries its time at the end of the description instead — "Clear Field
+ * 6:25:00PM", "TWO MINUTE BELL 8:56:00 PM", "FMs, Announcers, DJ arrive
+ * 4:30:00PM". Read as untimed, those rows are scheduled wherever the durations
+ * above happen to land: one sheet showed the production meeting at 4:00 when
+ * the sheet plainly said 4:45. The time was on the page; the app was not
+ * looking at it.
+ *
+ * Two conditions keep this from inventing anchors:
+ *
+ * 1. The time must END the title. Across 3347 untimed rows in the sample
+ *    sheets, all 42 matches were trailing and every one was that row's own
+ *    start — a time in the MIDDLE of a sentence is prose ("doors from 6pm
+ *    until kick-off") and is left alone.
+ * 2. It must fit between the anchors that bracket it. Two of those 42 were
+ *    typos in the source — a "TWO MINUTE BELL 3:56:00 PM" among rows running
+ *    at 20:44 — and anchoring those would drag a row hours out of place. A
+ *    time that does not fit the running order is not this row's start, so the
+ *    text stays in the title where a human can see it.
+ */
+export function adoptInlineStarts(rows: ClassifiedRow[]): void {
+  // The anchors already known, so a candidate can be checked against them.
+  // Rebuilt from the ORIGINAL starts only: one adopted time must not become
+  // the bracket that justifies the next.
+  const anchors = rows.map((r) => r.startSec);
+  const before = (i: number): number | null => {
+    for (let k = i - 1; k >= 0; k--) if (anchors[k] != null) return anchors[k]!;
+    return null;
+  };
+  const after = (i: number): number | null => {
+    for (let k = i + 1; k < rows.length; k++) if (anchors[k] != null) return anchors[k]!;
+    return null;
+  };
+
+  rows.forEach((row, i) => {
+    if (row.kind !== "cue" || row.startSec != null || row.startRaw != null) return;
+    const m = TRAILING_CLOCK.exec(row.title);
+    if (!m) return;
+    const hour = Number(m[1]);
+    const min = Number(m[2]);
+    const sec = Number(m[3] ?? 0);
+    if (hour < 1 || hour > 12 || min > 59 || sec > 59) return;
+    const pm = m[4]!.toLowerCase() === "p";
+    const start = ((hour % 12) + (pm ? 12 : 0)) * 3600 + min * 60 + sec;
+
+    const lo = before(i);
+    const hi = after(i);
+    if (lo != null && start < lo) return;
+    if (hi != null && start > hi) return;
+
+    row.startSec = start;
+    // The time now lives in the start column; leaving it in the title too
+    // would print it twice on every surface.
+    row.title = row.title.slice(0, m.index).replace(/[\s(\[|,-]+$/, "");
+  });
+}
+
+/** "(15 Mins)", "(5:00mins)", "(3 Sec)" — a length written into the name. */
+const TRAILING_LENGTH = /\((\d{1,3})(?::(\d{2}))?\s*(m(?:in(?:ute)?s?)?|s(?:ec(?:ond)?s?)?)\.?\)\s*$/i;
+
+/**
+ * Takes the length a row wrote into its title.
+ *
+ * The same habit as `adoptInlineStarts`, in the other column: "1st Quarter
+ * (15 Mins)", "Half Time (15mins)", "Crew Brief Commence (30 mins)" — the
+ * length is on the page, in the name, with the DUR cell left empty. Untimed,
+ * a fifteen-minute quarter advanced the running order by nothing, and the
+ * netball sheets reported a seventeen-minute hole across every period of play.
+ *
+ * Only rows with NO duration are touched. Where a sheet fills in both — the
+ * NRL half-time rows carry 15:00 in DUR and "(15 mins)" in the name — the
+ * parsed cell already agrees and there is nothing to add.
+ *
+ * The text stays in the title. It reads as part of the item's name on these
+ * sheets ("2nd Quarter Commences (15mins)"), and the rows that already parse
+ * keep it, so removing it only here would make two identical-looking rows
+ * differ for no reason the reader can see.
+ */
+export function adoptInlineDurations(rows: ClassifiedRow[]): void {
+  for (const row of rows) {
+    // A MILESTONE is a row with a start and no duration — a moment rather than
+    // a block. That is precisely the row this rule is about to give a length
+    // to, so it stops being a moment: "1st Quarter Break (5:00mins)" is five
+    // minutes of the day, not an instant in it. Left as a milestone the
+    // duration would be dropped again on the way out of `buildSheet`.
+    if (row.kind !== "cue" && row.kind !== "milestone") continue;
+    if (row.durationSec != null || row.durationRaw != null) continue;
+    const m = TRAILING_LENGTH.exec(row.title.trim());
+    if (!m) continue;
+    const seconds = m[3]!.toLowerCase().startsWith("s");
+    // "(5:00mins)" is five minutes and no seconds; a seconds part alongside a
+    // seconds unit is not a spelling anyone uses, so it is left alone.
+    if (seconds && m[2] != null) continue;
+    const value = seconds ? Number(m[1]) : Number(m[1]) * 60 + Number(m[2] ?? 0);
+    if (!Number.isFinite(value) || value <= 0 || value > 6 * 3600) continue;
+    row.durationSec = value;
+    row.kind = "cue";
+  }
 }
 
 /**
@@ -1322,9 +1430,22 @@ export function buildSheet(
 
   // Sparse-timed sheets (cue-sheet style) time only PARENT rows; rows with a
   // blank TIME cell are sub-cues inside that block. Marking them `untimed`
-  // keeps the grid faithful — no invented cascade times.
+  // keeps the grid faithful — no invented cascade times — and their durations
+  // are listed rather than spent: the thirty seconds of each ad inside a
+  // three-minute reel.
+  //
+  // Where the line sits was measured, not guessed. Every sample sheet was
+  // imported twice, once spending those durations and once muting them, and
+  // scored by how many places the resulting times disagreed with the sheet's
+  // own anchors. The two groups separated cleanly and with nothing in between:
+  // the sheets that wanted their durations SPENT were 44–49% timed (a match-day
+  // run sheet, where the chain is the point), and the ones that wanted them
+  // MUTED were 11–22% (a cue sheet, where a timed parent is followed by its
+  // contents). At the old 50% threshold every one of them was treated as a cue
+  // sheet, and the five run sheets reported two to three times as many faults
+  // as they have — 5 became 17 on one of them.
   const cueish = importable.filter((r) => r.kind !== "banner");
-  const sparseTimed = cueish.length >= 10 && cueish.filter((r) => r.startSec != null).length / cueish.length < 0.5;
+  const sparseTimed = cueish.length >= 10 && cueish.filter((r) => r.startSec != null).length / cueish.length < 0.35;
 
   // Rows the sheet meant to be read aloud are TAGGED in the sheet's own cue
   // column, so the prompter can find them and a showcaller can see — and

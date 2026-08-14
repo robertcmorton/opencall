@@ -115,10 +115,17 @@ async function check(file: string): Promise<Report> {
     return raw && looksLikeBotchedValue(raw) ? [{ number: r.sourceNumber ?? "", title: r.title.slice(0, 48), value: raw }] : [];
   });
 
+  // `durationMuted` MUST come along. A muted duration is written down but not
+  // spent — the thirty seconds of each ad inside a three-minute reel, listed
+  // so the operator can see the order. Leaving the flag out charged the reel
+  // and then every ad in it, and the check reported an overlap the size of the
+  // reel at each one: twenty phantom faults on a single netball sheet, none of
+  // them in the app, all of them in this script.
   const planRows: PlanRow[] = built.rows.map((r, i) => ({
     id: String(i),
     type: r.type,
     durationSec: r.durationSec ?? null,
+    durationMuted: r.durationMuted ?? false,
     hardStartSec: r.hardStartSec ?? null,
     outcome: r.outcome ?? null,
     outcomeGame: r.outcomeGame,

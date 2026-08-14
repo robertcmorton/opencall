@@ -400,7 +400,17 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
         // A start that goes BACKWARDS is still wrong however little was
         // claimed, so that is reported either way.
         const claimed = expected - anchorStart;
-        if (Math.abs(gap) >= 1 && (claimed > 0 || gap < 0)) {
+        // Two rows on the SAME anchor start together, and that is not a
+        // disagreement about where either of them sits — it is the sheet
+        // saying so. It happens wherever a row spans the rows beneath it:
+        // "HALF TIME (15 mins)" at 8:45 for fifteen minutes, then the wrap,
+        // the highlights and the ad reel that fill those same fifteen
+        // minutes, the first of them also at 8:45. Charging the parent's
+        // duration and then the children's reported a quarter-hour overlap on
+        // every game sheet, at the one moment of the night with the most rows
+        // in it.
+        const together = Math.abs(anchor - anchorStart) < 1;
+        if (!together && Math.abs(gap) >= 1 && (claimed > 0 || gap < 0)) {
           // Alongside the running order → not a disagreement, and it must not
           // become the anchor the following rows are measured from.
           if (runsAlongside(i, expected)) return;

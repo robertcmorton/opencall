@@ -66,6 +66,21 @@ export function ReconcilePanel({
   const absorbNew = Math.max(0, (absorb.durationSec ?? 0) + current.gapSec);
 
   const overlap = current.gapSec < 0;
+  /**
+   * Can this row absorb the disagreement at all?
+   *
+   * `absorbNew` is clamped at zero, so on an overlap larger than the row it
+   * lands on 0 and reads like a fix. It is not: emptying a four-minute bell
+   * out of a nineteen-minute overlap leaves fifteen minutes of it, while the
+   * sentence beside the button promises the durations "meet the printed time
+   * exactly". Thirteen of the ninety-five disagreements across the sample
+   * sheets were being offered that.
+   *
+   * Withdrawn rather than reworded: a choice that cannot do what it says is
+   * not a choice, and the other two — move the printed time, or accept the
+   * gap — still resolve the row.
+   */
+  const absorbResolves = (absorb.durationSec ?? 0) + current.gapSec >= 0;
 
   return (
     <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 10 }}>
@@ -103,7 +118,9 @@ export function ReconcilePanel({
       </div>
 
       <div style={{ display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+        <div
+          style={{ display: absorbResolves ? "flex" : "none", gap: 10, alignItems: "baseline" }}
+        >
           <button
             className="btn btn-sm btn-primary"
             style={{ flexShrink: 0 }}
@@ -118,7 +135,8 @@ export function ReconcilePanel({
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
             Trust the printed times: “{(absorb.title || "untitled").slice(0, 24)}” goes from{" "}
             <span className="mono">{absorb.durationSec != null ? formatDuration(absorb.durationSec) : "—"}</span> to{" "}
-            <span className="mono">{formatDuration(absorbNew)}</span>, and the durations then meet the printed time exactly.
+            <span className="mono">{formatDuration(absorbNew)}</span>, and the durations then meet the printed time
+            exactly.
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>

@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A game's halves are rows of the show, not headings over it.** Match-day sheets write a period in two lines — the timing on a numbered line with the item cell left empty, and the name alone underneath, printed across the width. Read literally that is forty anonymous minutes followed by a heading, so the halves arrived as page furniture with every cue inside them hanging off it as a child. The two lines are now joined: the first half IS the row that runs from kick-off, and the cues during it are what happens while it runs, not its contents. The pair is only ever joined when the name row carries nothing but its name and no number of its own — on the densest cue sheets the looser reading would have folded a DJ cue into the GFX cue beside it, and across the sample it matched 39 places against the safe rule's 15, every one of those a game half. Three rows that used to show a bare dash for a name got their real one back as well.
+
+
+### Fixed
 - **The moving bar now runs across everything happening at once.** Where several rows share a moment — a half-time block, the standby that opens it, the first cue inside it — only one of them carried the timer. The cause was that a row the sheet gives no length was treated as taking no time at all, so it was never "on" for even a second; it now runs until the next row starts, which is what the sheet means by leaving the column blank. Headings are still left alone.
 
 ### Fixed

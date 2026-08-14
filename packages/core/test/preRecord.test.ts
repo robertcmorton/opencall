@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adoptCaptionTitles,
   collapseRepeatedBanners,
   computeTiming,
   detectAlongside,
@@ -160,5 +161,77 @@ describe("collapseRepeatedBanners", () => {
     const rows = [timed(), timed()];
     collapseRepeatedBanners(rows);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe("adoptCaptionTitles", () => {
+  const timed = (over: Partial<ClassifiedRow>): ClassifiedRow => ({ ...cue(""), ...over });
+
+  it("gives a half its name from the line beneath it", () => {
+    // How every match-day sheet in the sample writes a game period: the timing
+    // on a numbered line with an empty item cell, the name alone underneath.
+    const rows: ClassifiedRow[] = [
+      timed({ sourceNumber: "87", startSec: 20 * 3600 + 120, durationSec: 2400 }),
+      { ...cue("NRL | BULLDOGS v RABBITOHS - FIRST HALF"), kind: "banner" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: "cue",
+      sourceNumber: "87",
+      title: "NRL | BULLDOGS v RABBITOHS - FIRST HALF",
+      startSec: 20 * 3600 + 120,
+      durationSec: 2400,
+    });
+  });
+
+  it("leaves a numbered row alone — that is a cue, not a caption", () => {
+    // The dense cue sheets put a DJ cue next to a GFX cue, each numbered and
+    // each carrying its own roles. Joining those would destroy both.
+    const rows: ClassifiedRow[] = [
+      timed({ sourceNumber: "62", durationSec: 87 }),
+      { ...cue("Wests Tigers v Bulldogs Graphic"), kind: "banner", sourceNumber: "63" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.title).toBe("");
+  });
+
+  it("leaves a row that carries department content alone", () => {
+    // Not a banner: it has its own screen and audio, so it is a row of the show.
+    const rows: ClassifiedRow[] = [
+      timed({ durationSec: 60 }),
+      { ...cue("Telstra"), cells: { type: "VTR", "big-screen": "Telstra TVC" } },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("never takes a name from a row that has a time of its own", () => {
+    const rows: ClassifiedRow[] = [
+      timed({ durationSec: 2400 }),
+      { ...cue("SECOND HALF"), startSec: 21 * 3600 },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("leaves a titled row and its following heading alone", () => {
+    const rows: ClassifiedRow[] = [
+      { ...cue("Team Entry"), durationSec: 40 },
+      { ...cue("NRL | SECOND HALF"), kind: "banner" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("reaches across a blank line", () => {
+    const rows: ClassifiedRow[] = [
+      timed({ durationSec: 2400 }),
+      { ...cue(""), kind: "spacer" },
+      { ...cue("NRL | FIRST HALF"), kind: "banner" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows.map((r) => r.title)).toEqual(["NRL | FIRST HALF", ""]);
   });
 });

@@ -16,3 +16,4 @@ next-env.d.ts
 DEVLOG.md
 Example Cue Sheets/
 apps/web/public/_*
+apps/web/scripts/_*

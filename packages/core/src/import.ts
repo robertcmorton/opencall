@@ -589,6 +589,11 @@ export function classifySheet(
   adoptInlineStarts(rows);
   adoptInlineDurations(rows);
   collapseRepeatedBanners(rows);
+  // After the collapse — the sheet prints the period name twice, and the pair
+  // to join is the timed row and ONE caption — and before everything that
+  // reads a title, because a half only announces its outcomes once it has a
+  // name.
+  adoptCaptionTitles(rows);
   detectAlongside(rows);
   detectBlocks(rows);
   detectOutcomes(rows);
@@ -676,6 +681,49 @@ export function collapseRepeatedBanners(rows: ClassifiedRow[]): void {
     let prev = i - 1;
     while (prev >= 0 && rows[prev]!.kind === "spacer") prev -= 1;
     if (prev >= 0 && same(rows[prev]!, rows[i]!)) rows.splice(i, 1);
+  }
+}
+
+/**
+ * Gives a timed row the name printed on the line beneath it.
+ *
+ * A game's halves are the spine of a match-day sheet, and this is how the
+ * sheets write them: the timing on a numbered line with nothing in the item
+ * column — `87 | 0:40:00 8:02:00 PM` — and the name alone on the next line,
+ * `NRL | BULLDOGS v RABBITOHS - FIRST HALF`, printed across the width. Read
+ * faithfully that is two rows: forty anonymous minutes, and a heading. So the
+ * halves arrived as headings, and a heading is a piece of page furniture that
+ * everything below it hangs from — which is exactly what it should not be. The
+ * first half IS the row that runs from kick-off; the cues inside it are not
+ * its children, they are what happens during it.
+ *
+ * The pair is only ever joined when the name row is a BANNER with no number of
+ * its own. A banner by construction carries nothing but its title — no time,
+ * no length, no department content — so a row with its own item number, its
+ * own roles and its own screen content can never be swallowed. That
+ * distinction is the whole safety of this: across twenty sheets the loose
+ * reading (any titled row after an untitled timed one) matched 39 places, and
+ * on the two densest cue sheets those were real neighbouring cues — a DJ cue
+ * #62 next to a GFX cue #63 — which joining would have destroyed. The banner
+ * rule matches 15, and every one of them is a game half.
+ */
+export function adoptCaptionTitles(rows: ClassifiedRow[]): void {
+  const nextReal = (from: number): number => {
+    let j = from;
+    while (j < rows.length && rows[j]!.kind === "spacer") j += 1;
+    return j;
+  };
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    if (row.kind === "spacer" || row.title.trim() !== "") continue;
+    if (row.startSec == null && row.durationSec == null) continue;
+    const j = nextReal(i + 1);
+    const caption = rows[j];
+    if (!caption || caption.kind !== "banner") continue;
+    if (caption.sourceNumber?.trim()) continue;
+    if (caption.title.trim() === "") continue;
+    row.title = caption.title;
+    rows.splice(j, 1);
   }
 }
 

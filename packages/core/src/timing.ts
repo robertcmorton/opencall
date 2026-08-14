@@ -327,6 +327,18 @@ export interface AnchoredRow {
 const MAX_PARALLEL_RUN = 4;
 
 /**
+ * How far out of order a row may sit and still be read as running ALONGSIDE
+ * the order rather than being a mistake.
+ *
+ * Run sheets list a parallel row near where it happens: a two-minute bell
+ * written after the item it rings during, a team entry noted a few rows late.
+ * Measured across the sample sheets, every legitimate one was 1 to 22 minutes
+ * out of place. The mistakes were nowhere near: 11h59m, twice, both an "am"
+ * typed for a "pm". An hour sits in the empty space between them.
+ */
+const OUT_OF_ORDER_SEC = 3600;
+
+/**
  * Finds every place where an anchored start genuinely disagrees with the
  * durations above it.
  *
@@ -390,8 +402,26 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
     }
   }
 
-  /** Does the chain pick up again within a few rows if we skip from `i`? */
-  const runsAlongside = (i: number, expectedAt: number): boolean => {
+  /**
+   * Does the chain pick up again within a few rows if we skip from `i`?
+   *
+   * `anchorAt` is the row's own start. A row can only run ALONGSIDE the
+   * running order if it sits inside it: a two-minute bell rung during the
+   * team lists, a deadline that falls while something else is on. A start
+   * that lands BEFORE the anchor above it is not parallel to anything — it is
+   * out of order, and the chain closing neatly over the top of it is exactly
+   * why it went unreported.
+   *
+   * A real sheet had "5:26:00 am" typed for a bell between rows at 5:25 PM
+   * and 5:26 PM. Skipping it let the chain continue to the second, so nothing
+   * was flagged — and then the live screen anchored to it and reported the
+   * show 8 hours 59 minutes behind, with the projected end on the following
+   * day. A twelve-hour mistake in a TIME cell is the single most damaging
+   * thing a sheet can carry, and it was the one thing the check stayed quiet
+   * about.
+   */
+  const runsAlongside = (i: number, expectedAt: number, anchorAt: number, since: number): boolean => {
+    if (since - anchorAt > OUT_OF_ORDER_SEC) return false;
     let extra = 0;
     let anchorsSkipped = 0;
     for (let j = i + 1; j < rows.length; j++) {
@@ -459,7 +489,7 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
         if (!together && Math.abs(gap) >= 1 && (claimed > 0 || gap < 0)) {
           // Alongside the running order → not a disagreement, and it must not
           // become the anchor the following rows are measured from.
-          if (runsAlongside(i, expected)) return;
+          if (runsAlongside(i, expected, anchor, anchorStart)) return;
           gaps.push({ fromIndex: lastAnchor, toIndex: i, gapSec: Math.round(gap) });
         }
       }

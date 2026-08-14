@@ -159,6 +159,31 @@ describe("findTimingGaps: rows that start together", () => {
     expect(findTimingGaps(rows, timing)).toEqual([]);
   });
 
+  it("reports an am/pm typo even though the chain closes neatly over it", () => {
+    // The real one: "5:26:00 am" typed for a bell between 5:25 PM and 5:26 PM.
+    // Skipping it lets the chain continue to the second, which is exactly why
+    // it went unreported — and then the live screen anchored to it and said
+    // the show was nine hours behind.
+    const rows = [
+      { hardStartSec: 17 * 3600 + 25 * 60, durationSec: 60 },
+      { hardStartSec: 5 * 3600 + 26 * 60, durationSec: 0 },
+      { hardStartSec: 17 * 3600 + 26 * 60, durationSec: 60 },
+    ];
+    const gaps = findTimingGaps(rows, computeTiming(plan(rows), null));
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]!.toIndex).toBe(1);
+  });
+
+  it("still absorbs a bell listed a few minutes out of place", () => {
+    // Legitimate parallel authoring: the bell rings during the item above it.
+    const rows = [
+      { hardStartSec: 18 * 3600 + 23 * 60 + 30, durationSec: 90 },
+      { hardStartSec: 18 * 3600 + 22 * 60, durationSec: 240 },
+      { hardStartSec: 18 * 3600 + 25 * 60, durationSec: 30 },
+    ];
+    expect(findTimingGaps(rows, computeTiming(plan(rows), null))).toEqual([]);
+  });
+
   it("still reports a start that genuinely disagrees", () => {
     const rows = [
       { hardStartSec: 20 * 3600, durationSec: 600 },

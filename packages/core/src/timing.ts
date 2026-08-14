@@ -450,7 +450,18 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
     // becomes the point the rows below are measured from. Read as an ordinary
     // anchor it opens a hole and then an overlap, twice per pre-record, and on
     // a sheet with three of them that is most of the reported faults.
-    if (row.parallel) return;
+    if (row.parallel) {
+      // Off the chain, but not above the law. A second track still happens at
+      // a time, and a time that lands hours before the row above it is wrong
+      // whatever track it is on — the "5:26:00 am" bell that parked a show
+      // twelve hours out of place is a two-minute bell, and marking it as the
+      // warning it is must not be what stops anyone hearing about it.
+      const at = anchors[i];
+      if (at != null && anchorStart != null && anchorStart - at > OUT_OF_ORDER_SEC) {
+        gaps.push({ fromIndex: lastAnchor, toIndex: i, gapSec: Math.round(at - anchorStart) });
+      }
+      return;
+    }
     const anchor = anchors[i];
     if (anchor != null) {
       if (lastAnchor >= 0 && expected != null && anchorStart != null) {

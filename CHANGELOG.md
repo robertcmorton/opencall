@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **The two-minute bell is a warning, not a cue.** Like a pre-record, it happens during whatever is on air rather than instead of it — and it was carrying four minutes of duration that the show was made to spend. It now runs alongside: no time in the running order, and the transport steps over it. Only the warning is caught, never the word: real sheets ring bells on camera as part of the show ("RINGING THE BELL", "BELL RINGING MOMENT ON CAMERA", "LX - BELL LIGHTS ON", and a read that opens "Ringing the legacy bell tonight is…"), and a "STANDBY FOR HALF TIME" spans forty minutes of play. Four sheets report fewer false faults. A second track is still held to the clock, though: a bell whose printed time lands hours before the row above it is still reported, because being off the running order does not make a wrong time right.
+
+### Added
 - **A second track runs, but is never cued.** With more than one thing on at once, the transport steps along the running order only: Next and Prev pass over a row that runs alongside, clock-follow never targets one, and a show never starts on one. It still runs, still shows its progress, and still finishes on its own — which is what a pre-record is; nobody takes a cue on the coin toss being shot in the tunnel. If you somehow land on one you can still step off it, the same escape hatch a skipped row has. Which rows those are is not guessed beyond the pre-records the importer can name: a block spanning its contents is concurrent too, and there the CONTENTS are the show, so an **∥ Alongside** toggle on each row lets the sheet say which track is which.
 
 ### Added

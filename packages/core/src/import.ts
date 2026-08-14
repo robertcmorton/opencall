@@ -558,7 +558,7 @@ export function classifySheet(
   }
   adoptInlineStarts(rows);
   adoptInlineDurations(rows);
-  detectPreRecords(rows);
+  detectAlongside(rows);
   detectOutcomes(rows);
   detectScript(rows, italicText);
   return rows;
@@ -636,7 +636,18 @@ export function adoptInlineStarts(rows: ClassifiedRow[]): void {
 const PRE_RECORD_LEAD = /^[\s|>*-]*pre[-\s]?rec(?:ord(?:ing)?)?\b/im;
 
 /**
- * Marks the rows that are shot ALONGSIDE the show rather than in it.
+ * "TWO MINUTE BELL", "2 min bell" — the warning, counted down to a moment.
+ *
+ * Deliberately not just "bell". Real sheets ring bells on camera as part of
+ * the show: "RINGING THE BELL", "BELL RINGING MOMENT ON CAMERA", "LX - BELL
+ * LIGHTS ON", and a read that begins "Ringing the legacy bell tonight is…".
+ * Those are cues and must stay cues. The pattern is the LENGTH of the warning
+ * followed by the word, which is how every genuine one is written.
+ */
+const MINUTE_BELL = /\b(?:\d{1,2}|one|two|three|four|five|ten)[-\s]?min(?:ute)?s?\s+bell\b/i;
+
+/**
+ * Marks the rows that run ALONGSIDE the show rather than in it.
  *
  * A pre-record is recorded while the running order carries on around it — the
  * coin toss in the tunnel at 7:02 while the crowd is being warmed up — and
@@ -662,10 +673,14 @@ const PRE_RECORD_LEAD = /^[\s|>*-]*pre[-\s]?rec(?:ord(?:ing)?)?\b/im;
  * Multi-line because a merged PDF row can carry the label on its second line
  * ("Extra Buffer ⏎ Pre Record - PLAYER WALK OVER").
  */
-export function detectPreRecords(rows: ClassifiedRow[]): void {
+export function detectAlongside(rows: ClassifiedRow[]): void {
   for (const row of rows) {
     if (row.kind === "spacer") continue;
-    if (PRE_RECORD_LEAD.test(row.title)) row.parallel = true;
+    // A pre-record is shot while the show goes on; a two-minute bell is a
+    // WARNING rung during whatever is on air. Neither is a thing to take a cue
+    // on, and both take none of the running order's time — a bell carrying
+    // four minutes of duration was spending four minutes the show does not.
+    if (PRE_RECORD_LEAD.test(row.title) || MINUTE_BELL.test(row.title)) row.parallel = true;
   }
 }
 

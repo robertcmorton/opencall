@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeTiming,
-  detectPreRecords,
+  detectAlongside,
   findTimingGaps,
   type ClassifiedRow,
   type PlanRow,
@@ -18,16 +18,16 @@ const cue = (title: string): ClassifiedRow => ({
   sourceIndex: 0,
 });
 
-describe("detectPreRecords", () => {
+describe("detectAlongside", () => {
   it("marks a row whose title opens with Pre Record", () => {
     const rows = [cue("Pre Record - COIN TOSS with Jacob Kertabani")];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows[0]!.parallel).toBe(true);
   });
 
   it("accepts the spellings real sheets use", () => {
     const rows = [cue("PRE RECORD WALK OVER"), cue("Pre-record - Dem Mob"), cue("Prerecording - tunnel")];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows.map((r) => r.parallel)).toEqual([true, true, true]);
   });
 
@@ -35,25 +35,25 @@ describe("detectPreRecords", () => {
     // This is the one that matters: the playback is a real cue that genuinely
     // takes seventy-five seconds of the running order.
     const rows = [cue("VTR - Pre Record - Coin Toss"), cue("VTR - Member Signing PRE RECORD"), cue("VTR - Fun Fair (pre record)")];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows.map((r) => r.parallel)).toEqual([undefined, undefined, undefined]);
   });
 
   it("does not mark a row that merely mentions one", () => {
     const rows = [cue("MC Chat with Dem Mob"), cue("Stadium Evac (Pre-rec audio)")];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows.map((r) => r.parallel)).toEqual([undefined, undefined]);
   });
 
   it("finds the label on a later line of a merged row", () => {
     const rows = [cue("Extra Buffer\nPre Record - PLAYER WALK OVER - tunnel")];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows[0]!.parallel).toBe(true);
   });
 
   it("marks a group banner too", () => {
     const rows: ClassifiedRow[] = [{ ...cue("PRE RECORD WALK OVER"), kind: "banner" }];
-    detectPreRecords(rows);
+    detectAlongside(rows);
     expect(rows[0]!.parallel).toBe(true);
   });
 });
@@ -98,5 +98,32 @@ describe("a pre-record takes no time in the running order", () => {
     const gaps = findTimingGaps(broken, computeTiming(broken, null));
     expect(gaps).toHaveLength(1);
     expect(gaps[0]!.gapSec).toBe(20 * 3600 - (18 * 3600 + 900));
+  });
+});
+
+describe("detectAlongside: the two-minute bell", () => {
+  it("marks the warning, however the sheet spells it", () => {
+    const rows = [cue("TWO MINUTE BELL"), cue("2 minute bell"), cue("2 MIN BELL"), cue("TWO MINUTE BELL 8:56:00 PM")];
+    detectAlongside(rows);
+    expect(rows.map((r) => r.parallel)).toEqual([true, true, true, true]);
+  });
+
+  it("leaves bells that are part of the show alone", () => {
+    // Real rows from real sheets. These are cues.
+    const rows = [
+      cue("RINGING THE BELL"),
+      cue("BELL RINGING MOMENT ON CAMERA"),
+      cue("LX - BELL LIGHTS ON"),
+      cue("Ringing the legacy bell tonight is proud Kuku Yalanji man"),
+    ];
+    detectAlongside(rows);
+    expect(rows.map((r) => r.parallel)).toEqual([undefined, undefined, undefined, undefined]);
+  });
+
+  it("does not mark a standby that spans a period of play", () => {
+    // "STANDBY FOR HALF TIME" covers the forty minutes of a half.
+    const rows = [cue("STANDBY FOR HALF TIME"), cue("Cameras & MC on standby throughout quarter")];
+    detectAlongside(rows);
+    expect(rows.map((r) => r.parallel)).toEqual([undefined, undefined]);
   });
 });

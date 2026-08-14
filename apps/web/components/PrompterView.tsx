@@ -9,6 +9,7 @@ import {
   followRead,
   formatDuration,
   formatTimeOfDay,
+  formatTimeOfDayWithDay,
   PROMPTER_TAG,
   secondsUntilRow,
   zoneSecondsOfDay,
@@ -394,20 +395,31 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   // The state of the read being followed, in the words a reader thinks in.
   const onAirNow = onAirId != null;
+  // Past an hour a countdown stops being a countdown. "ON IN 6:24:29" is a
+  // number nobody reads down; the clock time it lands on is the useful fact,
+  // and on a day-long sheet that is most of the day.
+  const FAR_OFF_SEC = 3600;
+  const farOff = !onAirNow && secondsUntilOn != null && secondsUntilOn > FAR_OFF_SEC;
+  const followStartSec = followId ? (startById.get(followId) ?? null) : null;
+  const nextStartSec = nextRead ? (startById.get(nextRead.id) ?? null) : null;
   const cueLabel = onAirNow
     ? "ON AIR"
     : secondsUntilOn == null
       ? "STANDING BY"
       : secondsUntilOn <= 30
         ? "STAND BY"
-        : "ON IN";
+        : farOff && followStartSec != null
+          ? "ON AT"
+          : "ON IN";
   const cueValue = onAirNow
     ? live?.remainingInRowSec != null
       ? formatDuration(Math.max(0, Math.round(live.remainingInRowSec)))
       : "—"
-    : secondsUntilOn != null
-      ? formatDuration(Math.round(secondsUntilOn))
-      : "—";
+    : secondsUntilOn == null
+      ? "—"
+      : farOff && followStartSec != null
+        ? formatTimeOfDayWithDay(followStartSec, use24h)
+        : formatDuration(Math.round(secondsUntilOn));
   // Red on air, amber in the last thirty seconds — the same colours the timer
   // and the run sheet use, so they mean one thing across the whole app.
   const cueColour = onAirNow ? "#f85149" : secondsUntilOn != null && secondsUntilOn <= 30 ? "#d29922" : "#3fb950";
@@ -462,7 +474,12 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
         <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
           <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>
-            NEXT{secondsUntilNext != null ? ` · ${formatDuration(Math.round(secondsUntilNext))}` : ""}
+            NEXT
+            {secondsUntilNext == null
+              ? ""
+              : secondsUntilNext > FAR_OFF_SEC && nextStartSec != null
+                ? ` · ${formatTimeOfDayWithDay(nextStartSec, use24h)}`
+                : ` · ${formatDuration(Math.round(secondsUntilNext))}`}
           </div>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6e7681" }}>
             {readTitle(nextRead)}

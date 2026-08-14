@@ -14,6 +14,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Changed
+- **Past an hour, the prompter says when — not how long.** `ON IN 36:27:21` is a number nobody reads down; on a multi-day sheet it was most of the day. Beyond an hour both the cue readout and the NEXT chip give the clock time the read lands on instead — `ON AT 11:50:00 PM +1d` — carrying the day, which a bare time would not. Inside the hour nothing changes: it counts down, and STAND BY still takes over in the last thirty seconds.
 - **The dashboard's actions finish on one line.** A company's own buttons hung 17px outside the events beneath them, and each sheet's row 4px outside that — three ragged right edges down a screen that is mostly a list. All three land together now.
 - **One way out of a show that has fallen behind, not two.** "Catch up now" jumped to the row the sheet pointed at and left you driving; Follow clock goes to the same row and keeps going, so the pair read as a choice when one was simply the other's first move. Catching up without handing over is still there — it is cueing the row, which is all that button did.
 

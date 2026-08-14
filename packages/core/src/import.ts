@@ -77,6 +77,37 @@ export function parseTimeLoose(raw: string): number | null {
 
 // ── Header detection & column mapping ─────────────────────────────────────────
 
+/**
+ * A duration cell that has also caught the row's TIME: "0:40:00 8:02:00 PM".
+ *
+ * PDF extraction assigns text to columns by where it sits on the page, and on
+ * some rows the time lands in the duration's band — the TIME cell comes out
+ * empty and the DUR cell holds both values with a space between them. The
+ * whole string parses as neither, so the row falls through to whatever the
+ * next merged line offers.
+ *
+ * On a real sheet that cost both halves of the match their length: the DUR
+ * cell said `0:40:00 8:02:00 PM`, the next line said `0:05:00`, and forty
+ * minutes of football was imported as five. That one substitution is behind
+ * the two forty-minute holes the timing check reports on that sheet AND the
+ * live drift it showed, because the rows around it were left with no length
+ * to spend.
+ *
+ * Deliberately narrow: the remainder must parse as a TIME. "45mins - 1hr" and
+ * "6 mins 15 mins" are genuinely ambiguous cells that the import screen asks
+ * about, and taking the first thing that looks like a duration would answer a
+ * question the sheet has not answered.
+ */
+export function durationFromMixedCell(raw: string): string | null {
+  const m = /^\s*(\S+)\s+(.+)$/.exec(raw);
+  if (!m) return null;
+  const head = m[1]!;
+  const rest = m[2]!.trim();
+  if (parseDurationLoose(head) == null) return null;
+  if (parseTimeLoose(rest) == null) return null;
+  return head;
+}
+
 export type ColumnTarget =
   | { kind: "title" }
   | { kind: "start" }
@@ -398,8 +429,11 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
         }
       } else if (target.kind === "duration") {
         for (const line of value.split("\n")) {
-          const v = line.trim();
-          if (!v) continue;
+          const text = line.trim();
+          if (!text) continue;
+          // A line that is a duration with the row's time glued on still has a
+          // duration in it; take that rather than falling to the next line.
+          const v = parseDurationLoose(text) == null ? durationFromMixedCell(text) ?? text : text;
           if (!durationRaw || (parseDurationLoose(durationRaw) == null && parseDurationLoose(v) != null))
             durationRaw = v;
         }

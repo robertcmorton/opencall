@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptInlineDurations,
+  durationFromMixedCell,
   adoptInlineStarts,
   computeTiming,
   findTimingGaps,
@@ -193,5 +194,27 @@ describe("findTimingGaps: rows that start together", () => {
     const gaps = findTimingGaps(rows, timing);
     expect(gaps).toHaveLength(1);
     expect(gaps[0]!.gapSec).toBe(1200);
+  });
+});
+
+describe("durationFromMixedCell", () => {
+  it("recovers the duration when the row's time has landed in the same cell", () => {
+    // Extraction assigns text by where it sits on the page; on some rows the
+    // time lands in the duration's band and the TIME cell comes out empty.
+    expect(durationFromMixedCell("0:40:00 8:02:00 PM")).toBe("0:40:00");
+    expect(durationFromMixedCell("0:05:00 6:15:30 pm")).toBe("0:05:00");
+  });
+
+  it("leaves a genuinely ambiguous cell alone", () => {
+    // These two are real, and the import screen asks about them. Taking the
+    // first duration-shaped token would answer a question the sheet has not.
+    expect(durationFromMixedCell("45mins - 1hr")).toBeNull();
+    expect(durationFromMixedCell("6 mins 15 mins")).toBeNull();
+  });
+
+  it("ignores a cell that is not a duration followed by a time", () => {
+    expect(durationFromMixedCell("0:40:00")).toBeNull();
+    expect(durationFromMixedCell("FULLBACK WING")).toBeNull();
+    expect(durationFromMixedCell("Extra time")).toBeNull();
   });
 });

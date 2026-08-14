@@ -129,3 +129,43 @@ describe("clockTargetRow: a row that contradicts the sheet's order", () => {
     expect(clockTargetRow(rows, starts, 18 * 3600 + 24 * 60)).toBe("bell");
   });
 });
+
+describe("a row the sheet gives no duration runs until the next one starts", () => {
+  // The reported live show, to the second. "STANDBY FOR HALF TIME" at 8:08 PM
+  // covers the forty minutes of the first half; the sheet writes no duration
+  // for a game. Half time is anchored at 8:48 PM.
+  const half: PlanRow[] = [
+    { id: "kick", type: "cue", durationSec: 0, hardStartSec: 20 * 3600 + 2 * 60 },
+    { id: "play", type: "cue", durationSec: null, hardStartSec: 20 * 3600 + 8 * 60 },
+    { id: "halftime", type: "cue", durationSec: 900, hardStartSec: 20 * 3600 + 48 * 60 },
+  ];
+  const at = (h: number, m: number, s = 0) =>
+    computeLiveTiming({
+      timing: computeTiming(half, null),
+      activeRowId: "play",
+      activeRowStartedAtMs: Date.UTC(2026, 7, 14, 20, 8, 0),
+      pausedAccumMs: 0,
+      pausedAtMs: null,
+      nowMs: Date.UTC(2026, 7, 14, h, m, s),
+      toSecondsOfDay: (ms) => {
+        const d = new Date(ms);
+        return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
+      },
+    })!;
+
+  it("does not call the show late twelve minutes into the half", () => {
+    const live = at(20, 20, 13);
+    expect(live.rowOverSec).toBe(0);
+    expect(live.showDriftSec).toBe(0);
+  });
+
+  it("counts down the rest of the half instead of up", () => {
+    expect(at(20, 20, 13).remainingInRowSec).toBe(40 * 60 - (12 * 60 + 13));
+  });
+
+  it("still reports overrun once the half really has run long", () => {
+    const live = at(20, 50, 0); // two minutes past the 8:48 hooter
+    expect(live.rowOverSec).toBe(120);
+    expect(live.showDriftSec).toBe(120);
+  });
+});

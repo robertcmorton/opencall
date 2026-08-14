@@ -45,7 +45,33 @@ export function computeLiveTiming(input: LiveShowInput): LiveShowTiming | null {
   const effectiveNowMs = pausedAtMs ?? nowMs;
   const elapsedInRowSec = Math.max(0, (effectiveNowMs - activeRowStartedAtMs - pausedAccumMs) / 1000);
 
-  const planned = active.effectiveDurationSec;
+  /**
+   * How long this row is meant to last.
+   *
+   * Its own duration, when the sheet gives it one. When it does not, the row
+   * runs until the next one starts — which the sheet DOES say, by anchoring
+   * that next row to a time.
+   *
+   * Without this, a row with no duration is treated as zero seconds long, so
+   * every second spent on it is overrun. That is wrong for exactly the rows it
+   * matters most on: a period of play. "STANDBY FOR HALF TIME" covers the
+   * forty minutes of a first half and carries no duration, because no sheet
+   * writes one for a game. Twelve minutes into the half, a show sitting
+   * precisely where the clock said it should be reported itself twelve
+   * minutes behind, with its projected end pushed out to match — and by the
+   * hooter it would have claimed forty.
+   *
+   * Only the gap to the NEXT row is used, never a guess: if the next row is
+   * unanchored it inherits this row's start, the gap is zero, and nothing
+   * changes.
+   */
+  const nextStart = timing.rows[index + 1]?.startSec ?? null;
+  const implied =
+    active.effectiveDurationSec === 0 && active.startSec != null && nextStart != null && nextStart > active.startSec
+      ? nextStart - active.startSec
+      : active.effectiveDurationSec;
+
+  const planned = implied;
   const remainingInRowSec = planned > 0 || active.startSec != null ? planned - elapsedInRowSec : null;
   const rowOverSec = Math.max(0, elapsedInRowSec - planned);
 

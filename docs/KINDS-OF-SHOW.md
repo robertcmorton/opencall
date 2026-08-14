@@ -86,7 +86,8 @@ produce.
 
 | id | Label | Shape | Extra period | Result due after |
 |---|---|---|---|---|
-| `nrl` | Rugby league (NRL) | extraCanDraw | Golden point | second half |
+| `nrl` | Rugby league (NRL) — regular season | extraCanDraw | Golden point | second half |
+| `nrl-finals` | Rugby league (NRL) — final | extraMustSettle | Golden point | second half |
 | `afl` | Australian rules (AFL) | drawAtFullTime | — | final/4th quarter or term |
 | `afl-finals` | AFL — final | extraMustSettle | Extra time | final/4th quarter or term |
 | `soccer` | Football — league | drawAtFullTime | — | second half |
@@ -100,9 +101,9 @@ produce.
 
 Notes on the ones that are easy to get wrong:
 
-- **NRL is the only `extraCanDraw`.** Golden point runs a fixed ten minutes and a
-  match nobody wins in that time is a draw. Everywhere else the extra period is
-  played until somebody leads.
+- **Regular-season NRL is the only `extraCanDraw`.** Golden point runs a fixed
+  ten minutes and a match nobody wins in that time is a draw. Everywhere else —
+  including an NRL final — the extra period is played until somebody leads.
 - **Test cricket has no `resultDueAfter`.** Five days with no "second half" to
   match on; it falls back to the buffer alone, which asks late rather than never.
 - **`cricket` and `soccer` keep their old ids** rather than being renamed to
@@ -112,6 +113,48 @@ Notes on the ones that are easy to get wrong:
 - **AFL has two entries** because a home-and-away draw stands and a final cannot
   be drawn. That is a property of the fixture, not the sport, so it is the
   operator's choice at import.
+
+### Rugby league (NRL): how a match fills a run sheet
+
+Written down because it is the shape most of these sheets have, and because
+two of its numbers are easy to get wrong.
+
+**The two halves are 40 minutes each.** They are the longest rows on the sheet
+and they carry a real duration; if a half imports as anything else, something
+has gone wrong reading the source.
+
+**The 5-minute block after each half is not extra content.** Run sheets write
+a 5:00 row (often labelled "Extra time", "Extra Buffer", "Extra Time Buffer")
+after each half. That is the allowance for injury and stoppage time INSIDE the
+half — a placeholder the showcaller draws on when play stops, not five more
+minutes of show. Added to the running order it makes the day ten minutes
+longer than it is. The honest treatment is to keep the number visible and out
+of the sum, which is exactly what **Mute** does.
+
+**Golden point, regular season: ten minutes, and a draw is still possible.**
+Two five-minute periods, ends swapped, no break. Any score — try, penalty
+goal, field goal — ends the match on the spot, so the showcaller must be ready
+to cue the next item at any moment rather than at a planned time. If nobody
+scores in the ten minutes the match is a draw and each side takes a
+competition point. This is why `nrl` offers Win / Lose / Golden point at full
+time and Win / Lose / **Draw** after it.
+
+**Golden point, finals: the same ten minutes, then it is played out.** Five
+minutes each way as in the regular season; if the scores are still level there
+is a short break and a new coin toss, and further periods are played until
+somebody scores. A final cannot be drawn. That is a different shape from the
+regular season and it has its own kind of show, `nrl-finals`, which offers no
+Draw at all.
+
+  Because the end of a final is genuinely open-ended, no sheet can put a
+  duration on it. Leave the block untimed rather than guessing at one: the app
+  treats a row with no duration as running until the next row starts, so an
+  untimed golden-point block will not report the show as running late while it
+  is being played.
+
+Sources for the two golden-point rules:
+[NRL statement on extra time in finals](https://www.nrl.com/news/2016/07/08/nrl-statement-extra-time-in-finals-matches/) ·
+[Golden point (Wikipedia)](https://en.wikipedia.org/wiki/Golden_point)
 
 ### Custom kinds
 

@@ -132,7 +132,7 @@ describe("a kind of show a company added", () => {
 
   it("resolves beside the built-ins rather than instead of them", () => {
     expect(resolveEventType("own:water-polo", [waterPolo])?.label).toBe("Water polo");
-    expect(resolveEventType("nrl", [waterPolo])?.label).toBe("Rugby league (NRL)");
+    expect(resolveEventType("nrl", [waterPolo])?.label).toBe("Rugby league (NRL) — regular season");
     expect(resolveEventType("own:water-polo", [])).toBeNull();
   });
 
@@ -199,5 +199,21 @@ describe("ending blocks are not opened by ordinary wording", () => {
     const rows = [row("Fulltime - Swifts WIN"), row("Presentation")];
     detectOutcomes(rows);
     expect(rows[0]!.outcome).toBe("win");
+  });
+});
+
+describe("rugby league: regular season vs final", () => {
+  it("a regular-season match can be drawn, but only after golden point", () => {
+    // Ten minutes of golden point, first score wins; still level and it is a
+    // draw, worth a competition point each.
+    expect(outcomesFor("nrl", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("nrl", true)).toEqual(["win", "lose", "draw"]);
+  });
+
+  it("a final cannot be drawn", () => {
+    // Level after the ten minutes and it is played on until somebody scores,
+    // so offering Draw would be offering a result that cannot happen.
+    expect(outcomesFor("nrl-finals", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("nrl-finals", true)).toEqual(["win", "lose"]);
   });
 });

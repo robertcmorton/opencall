@@ -93,11 +93,19 @@ const SECOND_INNINGS = /\b(second|2nd)\s+innings\b/i;
 export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "nrl",
-    label: "Rugby league (NRL)",
+    label: "Rugby league (NRL) — regular season",
     group: "Sport",
     ...extraCanDraw("Golden point"),
     resultDueAfter: SECOND_HALF,
-    blurb: "Level at full time goes to golden point; a draw is only possible after it.",
+    blurb: "Level at full time goes to golden point — ten minutes, first score wins. Still level at the end and it is a draw.",
+  },
+  {
+    id: "nrl-finals",
+    label: "Rugby league (NRL) — final",
+    group: "Sport",
+    ...extraMustSettle("Golden point"),
+    resultDueAfter: SECOND_HALF,
+    blurb: "A final cannot be drawn: level after golden point is played on until somebody scores.",
   },
   {
     id: "afl",

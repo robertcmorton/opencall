@@ -99,13 +99,30 @@ export function parseTimeLoose(raw: string): number | null {
  * question the sheet has not answered.
  */
 export function durationFromMixedCell(raw: string): string | null {
+  return splitMixedCell(raw)?.duration ?? null;
+}
+
+/**
+ * The row's TIME, when it has landed in the duration's cell.
+ *
+ * The other half of the same artefact. `0:40:00 8:02:00 PM` is a duration AND
+ * a start, and the TIME cell it should have been in is empty — so recovering
+ * only the duration left the first half of the match with a length but no
+ * time of its own, cascading from whatever sat above it.
+ */
+export function startFromMixedCell(raw: string): string | null {
+  return splitMixedCell(raw)?.start ?? null;
+}
+
+/** Splits `"0:40:00 8:02:00 PM"` into its duration and its time. */
+function splitMixedCell(raw: string): { duration: string; start: string } | null {
   const m = /^\s*(\S+)\s+(.+)$/.exec(raw);
   if (!m) return null;
   const head = m[1]!;
   const rest = m[2]!.trim();
   if (parseDurationLoose(head) == null) return null;
   if (parseTimeLoose(rest) == null) return null;
-  return head;
+  return { duration: head, start: rest };
 }
 
 export type ColumnTarget =
@@ -413,6 +430,8 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
     let title = "";
     let startRaw = "";
     let durationRaw = "";
+    /** A time that came out of the DUR cell — used only if TIME is empty. */
+    let strayStart = "";
     const cells: Record<string, string> = {};
     let departmentContent = false;
 
@@ -431,9 +450,14 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
         for (const line of value.split("\n")) {
           const text = line.trim();
           if (!text) continue;
-          // A line that is a duration with the row's time glued on still has a
-          // duration in it; take that rather than falling to the next line.
+          // A line that is a duration with the row's time glued on carries
+          // both. Take the duration rather than falling to the next line, and
+          // keep the time for the start column, which came out empty.
           const v = parseDurationLoose(text) == null ? durationFromMixedCell(text) ?? text : text;
+          if (parseDurationLoose(text) == null) {
+            const rescued = startFromMixedCell(text);
+            if (rescued && !strayStart) strayStart = rescued;
+          }
           if (!durationRaw || (parseDurationLoose(durationRaw) == null && parseDurationLoose(v) != null))
             durationRaw = v;
         }
@@ -450,6 +474,10 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
       continue;
     }
 
+    // The sheet's own TIME cell always wins; the rescued one only fills a gap
+    // it left. A row that says when it happens is never overruled by a value
+    // recovered from a neighbouring column.
+    if (!startRaw && strayStart) startRaw = strayStart;
     const startSec = startRaw ? parseTimeLoose(startRaw) : null;
     const durationSec = durationRaw ? parseDurationLoose(durationRaw) : null;
 

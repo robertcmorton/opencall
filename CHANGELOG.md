@@ -14,6 +14,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **Rugby league finals are their own kind of show, and the NRL's timing is written down.** A regular-season match level after ten minutes of golden point is a draw; a final is played on until somebody scores, so offering Draw there is offering a result the competition cannot produce. `nrl` is now "regular season" and `nrl-finals` sits beside it. [Kinds of show](docs/KINDS-OF-SHOW.md) gains a section on how an NRL match fills a run sheet: the two 40-minute halves, why the 5:00 block after each is stoppage allowance INSIDE the half rather than five more minutes of show, what golden point does to a showcaller (any score ends it on the spot, so the next item must be ready at any moment), and why a final's extra period should be left untimed. Both golden-point rules are cited.
+- **A time stranded in the duration column is put back.** The same extraction artefact that cost the halves their length also cost them their start: `0:40:00 8:02:00 PM` in one cell, with the TIME cell left empty. The duration was recovered earlier; the time now is too, filling only a gap the sheet left and never overruling a TIME cell that has a value.
+
+### Added
 - **The two-minute bell is a warning, not a cue.** Like a pre-record, it happens during whatever is on air rather than instead of it — and it was carrying four minutes of duration that the show was made to spend. It now runs alongside: no time in the running order, and the transport steps over it. Only the warning is caught, never the word: real sheets ring bells on camera as part of the show ("RINGING THE BELL", "BELL RINGING MOMENT ON CAMERA", "LX - BELL LIGHTS ON", and a read that opens "Ringing the legacy bell tonight is…"), and a "STANDBY FOR HALF TIME" spans forty minutes of play. Four sheets report fewer false faults. A second track is still held to the clock, though: a bell whose printed time lands hours before the row above it is still reported, because being off the running order does not make a wrong time right.
 
 ### Added

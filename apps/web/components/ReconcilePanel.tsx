@@ -81,6 +81,26 @@ export function ReconcilePanel({
    * gap — still resolve the row.
    */
   const absorbResolves = (absorb.durationSec ?? 0) + current.gapSec >= 0;
+  /**
+   * The row that OPENS the segment is as long as the whole disagreement.
+   *
+   * That is not a cue that ran long, it is a row that SPANS the rows beneath
+   * it: "HALF TIME (15 mins)" at 8:47, and then the wrap, the review and the
+   * ad reel that fill those same fifteen minutes. Charge the block and then
+   * its contents and the sheet appears to hold a quarter of an hour more than
+   * it has — which is exactly what a fifteen-minute overlap against a
+   * fifteen-minute block means.
+   *
+   * Keyed on the segment's OPENER, not on the last row before the anchor. An
+   * earlier attempt tested the last one and fired on nothing real, because the
+   * spanning row is by definition the first.
+   *
+   * Muting rather than zeroing: half time is genuinely fifteen minutes long
+   * and somebody calling the show needs to know that. The number stays on the
+   * sheet and leaves the sum, which is what muting means.
+   */
+  const spansContents =
+    overlap && (from.durationSec ?? 0) > 0 && Math.abs((from.durationSec ?? 0) + current.gapSec) < 1;
 
   return (
     <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 10 }}>
@@ -118,8 +138,28 @@ export function ReconcilePanel({
       </div>
 
       <div style={{ display: "grid", gap: 8 }}>
+        {spansContents && (
+          <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+            <button
+              className="btn btn-sm btn-primary"
+              style={{ flexShrink: 0 }}
+              onClick={() => {
+                doc.transact(() => {
+                  yRows.get(from.id)?.set("durationMuted", true);
+                });
+              }}
+            >
+              “{(from.title || "untitled").slice(0, 24)}” spans the rows beneath it
+            </button>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
+              Its <span className="mono">{formatDuration(from.durationSec ?? 0)}</span> covers the rows under it rather
+              than running before them, so it is counted once instead of twice. The length stays on the sheet — half
+              time is still fifteen minutes — it just leaves the running order.
+            </span>
+          </div>
+        )}
         <div
-          style={{ display: absorbResolves ? "flex" : "none", gap: 10, alignItems: "baseline" }}
+          style={{ display: absorbResolves && !spansContents ? "flex" : "none", gap: 10, alignItems: "baseline" }}
         >
           <button
             className="btn btn-sm btn-primary"

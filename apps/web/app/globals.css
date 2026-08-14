@@ -1553,19 +1553,79 @@ kbd {
 }
 
 @media (max-width: 760px) {
-  /* Phones stack: timer first (still centred), then the title row, then readouts. */
+  /* Phones stack: timer first (still centred), then the title row, then readouts.
+     And they stack CENTRED — left-aligned blocks under a centred timer read as
+     a column that has slipped, which is what the phone screenshots showed. */
   .topbar-head {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 6px;
+    row-gap: 4px;
+    justify-items: center;
+    text-align: center;
   }
   .topbar-center {
     grid-row: 1;
+    /* No sidenav on a phone, so nothing to compensate for; the translate that
+       centres it on a desktop pushed it off-centre here. */
+    transform: none;
   }
   .topbar-center:empty {
     display: none;
   }
+  .topbar-left,
   .topbar-right {
-    justify-content: flex-start;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+  .topbar-name {
+    align-items: center;
+    max-width: 100%;
+  }
+  /* One line for the sheet's name. It is the thing you already know — you
+     opened it — so it earns a line, not three. */
+  .show-page .topbar-name h1,
+  .show-page .topbar-name .sheet-name {
+    font-size: 0.95rem !important;
+    line-height: 1.25;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The back button is pinned in the corner, so the name no longer needs to
+     be pushed clear of it — that padding was what stopped it centring. */
+  .show-page .topbar-left {
+    padding-left: 0;
+  }
+  .show-page .back-to-dash {
+    position: absolute;
+    left: 0.7rem;
+    top: 0.5rem;
+    z-index: 3;
+  }
+  /* The live readouts and the event clock on ONE centred line. */
+  .topbar-right {
+    gap: 0.35rem 0.8rem;
+    font-size: 0.78rem;
+  }
+  .show-state {
+    margin-top: 3px;
+    gap: 6px;
+  }
+}
+
+/* ---------- Phones: give the sheet the screen ----------
+   Measured on a phone with a real match-day sheet: the timer, the show state,
+   a two-line title, three readouts, the event clock and two rows of controls
+   left about two rows of table visible. A run sheet you cannot read is not a
+   run sheet, so on a phone the chrome earns its height or it goes. */
+@media (max-width: 760px) {
+  /* The timing nudges are a desk job. Docked at the foot of a phone they cost
+     a bar of screen, put a CUE button under the thumb that is holding the
+     device, and popped open every time a row was tapped to read it. Taking
+     seconds out of an item is done at the console. */
+  .timing-nudge-dock {
+    display: none !important;
   }
 }
 

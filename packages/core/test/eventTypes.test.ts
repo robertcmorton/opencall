@@ -217,3 +217,22 @@ describe("rugby league: regular season vs final", () => {
     expect(outcomesFor("nrl-finals", true)).toEqual(["win", "lose"]);
   });
 });
+
+describe("a day with no extra period", () => {
+  it("offers Draw at full time when the sheet carries no golden point", () => {
+    // An exhibition or junior match: rugby league, on a rugby league sheet,
+    // but nobody is playing golden point. Offering it would offer something
+    // that cannot happen; withholding Draw withholds the only button needed.
+    expect(outcomesFor("nrl", false, [], { extraInSheet: false })).toEqual(["win", "lose", "draw"]);
+  });
+
+  it("still routes through golden point when the sheet has one", () => {
+    expect(outcomesFor("nrl", false, [], { extraInSheet: true })).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("nrl", false)).toEqual(["win", "lose", "golden"]);
+  });
+
+  it("does not invent a draw where the competition has none", () => {
+    // Netball settles; with no extra period on the sheet it is still win/lose.
+    expect(outcomesFor("netball", false, [], { extraInSheet: false })).toEqual(["win", "lose"]);
+  });
+});

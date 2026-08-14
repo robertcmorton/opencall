@@ -302,10 +302,35 @@ export function outcomesFor(
   id: string | null | undefined,
   extraPlaying: boolean,
   custom: EventTypeSpec[] = [],
+  opts: {
+    /**
+     * Does THIS sheet actually carry an extra period?
+     *
+     * The kind of show says what the competition allows; the sheet says what
+     * is being played today. An exhibition or a junior match is rugby league
+     * and goes on a rugby league sheet, but nobody is playing golden point —
+     * so the day ends at full time and a level score is a draw. With no extra
+     * period on the page, offering "Golden point" is offering something that
+     * cannot happen, and withholding "Draw" withholds the only button the
+     * showcaller needs.
+     *
+     * Taken from the sheet rather than asked as a setting: a day with golden
+     * point has a golden-point block written into it, and a day without one
+     * does not. Defaults to true so a sheet that has not been read yet
+     * behaves as the competition does.
+     */
+    extraInSheet?: boolean;
+  } = {},
 ): OutcomeKey[] {
   const type = resolveEventType(id, custom);
   if (!type) return [];
-  return extraPlaying && type.afterExtra.length > 0 ? type.afterExtra : type.fullTime;
+  if (extraPlaying && type.afterExtra.length > 0) return type.afterExtra;
+  // No extra period on the sheet: the result is settled at full time, so
+  // offer what settling looks like rather than the route to a second chance.
+  if (opts.extraInSheet === false && type.afterExtra.length > 0) {
+    return type.afterExtra;
+  }
+  return type.fullTime;
 }
 
 /**

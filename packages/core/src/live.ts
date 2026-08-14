@@ -459,3 +459,71 @@ export function rowsOnAt(
   }
   return on;
 }
+
+/** A start time the sheet's own order says cannot be right. */
+export interface StartTimeWarning {
+  /** Row index in the sheet. */
+  index: number;
+  /** What the row currently starts at. */
+  startSec: number;
+  /** Why it looks wrong, and therefore what to do about it. */
+  kind: "meridiem" | "offset" | "out-of-order";
+  /** The time it probably meant, when that can be worked out. */
+  suggestSec?: number;
+}
+
+/** How far a start may sit behind the sheet's high-water mark before it is suspect. */
+const START_SLACK_SEC = 3600;
+
+/**
+ * Every start time that contradicts the order of the sheet it is in.
+ *
+ * A run sheet is chronological, so a row that starts hours before the one
+ * above it is not early — it is wrong. The two ways it goes wrong are worth
+ * telling apart, because they need different answers:
+ *
+ *  · **meridiem** — an "am" typed for a "pm". Adding twelve hours puts the row
+ *    exactly back in order, which is the giveaway. One sheet had "5:26:00 am"
+ *    on a two-minute bell between rows at 5:25 PM and 5:26 PM, and it parked a
+ *    live show twelve hours out of place.
+ *
+ *  · **offset** — not a time of day at all. Cue sheets write elapsed position
+ *    in the same column: "0:00:15", "0:09:00", meaning fifteen seconds and
+ *    nine minutes into the segment. Read as clock times they become a quarter
+ *    past midnight in the middle of a Saturday afternoon. Flipping the
+ *    meridiem does not rescue these, which is how they are told apart.
+ *
+ * Reported, never corrected. Both readings are things the sheet's author can
+ * settle in a second and no rule can settle safely: "0:00:15" really is a
+ * valid time of day on a sheet that runs through midnight.
+ */
+export function checkStartTimes(
+  rows: readonly { startSec: number | null; parallel?: boolean; skipped?: boolean }[],
+): StartTimeWarning[] {
+  const out: StartTimeWarning[] = [];
+  let highWater = -Infinity;
+  let seen = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    if (r.skipped || r.startSec == null) continue;
+    const start = r.startSec;
+    seen += 1;
+    if (highWater === -Infinity || start >= highWater - START_SLACK_SEC) {
+      highWater = Math.max(highWater, start);
+      continue;
+    }
+    // Out of order. Does adding twelve hours put it back?
+    const flipped = start + 12 * 3600;
+    if (flipped >= highWater - START_SLACK_SEC && flipped < 24 * 3600) {
+      out.push({ index: i, startSec: start, kind: "meridiem", suggestSec: flipped });
+      continue;
+    }
+    // Not a meridiem slip. Inside the first hour of the day it is far more
+    // likely to be an elapsed offset than a genuine 12:0x AM on a sheet that
+    // has already reached the afternoon.
+    out.push({ index: i, startSec: start, kind: start < 3600 ? "offset" : "out-of-order" });
+  }
+  // A sheet that genuinely runs through midnight trips every rule here, and
+  // its rows are right. If most of the timed rows look wrong, the rule is.
+  return out.length > 0 && out.length > seen / 2 ? [] : out;
+}

@@ -1209,7 +1209,12 @@ export function RundownEditor({
    */
   const visibleOutcomesOf = (g: number): string[] => {
     const present = outcomesOfGame(g);
-    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes);
+    // Whether THIS sheet plays an extra period at all. An exhibition or a
+    // junior match is still rugby league but nobody is playing golden point,
+    // and the sheet shows that by not carrying a golden-point block — so the
+    // day ends at full time and Draw is the button that has to be there.
+    const extraInSheet = rows.some((r) => r.outcome === "golden" && (r.outcomeGame ?? 1) === g);
+    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes, { extraInSheet });
     // A type the app does not know, or a sheet with no type set, shows whatever
     // endings the sheet itself carries — better than offering nothing.
     if (offered.length === 0) return [...present];

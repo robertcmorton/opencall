@@ -315,6 +315,16 @@ export interface ClassifiedRow {
   startRaw: string | null;
   durationSec: number | null;
   durationRaw: string | null;
+  /**
+   * Lengths this row's duration cell held besides the one taken, added up.
+   *
+   * A wrapped row can arrive carrying two: a half is written "0:40:00" and
+   * then "0:05:00" for extra time on the line beneath, and the merge that
+   * joins those lines into one row kept the first and dropped the second.
+   * Held here rather than acted on — see `adoptExtraDurations`, which spends
+   * it only where the sheet's own times prove it should be spent.
+   */
+  durationExtraSec?: number;
   cells: Record<string, string>;
   /** Source row index in the original grid (for the preview). */
   sourceIndex: number;
@@ -432,6 +442,8 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
     let title = "";
     let startRaw = "";
     let durationRaw = "";
+    /** Other lengths this row's DUR cell held. See `adoptExtraDurations`. */
+    const durationExtra: number[] = [];
     /** A time that came out of the DUR cell — used only if TIME is empty. */
     let strayStart = "";
     const cells: Record<string, string> = {};
@@ -460,8 +472,17 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
             const rescued = startFromMixedCell(text);
             if (rescued && !strayStart) strayStart = rescued;
           }
-          if (!durationRaw || (parseDurationLoose(durationRaw) == null && parseDurationLoose(v) != null))
+          const took = !durationRaw || (parseDurationLoose(durationRaw) == null && parseDurationLoose(v) != null);
+          if (took) {
+            // The line being replaced was a real duration that lost only on
+            // ordering; it still counts as one of the lines this cell held.
+            const displaced = parseDurationLoose(durationRaw);
+            if (displaced != null) durationExtra.push(displaced);
             durationRaw = v;
+          } else {
+            const spare = parseDurationLoose(v);
+            if (spare != null) durationExtra.push(spare);
+          }
         }
       }
       else if (target.kind === "department") {
@@ -494,6 +515,7 @@ export function classifyRows(grid: string[][], headerIndex: number, mapping: Col
       startRaw: startRaw && startSec == null ? startRaw : null,
       durationSec,
       durationRaw: durationRaw && durationSec == null ? durationRaw : null,
+      durationExtraSec: durationExtra.reduce((a, b) => a + b, 0) || undefined,
       cells,
       sourceIndex: i,
     });
@@ -594,6 +616,10 @@ export function classifySheet(
   // reads a title, because a half only announces its outcomes once it has a
   // name.
   adoptCaptionTitles(rows);
+  // Before the passes that read durations — a half that is really forty-five
+  // minutes has to be forty-five before anything reasons about what covers
+  // what.
+  adoptExtraDurations(rows);
   detectAlongside(rows);
   detectBlocks(rows);
   detectOutcomes(rows);
@@ -681,6 +707,48 @@ export function collapseRepeatedBanners(rows: ClassifiedRow[]): void {
     let prev = i - 1;
     while (prev >= 0 && rows[prev]!.kind === "spacer") prev -= 1;
     if (prev >= 0 && same(rows[prev]!, rows[i]!)) rows.splice(i, 1);
+  }
+}
+
+/**
+ * Spends a length the row was carrying but not counting — but only where the
+ * sheet's own times prove it should be spent.
+ *
+ * A half is written as two lengths: "0:40:00", and "0:05:00" for extra time on
+ * the line beneath. Those lines belong to one row, and the merge that joins
+ * them kept the first and dropped the second — so the app scheduled a
+ * forty-minute half where the sheet had planned forty-five, and then reported
+ * the missing five as a fault in the sheet. Twice a game, on most of the match
+ * sheets here.
+ *
+ * Adding them up wherever they appear is NOT safe: of the seventeen rows in
+ * the sample carrying two lengths, some are two lengths for one row and some
+ * are junk (one reads "00:30" and "7"), and nothing in the text distinguishes
+ * them. So this does not decide — it asks the sheet. The extra is taken only
+ * when adding it lands the running order EXACTLY on the next printed time and
+ * leaving it out does not. On a half that is decisive: kick-off at 8:02 plus
+ * forty is 8:42 and half time is printed at 8:47, plus five it is 8:47 to the
+ * second. Where the times do not settle it, nothing is spent and the row keeps
+ * the length it always had.
+ */
+export function adoptExtraDurations(rows: ClassifiedRow[]): void {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const extra = row.durationExtraSec ?? 0;
+    if (extra <= 0 || row.durationSec == null || row.startSec == null) continue;
+    // Everything between this row and the next printed time is spent too.
+    let between = 0;
+    let j = i + 1;
+    for (; j < rows.length; j++) {
+      const r = rows[j]!;
+      if (r.kind === "spacer") continue;
+      if (r.startSec != null) break;
+      between += r.durationSec ?? 0;
+    }
+    const anchor = rows[j]?.startSec;
+    if (anchor == null) continue;
+    const reach = row.startSec + row.durationSec + between;
+    if (Math.abs(reach + extra - anchor) < 1 && Math.abs(reach - anchor) >= 1) row.durationSec += extra;
   }
 }
 

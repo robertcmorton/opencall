@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptCaptionTitles,
+  adoptExtraDurations,
   collapseRepeatedBanners,
   computeTiming,
   detectAlongside,
@@ -233,5 +234,57 @@ describe("adoptCaptionTitles", () => {
     ];
     adoptCaptionTitles(rows);
     expect(rows.map((r) => r.title)).toEqual(["NRL | FIRST HALF", ""]);
+  });
+});
+
+describe("adoptExtraDurations", () => {
+  const half = (over: Partial<ClassifiedRow>): ClassifiedRow => ({ ...cue("FIRST HALF"), ...over });
+
+  it("spends the extra time when the sheet's own times prove it", () => {
+    // Kick-off 8:02, forty minutes printed, five more on the line beneath,
+    // half time printed at 8:47. Forty alone reaches 8:42; forty-five is exact.
+    const rows: ClassifiedRow[] = [
+      half({ startSec: 20 * 3600 + 120, durationSec: 2400, durationExtraSec: 300 }),
+      cue("STANDBY FOR HALF TIME"),
+      { ...cue("HALF TIME"), startSec: 20 * 3600 + 2820 },
+    ];
+    adoptExtraDurations(rows);
+    expect(rows[0]!.durationSec).toBe(2700);
+  });
+
+  it("leaves it alone when the times do not settle it", () => {
+    // "00:30" and "7" in one cell: two readable lengths, and nothing says the
+    // second belongs to this row. The next printed time does not confirm it.
+    const rows: ClassifiedRow[] = [
+      half({ startSec: 20 * 3600, durationSec: 30, durationExtraSec: 7 }),
+      { ...cue("NEXT"), startSec: 20 * 3600 + 30 },
+    ];
+    adoptExtraDurations(rows);
+    expect(rows[0]!.durationSec).toBe(30);
+  });
+
+  it("counts the rows in between on the way to the next printed time", () => {
+    const rows: ClassifiedRow[] = [
+      half({ startSec: 20 * 3600, durationSec: 2400, durationExtraSec: 300 }),
+      { ...cue("Wrap"), durationSec: 60 },
+      { ...cue("HALF TIME"), startSec: 20 * 3600 + 2760 },
+    ];
+    adoptExtraDurations(rows);
+    expect(rows[0]!.durationSec).toBe(2700);
+  });
+
+  it("does nothing without a next printed time to ask", () => {
+    const rows: ClassifiedRow[] = [half({ startSec: 20 * 3600, durationSec: 2400, durationExtraSec: 300 }), cue("after")];
+    adoptExtraDurations(rows);
+    expect(rows[0]!.durationSec).toBe(2400);
+  });
+
+  it("does not spend it when the row already reaches the printed time", () => {
+    const rows: ClassifiedRow[] = [
+      half({ startSec: 20 * 3600, durationSec: 2400, durationExtraSec: 300 }),
+      { ...cue("HALF TIME"), startSec: 20 * 3600 + 2400 },
+    ];
+    adoptExtraDurations(rows);
+    expect(rows[0]!.durationSec).toBe(2400);
   });
 });

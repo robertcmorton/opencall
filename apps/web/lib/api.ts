@@ -223,6 +223,7 @@ export const api = {
     sourceName?: string;
     sourceFileB64?: string;
     baseTitles?: { title?: string; start?: string; duration?: string };
+      showInfo?: { kind: string; lines: string[] }[];
     columnOrder?: string[];
   }) => request<{ id: string }>("/rundowns", { method: "POST", body: JSON.stringify(body) }),
   replaceRundownContent: (
@@ -237,6 +238,7 @@ export const api = {
       sourceName?: string;
       sourceFileB64?: string;
       baseTitles?: { title?: string; start?: string; duration?: string };
+      showInfo?: { kind: string; lines: string[] }[];
       columnOrder?: string[];
     },
   ) => request<{ id: string; epoch: number }>(`/rundowns/${id}/replace-content`, { method: "POST", body: JSON.stringify(body) }),

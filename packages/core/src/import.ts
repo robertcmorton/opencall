@@ -656,6 +656,55 @@ export interface RowLines {
 }
 
 /**
+ * The lines a PDF repeats on every page: the running header and footer.
+ *
+ * Repetition ALONE cannot find these, and the mistake is worth recording.
+ * A cue sheet legitimately repeats itself — the contingency block appears
+ * once per scoring scenario, so "START STOPWATCH", "Try Scorer LED" and
+ * "Try Sting - Freed From Desire" each turn up three or four times. Filing
+ * those as page furniture moved 43 live cues off one NRL sheet.
+ *
+ * What separates them is WHERE they sit. A running header is printed at the
+ * same height on every page; a contingency cue falls wherever the running
+ * order puts it. So the test is the conjunction: same text, same y, on
+ * several different pages. That is a printing artefact, and nothing else is.
+ *
+ * `y` is the PDF's own coordinate (it grows upward). Rounding absorbs the
+ * sub-point drift between pages without letting genuinely different rows
+ * collapse together.
+ */
+export function detectRunningHeaders(
+  grid: string[][],
+  lineMeta: LineMeta[],
+  opts: { minPages?: number; tolerance?: number } = {},
+): string[] {
+  const minPages = opts.minPages ?? 3;
+  const tolerance = opts.tolerance ?? 2;
+  const pages = new Set(lineMeta.map((m) => m.page));
+  // Two pages cannot establish a pattern, and a one-page sheet has no
+  // furniture by definition.
+  if (pages.size < minPages) return [];
+
+  const byKey = new Map<string, { text: string; pages: Set<number> }>();
+  grid.forEach((row, i) => {
+    const meta = lineMeta[i];
+    if (!meta) return;
+    const text = row.map((c) => (c ?? "").trim()).filter(Boolean).join(" ").trim();
+    if (!text) return;
+    const band = Math.round(meta.y / tolerance);
+    const key = `${band}\u0000${text}`;
+    const hit = byKey.get(key) ?? { text, pages: new Set<number>() };
+    hit.pages.add(meta.page);
+    byKey.set(key, hit);
+  });
+
+  const out: string[] = [];
+  for (const { text, pages: seen } of byKey.values())
+    if (seen.size >= minPages && !out.includes(text)) out.push(text);
+  return out;
+}
+
+/**
  * PDF text extraction emits one grid row per VISUAL LINE, so a sheet item
  * whose cells wrap (a four-line WHAT column) arrives as several rows — most
  * of them empty shells. Real sheets number their items, and that column is
@@ -897,8 +946,13 @@ export function planImport(
   mapping: ColumnTarget[];
   roleColumnKey: string | null;
   rows: ClassifiedRow[];
+  /** Lines the PDF prints on every page — see `detectRunningHeaders`. */
+  runningHeaders: string[];
 } {
   const headerIndex = opts.headerIndex ?? detectHeaderRow(grid);
+  // Found on the RAW grid, before wrapped rows are merged: that is the only
+  // point where a line still matches its own page and y one-for-one.
+  const runningHeaders = opts.lineMeta ? detectRunningHeaders(grid, opts.lineMeta) : [];
   const headers = grid[headerIndex] ?? [];
   const dataRows = grid.slice(headerIndex + 1);
   // A data sample lets untitled columns be identified by their contents.
@@ -1008,6 +1062,7 @@ export function planImport(
     mapping,
     roleColumnKey: findRoleColumn(headers, mapping),
     rows,
+    runningHeaders,
   };
 }
 
@@ -1219,6 +1274,8 @@ export interface BuiltSheet {
   roleColumnKey: string | null;
   /** Every column that says who a row is for — the WHO column and the cue column. */
   roleColumnKeys: string[];
+  /** What the document carried that is not the running order. */
+  showInfo: ShowInfoBlock[];
   plannedStartSec: number | null;
   baseTitles: { title?: string; start?: string; duration?: string };
   columnOrder: string[];
@@ -1234,12 +1291,15 @@ export interface BuiltSheet {
  * way; only its address changed.
  */
 export function buildSheet(
-  plan: { headers: string[]; mapping: ColumnTarget[]; rows: ClassifiedRow[] },
+  plan: { headers: string[]; mapping: ColumnTarget[]; rows: ClassifiedRow[]; runningHeaders?: string[] },
   opts: { widths?: (number | null)[]; roleColumnKey?: string | null; roles?: DetectedRole[] } = {},
 ): BuiltSheet {
   const { headers, mapping } = plan;
+  // The masthead the PDF printed on every page belongs beside the sheet, not
+  // in it. Geometry decided which lines those are; see `splitShowInfo`.
+  const split = splitShowInfo(plan.rows, plan.runningHeaders ?? []);
   // Spacers are the sheet's blank separator lines — they carry nothing.
-  const importable = plan.rows.filter((r) => r.kind !== "spacer");
+  const importable = split.rows.filter((r) => r.kind !== "spacer");
   const roleKey = opts.roleColumnKey !== undefined ? opts.roleColumnKey : findRoleColumn(headers, mapping);
   // The cue column names positions — VTR, GFX, LED, CAM — and the people on
   // those desks need to find their rows just as much as the ones named by
@@ -1388,5 +1448,61 @@ export function buildSheet(
     plannedStartSec: importable.find((r) => r.startSec != null)?.startSec ?? null,
     baseTitles: { title: headerFor("title"), start: headerFor("start"), duration: headerFor("duration") },
     columnOrder,
+    showInfo: split.info,
   };
+}
+
+/** A block of a source document that is about the show, but is not the running order. */
+export interface ShowInfoBlock {
+  kind: "furniture";
+  lines: string[];
+}
+
+export interface SplitSheet {
+  /** The running order — what the sheet is FOR. */
+  rows: ClassifiedRow[];
+  /** What the document carried besides it, kept rather than dropped. */
+  info: ShowInfoBlock[];
+}
+
+/**
+ * Lift the page furniture out of the running order.
+ *
+ * A production run sheet is a document as well as a running order: a header
+ * on all fourteen pages, a footer under them. Imported flat that arrives as
+ * cues, and a showcaller stepping through the sheet at kick-off steps through
+ * the masthead once a page.
+ *
+ * `furniture` comes from `detectRunningHeaders`, which knows WHERE each line
+ * was printed. This function does no guessing of its own — an earlier version
+ * did, using repetition, and moved 43 live cues off an NRL sheet because a
+ * contingency block repeats too. Two rules guard what is left:
+ *
+ *   · a row carrying a time or a duration is ALWAYS a cue, whatever it says;
+ *   · a line is furniture only if the geometry said so.
+ *
+ * Nothing is deleted: what comes out of the rows goes into `info`, and the
+ * sheet shows it under Show information.
+ */
+export function splitShowInfo(rows: ClassifiedRow[], furniture: string[]): SplitSheet {
+  if (furniture.length === 0) return { rows, info: [] };
+  const timed = (r: ClassifiedRow) =>
+    r.startSec != null || r.durationSec != null || r.startRaw != null || r.durationRaw != null;
+  // Furniture is matched against the whole line as it was printed, so compare
+  // the row's own text the same way.
+  const textOf = (r: ClassifiedRow) =>
+    [r.title, ...Object.values(r.cells)].map((v) => (v ?? "").trim()).filter(Boolean).join(" ").trim();
+  const wanted = new Set(furniture);
+
+  const keep: ClassifiedRow[] = [];
+  const found: string[] = [];
+  for (const r of rows) {
+    const text = textOf(r);
+    if (!timed(r) && r.kind !== "spacer" && wanted.has(text)) {
+      if (!found.includes(text)) found.push(text); // once, not once per page
+      continue;
+    }
+    keep.push(r);
+  }
+  return { rows: keep, info: found.length ? [{ kind: "furniture", lines: found }] : [] };
 }

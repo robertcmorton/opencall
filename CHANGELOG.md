@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Show information: the page furniture is kept, but out of the running order.** A production run sheet is a document as well as a running order, and imported flat its masthead arrived as cues — one real sheet carried its title block eight times, once per page. Those lines now sit under **Show information** on the sheet instead, so nothing is lost and nobody steps through the masthead at kick-off. Which lines they are is decided by where the PDF PRINTED them: same text, same height, several pages. Repetition alone is not enough and was not used — a cue sheet repeats itself legitimately, once per scoring scenario, and counting repeats moved 43 live cues off an NRL sheet before this was rebuilt on geometry. A row carrying a time or a duration is never moved, whatever else is true of it.
+
+
 ### Changed
 - **The dashboard's actions finish on one line.** A company's own buttons hung 17px outside the events beneath them, and each sheet's row 4px outside that — three ragged right edges down a screen that is mostly a list. All three land together now.
 - **One way out of a show that has fallen behind, not two.** "Catch up now" jumped to the row the sheet pointed at and left you driving; Follow clock goes to the same row and keeps going, so the pair read as a choice when one was simply the other's first move. Catching up without handing over is still there — it is cueing the row, which is all that button did.

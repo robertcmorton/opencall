@@ -61,6 +61,13 @@ export interface DocMeta {
   use24h?: boolean;
   /** Free-text version label shown on headers and print ("V2", "FINAL"). */
   versionLabel?: string;
+  /**
+   * What the source document carried that is NOT the running order — the
+   * masthead it printed on every page. Kept because it is about the show, and
+   * kept out of the rows because nobody calling a show wants to step through
+   * the masthead once a page.
+   */
+  showInfo?: { kind: string; lines: string[] }[];
   /** The imported column that carries role assignments (WHO, ROLE…), if any. */
   roleColumnKey?: string | null;
   /**
@@ -112,6 +119,7 @@ export function buildRundownDoc(
     if (docMeta.name != null) meta.set("name", docMeta.name);
     if (docMeta.plannedStartSec != null) meta.set("plannedStartSec", docMeta.plannedStartSec);
     if (docMeta.use24h != null) meta.set("use24h", docMeta.use24h);
+    if (docMeta.showInfo?.length) meta.set("showInfo", docMeta.showInfo);
     if (docMeta.roleColumnKey != null) meta.set("roleColumnKey", docMeta.roleColumnKey);
     if (docMeta.roleColumnKeys?.length) meta.set("roleColumnKeys", docMeta.roleColumnKeys);
 
@@ -257,6 +265,7 @@ export function projectRundownDoc(doc: Y.Doc): {
     name: (metaMap.get("name") as string | undefined) ?? "Untitled Rundown",
     plannedStartSec: (metaMap.get("plannedStartSec") as number | undefined) ?? null,
     use24h: (metaMap.get("use24h") as boolean | undefined) ?? false,
+    showInfo: (metaMap.get("showInfo") as { kind: string; lines: string[] }[] | undefined) ?? [],
     versionLabel: (metaMap.get("versionLabel") as string | undefined) ?? "",
     roleColumnKey: (metaMap.get("roleColumnKey") as string | undefined) ?? null,
     // Rundowns made before role columns could be plural carry only the one.

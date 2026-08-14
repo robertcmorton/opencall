@@ -431,7 +431,7 @@ export function RundownEditor({
     window.localStorage.setItem(OUTCOME_LAYOUT_KEY, v);
   };
   const [durationPopover, setDurationPopover] = useState<string | null>(null); // rowId
-  const [panel, setPanel] = useState<"guest" | "history" | "join" | null>(null);
+  const [panel, setPanel] = useState<"guest" | "history" | "join" | "info" | null>(null);
   const [reconciling, setReconciling] = useState(false);
   // The timing-check issue currently on screen: its rows are highlighted in
   // the grid and the disagreeing row is scrolled into view.
@@ -1798,6 +1798,12 @@ export function RundownEditor({
             <span className="check" />
             Guest pass
           </button>
+          {(meta.showInfo?.length ?? 0) > 0 && (
+            <button type="button" className="menu-item" onClick={() => setPanel(panel === "info" ? null : "info")}>
+              <span className="check" />
+              Show information
+            </button>
+          )}
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "history" ? null : "history")}>
             <span className="check" />
             History
@@ -2213,6 +2219,24 @@ export function RundownEditor({
       {panel === "guest" && (
         <div className="no-print">
           <GuestPassPanel rundownId={rundownId} columns={columns} onClose={() => setPanel(null)} />
+        </div>
+      )}
+      {panel === "info" && (
+        <div className="panel no-print" style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <strong>Show information</strong>
+            <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1, minWidth: 220 }}>
+              Printed on every page of the imported document. Kept here so the running order stays the running order.
+            </span>
+            <button className="btn btn-sm" onClick={() => setPanel(null)}>
+              Close
+            </button>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-2)", fontSize: "var(--fs-sm)", lineHeight: 1.8 }}>
+            {(meta.showInfo ?? []).flatMap((b) => b.lines).map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
         </div>
       )}
       {panel === "history" && (

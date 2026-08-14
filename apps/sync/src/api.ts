@@ -290,6 +290,18 @@ export function createApiHandler(
         : [];
 
     /** The sheet's own header names for the structural columns, if supplied. */
+    /** Kept whole, or not at all — a half-read block helps nobody. */
+    const showInfoOf = (body: Record<string, unknown>): { kind: string; lines: string[] }[] | undefined => {
+      const raw = body.showInfo;
+      if (!Array.isArray(raw)) return undefined;
+      const out = raw
+        .filter((b): b is { kind: string; lines: string[] } =>
+          !!b && typeof b === "object" && typeof (b as { kind?: unknown }).kind === "string" &&
+          Array.isArray((b as { lines?: unknown }).lines))
+        .map((b) => ({ kind: b.kind, lines: b.lines.filter((l): l is string => typeof l === "string") }))
+        .filter((b) => b.lines.length > 0);
+      return out.length > 0 ? out : undefined;
+    };
     const baseTitlesOf = (body: Record<string, unknown>): { title?: string; start?: string; duration?: string } | undefined => {
       const raw = body.baseTitles;
       if (typeof raw !== "object" || raw === null) return undefined;
@@ -1263,6 +1275,7 @@ export function createApiHandler(
               roleColumnKey: typeof body.roleColumnKey === "string" && body.roleColumnKey ? body.roleColumnKey : null,
               roleColumnKeys: roleColumnKeysOf(body),
               baseTitles: baseTitlesOf(body),
+            showInfo: showInfoOf(body),
             },
             extraColumns,
             extraColumns.length > 0, // importer path: mirror the source sheet's columns exactly
@@ -1524,6 +1537,7 @@ export function createApiHandler(
             roleColumnKey: typeof body.roleColumnKey === "string" && body.roleColumnKey ? body.roleColumnKey : null,
             roleColumnKeys: roleColumnKeysOf(body),
             baseTitles: baseTitlesOf(body),
+            showInfo: showInfoOf(body),
           },
           extraColumns,
           extraColumns.length > 0,

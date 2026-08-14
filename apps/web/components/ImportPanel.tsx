@@ -198,6 +198,7 @@ export function ImportPanel({
   const [tried, setTried] = useState(false);
   const [rawGrid, setRawGrid] = useState<string[][] | null>(null); // as extracted, pre-merge
   const [lineMeta, setLineMeta] = useState<{ page: number; y: number }[] | undefined>(undefined);
+  const [runningHeaders, setRunningHeaders] = useState<string[]>([]);
   const [rowLines, setRowLines] = useState<{ page: number; ys: number[] }[] | undefined>(undefined);
   // Text the source set in ITALIC — how a run sheet marks words to be read
   // aloud. Kept in state because rows are re-classified as cells are fixed.
@@ -355,6 +356,9 @@ export function ImportPanel({
     setHeaderIndex(plan.headerIndex);
     setHeaders(plan.headers);
     setMapping(plan.mapping);
+    // Found from page geometry on the raw grid; carried to buildSheet, which
+    // lifts these lines out of the rows and into Show information.
+    setRunningHeaders(plan.runningHeaders);
   };
 
   const onFile = async (file: File) => {
@@ -414,7 +418,7 @@ export function ImportPanel({
     if (missing.length > 0) return;
     // One conversion, shared with the audit script and the unit tests: what a
     // sheet BECOMES must not be decided by code only a browser can run.
-    const built = buildSheet({ headers, mapping, rows }, { widths, roleColumnKey: roleKey, roles });
+    const built = buildSheet({ headers, mapping, rows, runningHeaders }, { widths, roleColumnKey: roleKey, roles });
     setBusy(true);
     const buildPayload = async () => {
       const payload: Parameters<typeof api.replaceRundownContent>[1] = {
@@ -426,6 +430,8 @@ export function ImportPanel({
         plannedStartSec: built.plannedStartSec,
         baseTitles: built.baseTitles,
         columnOrder: built.columnOrder,
+        // The masthead the PDF printed on every page, kept beside the sheet.
+        showInfo: built.showInfo,
       };
       if (sourceFile && sourceFile.size <= 12_000_000) {
         payload.sourceName = sourceFile.name;

@@ -11,9 +11,42 @@ function signed(sec: number): string {
   return `${sign}${formatDuration(Math.abs(sec))}`;
 }
 
-export function LiveReadouts({ live, use24h }: { live: LiveShowTiming | null; use24h: boolean }) {
+export function LiveReadouts({
+  live,
+  use24h,
+  activeTitle,
+  activePlannedSec,
+}: {
+  live: LiveShowTiming | null;
+  use24h: boolean;
+  /** The row the drift is measured on — see the explanation below. */
+  activeTitle?: string;
+  /** What the sheet says that row starts at. */
+  activePlannedSec?: number | null;
+}) {
   if (!live) return null;
   const over = live.remainingInRowSec != null && live.remainingInRowSec < 0;
+  /**
+   * Say what the drift is measured ON.
+   *
+   * "SHOW +8:59:01" is a true number and a useless one on its own. It is
+   * measured against the row the show is sitting on, so when that row's
+   * printed time is wrong the readout is wrong with it — and there is nothing
+   * on the screen to say which row, or what time it claims. That took an
+   * evening to work out once, from a number that could have explained itself.
+   */
+  const driftWhy = (() => {
+    if (live.showDriftSec == null) return undefined;
+    // A row with no title of its own — real sheets have them — should not be
+    // quoted as if it had one. "measured on “—”" reads like a bug.
+    const raw = activeTitle?.split("\n")[0]?.trim() ?? "";
+    const named = raw && raw !== "—" ? `“${raw.slice(0, 40)}”` : "the row on air";
+    const planned = activePlannedSec != null ? formatTimeOfDayWithDay(activePlannedSec, use24h) : null;
+    const on = planned ? `${named}, which the sheet puts at ${planned}` : named;
+    const late = Math.abs(live.showDriftSec) < 1 ? "on time" : live.showDriftSec > 0 ? "behind" : "ahead";
+    const over = live.rowOverSec > 1 ? ` It has also run ${formatDuration(live.rowOverSec)} past its length.` : "";
+    return `The show is ${late}, measured on ${on}.${over}`;
+  })();
   return (
     <>
       <div>
@@ -28,7 +61,11 @@ export function LiveReadouts({ live, use24h }: { live: LiveShowTiming | null; us
       </div>
       <div>
         <div className="header-label">Show</div>
-        <div className="header-clock mono" style={{ color: (live.showDriftSec ?? 0) > 0 ? "var(--over)" : "var(--under)" }}>
+        <div
+          className="header-clock mono"
+          style={{ color: (live.showDriftSec ?? 0) > 0 ? "var(--over)" : "var(--under)" }}
+          data-tip={driftWhy}
+        >
           {live.showDriftSec != null ? signed(live.showDriftSec) : "—"}
         </div>
       </div>

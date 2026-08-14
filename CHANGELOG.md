@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **The drift readout says what it is measured on.** "SHOW +8:59:01" is a true number and a useless one on its own: it is measured against the row the show is sitting on, so when that row's printed time is wrong the readout is wrong with it, and nothing on the screen said which row or what time it claimed. Hovering it now reads *"The show is behind, measured on 'TWO MINUTE BELL', which the sheet puts at 5:26:00 AM."* That is the sentence it took an evening to reconstruct from a number that could have explained itself.
+
+### Added
 - **Before you go live, what's worth a look.** The first press of Start show now lists anything the sheet says about itself that does not add up — a time that contradicts the running order, and how many places the durations disagree with the printed times. The second press starts the show. A clean sheet costs nothing and is never interrupted; a dirty one costs one more press and is never blocked, because if it is 8:01 and kick-off is at 8:02 the show starts whatever the sheet thinks. On the sheet that sent a live show twelve hours out of place it reads: *5:26:00 AM on "TWO MINUTE BELL" looks like am for pm — probably 5:26:00 PM*. That was there to be seen hours before kick-off; nothing said it.
 
 ### Added

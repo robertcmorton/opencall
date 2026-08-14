@@ -2079,7 +2079,14 @@ export function RundownEditor({
           )}
         </div>
         <div className="topbar-right">
-          <LiveReadouts live={live} use24h={meta.use24h} />
+          <LiveReadouts
+            live={live}
+            use24h={meta.use24h}
+            activeTitle={activeRow?.title}
+            activePlannedSec={
+              activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null
+            }
+          />
           <span className={`status-dot hide-mobile ${connected ? "ok" : ""}`}>doc</span>
           <span className={`status-dot hide-mobile ${channel.connected ? "ok" : ""}`}>show</span>
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />

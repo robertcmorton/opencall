@@ -336,7 +336,7 @@ const MAX_PARALLEL_RUN = 4;
  * out of place. The mistakes were nowhere near: 11h59m, twice, both an "am"
  * typed for a "pm". An hour sits in the empty space between them.
  */
-const OUT_OF_ORDER_SEC = 3600;
+export const OUT_OF_ORDER_SEC = 3600;
 
 /**
  * Finds every place where an anchored start genuinely disagrees with the

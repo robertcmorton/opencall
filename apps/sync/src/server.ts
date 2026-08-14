@@ -8,7 +8,13 @@ import {
   type Role,
   type ServerMsg,
 } from "@opencall/protocol";
-import { absoluteNow, computeTiming, zoneSecondsOfDay, type PlanTiming } from "@opencall/core";
+import {
+  absoluteNow,
+  clockTargetRow as coreClockTargetRow,
+  computeTiming,
+  zoneSecondsOfDay,
+  type PlanTiming,
+} from "@opencall/core";
 import { createDb, decodeDoc, ensureSchema, projectRundownDoc, schema } from "@opencall/db";
 import type { ProjectedRow } from "@opencall/db/doc";
 import { and, eq, isNull, ne } from "drizzle-orm";
@@ -375,19 +381,23 @@ heartbeat.unref();
 const projectionCache = new Map<string, { key: string; rows: ProjectedRow[]; timing: PlanTiming }>();
 const timezoneCache = new Map<string, { tz: string | null; at: number }>();
 
+/**
+ * Where the event's clock says the show should be.
+ *
+ * A thin wrapper over the shared `clockTargetRow` rather than a copy of it.
+ * There used to be two implementations of this — one here driving the live
+ * show, one in core driving the prompter — which is two answers to the same
+ * question waiting to disagree, and a fix applied to one of them silently
+ * leaving the other wrong.
+ */
 function clockTargetRow(rows: ProjectedRow[], timing: PlanTiming, wallSec: number): string | null {
   // The sheet counts on past midnight; the wall clock resets. Put them on the
   // same scale or a show running into the small hours stops dead at 23:59.
-  const nowSec = absoluteNow(wallSec, timing);
-  let target: string | null = null;
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]!;
-    if (r.type === "group" || r.skipped) continue;
-    if (r.untimed && r.hardStartSec == null) continue;
-    const start = timing.rows[i]!.startSec;
-    if (start != null && start <= nowSec) target = r.id;
-  }
-  return target;
+  return coreClockTargetRow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+    absoluteNow(wallSec, timing),
+  );
 }
 
 /**

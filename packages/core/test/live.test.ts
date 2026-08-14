@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeLiveTiming, computeTiming, type PlanRow } from "../src/index";
+import { computeLiveTiming, computeTiming, type PlanRow, clockTargetRow } from "../src/index";
 
 const NINE_AM = 9 * 3600;
 const rows: PlanRow[] = [
@@ -92,5 +92,40 @@ describe("computeLiveTiming", () => {
         toSecondsOfDay,
       }),
     ).toBeNull();
+  });
+});
+
+describe("clockTargetRow: a row that contradicts the sheet's order", () => {
+  const row = (id: string, hardStartSec: number | null) => ({ id, type: "cue", hardStartSec });
+
+  it("does not park the clock on an am/pm typo", () => {
+    // The reported case: "5:26:00 am" typed for a bell at row 3, between rows
+    // at 5:25 PM and 5:26 PM. Its time has "passed" from early morning on, and
+    // it sits further down the sheet than anything genuinely current — so it
+    // won the whole afternoon and Follow clock parked the show on it.
+    const rows = [
+      row("a", 13 * 3600 + 15 * 60), // 1:15 PM
+      row("b", 17 * 3600 + 25 * 60), // 5:25 PM
+      row("bell", 5 * 3600 + 26 * 60), // 5:26 AM ← the typo
+      row("c", 17 * 3600 + 26 * 60), // 5:26 PM
+    ];
+    const starts = rows.map((r) => r.hardStartSec);
+    // 2:25 PM: only the 1:15 PM row has genuinely passed.
+    expect(clockTargetRow(rows, starts, 14 * 3600 + 25 * 60)).toBe("a");
+    // …and by 5:25:30 PM the clock has reached "b", never the bell.
+    expect(clockTargetRow(rows, starts, 17 * 3600 + 25 * 60 + 30)).toBe("b");
+  });
+
+  it("still follows a sheet that runs past midnight", () => {
+    // Counted past midnight by the cascade, so 00:05 is 24:05 — forwards.
+    const rows = [row("late", 23 * 3600 + 55 * 60), row("after", 24 * 3600 + 5 * 60)];
+    const starts = rows.map((r) => r.hardStartSec);
+    expect(clockTargetRow(rows, starts, 24 * 3600 + 10 * 60)).toBe("after");
+  });
+
+  it("still follows a row listed a few minutes out of order", () => {
+    const rows = [row("a", 18 * 3600 + 23 * 60 + 30), row("bell", 18 * 3600 + 22 * 60), row("b", 18 * 3600 + 25 * 60)];
+    const starts = rows.map((r) => r.hardStartSec);
+    expect(clockTargetRow(rows, starts, 18 * 3600 + 24 * 60)).toBe("bell");
   });
 });

@@ -1,3 +1,4 @@
+import { OUT_OF_ORDER_SEC } from "./timing";
 import type { PlanTiming } from "./types";
 
 export interface LiveShowInput {
@@ -271,12 +272,32 @@ export function clockTargetRow(
   nowAbsSec: number,
 ): string | null {
   let target: string | null = null;
+  /**
+   * The latest start seen so far, so a row that contradicts the sheet's order
+   * cannot become the clock's target.
+   *
+   * "The last row whose start has passed" assumes the sheet runs forwards, and
+   * it does — until one cell is wrong. A real sheet had "5:26:00 am" typed for
+   * a bell at row 13, between rows at 5:25 PM and 5:26 PM. Its time has
+   * "passed" from twenty-six minutes after five in the morning onward, and it
+   * sits further down the sheet than anything genuinely current, so it won an
+   * afternoon outright: pressing Follow clock parked the show on a bell twelve
+   * hours out of place and every readout on the page went with it.
+   *
+   * The tolerance is the same one the timing check uses, and it was measured
+   * the same way — legitimate rows are listed 1 to 22 minutes out of order,
+   * mistakes by twelve hours.
+   */
+  let highWater = -Infinity;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
     if (r.type === "group" || r.skipped) continue;
     if (r.untimed && r.hardStartSec == null) continue;
     const start = startSecs[i] ?? null;
-    if (start != null && start <= nowAbsSec) target = r.id;
+    if (start == null) continue;
+    if (start < highWater - OUT_OF_ORDER_SEC) continue;
+    highWater = Math.max(highWater, start);
+    if (start <= nowAbsSec) target = r.id;
   }
   return target;
 }

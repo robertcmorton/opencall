@@ -22,6 +22,8 @@ export interface SeedRow {
   hardStartSec?: number | null;
   backtime?: boolean;
   durationMuted?: boolean;
+  /** Shot alongside the running order — a pre-record. Takes no time in it. */
+  parallel?: boolean;
   /** The source sheet left this row's time BLANK (a sub-cue inside a timed block) — display no start. */
   untimed?: boolean;
   /** The sheet's own number for this row; rows the sheet didn't number show none. */
@@ -187,6 +189,7 @@ export function buildRundownDoc(
       if (seed.backtime) row.set("backtime", true);
       row.set("durationSec", seed.durationSec ?? null);
       if (seed.durationMuted) row.set("durationMuted", true);
+      if (seed.parallel) row.set("parallel", true);
       if (seed.untimed) row.set("untimed", true);
       if (seed.sourceNumber) row.set("sourceNumber", seed.sourceNumber);
       if (seed.color) row.set("color", seed.color);
@@ -335,6 +338,7 @@ export function projectRundownDoc(doc: Y.Doc): {
       hardStartSec: (row.get("hardStartSec") as number | null) ?? null,
       backtime: (row.get("backtime") as boolean | undefined) ?? false,
       durationMuted: (row.get("durationMuted") as boolean | undefined) ?? false,
+      parallel: (row.get("parallel") as boolean | undefined) ?? false,
       skipped: (row.get("skipped") as boolean | undefined) ?? false,
       untimed: (row.get("untimed") as boolean | undefined) ?? false,
       sourceNumber: row.get("sourceNumber") as string | undefined,

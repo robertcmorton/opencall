@@ -279,6 +279,8 @@ export interface ClassifiedRow {
   script?: boolean;
   /** Which game's endings this row belongs to (1, 2, 3…) — a day can hold several. */
   outcomeGame?: number;
+  /** Shot alongside the running order — a pre-record. See `detectPreRecords`. */
+  parallel?: boolean;
 }
 
 /**
@@ -522,6 +524,7 @@ export function classifySheet(
   }
   adoptInlineStarts(rows);
   adoptInlineDurations(rows);
+  detectPreRecords(rows);
   detectOutcomes(rows);
   detectScript(rows, italicText);
   return rows;
@@ -588,6 +591,48 @@ export function adoptInlineStarts(rows: ClassifiedRow[]): void {
     // would print it twice on every surface.
     row.title = row.title.slice(0, m.index).replace(/[\s(\[|,-]+$/, "");
   });
+}
+
+/**
+ * A line that OPENS with "pre record" — the recording, not the playback.
+ *
+ * Anchored to the start of a line rather than searched for anywhere, and that
+ * is the whole of the rule. See `detectPreRecords`.
+ */
+const PRE_RECORD_LEAD = /^[\s|>*-]*pre[-\s]?rec(?:ord(?:ing)?)?\b/im;
+
+/**
+ * Marks the rows that are shot ALONGSIDE the show rather than in it.
+ *
+ * A pre-record is recorded while the running order carries on around it — the
+ * coin toss in the tunnel at 7:02 while the crowd is being warmed up — and
+ * played out later as a VTR. It belongs on the sheet, because it occupies
+ * people and cameras, but it takes none of the running order's time and it
+ * cannot be running late against it.
+ *
+ * The rule is that a LINE of the title must OPEN with "pre record", and the
+ * reason is the other half of every pre-record: its playback. Real sheets
+ * carry both, and they look almost identical to a search:
+ *
+ *     "Pre Record - COIN TOSS with Jacob Kertabani"   CREW   ← the recording
+ *     "VTR - Pre Record - Coin Toss"                  VTR    ← the playback
+ *     "MC Chat with Dem Mob"  (cell: "Dem Mob Pre record")   ← the playback
+ *
+ * The playback is an ordinary cue that genuinely takes seventy-five seconds of
+ * the show, and pulling it out of the running order would be a far worse error
+ * than the one this fixes. So a mention anywhere is not enough: the row has to
+ * announce itself as one, which is what a sheet's author does when the row IS
+ * the recording. Matching on cell text was tried against the sample sheets and
+ * caught four playbacks; matching on the lead caught none.
+ *
+ * Multi-line because a merged PDF row can carry the label on its second line
+ * ("Extra Buffer ⏎ Pre Record - PLAYER WALK OVER").
+ */
+export function detectPreRecords(rows: ClassifiedRow[]): void {
+  for (const row of rows) {
+    if (row.kind === "spacer") continue;
+    if (PRE_RECORD_LEAD.test(row.title)) row.parallel = true;
+  }
 }
 
 /** "(15 Mins)", "(5:00mins)", "(3 Sec)" — a length written into the name. */
@@ -1340,6 +1385,8 @@ export interface BuiltRow {
    * afternoon game must not skip the evening one's alternatives.
    */
   outcomeGame?: number;
+  /** Shot alongside the running order — a pre-record. See `detectPreRecords`. */
+  parallel?: boolean;
   cells?: Record<string, string>;
 }
 
@@ -1453,7 +1500,8 @@ export function buildSheet(
   const cueTypeKey = cueKey;
 
   const rows: BuiltRow[] = importable.map((r) => {
-    if (r.kind === "banner") return { type: "group", title: r.title, sourceNumber: r.sourceNumber, outcome: r.outcome ?? undefined, outcomeGame: r.outcomeGame };
+    if (r.kind === "banner")
+      return { type: "group", title: r.title, sourceNumber: r.sourceNumber, outcome: r.outcome ?? undefined, outcomeGame: r.outcomeGame, parallel: r.parallel || undefined };
     if (r.kind === "milestone") {
       const fallback = Object.values(r.cells).find((v) => v.trim());
       return {
@@ -1461,6 +1509,7 @@ export function buildSheet(
         title: r.title || fallback || "—",
         durationSec: null,
         hardStartSec: r.startSec,
+        parallel: r.parallel || undefined,
         sourceNumber: r.sourceNumber,
         outcome: r.outcome ?? undefined,
         outcomeGame: r.outcomeGame,
@@ -1486,6 +1535,7 @@ export function buildSheet(
       hardStartSec: r.startSec,
       untimed: untimed || undefined,
       durationMuted: untimed && r.durationSec != null ? true : undefined,
+      parallel: r.parallel || undefined,
       sourceNumber: r.sourceNumber,
       outcome: r.outcome ?? undefined,
       outcomeGame: r.outcomeGame,

@@ -1877,6 +1877,7 @@ export function createApiHandler(
             hardStartSec: r.hardStartSec,
             backtime: r.backtime ?? false,
             durationMuted: r.durationMuted ?? false,
+            parallel: r.parallel ?? false,
             color: r.color ?? null,
             cells: Object.fromEntries(Object.entries(r.cells).filter(([key]) => visibleKeys.has(key))),
           })),

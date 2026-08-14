@@ -139,13 +139,21 @@ function SortableRow({
   return (
     <tr
       ref={setNodeRef}
-      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${clockMark ? "clock-row" : ""} ${
+      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${clockMark ? "clock-row" : ""} ${
         branch
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
       }`}
       data-rowid={row.id}
-      data-tip={walk ? "Walkthrough position — synced to every screen" : clockMark ? "Event time is here per the TIME column" : undefined}
+      data-tip={
+        walk
+          ? "Walkthrough position — synced to every screen"
+          : row.parallel
+            ? "Pre-record — runs alongside the show, takes no time in the running order"
+            : clockMark
+              ? "Event time is here per the TIME column"
+              : undefined
+      }
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -175,7 +183,7 @@ function SortableRow({
 function cloneRow(source: Y.Map<unknown>, newId: string): Y.Map<unknown> {
   const copy = new Y.Map();
   copy.set("id", newId);
-  for (const field of ["type", "hardStartSec", "durationSec", "durationMuted", "durationHidden", "backtime", "color", "outcome"]) {
+  for (const field of ["type", "hardStartSec", "durationSec", "durationMuted", "durationHidden", "backtime", "color", "outcome", "parallel"]) {
     const v = source.get(field);
     if (v !== undefined) copy.set(field, v);
   }
@@ -1646,14 +1654,20 @@ export function RundownEditor({
         ) : rowRecord.durationSec != null ? (
           <span
             className={
-              rowRecord.durationMuted ? "duration-muted" : rowRecord.durationHidden ? "duration-hidden-marker" : ""
+              rowRecord.parallel || rowRecord.durationMuted
+                ? "duration-muted"
+                : rowRecord.durationHidden
+                  ? "duration-hidden-marker"
+                  : ""
             }
             data-tip={
-              rowRecord.durationMuted
-                ? "Muted — excluded from timing"
-                : rowRecord.durationHidden
-                  ? "Hidden on shared views"
-                  : undefined
+              rowRecord.parallel
+                ? "Alongside the show — not counted in the running order"
+                : rowRecord.durationMuted
+                  ? "Muted — excluded from timing"
+                  : rowRecord.durationHidden
+                    ? "Hidden on shared views"
+                    : undefined
             }
           >
             {formatDuration(rowRecord.durationSec)}

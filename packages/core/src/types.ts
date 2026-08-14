@@ -20,6 +20,22 @@ export interface PlanRow {
   /** Excluded from cascade math (contributes 0) while keeping its display value. */
   durationMuted?: boolean;
   /**
+   * Work that happens ALONGSIDE the running order rather than in it.
+   *
+   * A pre-record is shot while the show goes on around it — the coin toss is
+   * recorded in the tunnel at 7:00 while the crowd is being warmed up, and it
+   * plays out later as a VTR. It occupies people and cameras, so it belongs on
+   * the sheet, but it takes none of the running order's time and it cannot be
+   * late relative to it.
+   *
+   * Kept separate from `durationMuted`, which happens to have the same effect
+   * on the sum. That is a switch the operator flips on a row whose length is
+   * written down but not spent; this is a statement about what the row IS.
+   * Conflating them would mean un-muting a pre-record to see its length put it
+   * back in the chain.
+   */
+  parallel?: boolean;
+  /**
    * Skipped live (show running behind): the row stays visible but its duration
    * leaves the cascade, so downstream times catch back up to the original
    * anchors. Transport steps over it.

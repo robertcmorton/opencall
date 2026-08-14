@@ -14,6 +14,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **Pre-records run alongside the show, and no longer disturb its timing.** A pre-record is shot while the running order carries on around it — the coin toss in the tunnel at 7:02 while the crowd is being warmed up — and played out later as a VTR. Read as an ordinary cue, its start time became the point every later row was measured from and its length was charged to a show that never spent it: one real sheet had its whole remaining evening pulled back to the moment a ninety-second chat was recorded. Pre-records are now marked on import, carry a striped rail and a ∥ beside the row number so they read as a second track at a glance, take no time in the running order, and are left out of the timing check entirely.
+
+  The rule is that a line of the title must OPEN with "pre record", because every pre-record has a second half — the VTR that plays it back — and that one is an ordinary cue which genuinely takes its seventy-five seconds. Across the sample sheets this separated all 32 mentions correctly: 15 recordings marked, 17 playbacks and passing mentions left alone. A row's length and its own start are untouched, so the crew shooting it still see a real time and a real countdown.
+
+### Added
 - **[Kinds of show](docs/KINDS-OF-SHOW.md) — the whole of the sport logic, written down.** What a kind of show governs (four things, and nothing else), how a sheet gets one and why the sheet beats the event, the table of built-ins with the traps called out, how alternate endings are found inside a sheet's own row titles, how one match is told from the next, and when the result chooser is allowed to appear. Includes the rules that look wrong until you have seen the sheet that taught them — why "extra time" is not a trigger and "next match" is not a kick-off.
 - **`import-load.mts`: load a whole folder of sheets into a running server.** The companion to `import-check.mts`, which only proves a sheet parses. This one proves it lands — the API accepts what the import screen would send, the document builds, and there is a rundown to open at the other end.
 

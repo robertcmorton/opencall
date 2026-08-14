@@ -1374,6 +1374,40 @@ kbd {
   border-top: 2px solid var(--warn);
 }
 
+/* ---------- Pre-records: alongside the show, not in it ---------- */
+
+/* A pre-record is shot while the running order carries on around it, so it
+   must not read as the next thing to call. A striped left rail says "this is
+   a second track" at a glance without dimming the row — the crew working the
+   pre-record need to read it as clearly as anyone reads a live cue. Deliberately
+   NOT the outcome-branch rails, which mean "one of these will happen"; a
+   pre-record is not an alternative to anything, it is concurrent with it. */
+.rundown-grid tr.parallel-row td:first-child {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--accent-2, #58a6ff) 0 3px,
+    transparent 3px 6px
+  );
+  background-repeat: no-repeat;
+  background-size: 3px 100%;
+  background-position: left top;
+}
+.rundown-grid tr.parallel-row .rn-num::after {
+  content: "∥";
+  margin-left: 4px;
+  font-size: 0.8em;
+  color: var(--accent-2, #58a6ff);
+  /* The row number stays the row number; this is a mark beside it. */
+  opacity: 0.85;
+}
+@media print {
+  /* Print keeps the mark — a paper sheet is where the parallel track is most
+     easily misread as the next cue. */
+  .rundown-grid tr.parallel-row .rn-num::after {
+    color: #000;
+  }
+}
+
 .rundown-grid tr.skipped-row td {
   opacity: 0.38;
   text-decoration: line-through;

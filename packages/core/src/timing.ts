@@ -3,6 +3,17 @@ import type { PlanRow, PlanTiming, TimedRow } from "./types";
 const effDur = (row: PlanRow): number =>
   row.skipped || row.durationMuted || row.durationSec == null ? 0 : Math.max(0, row.durationSec);
 
+/**
+ * What a row moves the RUNNING ORDER on by.
+ *
+ * A pre-record's ninety seconds are ninety real seconds — the crew shooting it
+ * need to see that, and a countdown on it has to be right — but they are spent
+ * beside the show rather than in it. So its length stays intact everywhere it
+ * is read or displayed, and is zero only here, where the question is "what
+ * happens next".
+ */
+const advanceBy = (row: PlanRow, eff: number): number => (row.parallel ? 0 : eff);
+
 /** The game whose endings this row belongs to, or null for the main line. */
 const gameOf = (row: PlanRow): number | null => (row.outcome ? row.outcomeGame ?? 1 : null);
 /** Identifies one branch — game 2's "win" is a different branch from game 1's. */
@@ -10,7 +21,8 @@ const branchOf = (row: PlanRow): string | null => (row.outcome ? `${row.outcomeG
 
 /** Duration as the SHEET plans it, ignoring what has been skipped live. */
 const plannedDur = (row: PlanRow): number =>
-  row.durationMuted || row.durationSec == null ? 0 : Math.max(0, row.durationSec);
+  row.durationMuted || row.parallel || row.durationSec == null ? 0 : Math.max(0, row.durationSec);
+
 
 /**
  * Endings that can only be reached through the extra period.
@@ -87,6 +99,18 @@ export function computeTiming(
   const step = (i: number): void => {
     const t = timed[i]!;
     const anchor = anchors[i];
+    // A pre-record sits at its own time and leaves the cursor where it was.
+    // Letting its anchor move the cascade was worse than letting its duration
+    // do so: a coin toss shot at 7:00 pushed every remaining row of the show
+    // to 7:00, because the anchor is what the rows below are measured from.
+    if (rows[i]!.parallel) {
+      const at = anchor ?? cursor;
+      if (at != null) {
+        t.startSec = at;
+        t.endSec = at + t.effectiveDurationSec;
+      }
+      return;
+    }
     if (anchor != null) cursor = anchor;
     if (cursor != null) {
       t.startSec = cursor;
@@ -100,7 +124,7 @@ export function computeTiming(
     const game = gameOf(rows[i]!);
     if (game == null) {
       step(i);
-      total += timed[i]!.effectiveDurationSec;
+      total += advanceBy(rows[i]!, timed[i]!.effectiveDurationSec);
       i += 1;
       continue;
     }
@@ -140,7 +164,7 @@ export function computeTiming(
     const plannedSpans = new Map<string, number>();
     for (let k = i; k < end; k++) {
       const key = branchOf(rows[k]!)!;
-      spans.set(key, (spans.get(key) ?? 0) + timed[k]!.effectiveDurationSec);
+      spans.set(key, (spans.get(key) ?? 0) + advanceBy(rows[k]!, timed[k]!.effectiveDurationSec));
       plannedSpans.set(key, (plannedSpans.get(key) ?? 0) + plannedDur(rows[k]!));
     }
     const goldenKey = `${game}:golden`;
@@ -295,6 +319,8 @@ export interface AnchoredRow {
   outcome?: string | null;
   /** Which game on the day that ending belongs to. */
   outcomeGame?: number;
+  /** Alongside the running order rather than in it — see `PlanRow.parallel`. */
+  parallel?: boolean;
 }
 
 /** How many rows in a row may sit alongside the running order before we stop looking. */
@@ -370,6 +396,7 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
     let anchorsSkipped = 0;
     for (let j = i + 1; j < rows.length; j++) {
       const start = anchors[j];
+      if (rows[j]!.parallel) continue; // not in the chain at all
       if (start == null) {
         // An unanchored row between the two IS in the chain; its time counts.
         extra += timing.rows[j]?.effectiveDurationSec ?? 0;
@@ -386,6 +413,14 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
 
   rows.forEach((row, i) => {
     const t = timing.rows[i]!;
+    // A pre-record is not a link in the chain, and its start time is not a
+    // claim about where the show has got to. It is shot alongside the running
+    // order — the coin toss recorded in the tunnel at 7:02 while the crowd is
+    // being warmed up — so its anchor neither answers to the rows above it nor
+    // becomes the point the rows below are measured from. Read as an ordinary
+    // anchor it opens a hole and then an overlap, twice per pre-record, and on
+    // a sheet with three of them that is most of the reported faults.
+    if (row.parallel) return;
     const anchor = anchors[i];
     if (anchor != null) {
       if (lastAnchor >= 0 && expected != null && anchorStart != null) {

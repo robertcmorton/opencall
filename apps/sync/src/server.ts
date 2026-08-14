@@ -11,6 +11,7 @@ import {
 import {
   absoluteNow,
   clockTargetRow as coreClockTargetRow,
+  followerMayMove,
   computeTiming,
   zoneSecondsOfDay,
   type PlanTiming,
@@ -509,11 +510,21 @@ async function clockTick(): Promise<void> {
        * Only the automatic follower is held to this. A person can still jump
        * wherever they like — going back is sometimes exactly what is wanted,
        * and they can see what they are doing.
+       *
+       * Measured in the RUNNING ORDER, not in sheet rows. A pre-record is
+       * written on the sheet near where it is SHOT, not where it airs, so it
+       * can sit well below the rows that follow it on air. Comparing raw row
+       * numbers therefore made a pre-record a TRAP: once the show was sitting
+       * on one, every legitimate target counted as "backwards", the follower
+       * refused to move for the rest of the night, and the overrun on a
+       * nine-second insert climbed until the drift readout went red. Four of
+       * the six pre-records on the last match sheet would hold a show that
+       * way. A row that runs alongside the order has no place in it, so a show
+       * sitting on one is not ahead of anything and the clock may take it back.
        */
-      const currentIndex = current.activeRowId ? rows.findIndex((r) => r.id === current.activeRowId) : -1;
-      if (currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex) {
+      if (!followerMayMove(rows, current.activeRowId, target)) {
         console.warn(
-          `[clock] not moving ${rundownId} back from row ${currentIndex} to ${targetIndex} — the clock stepped backwards`,
+          `[clock] not moving ${rundownId} back to ${target} — the clock stepped backwards in the running order`,
         );
         continue;
       }

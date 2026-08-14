@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeLiveTiming, computeTiming, type PlanRow, clockTargetRow } from "../src/index";
+import { computeLiveTiming, computeTiming, type PlanRow, clockTargetRow, followerMayMove } from "../src/index";
 
 const NINE_AM = 9 * 3600;
 const rows: PlanRow[] = [
@@ -167,5 +167,40 @@ describe("a row the sheet gives no duration runs until the next one starts", () 
     const live = at(20, 50, 0); // two minutes past the 8:48 hooter
     expect(live.rowOverSec).toBe(120);
     expect(live.showDriftSec).toBe(120);
+  });
+});
+
+describe("followerMayMove", () => {
+  // A pre-record is written near where it is SHOT. Here row "pre" sits below
+  // "b" on the sheet but airs before it — the shape that trapped a live show.
+  const sheet = [{ id: "a" }, { id: "b" }, { id: "pre", parallel: true }, { id: "c" }];
+
+  it("lets the clock take the show off a pre-record", () => {
+    // The trap: every legitimate target looked "backwards" from here, so the
+    // follower refused to move and the show sat there until the drift went red.
+    expect(followerMayMove(sheet, "pre", "b")).toBe(true);
+    expect(followerMayMove(sheet, "pre", "a")).toBe(true);
+  });
+
+  it("still refuses to walk a show backwards through the order", () => {
+    // The reason the guard exists: 02:00–02:59 happens twice when clocks go back.
+    expect(followerMayMove(sheet, "c", "a")).toBe(false);
+    expect(followerMayMove(sheet, "b", "a")).toBe(false);
+  });
+
+  it("moves forwards freely, and standing still is not backwards", () => {
+    expect(followerMayMove(sheet, "a", "c")).toBe(true);
+    expect(followerMayMove(sheet, "b", "b")).toBe(true);
+  });
+
+  it("does not count pre-records when measuring the distance", () => {
+    // "c" is one step after "b" in the running order even though a pre-record
+    // is printed between them.
+    expect(followerMayMove(sheet, "c", "b")).toBe(false);
+  });
+
+  it("allows the move when either row is unknown", () => {
+    expect(followerMayMove(sheet, null, "a")).toBe(true);
+    expect(followerMayMove(sheet, "a", "nope")).toBe(true);
   });
 });

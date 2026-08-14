@@ -552,3 +552,52 @@ export function checkStartTimes(
   // its rows are right. If most of the timed rows look wrong, the rule is.
   return out.length > 0 && out.length > seen / 2 ? [] : out;
 }
+
+/** The shape `followerMayMove` needs: identity, and whether it runs alongside. */
+export interface OrderedRow {
+  id: string;
+  /** Runs alongside the running order rather than in it — see `PlanRow.parallel`. */
+  parallel?: boolean;
+}
+
+/**
+ * May the clock's follower move the show from where it is to where the clock
+ * says it should be?
+ *
+ * A show never goes backwards on its own: when the clocks go back, 02:00 to
+ * 02:59 happens twice, and a sheet with rows in that hour would be called a
+ * second time. The same guard covers a corrected server time or a machine
+ * coming off a bad NTP source. (A person may still jump anywhere — going back
+ * is sometimes exactly what is wanted, and they can see what they are doing.)
+ *
+ * The comparison is made in the RUNNING ORDER, not in sheet rows, and that
+ * distinction is the whole reason this is a function. A pre-record is written
+ * on the sheet near where it is SHOT, not where it airs, so it can sit well
+ * below the rows that follow it on air. Comparing raw row numbers made a
+ * pre-record a TRAP: once the show sat on one, every legitimate target counted
+ * as backwards, the follower refused to move for the rest of the night, and
+ * the overrun on a nine-second insert climbed until the drift readout went
+ * red. Four of the six pre-records on one match sheet would hold a show that
+ * way. A row running alongside the order has no place in it, so a show sitting
+ * on one is not ahead of anything and the clock may take it back.
+ */
+export function followerMayMove(
+  rows: readonly OrderedRow[],
+  fromId: string | null | undefined,
+  toId: string | null | undefined,
+): boolean {
+  const pos = (id: string | null | undefined): number => {
+    if (!id) return -1;
+    let at = -1;
+    for (const r of rows) {
+      if (r.parallel) continue;
+      at += 1;
+      if (r.id === id) return at;
+    }
+    return -1;
+  };
+  const from = pos(fromId);
+  const to = pos(toId);
+  if (from < 0 || to < 0) return true;
+  return to >= from;
+}

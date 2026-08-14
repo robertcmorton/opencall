@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The two project documents are now written on the same trigger.** The changelog has gone in with every commit; the development journal, which carries the reasoning the diff cannot show, had quietly fallen twelve commits behind. Both are now tied to the commit, and the journal's required contents are spelled out — what was measured and the numbers, the alternatives rejected and why, and the hypotheses that turned out wrong. The wrong turns are the point: a later reader who cannot see why a rule matches fifteen rows instead of thirty-nine will widen it and break the sheets.
+
+
 ### Fixed
 - **A half is forty minutes plus the five for extra time, and the sheet said so all along.** Match sheets write a period as two lengths — `0:40:00`, then `0:05:00` on the line beneath — and the merge that joins those lines into one row kept the first and threw the second away. So the app planned a forty-minute half where the sheet had planned forty-five, and then reported the missing five minutes as a fault in the sheet: twice a game, on most of the match sheets here. Adding the lengths up wherever they appear would not be safe — some rows carry two real lengths and some carry junk (one reads `00:30` and `7`), and nothing in the text tells them apart — so this asks the sheet rather than deciding. The extra is spent only when spending it lands the running order exactly on the next printed time and leaving it out does not. On a half that is decisive: kick-off at 8:02 plus forty is 8:42, half time is printed at 8:47, and plus five it is 8:47 to the second. The last match sheet went from three disagreements to one, and the one left is a genuine typo in the original document — a bell typed as `5:26:00 am` in an evening sheet, which the pre-flight check already names before anyone goes live.
 

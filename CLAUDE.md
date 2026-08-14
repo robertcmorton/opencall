@@ -19,13 +19,23 @@ Before every commit and push, verify nothing staged references the vendor (`git 
 - **[BUILD_PROMPT.md](BUILD_PROMPT.md)** — the product spec and kickoff prompt. Update it when the product direction changes.
 - **`DEMO_NOTES.md`** (local-only) — ongoing feature research and UX details for the product we're building toward. Add to it whenever new product behavior is learned; it is the design reference during implementation.
 
-## Development log — keep it current
+## Documentation discipline — both files, every commit
 
-**`DEVLOG.md`** (local-only, gitignored) is the running development journal. Append an entry for every unit of work **as you go** — what was built, decisions made, gotchas hit, verification results, and current dev workflow. Future sessions rely on it for context the public repo can't carry. Candid notes and vendor names are fine there; never commit it.
+Two documents are written as the work happens, not afterwards. **The commit is the trigger for both.** A change that is worth committing is worth both entries; if there is nothing to say in one of them, say why in the other.
 
-## Changelog discipline
+**[CHANGELOG.md](CHANGELOG.md)** — what changed, for whoever uses the app. Updated in the **same commit** as any meaningful change (spec updates, new features, structural changes, tooling). Keep a Changelog format, newest first, under an `[Unreleased]` heading until a version is cut. Written generically — no vendor references, and no internal function names.
 
-**[CHANGELOG.md](CHANGELOG.md)** must be updated in the same commit as any meaningful change (spec updates, new features, structural changes, tooling). Keep a Changelog format, newest first, under an `[Unreleased]` heading until versions exist. Entries are written generically — no vendor references.
+**`DEVLOG.md`** (local-only, gitignored) — how and why, for whoever picks this up next. Append an entry per unit of work, under a `## <date> — <what was asked>` heading, recording:
+
+- what was built, and the commit hash it landed in;
+- **what was measured**, with the numbers — thresholds chosen from data, before/after counts, corpus sweeps;
+- decisions made and the alternatives rejected, with the reason;
+- **hypotheses that turned out wrong**, and what disproved them;
+- anything deliberately left undone, and what it is waiting on.
+
+The wrong turns matter as much as the fixes: the reason a rule fires on 15 rows and not 39 is not visible in the diff, and a later session that cannot see it will widen the rule and break the sheets. Candid notes and vendor names are fine here; never commit it.
+
+**Before every commit, check both.** The changelog is verifiable from the staged diff; the devlog is not, so it is the one that silently falls behind — it has, by twelve commits, on 15 August 2026. If a run of commits has gone in without devlog entries, catch it up before starting new work rather than after.
 
 ## Repo hygiene
 

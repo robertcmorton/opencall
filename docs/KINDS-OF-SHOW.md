@@ -132,12 +132,15 @@ longer than it is. The honest treatment is to keep the number visible and out
 of the sum, which is exactly what **Mute** does.
 
 **Golden point, regular season: ten minutes, and a draw is still possible.**
-Two five-minute periods, ends swapped, no break. Any score — try, penalty
-goal, field goal — ends the match on the spot, so the showcaller must be ready
-to cue the next item at any moment rather than at a planned time. If nobody
-scores in the ten minutes the match is a draw and each side takes a
-competition point. This is why `nrl` offers Win / Lose / Golden point at full
-time and Win / Lose / **Draw** after it.
+Ten minutes in total, and sudden death for all of it — but structurally it is
+**two five-minute periods**: five minutes, teams swap ends with NO break, five
+minutes. The swap is worth a row on a sheet even though nothing stops, because
+cameras and graphics change end with the teams. Any score — try, penalty goal,
+field goal — ends the match on the spot, so the showcaller must be ready to cue
+the next item at a moment rather than at a time. If nobody scores in the ten
+minutes the match is a draw and each side takes a competition point. This is
+why `nrl` offers Win / Lose / Golden point at full time and Win / Lose /
+**Draw** after it.
 
 **Golden point, finals: the same ten minutes, then it is played out.** Five
 minutes each way as in the regular season; if the scores are still level there
@@ -151,6 +154,14 @@ Draw at all.
   treats a row with no duration as running until the next row starts, so an
   untimed golden-point block will not report the show as running late while it
   is being played.
+
+**A note on 20 minutes, because it comes up.** "Two ten-minute halves" is a
+real rugby league rule and a sheet built on it will look right — but it is the
+rule from BEFORE golden point existed. Until 2003 a drawn final went to twenty
+minutes of extra time, ten each way, and a still-drawn match was REPLAYED.
+Golden point replaced that in 2003 for the regular season, and the current
+finals structure (five each way, then sudden death) dates from 2016. If a
+template or an old sheet carries 2 × 10:00, that is where it came from.
 
 Sources for the two golden-point rules:
 [NRL statement on extra time in finals](https://www.nrl.com/news/2016/07/08/nrl-statement-extra-time-in-finals-matches/) ·

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  collapseRepeatedBanners,
   computeTiming,
   detectAlongside,
   findTimingGaps,
@@ -125,5 +126,39 @@ describe("detectAlongside: the two-minute bell", () => {
     const rows = [cue("STANDBY FOR HALF TIME"), cue("Cameras & MC on standby throughout quarter")];
     detectAlongside(rows);
     expect(rows.map((r) => r.parallel)).toEqual([undefined, undefined]);
+  });
+});
+
+describe("collapseRepeatedBanners", () => {
+  it("keeps one heading where the sheet printed two", () => {
+    // The source PDF carries this banner on two adjacent rows with nothing
+    // between them — two section headings for one section.
+    const rows: ClassifiedRow[] = [
+      { ...cue("NRL | BULLDOGS v RABBITOHS - FIRST HALF"), kind: "banner" },
+      { ...cue("NRL | BULLDOGS v RABBITOHS - FIRST HALF"), kind: "banner" },
+      { ...cue("STANDBY FOR HALF TIME") },
+    ];
+    collapseRepeatedBanners(rows);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.title).toBe("NRL | BULLDOGS v RABBITOHS - FIRST HALF");
+  });
+
+  it("keeps a banner that recurs later in the day", () => {
+    // A second game has its own half time, and that is a real second heading.
+    const rows: ClassifiedRow[] = [
+      { ...cue("HALF TIME"), kind: "banner" },
+      { ...cue("Wrap the scores") },
+      { ...cue("HALF TIME"), kind: "banner" },
+    ];
+    collapseRepeatedBanners(rows);
+    expect(rows).toHaveLength(3);
+  });
+
+  it("never collapses rows that carry a time or a length", () => {
+    // Only banners are headings; anything timed is a row of the show.
+    const timed = (): ClassifiedRow => ({ ...cue("FIRST HALF"), startSec: 20 * 3600, durationSec: 2400 });
+    const rows = [timed(), timed()];
+    collapseRepeatedBanners(rows);
+    expect(rows).toHaveLength(2);
   });
 });

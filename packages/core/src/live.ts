@@ -448,13 +448,38 @@ export function rowsOnAt(
   timing: PlanTiming,
   nowAbsSec: number,
 ): string[] {
+  /**
+   * When a row ends, including the ones the sheet gives no length.
+   *
+   * A period of play, a standby, a hold: they run until the next row starts,
+   * which the sheet says by giving that next row a time. Treated as zero
+   * seconds long they were never "on" at all, so four rows sharing a moment —
+   * the half, the standby, the block and its first cue — showed a progress
+   * bar on one of them and nothing on the rest.
+   */
+  const endOf = (i: number): number | null => {
+    const t = timing.rows[i];
+    if (!t?.startSec) return null;
+    const own = t.endSec ?? t.startSec;
+    if (own > t.startSec) return own;
+    for (let j = i + 1; j < rows.length; j++) {
+      const n = timing.rows[j];
+      if (n?.startSec != null && n.startSec > t.startSec) return n.startSec;
+    }
+    return null;
+  };
+
   const on: string[] = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
     const t = timing.rows[i];
-    if (!t || r.skipped || r.type === "group" || t.startSec == null) continue;
-    const end = t.endSec ?? t.startSec;
-    if (end <= t.startSec) continue;
+    if (!t || r.skipped || t.startSec == null) continue;
+    // A group is a heading, not a thing that happens — it has no progress to
+    // show. Everything else that occupies time does, including the rows the
+    // sheet leaves untimed.
+    if (r.type === "group") continue;
+    const end = endOf(i);
+    if (end == null || end <= t.startSec) continue;
     if (t.startSec <= nowAbsSec && nowAbsSec < end) on.push(r.id);
   }
   return on;

@@ -102,3 +102,37 @@ describe("a second track is never cued", () => {
     expect(target(18 * H + 20 * 60)).toBe("halftime");
   });
 });
+
+describe("rowsOnAt: rows the sheet gives no length", () => {
+  const H2 = 3600;
+  // Four rows sharing a moment, as a real sheet writes a half: the period
+  // banner, a standby with no length, the block, and the block's first cue.
+  const sheet: PlanRow[] = [
+    { id: "standby", type: "cue", durationSec: null, hardStartSec: 20 * H2 },
+    { id: "block", type: "cue", durationSec: 900, hardStartSec: 20 * H2, spans: true },
+    { id: "wrap", type: "cue", durationSec: 60, hardStartSec: 20 * H2 },
+    { id: "after", type: "cue", durationSec: 60, hardStartSec: 20 * H2 + 40 * 60 },
+  ];
+  const timing = computeTiming(sheet, null);
+  const w = win(sheet);
+
+  it("counts an untimed row as running until the next row starts", () => {
+    // Treated as zero seconds long it was never on at all, so the bar showed
+    // on one row of four that share the moment.
+    expect(rowsOnAt(w, timing, 20 * H2 + 30)).toContain("standby");
+  });
+
+  it("has all four on together at the moment they share", () => {
+    expect(rowsOnAt(w, timing, 20 * H2 + 30).sort()).toEqual(["block", "standby", "wrap"]);
+  });
+
+  it("drops each as it ends", () => {
+    expect(rowsOnAt(w, timing, 20 * H2 + 120)).toEqual(["standby", "block"]);
+    expect(rowsOnAt(w, timing, 20 * H2 + 20 * 60)).toEqual(["standby"]);
+  });
+
+  it("does not put a bar on a heading", () => {
+    const withGroup: PlanRow[] = [{ id: "hdr", type: "group", durationSec: null, hardStartSec: 20 * H2 }, ...sheet];
+    expect(rowsOnAt(win(withGroup), computeTiming(withGroup, null), 20 * H2 + 30)).not.toContain("hdr");
+  });
+});

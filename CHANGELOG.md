@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The moving bar now runs across everything happening at once.** Where several rows share a moment — a half-time block, the standby that opens it, the first cue inside it — only one of them carried the timer. The cause was that a row the sheet gives no length was treated as taking no time at all, so it was never "on" for even a second; it now runs until the next row starts, which is what the sheet means by leaving the column blank. Headings are still left alone.
+
+### Fixed
+- **One heading where the sheet printed two.** A run sheet can carry the same section banner on two consecutive rows — the source of the last import has "FIRST HALF" twice, back to back, with nothing between them — and the import took them at their word, so the sheet showed two first halves. Consecutive identical banners now collapse into one. A banner that recurs later in the day is untouched: the second game has its own half time, and that is a real second heading.
+
+### Fixed
+- **The soak-test generator stopped writing dashes on rows that have no title.** Hundreds of rows keep their content in another column and have nothing in the title, and filling them with "—" made a generated sheet read as a sheet full of holes. Test material only; no effect on imported sheets.
+
+
 ### Added
 - **Show information: the page furniture is kept, but out of the running order.** A production run sheet is a document as well as a running order, and imported flat its masthead arrived as cues — one real sheet carried its title block eight times, once per page. Those lines now sit under **Show information** on the sheet instead, so nothing is lost and nobody steps through the masthead at kick-off. Which lines they are is decided by where the PDF PRINTED them: same text, same height, several pages. Repetition alone is not enough and was not used — a cue sheet repeats itself legitimately, once per scoring scenario, and counting repeats moved 43 live cues off an NRL sheet before this was rebuilt on geometry. A row carrying a time or a duration is never moved, whatever else is true of it.
 

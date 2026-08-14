@@ -206,7 +206,10 @@ for (let c = 0; c < cycles; c++) {
       // has three, and that was the whole difference.
       time: b.anchored ? hhmmss(at + smallOffset(b.offsetSec)) : "",
       dur: b.smallSec > 0 ? dur(b.smallSec) : "",
-      title: String(b.row.title ?? "").replace(/\s*\n\s*/g, " · ").trim() || "—",
+      // No title in the source means no title here. Writing "—" put a dash
+      // on hundreds of rows that simply keep their content in another column,
+      // and a sheet full of dashes reads as a sheet full of holes.
+      title: String(b.row.title ?? "").replace(/\s*\n\s*/g, " · ").trim(),
       who: (b.row.cells?.["who"] ?? b.row.cells?.["roles"] ?? "").split("\n")[0]!.trim(),
       what: Object.entries(b.row.cells ?? {})
         .filter(([k]) => k !== "who" && k !== "roles" && !k.startsWith("start-") && !k.startsWith("duration-"))

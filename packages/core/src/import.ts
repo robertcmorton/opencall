@@ -588,6 +588,7 @@ export function classifySheet(
   }
   adoptInlineStarts(rows);
   adoptInlineDurations(rows);
+  collapseRepeatedBanners(rows);
   detectAlongside(rows);
   detectBlocks(rows);
   detectOutcomes(rows);
@@ -650,6 +651,31 @@ export function detectBlocks(rows: ClassifiedRow[]): void {
     const withoutBlock = Math.abs(start + children - next);
     const withBlock = Math.abs(start + own + children - next);
     if (withoutBlock < 1 && withBlock >= 1) row.spans = true;
+  }
+}
+
+
+/**
+ * Two identical headings in a row are one heading printed twice.
+ *
+ * A sheet can carry the same banner on consecutive lines — a rule drawn
+ * across two rows, a period name repeated for emphasis — and the source here
+ * does exactly that: "NRL | BULLDOGS v RABBITOHS - FIRST HALF" appears as two
+ * adjacent rows with nothing whatever between them. Read faithfully that is
+ * two section headings for one section, and the sheet gains a heading that
+ * announces nothing.
+ *
+ * Only ADJACENT duplicates, and only banners. A banner that recurs later in
+ * the day is a real second occurrence — a sheet says HALF TIME once per game —
+ * and anything with a time or a duration is a row, not a heading.
+ */
+export function collapseRepeatedBanners(rows: ClassifiedRow[]): void {
+  const same = (a: ClassifiedRow, b: ClassifiedRow) =>
+    a.kind === "banner" && b.kind === "banner" && a.title.trim() !== "" && a.title.trim() === b.title.trim();
+  for (let i = rows.length - 1; i > 0; i--) {
+    let prev = i - 1;
+    while (prev >= 0 && rows[prev]!.kind === "spacer") prev -= 1;
+    if (prev >= 0 && same(rows[prev]!, rows[i]!)) rows.splice(i, 1);
   }
 }
 

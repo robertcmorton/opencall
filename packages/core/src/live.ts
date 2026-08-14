@@ -281,6 +281,8 @@ export interface ClockTargetRow {
   skipped?: boolean;
   untimed?: boolean;
   hardStartSec?: number | null;
+  /** Runs alongside the order — never becomes the cue. See `PlanRow.parallel`. */
+  parallel?: boolean;
 }
 
 /**
@@ -318,6 +320,10 @@ export function clockTargetRow(
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
     if (r.type === "group" || r.skipped) continue;
+    // A second track is never cued — not by the transport, and not by the
+    // clock either. A pre-record runs and finishes on its own; parking the
+    // show on one would take the running order off air to watch it.
+    if (r.parallel) continue;
     if (r.untimed && r.hardStartSec == null) continue;
     const start = startSecs[i] ?? null;
     if (start == null) continue;

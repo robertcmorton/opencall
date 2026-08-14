@@ -1754,6 +1754,14 @@ export function RundownEditor({
               >
                 Mute
               </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${rowRecord.parallel ? "is-on" : ""}`}
+                data-tip="Runs alongside the show: takes no time in the running order, and the transport steps over it"
+                onClick={() => setRowField(rowRecord.id, "parallel", !rowRecord.parallel)}
+              >
+                ∥ Alongside
+              </button>
               <button type="button" className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }} onClick={() => setDurationPopover(null)}>
                 Done
               </button>
@@ -2004,7 +2012,7 @@ export function RundownEditor({
           {isShow && (
             <ShowStateControls
               channel={channel}
-              orderedRowIds={rows.filter((r) => !r.skipped || r.id === activeRowId).map((r) => r.id)}
+              orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
             />
           )}
         </div>
@@ -2020,7 +2028,7 @@ export function RundownEditor({
         {isShow && (
           <TransportBar
             channel={channel}
-            orderedRowIds={rows.filter((r) => !r.skipped || r.id === activeRowId).map((r) => r.id)}
+            orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
           />
         )}
         {isShow && !showLive && rows.length > 0 && (

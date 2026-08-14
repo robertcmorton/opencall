@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTiming, findConcurrentRows, rowsOnAt, type PlanRow, type WindowRow } from "../src/index";
+import { clockTargetRow, computeTiming, findConcurrentRows, rowsOnAt, type PlanRow, type WindowRow } from "../src/index";
 
 const H = 3600;
 /** A sheet in the shape of the real one: a game, with a pre-record inside it. */
@@ -72,5 +72,33 @@ describe("rowsOnAt", () => {
   });
   it("returns nothing before the sheet starts", () => {
     expect(rowsOnAt(win(game), timing, 10 * H)).toEqual([]);
+  });
+});
+
+describe("a second track is never cued", () => {
+  const rows: PlanRow[] = [
+    { id: "first", type: "cue", durationSec: 40 * 60, hardStartSec: 17 * H + 30 * 60 },
+    { id: "prerec", type: "cue", durationSec: 90, hardStartSec: 17 * H + 45 * 60, parallel: true },
+    { id: "halftime", type: "cue", durationSec: 11 * 60, hardStartSec: 18 * H + 15 * 60 },
+  ];
+  const timing = computeTiming(rows, null);
+  const target = (nowAbs: number) =>
+    clockTargetRow(
+      rows.map((r) => ({ id: r.id, type: r.type, skipped: false, parallel: r.parallel, hardStartSec: r.hardStartSec })),
+      timing.rows.map((r) => r.startSec),
+      nowAbs,
+    );
+
+  it("the clock stays on the game while the pre-record is being shot", () => {
+    // 5:46 PM: the pre-record is a minute in. The show is still the game.
+    expect(target(17 * H + 46 * 60)).toBe("first");
+  });
+
+  it("but the pre-record is still ON, and shown as such", () => {
+    expect(rowsOnAt(win(rows), timing, 17 * H + 46 * 60)).toEqual(["first", "prerec"]);
+  });
+
+  it("the clock still moves on normally afterwards", () => {
+    expect(target(18 * H + 20 * 60)).toBe("halftime");
   });
 });

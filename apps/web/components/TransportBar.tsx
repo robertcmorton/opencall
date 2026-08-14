@@ -49,26 +49,78 @@ export function LiveReadouts({ live, use24h }: { live: LiveShowTiming | null; us
  * eye already is. Stepping the cue (Prev/Next) is a different job and lives in
  * the toolbar with the rest of the working controls.
  */
-export function ShowStateControls({ channel, orderedRowIds }: { channel: ShowChannel; orderedRowIds: string[] }) {
+export function ShowStateControls({
+  channel,
+  orderedRowIds,
+  preflight = [],
+}: {
+  channel: ShowChannel;
+  orderedRowIds: string[];
+  /**
+   * Things worth a look before going live, in the words the caller needs.
+   *
+   * A bad time is cheap to fix at four o'clock and expensive at 8:47. The
+   * evening this was written, one cell reading "5:26:00 am" sent a live show
+   * twelve hours out of place — and every reading on the page was there to be
+   * seen hours earlier, if anything had said so.
+   */
+  preflight?: string[];
+}) {
   const show = channel.show;
   const liveState = show?.state ?? "idle";
   const isLive = liveState === "running" || liveState === "paused";
   const [armStop, setArmStop] = useState(false);
   const armTimer = useRef<number | undefined>(undefined);
+  /**
+   * Warned about, never blocked.
+   *
+   * If it is 8:01 and kick-off is at 8:02, the show starts — whatever the
+   * sheet says about itself. So a dirty sheet costs one more press and a
+   * clean one costs nothing, which is the same bargain Stop already makes.
+   */
+  const [armStart, setArmStart] = useState(false);
   useEffect(() => () => window.clearTimeout(armTimer.current), []);
+  useEffect(() => {
+    if (!armStart) return;
+    const t = window.setTimeout(() => setArmStart(false), 15000);
+    return () => window.clearTimeout(t);
+  }, [armStart]);
 
   if (channel.role !== "caller" && channel.role !== "admin") return null;
+
+  const start = () => channel.sendCmd("start", orderedRowIds[0]);
 
   return (
     <div className="show-state">
       {!isLive ? (
-        <button
-          className="btn btn-positive"
-          onClick={() => channel.sendCmd("start", orderedRowIds[0])}
-          disabled={!channel.connected || orderedRowIds.length === 0}
-        >
-          {Icon.play} Start show
-        </button>
+        <>
+          <button
+            className={`btn ${armStart ? "btn-warn" : "btn-positive"}`}
+            onClick={() => {
+              if (preflight.length > 0 && !armStart) {
+                setArmStart(true);
+                return;
+              }
+              setArmStart(false);
+              start();
+            }}
+            disabled={!channel.connected || orderedRowIds.length === 0}
+            data-tip={preflight.length > 0 ? "This sheet has something worth checking first" : undefined}
+          >
+            {Icon.play} {armStart ? "Start anyway" : "Start show"}
+          </button>
+          {armStart && (
+            <span className="preflight">
+              <b>
+                {preflight.length} thing{preflight.length === 1 ? "" : "s"} to look at
+              </b>
+              {preflight.slice(0, 4).map((line, i) => (
+                <span key={i}>{line}</span>
+              ))}
+              {preflight.length > 4 && <span>…and {preflight.length - 4} more</span>}
+            </span>
+          )}
+        </>
       ) : (
         <>
           <span className={`live-badge ${liveState === "paused" ? "paused" : ""}`}>

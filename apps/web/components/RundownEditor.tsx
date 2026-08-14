@@ -13,6 +13,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import {
   absoluteNow,
+  checkStartTimes,
   clockTargetRow,
   findConcurrentRows,
   rowsOnAt,
@@ -771,6 +772,38 @@ export function RundownEditor({
     }
   }
   const onNowIds = new Set(rowsOnAt(rows, timing, nowAbsSec));
+
+  /**
+   * What to look at before going live.
+   *
+   * The same two checks the sheet already runs, said out loud at the one
+   * moment they are cheap to act on. A time that contradicts the sheet's own
+   * order is the dangerous one: it reads as a perfectly good clock time, it
+   * survives every parse, and it only shows itself when the show is running
+   * and the readouts have gone strange.
+   *
+   * Short lines, because this is read standing up with a headset on.
+   */
+  const preflight = (() => {
+    const out: string[] = [];
+    for (const w of checkStartTimes(rows.map((r) => ({ startSec: r.hardStartSec ?? null, skipped: r.skipped })))) {
+      const title = rows[w.index]?.title?.split("\n")[0]?.trim() || "untitled";
+      const at = formatTimeOfDay(w.startSec, meta.use24h);
+      out.push(
+        w.kind === "meridiem"
+          ? `${at} on “${title.slice(0, 28)}” looks like am for pm — probably ${formatTimeOfDay(w.suggestSec ?? 0, meta.use24h)}`
+          : w.kind === "offset"
+            ? `${at} on “${title.slice(0, 28)}” looks like time INTO a segment, not a time of day`
+            : `${at} on “${title.slice(0, 28)}” is out of order with the rows around it`,
+      );
+    }
+    if (timingGaps.length > 0) {
+      out.push(
+        `${timingGaps.length} place${timingGaps.length === 1 ? "" : "s"} where the times don’t add up — see the timing check`,
+      );
+    }
+    return out;
+  })();
   /** How far through a row the clock is — for rows running alongside the cue. */
   const clockFrac = (id: string): number | null => {
     const i = rows.findIndex((r) => r.id === id);
@@ -2041,6 +2074,7 @@ export function RundownEditor({
             <ShowStateControls
               channel={channel}
               orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
+              preflight={preflight}
             />
           )}
         </div>

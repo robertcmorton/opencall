@@ -14,6 +14,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **Before you go live, what's worth a look.** The first press of Start show now lists anything the sheet says about itself that does not add up — a time that contradicts the running order, and how many places the durations disagree with the printed times. The second press starts the show. A clean sheet costs nothing and is never interrupted; a dirty one costs one more press and is never blocked, because if it is 8:01 and kick-off is at 8:02 the show starts whatever the sheet thinks. On the sheet that sent a live show twelve hours out of place it reads: *5:26:00 AM on "TWO MINUTE BELL" looks like am for pm — probably 5:26:00 PM*. That was there to be seen hours before kick-off; nothing said it.
+
+### Added
 - **A stopwatch beside the transport.** For the things the sheet does not time — how long the band actually played, how long the crowd took to clear, how long that interview really ran when the sheet said ninety seconds. Press the number to start and stop it, Lap marks a time without stopping. It is LOCAL to the screen that started it: the cue timer is the shared truth, and a second shared clock next to it would only be a second thing to be wrong about. It survives a reload by storing the moment it started rather than a running count, so an eight-hour show and a refresh cannot make it drift.
 
 ### Fixed

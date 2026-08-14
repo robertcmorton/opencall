@@ -1374,6 +1374,34 @@ kbd {
   border-top: 2px solid var(--warn);
 }
 
+/* ---------- Before you go live ---------- */
+
+/* Warned about, never blocked. The list sits under the Start button, reads in
+   one glance, and disappears the moment the show starts — a bad time is cheap
+   to fix at four o'clock and expensive at 8:47. */
+.preflight {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  max-width: 46ch;
+  padding: 6px 9px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-md);
+  background: var(--warn-soft, rgba(232, 176, 60, 0.08));
+}
+.preflight b {
+  color: var(--warn);
+  font-weight: 650;
+}
+@media (max-width: 760px) {
+  .preflight {
+    max-width: 100%;
+  }
+}
+
 /* ---------- Stopwatch ---------- */
 
 .stopwatch {

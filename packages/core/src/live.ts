@@ -327,3 +327,129 @@ export function clockTargetRow(
   }
   return target;
 }
+
+/** One row's window on the clock, for working out what runs with what. */
+export interface WindowRow {
+  id: string;
+  type: string;
+  skipped?: boolean;
+  /** Alternate ending this row belongs to — branches are alternatives, not concurrency. */
+  outcome?: string | null;
+  outcomeGame?: number;
+  /** Shot alongside the running order — always concurrent by definition. */
+  parallel?: boolean;
+}
+
+/** A set of rows whose times genuinely overlap, in sheet order. */
+export interface ConcurrentGroup {
+  /** Indexes of the rows that are on together, ascending. */
+  indexes: number[];
+  /** When the first of them starts and the last of them ends. */
+  startSec: number;
+  endSec: number;
+}
+
+/**
+ * Every place the sheet has more than one thing happening at once.
+ *
+ * A run sheet is not a queue. A pre-record is shot while the game is on, an
+ * announcer reads over a music bed, a sponsor activation runs through a
+ * quarter. Read as a queue those rows look like faults — each one appears to
+ * start before the row above it has finished — and the app had only one word
+ * for that, "overlap", which means "somebody has made a mistake".
+ *
+ * Overlapping is a fact about the sheet; whether it is a mistake is a
+ * judgement about the sheet. This reports the fact. It is what lets a
+ * progress bar advance along several rows at once, and what lets the timing
+ * check offer "these run together" as an answer rather than only "one of
+ * these numbers is wrong".
+ *
+ * Rows that merely TOUCH — one ending exactly where the next begins, which is
+ * every ordinary row in a chained sheet — are not concurrent. Alternate
+ * endings are not concurrent either: only one of them is ever played, and
+ * they share a start precisely because they are alternatives.
+ */
+export function findConcurrentRows(
+  rows: readonly WindowRow[],
+  timing: PlanTiming,
+): ConcurrentGroup[] {
+  const window = (i: number): { i: number; start: number; end: number } | null => {
+    const r = rows[i];
+    const t = timing.rows[i];
+    if (!r || !t || r.skipped || r.type === "group") return null;
+    if (t.startSec == null) return null;
+    const end = t.endSec ?? t.startSec;
+    if (end <= t.startSec) return null; // a moment cannot overlap anything
+    return { i, start: t.startSec, end };
+  };
+  /** Two branches of the same game are alternatives; they never run together. */
+  const alternatives = (a: WindowRow, b: WindowRow): boolean =>
+    !!a.outcome && !!b.outcome && (a.outcomeGame ?? 1) === (b.outcomeGame ?? 1) && a.outcome !== b.outcome;
+
+  // BY START, not by sheet position. A pre-record is written where it belongs
+  // in the reading order — after the block it was shot during, or before —
+  // and sweeping in sheet order let a row be tested against a window that had
+  // not opened yet: a pre-record ending at 5:46 was grouped with a buffer
+  // starting at 6:10 purely because the buffer had been seen first.
+  const wins = [...rows.keys()]
+    .map(window)
+    .filter((w): w is { i: number; start: number; end: number } => w !== null)
+    .sort((a, b) => a.start - b.start || a.i - b.i);
+
+  const groups: ConcurrentGroup[] = [];
+  let current: typeof wins = [];
+  let currentEnd = -Infinity;
+  const flush = () => {
+    if (current.length > 1) {
+      groups.push({
+        indexes: current.map((w) => w.i).sort((a, b) => a - b),
+        startSec: Math.min(...current.map((w) => w.start)),
+        endSec: currentEnd,
+      });
+    }
+  };
+
+  for (const w of wins) {
+    // Sorted by start, so anything still open when this one begins genuinely
+    // overlaps it. Touching exactly — one ending where the next begins, which
+    // is every ordinary row of a chained sheet — is not overlapping.
+    const joins =
+      current.length > 0 &&
+      w.start < currentEnd - 0.001 &&
+      current.some((m) => m.end > w.start + 0.001 && !alternatives(rows[m.i]!, rows[w.i]!));
+    if (joins) {
+      current.push(w);
+      currentEnd = Math.max(currentEnd, w.end);
+      continue;
+    }
+    flush();
+    current = [w];
+    currentEnd = w.end;
+  }
+  flush();
+  return groups;
+}
+
+/**
+ * Which rows are ON at this moment — the live cue and anything running with it.
+ *
+ * The progress bar used to be a property of "the" active row, because there
+ * was only ever one. There is not: at 7:02 the coin toss is being recorded in
+ * the tunnel while the second half is being played, and both are running.
+ */
+export function rowsOnAt(
+  rows: readonly WindowRow[],
+  timing: PlanTiming,
+  nowAbsSec: number,
+): string[] {
+  const on: string[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    const t = timing.rows[i];
+    if (!t || r.skipped || r.type === "group" || t.startSec == null) continue;
+    const end = t.endSec ?? t.startSec;
+    if (end <= t.startSec) continue;
+    if (t.startSec <= nowAbsSec && nowAbsSec < end) on.push(r.id);
+  }
+  return on;
+}

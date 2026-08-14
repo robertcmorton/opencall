@@ -10,6 +10,9 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import {
   absoluteNow,
+  clockTargetRow,
+  findConcurrentRows,
+  rowsOnAt,
   computeTiming,
   defaultViewColumns,
   resolveEventType,
@@ -111,6 +114,8 @@ function SortableRow({
   mine,
   mineColor,
   clockMark,
+  runsWith,
+  onNow,
   disabled,
   onSelect,
 }: {
@@ -132,6 +137,10 @@ function SortableRow({
   mineColor: string;
   /** Event-local "now" sits at this row per the TIME column. */
   clockMark: boolean;
+  /** Titles of the rows this one shares its window with, if any. */
+  runsWith?: string[];
+  /** This row's window contains the event clock right now. */
+  onNow: boolean;
   disabled: boolean;
   onSelect: (e: React.MouseEvent) => void;
 }) {
@@ -139,7 +148,7 @@ function SortableRow({
   return (
     <tr
       ref={setNodeRef}
-      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${clockMark ? "clock-row" : ""} ${
+      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${runsWith?.length ? "concurrent-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
         branch
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
@@ -148,9 +157,11 @@ function SortableRow({
       data-tip={
         walk
           ? "Walkthrough position — synced to every screen"
-          : row.parallel
-            ? "Pre-record — runs alongside the show, takes no time in the running order"
-            : clockMark
+          : runsWith?.length
+            ? `Runs at the same time as ${runsWith.slice(0, 3).join(", ")}${runsWith.length > 3 ? ` and ${runsWith.length - 3} more` : ""}`
+            : row.parallel
+              ? "Pre-record — runs alongside the show, takes no time in the running order"
+              : clockMark
               ? "Event time is here per the TIME column"
               : undefined
       }
@@ -720,21 +731,50 @@ export function RundownEditor({
   // The event-local clock's position along the TIME column: the last row whose
   // (anchored or cascaded) start has passed. Marked in the grid; clock-follow
   // drives the live show to it.
-  const clockTarget = (rowList: ProjectedRow[], t: typeof timing, tz: string | null | undefined): string | null => {
-    // Counted past midnight, like the sheet — a wall clock resets at 00:00 and
-    // a show running into the small hours does not.
-    const now = absoluteNow(zoneSecondsOfDay(channel.serverNow(), tz), t);
-    let target: string | null = null;
-    for (let i = 0; i < rowList.length; i++) {
-      const r = rowList[i]!;
-      if (r.type === "group" || r.skipped) continue;
-      if (r.untimed && r.hardStartSec == null) continue;
-      const start = t.rows[i]!.startSec;
-      if (start != null && start <= now) target = r.id;
+  //
+  // Counted past midnight, like the sheet — a wall clock resets at 00:00 and a
+  // show running into the small hours does not.
+  //
+  // Shared with the sync server rather than reimplemented here. There were
+  // THREE copies of this rule: the server's, the prompter's and this one. Two
+  // were unified when a sheet with an "am" typed for a "pm" parked the show
+  // twelve hours out of place; this one was missed, so the grid went on
+  // marking the wrong row while the show no longer followed it.
+  const nowAbsSec = absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing);
+  const clockRowId = clockTargetRow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+    nowAbsSec,
+  );
+
+  /**
+   * What runs WITH what, and what is on right now.
+   *
+   * A run sheet is not a queue: a pre-record is shot while the game is on, an
+   * announcer reads over a music bed, a block spans the cues that fill it. The
+   * grid used to have one word for two rows sharing a moment — the live cue —
+   * so everything else in that moment was invisible.
+   */
+  const concurrentGroups = findConcurrentRows(rows, timing);
+  const runsWith = new Map<string, string[]>();
+  for (const g of concurrentGroups) {
+    for (const i of g.indexes) {
+      const id = rows[i]?.id;
+      if (!id) continue;
+      runsWith.set(
+        id,
+        g.indexes.filter((j) => j !== i).map((j) => rows[j]?.title?.split("\n")[0]?.trim() || "untitled"),
+      );
     }
-    return target;
+  }
+  const onNowIds = new Set(rowsOnAt(rows, timing, nowAbsSec));
+  /** How far through a row the clock is — for rows running alongside the cue. */
+  const clockFrac = (id: string): number | null => {
+    const i = rows.findIndex((r) => r.id === id);
+    const t = i >= 0 ? timing.rows[i] : null;
+    if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
+    return Math.min(1, Math.max(0, (nowAbsSec - t.startSec) / (t.endSec - t.startSec)));
   };
-  const clockRowId = clockTarget(rows, timing, channel.timezone);
 
   // Clock-follow runs on the SERVER (live fail-safe: no console needs to stay
   // open). This toggle just flips the session mode; show_state carries it to
@@ -2548,6 +2588,8 @@ export function RundownEditor({
                     mine={myRowColors.has(rowRecord.id)}
                     mineColor={myRowColors.get(rowRecord.id) ?? "#2dd4bf"}
                     clockMark={clockRowId === rowRecord.id && !activeRowId}
+                    runsWith={runsWith.get(rowRecord.id)}
+                    onNow={onNowIds.has(rowRecord.id)}
                     disabled={!canEditContent}
                     onSelect={(e) => canEditContent && selectRow(rowRecord.id, e)}
                   >
@@ -2556,6 +2598,21 @@ export function RundownEditor({
                       if (col.kind === "title") {
                         const cell = (() => {
                           const plain = renderRichCell(rowRecord, col);
+                          // A row running ALONGSIDE the cue gets its progress
+                          // from the clock, because nothing cued it — the coin
+                          // toss being recorded in the tunnel is under way
+                          // whether or not the showcaller is looking at it.
+                          if (activeRowId !== rowRecord.id && onNowIds.has(rowRecord.id)) {
+                            const f = clockFrac(rowRecord.id);
+                            if (f == null) return plain;
+                            return (
+                              <td className="mono-progress" style={{ position: "relative" }}>
+                                {rowRecord.cells[col.key] ?? ""}
+                                {foldedLine(rowRecord)}
+                                <BarFill className="row-progress alongside" frac={f} />
+                              </td>
+                            );
+                          }
                           if (activeRowId !== rowRecord.id || !live || rowRecord.durationSec == null || rowRecord.durationSec <= 0)
                             return plain;
                           // Red only after a full second over — the moment between a cue

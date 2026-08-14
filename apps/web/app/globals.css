@@ -1374,6 +1374,25 @@ kbd {
   border-top: 2px solid var(--warn);
 }
 
+/* ---------- Things happening at the same time ---------- */
+
+/* A run sheet is not a queue. A pre-record is shot while the game is on, an
+   announcer reads over a music bed, a block spans the cues that fill it. Those
+   rows are not mistakes and must not read like the next thing to call, so the
+   mark is quiet: a hairline down the right of the row number, saying only
+   "this shares its moment with something else". The tooltip names what. */
+.rundown-grid tr.concurrent-row td:first-child {
+  box-shadow: inset -2px 0 0 var(--text-3);
+}
+/* Running RIGHT NOW alongside the cue. The cue itself keeps the strong
+   treatment; this is the second track, so it is stated rather than shouted. */
+.rundown-grid tr.on-now td:first-child {
+  box-shadow: inset -2px 0 0 var(--accent-2, #58a6ff);
+}
+.row-progress.alongside {
+  opacity: 0.4;
+}
+
 /* ---------- Pre-records: alongside the show, not in it ---------- */
 
 /* A pre-record is shot while the running order carries on around it, so it

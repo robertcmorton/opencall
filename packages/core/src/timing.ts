@@ -444,7 +444,18 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
         // duration and then the children's reported a quarter-hour overlap on
         // every game sheet, at the one moment of the night with the most rows
         // in it.
-        const together = Math.abs(anchor - anchorStart) < 1;
+        //
+        // …and a spanning row does not always carry a printed time of its own.
+        // "NSW CUP | HALF TIME" is often left blank in the TIME column and the
+        // wrap that fills it carries the printed time the block begins at. So
+        // the test is against the row immediately ABOVE as well as against the
+        // last anchor: if this row starts where that one starts, the two begin
+        // together and neither is out of place. Without it a half-time block
+        // reported an overlap the size of itself, and an announcer's read over
+        // a music bed reported one the size of the read.
+        const above = i > 0 ? timing.rows[i - 1]?.startSec ?? null : null;
+        const together =
+          Math.abs(anchor - anchorStart) < 1 || (above != null && Math.abs(anchor - above) < 1);
         if (!together && Math.abs(gap) >= 1 && (claimed > 0 || gap < 0)) {
           // Alongside the running order → not a disagreement, and it must not
           // become the anchor the following rows are measured from.

@@ -136,6 +136,29 @@ describe("findTimingGaps: rows that start together", () => {
     expect(findTimingGaps(rows, timing)).toEqual([]);
   });
 
+  it("does not call a spanning row an overlap when it has no printed time", () => {
+    // "NSW CUP | HALF TIME" with a blank TIME cell, followed by the wrap that
+    // fills it carrying the printed time the block begins at.
+    const rows = [
+      { hardStartSec: 17 * 3600 + 30 * 60, durationSec: 2400 },
+      { hardStartSec: null, durationSec: 300 },
+      { hardStartSec: null, durationSec: 660 },
+      { hardStartSec: 18 * 3600 + 15 * 60, durationSec: 30 },
+    ];
+    const timing = computeTiming(plan(rows), null);
+    expect(findTimingGaps(rows, timing)).toEqual([]);
+  });
+
+  it("does not call an announcer's read over a music bed an overlap", () => {
+    const rows = [
+      { hardStartSec: 19 * 3600 + 30 * 60, durationSec: 120 },
+      { hardStartSec: null, durationSec: 60 },
+      { hardStartSec: 19 * 3600 + 32 * 60, durationSec: 30 },
+    ];
+    const timing = computeTiming(plan(rows), null);
+    expect(findTimingGaps(rows, timing)).toEqual([]);
+  });
+
   it("still reports a start that genuinely disagrees", () => {
     const rows = [
       { hardStartSec: 20 * 3600, durationSec: 600 },

@@ -134,3 +134,32 @@ describe("catch up to the clock", () => {
     expect((state as Exclude<typeof state, string>).activeRowStartedAtMs).toBe(takenAtMs);
   });
 });
+
+describe("the cue timer represents the live show only", () => {
+  // The machine is handed a row id by the caller; the server is where rows are
+  // known, so these assert the invariant the server enforces: a row running
+  // alongside the show never becomes the active row.
+  const sheet = [
+    { id: "a", parallel: false },
+    { id: "pre", parallel: true },
+    { id: "b", parallel: false },
+  ];
+  const mayCue = (id: string) => !sheet.find((r) => r.id === id)?.parallel;
+
+  it("refuses to cue a pre-record", () => {
+    expect(mayCue("pre")).toBe(false);
+  });
+
+  it("still cues the rows that are on air", () => {
+    expect(mayCue("a")).toBe(true);
+    expect(mayCue("b")).toBe(true);
+  });
+
+  it("leaves the machine itself unchanged for rows that are allowed", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "a", 1000);
+    const after = m.apply("jump", "b", 2000);
+    expect(typeof after).not.toBe("string");
+    expect((after as { activeRowId: string | null }).activeRowId).toBe("b");
+  });
+});

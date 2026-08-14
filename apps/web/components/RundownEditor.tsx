@@ -1210,6 +1210,11 @@ export function RundownEditor({
   const cueRow = (rowId: string): void => {
     const idx = rows.findIndex((r) => r.id === rowId);
     if (idx < 0) return;
+    // A pre-record or a bell runs alongside the show and is never called, so
+    // it can never be the row the cue timer is counting. The server refuses
+    // this too — this is only so the console never sends a command it knows
+    // will come back as an error.
+    if (rows[idx]!.parallel) return;
     const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
     const jumping = liveIdx >= 0 && idx > liveIdx;
     // The clock carries sub-second precision for the smooth now-line; a

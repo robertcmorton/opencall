@@ -320,9 +320,41 @@ wss.on("connection", (ws, req) => {
        * the button reported the show as late by exactly however overdue the
        * row it had just synced to was — press sync, watch the show go +1:19.
        */
+      /**
+       * The cue timer represents the LIVE show, and nothing else.
+       *
+       * A pre-record is shot while the show goes on around it, and a bell is a
+       * warning: they belong on the sheet, they occupy people and cameras, and
+       * NEITHER is ever called by the showcaller. So neither may ever become
+       * the active row — the moment one does, the item countdown is counting
+       * something that is not on air, and the show's drift is measured against
+       * it. That is exactly how a show came to sit on a nine-second insert
+       * with the readout climbing into the red.
+       *
+       * Refused here, on the server, rather than only hidden in the console:
+       * this holds for every client, every device and every replayed command,
+       * and there is one answer to "may this row be cued" instead of one per
+       * surface. A row that runs alongside can still be FIRED — that logs it
+       * to the as-run record without taking the show off air, which is the
+       * affordance these rows actually want.
+       */
+      const movesTheShow =
+        msg.action === "jump" || msg.action === "next" || msg.action === "prev" || msg.action === "start";
+      let sheet = movesTheShow && msg.rowId ? await sheetNow(ctx.rundownId) : null;
+      if (sheet?.rows.find((r) => r.id === msg.rowId)?.parallel) {
+        send(ws, {
+          v: PROTOCOL_VERSION,
+          t: "cmd_error",
+          id: msg.id,
+          code: 400,
+          msg: "that row runs alongside the show and is never cued",
+        });
+        return;
+      }
+
       let startedAtMs: number | undefined;
       if (msg.action === "jump" && msg.atPlanned && msg.rowId) {
-        const sheet = await sheetNow(ctx.rundownId);
+        sheet ??= await sheetNow(ctx.rundownId);
         if (sheet) {
           const idx = sheet.rows.findIndex((r) => r.id === msg.rowId);
           if (idx >= 0) startedAtMs = plannedStartMs(sheet.timing, idx, sheet.nowMs, sheet.nowSec);

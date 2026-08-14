@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The cue timer counts the live show, and nothing else.** A pre-record is shot while the show goes on around it, and a bell is a warning — they belong on the sheet, they occupy people and cameras, and neither is ever called by the showcaller. Neither can now become the row the show is sitting on. The moment one did, the item countdown was counting something that was not on air and the show's drift was being measured against it, which is how a show came to sit on a nine-second insert with the readout climbing into the red. The refusal is on the server rather than only hidden in the console, so it holds for every device and every replayed command instead of needing to be got right once per screen. These rows can still be *fired*, which logs them to the as-run record without taking the show off air — the affordance they actually want.
+
+
+### Fixed
 - **A show could get stuck on a pre-record and never be let off it.** Following the clock, a show is never walked backwards on its own — the guard exists because when the clocks go back, 02:00 to 02:59 happens twice, and a sheet with rows in that hour would be called a second time. But "backwards" was measured in sheet rows, and a pre-record is written on the sheet near where it is *shot*, not where it airs, so it can sit well below the rows that follow it on air. Once a show was sitting on one, every legitimate place to go counted as backwards, the follower refused to move for the rest of the night, and the overrun on a nine-second insert climbed until the show time went red. Four of the six pre-records on the last match sheet would have held a show that way. The comparison is now made in the running order rather than in sheet rows: a row that runs alongside the show has no place in its order, so a show sitting on one is not ahead of anything, and the clock may take it back. The backwards guard itself is unchanged for every row that really is part of the running order.
 
 

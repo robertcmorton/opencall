@@ -327,8 +327,10 @@ export interface ClassifiedRow {
   script?: boolean;
   /** Which game's endings this row belongs to (1, 2, 3…) — a day can hold several. */
   outcomeGame?: number;
-  /** Shot alongside the running order — a pre-record. See `detectPreRecords`. */
+  /** Shot alongside the running order — a pre-record. See `detectAlongside`. */
   parallel?: boolean;
+  /** Covers the rows beneath it rather than preceding them. See `detectBlocks`. */
+  spans?: boolean;
 }
 
 /**
@@ -587,9 +589,68 @@ export function classifySheet(
   adoptInlineStarts(rows);
   adoptInlineDurations(rows);
   detectAlongside(rows);
+  detectBlocks(rows);
   detectOutcomes(rows);
   detectScript(rows, italicText);
   return rows;
+}
+
+
+/**
+ * Marks the rows whose length COVERS what follows instead of preceding it.
+ *
+ * "NRL | BULLDOGS v RABBITOHS- HALF TIME (15 mins)" is a quarter of an hour,
+ * and the wrap, the review, the ad reel and the giveaway beneath it are also
+ * that quarter of an hour. Both are true — it is the same fifteen minutes
+ * written twice, once as a block and once as its contents — and counted in
+ * sequence the sheet claims half an hour it has not got.
+ *
+ * The test is an identity, not a resemblance: does dropping this row's own
+ * duration make the chain land EXACTLY on the next printed time? A block's
+ * children fill it by construction, so they do; a cue that genuinely runs
+ * before them does not. Across the sample sheets that fires on six rows —
+ * five half-times and a half of football — and on nothing else.
+ *
+ * Two guards, both earned. The children must add up to something: where they
+ * sum to zero, "dropping the block lands exactly" only means the next row
+ * starts when this one does, which is simultaneity and not containment, and
+ * that alone accounted for both of the rule's false positives. And the match
+ * must be exact — sixty-seven rows across those sheets come within a minute,
+ * and every one of them is an ordinary cue.
+ */
+export function detectBlocks(rows: ClassifiedRow[]): void {
+  // Where each row sits if the sheet is read straight through. Anchors reset
+  // it, exactly as the cascade does.
+  const startOf: (number | null)[] = [];
+  let cursor: number | null = null;
+  for (const r of rows) {
+    if (r.startSec != null) cursor = r.startSec;
+    startOf.push(cursor);
+    if (cursor != null && !r.parallel) cursor += r.durationSec ?? 0;
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const own = row.durationSec ?? 0;
+    if (own <= 0 || row.parallel || row.startSec == null) continue;
+    const start = startOf[i];
+    if (start == null) continue;
+
+    let children = 0;
+    let j = i + 1;
+    while (j < rows.length && rows[j]!.startSec == null) {
+      if (rows[j]!.kind !== "spacer" && !rows[j]!.parallel) children += rows[j]!.durationSec ?? 0;
+      j += 1;
+    }
+    if (j >= rows.length || j === i + 1) continue;
+    if (children <= 0) continue; // simultaneity, not containment
+    const next = rows[j]!.startSec;
+    if (next == null) continue;
+
+    const withoutBlock = Math.abs(start + children - next);
+    const withBlock = Math.abs(start + own + children - next);
+    if (withoutBlock < 1 && withBlock >= 1) row.spans = true;
+  }
 }
 
 /** A clock time with a meridiem, sitting at the very end of the text. */
@@ -1462,8 +1523,10 @@ export interface BuiltRow {
    * afternoon game must not skip the evening one's alternatives.
    */
   outcomeGame?: number;
-  /** Shot alongside the running order — a pre-record. See `detectPreRecords`. */
+  /** Shot alongside the running order — a pre-record. See `detectAlongside`. */
   parallel?: boolean;
+  /** Covers the rows beneath it rather than preceding them. See `detectBlocks`. */
+  spans?: boolean;
   cells?: Record<string, string>;
 }
 
@@ -1613,6 +1676,7 @@ export function buildSheet(
       untimed: untimed || undefined,
       durationMuted: untimed && r.durationSec != null ? true : undefined,
       parallel: r.parallel || undefined,
+      spans: r.spans || undefined,
       sourceNumber: r.sourceNumber,
       outcome: r.outcome ?? undefined,
       outcomeGame: r.outcomeGame,

@@ -36,6 +36,23 @@ export interface PlanRow {
    */
   parallel?: boolean;
   /**
+   * A row whose duration COVERS the rows beneath it rather than running
+   * before them.
+   *
+   * "HALF TIME (15 mins)" is fifteen minutes, and the wrap, the review and
+   * the ad reel underneath it are also fifteen minutes. Both are true — they
+   * are the same fifteen minutes seen twice, once as a block and once as its
+   * contents. Charged in sequence the sheet claims half an hour it has not
+   * got, which is what put a quarter-hour overlap on every game sheet.
+   *
+   * So a block keeps its length everywhere it is read — the sheet still says
+   * half time is fifteen minutes, and a countdown on it still counts fifteen
+   * minutes — and contributes nothing to the running order, because its
+   * children already do. Unlike `parallel` it is still part of the show and
+   * still takes a cue: somebody calls half time.
+   */
+  spans?: boolean;
+  /**
    * Skipped live (show running behind): the row stays visible but its duration
    * leaves the cascade, so downstream times catch back up to the original
    * anchors. Transport steps over it.

@@ -194,7 +194,7 @@ function SortableRow({
 function cloneRow(source: Y.Map<unknown>, newId: string): Y.Map<unknown> {
   const copy = new Y.Map();
   copy.set("id", newId);
-  for (const field of ["type", "hardStartSec", "durationSec", "durationMuted", "durationHidden", "backtime", "color", "outcome", "parallel"]) {
+  for (const field of ["type", "hardStartSec", "durationSec", "durationMuted", "durationHidden", "backtime", "color", "outcome", "parallel", "spans"]) {
     const v = source.get(field);
     if (v !== undefined) copy.set(field, v);
   }

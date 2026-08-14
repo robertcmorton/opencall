@@ -12,7 +12,7 @@ const effDur = (row: PlanRow): number =>
  * is read or displayed, and is zero only here, where the question is "what
  * happens next".
  */
-const advanceBy = (row: PlanRow, eff: number): number => (row.parallel ? 0 : eff);
+const advanceBy = (row: PlanRow, eff: number): number => (row.parallel || row.spans ? 0 : eff);
 
 /** The game whose endings this row belongs to, or null for the main line. */
 const gameOf = (row: PlanRow): number | null => (row.outcome ? row.outcomeGame ?? 1 : null);
@@ -114,8 +114,12 @@ export function computeTiming(
     if (anchor != null) cursor = anchor;
     if (cursor != null) {
       t.startSec = cursor;
+      // A block still HAS its length — half time is fifteen minutes and the
+      // sheet must keep saying so — it simply does not move the show on by
+      // it, because the rows inside it already do. So the row's own end is
+      // its real end, and the cursor advances by nothing.
       t.endSec = cursor + t.effectiveDurationSec;
-      cursor = t.endSec;
+      cursor += advanceBy(rows[i]!, t.effectiveDurationSec);
     }
   };
 
@@ -315,6 +319,8 @@ export interface TimingGap {
 /** The shape findTimingGaps needs from a row — its anchor, and its ending. */
 export interface AnchoredRow {
   hardStartSec: number | null;
+  /** Covers the rows beneath it — see `PlanRow.spans`. */
+  spans?: boolean;
   /** Which alternate ending this row belongs to, if any. See `computeTiming`. */
   outcome?: string | null;
   /** Which game on the day that ending belongs to. */
@@ -373,7 +379,9 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
    */
   const advance = new Array<number>(rows.length).fill(0);
   {
-    const dur = (i: number): number => timing.rows[i]?.effectiveDurationSec ?? 0;
+    // A block's length is its children's, counted once — not twice.
+    const dur = (i: number): number =>
+      rows[i]?.spans ? 0 : timing.rows[i]?.effectiveDurationSec ?? 0;
     const gameAt = (i: number): number | null => (rows[i]?.outcome ? rows[i]!.outcomeGame ?? 1 : null);
     let i = 0;
     while (i < rows.length) {
@@ -506,7 +514,10 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
       }
       lastAnchor = i;
       anchorStart = anchor;
-      expected = anchor + t.effectiveDurationSec;
+      // A block does not move the running order on — the rows inside it do.
+      // Charging its length here as well as theirs is the double-count that
+      // put a quarter-hour overlap on every game sheet at half time.
+      expected = anchor + (row.spans ? 0 : t.effectiveDurationSec);
     } else if (expected != null) {
       expected += advance[i]!;
     }

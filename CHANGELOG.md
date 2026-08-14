@@ -14,6 +14,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Added
+- **A block and its contents can both be true.** "HALF TIME (15 mins)" is a quarter of an hour, and the wrap, the review and the ad reel beneath it are also that quarter of an hour — the same fifteen minutes written twice, once as a block and once as its contents. Counted in sequence the sheet claimed half an hour it has not got, which is what put an overlap at half time on every game sheet. A block now keeps its length everywhere it is read (the sheet still says fifteen minutes, and a countdown on it still counts fifteen) and moves the running order on by nothing, because its children already do. Unlike a pre-record it stays part of the show and still takes a cue: somebody calls half time.
+
+  Found on import by an identity rather than a resemblance — does dropping this row's own length make the chain land EXACTLY on the next printed time? A block's children fill it by construction; a cue that runs before them does not. Across the sample sheets that is true of six rows, five half-times and a half of football, and of nothing else. Two guards earned by measurement: the children must add up to something (where they sum to zero it is two rows on one time, which is simultaneity and not containment — that alone was both of the rule's false positives), and the match must be exact (sixty-seven rows come within a minute and every one is an ordinary cue).
+
+### Added
 - **`make-speed-sim.mts`: a 24-hour soak test built out of a real run sheet, run at speed.** Point it at a match-day sheet and it compresses the day by a divisor and stacks the cycles back to back — a tenth speed turns one match day into about fifty minutes, so a day of testing is roughly thirty consecutive games, each with its own kick-off and therefore its own set of endings. Derived from a real sheet rather than invented, because an invented one only exercises the cases somebody thought of: a real one brings a pre-record shot during the game, a two-minute bell, a block spanning the cues that fill it, and a time typed into a title. It reads the source through the same pipeline the import screen uses, and it reproduces the source's faults faithfully — a sheet with an am/pm typo produces a simulation with that typo once per cycle, which is the point.
 
 ### Changed

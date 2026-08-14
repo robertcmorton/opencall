@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adoptInlineDurations,
+  detectBlocks,
   durationFromMixedCell,
   adoptInlineStarts,
   computeTiming,
@@ -216,5 +217,91 @@ describe("durationFromMixedCell", () => {
     expect(durationFromMixedCell("0:40:00")).toBeNull();
     expect(durationFromMixedCell("FULLBACK WING")).toBeNull();
     expect(durationFromMixedCell("Extra time")).toBeNull();
+  });
+});
+
+describe("detectBlocks: a row whose length covers what follows", () => {
+  const at = (title: string, startSec: number | null, durationSec: number | null): ClassifiedRow => ({
+    ...cue(title, startSec, durationSec),
+  });
+
+  it("marks half time, whose contents fill it exactly", () => {
+    // 8:47 + 60 + 60 + 640 = 8:59:40, which is where the next printed time is.
+    // Charging the block's own 15:00 as well would claim a quarter-hour more.
+    const rows = [
+      at("HALF TIME (15 mins)", 20 * 3600 + 47 * 60, 900),
+      at("Wrap the scores", null, 60),
+      at("Reynolds Review", null, 60),
+      at("TVC Reel 7", null, 640),
+      at("Bulldogs Beats HALF TIME", 20 * 3600 + 59 * 60 + 40, 70),
+    ];
+    detectBlocks(rows);
+    expect(rows.map((r) => r.spans)).toEqual([true, undefined, undefined, undefined, undefined]);
+  });
+
+  it("leaves an ordinary cue that runs BEFORE the rows under it", () => {
+    // Its length is spent, then the children's: the chain needs both.
+    const rows = [
+      at("TVC Reel 1", 13 * 3600, 60),
+      at("Suncorp", null, 30),
+      at("Flight Centre", null, 30),
+      at("Next", 13 * 3600 + 120, 60),
+    ];
+    detectBlocks(rows);
+    expect(rows.every((r) => !r.spans)).toBe(true);
+  });
+
+  it("does not call simultaneity containment", () => {
+    // Children sum to nothing, so "dropping the block lands exactly" only says
+    // the next row starts when this one does. Both of the rule's false
+    // positives across the sample sheets were this shape.
+    const rows = [
+      at("Scorecard", 20 * 3600, 2400),
+      at("note", null, null),
+      at("Next", 20 * 3600, 60),
+    ];
+    detectBlocks(rows);
+    expect(rows.every((r) => !r.spans)).toBe(true);
+  });
+
+  it("requires the match to be exact, not close", () => {
+    // Sixty-seven rows across the sample sheets land within a minute, and
+    // every one of them is an ordinary cue.
+    const rows = [
+      at("Nearly", 13 * 3600, 300),
+      at("a", null, 60),
+      at("b", null, 60),
+      at("Next", 13 * 3600 + 145, 60), // 25s out
+    ];
+    detectBlocks(rows);
+    expect(rows.every((r) => !r.spans)).toBe(true);
+  });
+});
+
+describe("a block is counted once, not twice", () => {
+  const plan2 = (rows: { hardStartSec: number | null; durationSec: number; spans?: boolean }[]): PlanRow[] =>
+    rows.map((r, i) => ({ id: String(i), type: "cue", durationSec: r.durationSec, hardStartSec: r.hardStartSec, spans: r.spans }));
+
+  const sheet = [
+    { hardStartSec: 20 * 3600 + 47 * 60, durationSec: 900, spans: true },
+    { hardStartSec: null, durationSec: 60 },
+    { hardStartSec: null, durationSec: 700 },
+    { hardStartSec: 20 * 3600 + 59 * 60 + 40, durationSec: 70 },
+  ];
+
+  it("reports no overlap where the block covers its contents", () => {
+    expect(findTimingGaps(sheet, computeTiming(plan2(sheet), null))).toEqual([]);
+  });
+
+  it("still shows the block's own length", () => {
+    // Half time is genuinely fifteen minutes and the sheet must keep saying so.
+    const t = computeTiming(plan2(sheet), null);
+    expect(t.rows[0]!.effectiveDurationSec).toBe(900);
+    expect(t.rows[0]!.endSec! - t.rows[0]!.startSec!).toBe(900);
+  });
+
+  it("does not let the block push what comes after it", () => {
+    const t = computeTiming(plan2(sheet), null);
+    expect(t.rows[1]!.startSec).toBe(20 * 3600 + 47 * 60);
   });
 });

@@ -2066,6 +2066,27 @@ th.col-drop-target {
     bottom: auto;
     transform: translateX(-50%) rotate(225deg);
   }
+
+  /* A table ROW must not generate the arrow, or anything else.
+
+     A generated box inside a <tr> becomes an ANONYMOUS TABLE CELL. It takes
+     the first column, every real cell shifts one to the right, and the last
+     one is pushed off the end of the table at zero width — where its text
+     wraps one character per line. Measured on a real run sheet: three rows
+     with two lines of content in them rendered 943px, 705px and 646px tall,
+     against a median of 133px. On a live screen a row taller than the window
+     hides the next cue completely, which is the one thing a run sheet exists
+     to show. It was invisible as a cause because the rows were structurally
+     identical to their neighbours — same cells, no colspan, no rowspan — and
+     only their measured geometry differed.
+
+     Nothing is lost. The bubble is `position: fixed`, placed by
+     keepTipsOnScreen, so it is out of flow and still appears on hovering
+     anywhere in the row. The arrow was already pointing at nothing here, for
+     the reason given where it is defined. */
+  tr[data-tip]::before {
+    content: none;
+  }
 }
 
 /* The live cue has fallen behind the clock and nothing is advancing it. */

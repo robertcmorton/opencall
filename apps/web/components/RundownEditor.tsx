@@ -1668,6 +1668,30 @@ export function RundownEditor({
     return i >= 0 && i < orderedColKeys.length - 1 ? orderedColKeys[i + 1]! : null;
   };
   const fixedStyle = tableStyle(orderedColKeys);
+  /**
+   * Stored column widths, as a share of their own total rather than in pixels.
+   *
+   * The table is `width: 100%` and fixed-layout on the belief that a browser
+   * scales stored pixel widths proportionally to fill it. It does not: fixed
+   * layout honours every width it is given and leaves whatever is left over as
+   * dead space at the end. Once every column had been sized — which happens
+   * the first time anyone drags one, and to the item column too, which is
+   * supposed to be the one that flexes — nothing absorbed the remainder. A
+   * sheet whose widths were saved on a narrower window then ran 1229px of
+   * columns down a 1442px grid: the first column flush to its edge, and 213px
+   * of ruled nothing down the right-hand side.
+   *
+   * As percentages of their own total the same numbers describe the same
+   * layout, and 100% of the grid is exactly the grid. Every proportion the
+   * operator dragged is kept, both edges are pinned at any width, and it costs
+   * one division. Pixels stay in the store — this converts only at the point
+   * of rendering, so the widths remain meaningful if the grid is measured
+   * again.
+   */
+  const colTotalPx = orderedColKeys.reduce((sum, k) => sum + (colWidths[k] ?? 0), 0);
+  const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => colWidths[k] != null);
+  const share = (px: number | undefined): string | number | undefined =>
+    sharing && px != null ? `${((px / colTotalPx) * 100).toFixed(4)}%` : px;
 
   /**
    * The folded columns' values for one row, as a line under the item.
@@ -2522,7 +2546,7 @@ export function RundownEditor({
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: colWidths["rownum"] ?? COL_W.rownum }}>
+              <th data-colkey="rownum" style={{ width: share(colWidths["rownum"] ?? COL_W.rownum) }}>
                 {resizeHandle("rownum", nextColKey("rownum"))}
               </th>
               {orderedColumns.map((c) => {
@@ -2548,7 +2572,14 @@ export function RundownEditor({
                     key={c.id}
                     data-colkey={c.key}
                     className={`${richColClass(c)} ${dragCol && dropCol === c.key && dragCol !== c.key ? "col-drop-target" : ""}`}
-                    style={w ? { width: w, ...(c.kind === "richtext" ? { minWidth: Math.min(w, 140) } : {}) } : undefined}
+                    style={
+                      w
+                        ? {
+                            width: share(w),
+                            ...(c.kind === "richtext" && !sharing ? { minWidth: Math.min(w, 140) } : {}),
+                          }
+                        : undefined
+                    }
                     onDragOver={
                       canEditContent
                         ? (e) => {
@@ -2609,7 +2640,7 @@ export function RundownEditor({
                   return (
                     <Fragment key={c.id}>
                       {th}
-                      <th data-colkey="zero" style={{ width: colWidths["zero"] }} data-tip="Countdown to the next anchored time">
+                      <th data-colkey="zero" style={{ width: share(colWidths["zero"]) }} data-tip="Countdown to the next anchored time">
                         Zero{resizeHandle("zero", nextColKey("zero"))}
                       </th>
                     </Fragment>

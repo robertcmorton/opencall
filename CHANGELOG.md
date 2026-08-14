@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The sheet reaches its own right edge again.** The grid is laid out at full width on the belief that a browser scales stored column widths proportionally to fill it. It does not — a fixed table layout honours every width it is given and leaves whatever is left over as dead space at the end. Once every column had been sized, which happens the first time anyone drags one and catches the item column too (the one that is supposed to flex), nothing absorbed the remainder: a sheet whose widths were saved on a narrower window ran 1229px of columns down a 1442px grid, first column flush to its edge and 213px of ruled nothing down the right-hand side. Widths are now written as a share of their own total instead of in pixels, so the same numbers describe the same layout and 100% of the grid is exactly the grid. Every proportion that was dragged is kept, and both edges stay pinned at any window size.
+
+
+### Fixed
 - **The cue timer counts the live show, and nothing else.** A pre-record is shot while the show goes on around it, and a bell is a warning — they belong on the sheet, they occupy people and cameras, and neither is ever called by the showcaller. Neither can now become the row the show is sitting on. The moment one did, the item countdown was counting something that was not on air and the show's drift was being measured against it, which is how a show came to sit on a nine-second insert with the readout climbing into the red. The refusal is on the server rather than only hidden in the console, so it holds for every device and every replayed command instead of needing to be got right once per screen. These rows can still be *fired*, which logs them to the as-run record without taking the show off air — the affordance they actually want.
 
 

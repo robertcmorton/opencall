@@ -1166,22 +1166,26 @@ kbd {
 .sidenav .menu-item {
   font-size: var(--fs-sm);
 }
+/* The sidenav floats OVER the sheet; it never pushes it.
+   Opening it used to add ~198px of left padding, so the whole sheet slid right
+   and every column re-laid itself out — on a live show, mid-cue, to read a menu
+   that is closed again two seconds later. The reserved space is only ever the
+   34px the toggle itself occupies, open or shut, so the page does not move at
+   all. Narrow screens already worked this way; now every width does. */
 .with-sidenav {
-  --sidenav-pad: 232px;
+  --sidenav-pad: 34px;
   padding-left: var(--sidenav-pad);
   transition: padding-left var(--t-med) var(--ease);
 }
-.with-sidenav.sidenav-closed {
-  --sidenav-pad: 34px;
-}
 @media (max-width: 900px) {
-  .with-sidenav,
-  .with-sidenav.sidenav-closed {
+  .with-sidenav {
     --sidenav-pad: 0px;
   }
-  .sidenav {
-    box-shadow: var(--shadow-overlay);
-  }
+}
+/* Floating at every width, so it reads as sitting above the sheet rather than
+   beside it. */
+.sidenav {
+  box-shadow: var(--shadow-overlay);
 }
 
 /* ---------- Big live timer (center top while the show runs) ---------- */
@@ -1214,7 +1218,11 @@ kbd {
   color: var(--text-3);
   align-self: stretch;
   text-align: center;
-  max-width: 100%;
+  /* Fills the timer, contributes nothing to how wide the timer wants to be:
+     zero intrinsic width, then stretched back to full. Without this the header
+     is sized by whatever the row on air happens to be called. */
+  width: 0;
+  min-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1624,8 +1632,15 @@ kbd {
      itself left the timer at 360 and the controls at 385: a 25px step down the
      middle of the screen, on two boxes that sit directly on top of each other
      and are read as a pair. */
-  --timer-w: 386px;
-  width: var(--timer-w);
+  /* Sized by the controls, not by a number typed here.
+     A fixed 386px was measured off the controls once and then broke the moment
+     the stopwatch face grew two digits: 395px of buttons in a 386px box wraps,
+     and the stopwatch dropped onto a row of its own. `max-content` follows the
+     controls whatever they become. The timer's own label is stopped from
+     contributing (see `.bt-label` below) or the widest row name would size the
+     header again — the very jitter this all started with. */
+  width: max-content;
+  min-width: 300px;
   max-width: 100%;
   display: flex;
   flex-direction: column;
@@ -1643,10 +1658,16 @@ kbd {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   width: 100%;
   box-sizing: border-box;
+}
+/* Only a phone may break the line — and it has no stopwatch to break it for. */
+@media (max-width: 760px) {
+  .show-state-row {
+    flex-wrap: wrap;
+  }
 }
 .topbar-right {
   display: flex;

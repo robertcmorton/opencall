@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Opening the menu no longer shoves the sheet sideways.** It added around 200 pixels of left padding, so the whole run sheet slid right and every column re-laid itself out — during a live show, mid-cue, to read a menu that is closed again two seconds later. The menu now floats over the sheet at every width, which is how narrow screens already behaved; the only space ever reserved is the 34 pixels the button itself occupies, open or shut.
+- **The cue timer and its controls stay on one row.** The shared width was a number measured off the controls once, and it broke the moment the stopwatch face grew two digits for hundredths: 395 pixels of buttons in a 386 pixel box, so the stopwatch dropped onto a row of its own. The width now follows the controls whatever they become, while the timer's label is stopped from contributing to it — otherwise the longest row name would size the header, which is the jitter this all started with.
+
+
 ### Changed
 - **Three phone-only tidies to the show header.** The event clock puts its label and the time on one line instead of two — stacked, it spent two rows of the scarcest screen there is on a label that never changes. The prompter button is gone from a phone: it opens a full screen of its own, so a phone that reaches it has left the sheet entirely, and it costs a slot in the only toolbar row there is. And My role comes back up beside Clock synced rather than sitting alone at the end of a row of its own. All three are unchanged on tablets and desktops, where the room exists.
 

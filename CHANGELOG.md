@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Choosing something from the menu closes it.** The panel floats over the page rather than pushing it aside, and most of what it offers opens *in* the page underneath — History, Join codes and Guest pass all appear at the top of the sheet. Left open, the panel covered the first 176 pixels of the very thing it had just opened. Pushing the page made that impossible and hid the question; floating asks it, and the answer a drawer always gives is to get out of the way once it has been used.
+
+
+### Fixed
 - **The open menu is no longer painted over by the bar above it.** The panel sat below the show's top bar, which was harmless while it pushed the page aside — it never had to cross the header. Now that it floats over the sheet the header stayed where it was and painted straight across the top of it, leaving the first entries as clipped letters behind the sheet's name. A panel that covers the page covers all of it, and the menu button stays one layer above so the way out is never the thing underneath.
 - **A tooltip appeared halfway across the screen from the control it explains.** Hovering the stopwatch put "Start the stopwatch" over on the far right, tucked under My role. The bubbles are positioned in screen coordinates, and the header's centre column was offset with a transform — which quietly makes that column the frame of reference for anything positioned against the screen inside it. The bubble worked out the right coordinate and then had it measured from the wrong origin. The offset is now done in a way that moves the column without changing what its contents are measured against.
 

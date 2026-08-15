@@ -26,10 +26,28 @@ export function WithSideNav({
   useEffect(() => {
     setOpen(window.innerWidth > 760 && localStorage.getItem("oc:sidenav") === "1");
   }, []);
-  const toggle = () => {
-    const next = !open;
+  const setOpenPersisted = (next: boolean) => {
     setOpen(next);
     localStorage.setItem("oc:sidenav", next ? "1" : "0");
+  };
+  const toggle = () => setOpenPersisted(!open);
+
+  /**
+   * Choosing something closes the panel.
+   *
+   * It floats over the page rather than pushing it aside, and most of what it
+   * offers opens IN the page underneath — History, Join codes, Guest pass all
+   * appear at the top of the sheet. Left open, the panel covered the first
+   * 176px of the very thing it had just opened. Pushing the page made that
+   * impossible and hid the question; floating asks it, and the answer a drawer
+   * always gives is to get out of the way once it has been used.
+   *
+   * Delegated, because the settings section is supplied by each page and its
+   * items are not ours to add handlers to one by one.
+   */
+  const closeAfterChoosing = (e: React.MouseEvent<HTMLElement>) => {
+    const chosen = (e.target as HTMLElement).closest("a, button");
+    if (chosen && e.currentTarget.contains(chosen)) setOpenPersisted(false);
   };
 
   return (
@@ -47,7 +65,7 @@ export function WithSideNav({
       >
         {open ? Icon.close : Icon.menu}
       </button>
-      <aside className={`sidenav no-print ${open ? "" : "closed"}`}>
+      <aside className={`sidenav no-print ${open ? "" : "closed"}`} onClick={closeAfterChoosing}>
         <Link href="/" className="sidenav-brand">
           <BrandWordmark size={17} />
         </Link>

@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **No Prev and Next buttons on a live show.** They are how you *walk* a sheet — before the show, with the crew, stepping through to see what is coming — and the walkthrough keeps its own pair. Live they answer the wrong question: a showcaller does not take "the next one", they take a particular item because a producer just said its name, and the sheet already offers that on the row itself where the thing being called can be read. Space and Shift+Space stay, because they are muscle memory, they cost no room on the screen, and they are the one control that can be used without looking down.
+
+### Fixed
+- **The space bar could stop working for the rest of a show, silently.** A key press can arrive addressed to the document rather than to an element, and the check for "am I typing in a cell?" assumed an element. It threw there, and a handler that throws is a handler that is gone — taking the only remaining way to step a live cue with it, without a word on screen.
+
+
 ### Fixed
 - **Choosing something from the menu closes it.** The panel floats over the page rather than pushing it aside, and most of what it offers opens *in* the page underneath — History, Join codes and Guest pass all appear at the top of the sheet. Left open, the panel covered the first 176 pixels of the very thing it had just opened. Pushing the page made that impossible and hid the question; floating asks it, and the answer a drawer always gives is to get out of the way once it has been used.
 

@@ -223,8 +223,12 @@ export function TransportBar({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || !isLive) return;
-      const target = e.target as HTMLElement;
-      if (target.closest("input, textarea, [contenteditable=true]")) return;
+      // Optional call: a keydown can arrive with `document` as its target,
+      // which has no closest(). It threw there, and a handler that throws is a
+      // handler that is gone — taking the only remaining way to step a live
+      // cue with it, for the rest of the session and without a word.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("input, textarea, [contenteditable=true]")) return;
       e.preventDefault();
       step(e.shiftKey ? -1 : 1);
     };
@@ -232,17 +236,22 @@ export function TransportBar({
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (channel.role !== "caller" && channel.role !== "admin") return null;
-  if (!isLive) return null;
-
-  return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      <button className="btn" data-tip="Previous cue (Shift+Space)" onClick={() => step(-1)}>
-        {Icon.prev} Prev
-      </button>
-      <button className="btn btn-primary" data-tip="Next cue (Space)" onClick={() => step(1)}>
-        Next {Icon.next}
-      </button>
-    </div>
-  );
+  /**
+   * No buttons on a live show — the keyboard only.
+   *
+   * Prev and Next are how you WALK a sheet: before the show, with the crew,
+   * stepping through to see what is coming. Live they answer the wrong
+   * question. A showcaller does not take "the next one", they take a
+   * particular item, by name, because a producer just said its name — and the
+   * sheet already offers that on the row itself, where the thing being called
+   * can be read. A blind step beside a running clock is a way to lose your
+   * place with no record of why.
+   *
+   * The walkthrough keeps its own Prev and Next, which is where they belong.
+   *
+   * Space and Shift+Space stay: they are muscle memory, they cost no room on
+   * the screen, and they are the one control a showcaller can use without
+   * looking down. This component still exists to own them.
+   */
+  return null;
 }

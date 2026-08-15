@@ -281,7 +281,18 @@ const NARROW_GRID = 560;
  * so there is nothing to settle.
  */
 const NOMINAL_ROW_PX = 44;
-const cueAnchorTop = (viewportH: number): number => Math.max(0, (viewportH - NOMINAL_ROW_PX) / 2);
+/**
+ * `obscuredBottom` is the part of the sheet something is sitting on top of.
+ *
+ * "You're on" and the timing nudges are docked to the bottom of the SCREEN, so
+ * they cover the last stretch of the sheet without shortening it — the
+ * scroller's height does not change, but what you can see does. Centring in the
+ * full height therefore parked the cue below the middle of the part still
+ * visible, and it appeared to drop the moment the bar arrived. Centre in what
+ * is left.
+ */
+const cueAnchorTop = (viewportH: number, obscuredBottom = 0): number =>
+  Math.max(0, (viewportH - obscuredBottom - NOMINAL_ROW_PX) / 2);
 
 /**
  * Progress-bar fill that only ever animates forwards. Chrome will start the
@@ -800,7 +811,7 @@ export function RundownEditor({
     if (!scroller) return;
     const row = el.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
-    const target = scroller.scrollTop + (row.top - box.top) - cueAnchorTop(box.height);
+    const target = scroller.scrollTop + (row.top - box.top) - cueAnchorTop(box.height, dockBottom);
     scroller.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
   };
 
@@ -841,7 +852,7 @@ export function RundownEditor({
         const i = rows.findIndex((r) => r.id === activeRowId);
         const win = rowWindowRef.current;
         if (i >= 0 && gridEl)
-          gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - cueAnchorTop(gridEl.clientHeight)) });
+          gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - cueAnchorTop(gridEl.clientHeight, dockBottom)) });
       }
       programmaticScroll.current = false;
     }, 400);
@@ -883,7 +894,7 @@ export function RundownEditor({
       if (win.active && i >= 0 && gridEl) {
         programmaticScroll.current = true;
         const rowTop = win.offsetOf(i);
-        gridEl.scrollTo({ top: Math.max(0, rowTop - cueAnchorTop(gridEl.clientHeight)), behavior: "auto" });
+        gridEl.scrollTo({ top: Math.max(0, rowTop - cueAnchorTop(gridEl.clientHeight, dockBottom)), behavior: "auto" });
       }
       if (left > 0) settle = window.setTimeout(() => attempt(left - 1), 150);
       else programmaticScroll.current = false;
@@ -893,7 +904,12 @@ export function RundownEditor({
       cancelled = true;
       window.clearTimeout(settle);
     };
-  }, [focusRowId, followScroll, rowWindow.active, gridEl]);
+    // `dockBottom` is in here so the cue re-centres the moment "You're on"
+    // arrives or leaves. That bar covers the bottom of the sheet without
+    // shortening it, so the middle of what you can SEE moves — and a cue that
+    // was centred a second ago is suddenly sitting low, at the exact moment
+    // the screen is telling somebody they are on.
+  }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom]);
   useEffect(() => {
     if (!activeRowId) return;
     const disengage = () => {

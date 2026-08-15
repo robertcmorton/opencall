@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The progress sweep across the live item moves smoothly.** It was being told a new position four times a second while each move was set to take nearly a second, so it never once arrived before being sent somewhere else — permanently behind, and changing speed every quarter second, which is what made it look like it was stepping rather than sweeping. The movement now takes exactly as long as the gap between updates, so it is one continuous sweep. The wash is a deeper blue while it is at it.
+- **The live item stays in the middle when "You're on" appears.** That bar sits on top of the bottom of the sheet without making the sheet any shorter, so the middle of what you can actually see moves up — and the cue, still centred in the full height, dropped low at the exact moment the screen was telling somebody they were on. The cue is now centred in what is left visible, and it re-centres the instant the bar arrives or goes.
+
+### Fixed
 - **Opening the menu no longer nudges the cue timer sideways.** The room kept clear for the menu button was only reserved while the menu was shut, so opening it handed that space back to the header, the header re-laid itself out, and the timer — which sits centred between two equal sides — slid sideways by half of it. Reading a menu should not move the clock somebody is calling a show against. Measured: every part of the header and the sheet now moves zero pixels when the menu opens.
 
 ### Added

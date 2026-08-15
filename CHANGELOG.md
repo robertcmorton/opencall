@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Row windowing, off by default, waiting for someone to scroll it.** A long sheet puts every row in the page: 3,321 rows became 19,926 cells and 37,122 DOM nodes, of which 24 were on screen. With windowing on, only the rows near the viewport are built and the rest are represented by two empty rows of exactly the right height, so the scrollbar is unchanged. Measured on the 24-hour test sheet: rows rendered 3,321 → 38, DOM nodes 37,131 → 607, and an idle console 95% → 12% of the main thread. Row heights are measured rather than assumed, because a cue sheet's rows are not uniform and a guess would make the scrollbar jump under the thumb of somebody calling a show. **It is off until a person has scrolled a long sheet by hand** — the rendering side is measured, the scrolling side is not, and shipping it on would put that in front of a showcaller at kick-off on the strength of "it ought to work". Turn it on with `localStorage.setItem("oc:virtualrows", "1")` and reload; remove the key to go back. Printing always renders the whole sheet.
+
+
 ## [0.35.0] — 2026-08-15
 
 ### Added

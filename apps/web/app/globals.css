@@ -3123,3 +3123,13 @@ th.col-drop-target {
     margin-left: 0;
   }
 }
+
+/* Stand-ins for the rows outside the render window: they hold the scrollbar
+   honest and must never look like content or catch a click. */
+.row-spacer,
+.row-spacer > td {
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: none;
+}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
+import { useRowWindow } from "../lib/useRowWindow";
 import { Stopwatch } from "./Stopwatch";
 import { ulid } from "ulid";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -596,12 +597,65 @@ export function RundownEditor({
    * resize or a phone turning sideways without a reload.
    */
   const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
   const measureGrid = useCallback((el: HTMLDivElement | null) => {
+    setGridEl(el);
     if (!el) return;
     const read = () => setGridWidth(el.clientWidth);
     read();
     new ResizeObserver(read).observe(el);
   }, []);
+
+  /**
+   * Render only the rows near the viewport — OFF until somebody has scrolled it.
+   *
+   * Opt-in, not opt-out, and deliberately so. The rendering side is measured
+   * and dramatic: 3,321 rows become ~40, 37,000 DOM nodes become ~600, and an
+   * idle console drops from 95% of the main thread to 12%. But the SCROLLING
+   * side is unverified — both automated browsers available here keep their tab
+   * backgrounded, which throttles animation frames, and a backgrounded tab
+   * never dispatches the scroll events this depends on. Every attempt to test
+   * scrolling measured that limitation instead of the feature.
+   *
+   * Shipping it on by default would put an unscrolled window in front of a
+   * showcaller at kick-off on the strength of "it ought to work". So it waits
+   * behind a switch until a human has scrolled a long sheet with their own
+   * hand:
+   *
+   *     localStorage.setItem("oc:virtualrows", "1")   // on, then reload
+   *     localStorage.removeItem("oc:virtualrows")     // back to rendering all
+   *
+   * When it has proven itself the default flips and the full-render path goes.
+   */
+  const [virtualRows, setVirtualRows] = useState(false);
+  useEffect(() => {
+    setVirtualRows(localStorage.getItem("oc:virtualrows") === "1");
+  }, []);
+  const rowWindow = useRowWindow({ count: rows.length, scrollEl: gridEl, enabled: virtualRows });
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+
+  /**
+   * Tell the window how tall the rows it drew actually are.
+   *
+   * A row can render as two `<tr>`s — an alternate-ending banner sits above the
+   * row it introduces — and both belong to the same row's height, or the
+   * spacers come up short and the scrollbar drifts.
+   */
+  useEffect(() => {
+    const tb = tbodyRef.current;
+    if (!tb || !rowWindow.active) return;
+    const indexOf = new Map(rows.map((r, i) => [r.id, i]));
+    const seen = new Map<number, number>();
+    for (const tr of tb.querySelectorAll<HTMLTableRowElement>("tr[data-rowid]")) {
+      const i = indexOf.get(tr.dataset.rowid ?? "");
+      if (i == null) continue;
+      let h = tr.getBoundingClientRect().height;
+      const prev = tr.previousElementSibling;
+      if (prev?.classList.contains("layer-row")) h += prev.getBoundingClientRect().height;
+      seen.set(i, h);
+    }
+    if (seen.size > 0) rowWindow.report(seen);
+  });
   // Set after mount: locale-formatted dates differ between server and client,
   // and rendering one during SSR causes a hydration mismatch.
   const [printedAt, setPrintedAt] = useState("");
@@ -2765,7 +2819,7 @@ export function RundownEditor({
             </tr>
           </thead>
           <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-            <tbody>
+            <tbody ref={tbodyRef}>
               {(() => {
                 // Imported sheets keep THEIR numbering (blank where the sheet
                 // had none); manual rundowns count sequentially.
@@ -2799,7 +2853,18 @@ export function RundownEditor({
                   );
                   return cells;
                 };
-                return rows.map((rowRecord, i) => {
+                const spanAll = orderedColumns.length + (showZero ? 1 : 0) + 1;
+                /**
+                 * Rows outside the window are not built at all.
+                 *
+                 * The early return IS the saving: everything below it — every
+                 * cell, every progress bar, every folded line — is what costs,
+                 * and skipping it is why 3,321 rows can cost what sixty do.
+                 * Their absence is made up by two empty rows of exactly the
+                 * right height, so the scrollbar never notices.
+                 */
+                const body = rows.map((rowRecord, i) => {
+                if (i < rowWindow.from || i >= rowWindow.to) return null;
                 const t = timing.rows[i]!;
                 const mark = branchAt(i);
                 const game = rowRecord.outcomeGame ?? 1;
@@ -3026,6 +3091,22 @@ export function RundownEditor({
                   );
                 return sheetRow;
                 });
+                if (!rowWindow.active) return body;
+                return (
+                  <>
+                    {rowWindow.padTop > 0 && (
+                      <tr aria-hidden className="row-spacer" style={{ height: rowWindow.padTop }}>
+                        <td colSpan={spanAll} />
+                      </tr>
+                    )}
+                    {body}
+                    {rowWindow.padBottom > 0 && (
+                      <tr aria-hidden className="row-spacer" style={{ height: rowWindow.padBottom }}>
+                        <td colSpan={spanAll} />
+                      </tr>
+                    )}
+                  </>
+                );
               })()}
             </tbody>
           </SortableContext>

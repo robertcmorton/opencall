@@ -70,8 +70,9 @@ function face(ms: number): string {
 
 export function Stopwatch() {
   const [state, setState] = useState<Saved>({ startedAtMs: null, accumMs: 0 });
-  const [now, setNow] = useState(() => Date.now());
   const loaded = useRef(false);
+  /** The face is written to directly; see the frame loop below. */
+  const faceRef = useRef<HTMLSpanElement>(null);
 
   // Read the stored value on mount rather than at first render: the server has
   // no localStorage, and reading it during render would differ from the HTML
@@ -106,28 +107,55 @@ export function Stopwatch() {
    * frames fall.
    */
   const running = state.startedAtMs != null;
+  const elapsedNow = (s: Saved, at: number) => s.accumMs + (s.startedAtMs != null ? at - s.startedAtMs : 0);
+
+  /**
+   * The face is written straight to the DOM, not through React.
+   *
+   * It used to set state on every animation frame — sixty React renders a
+   * second for two digits that nobody else on the page depends on. Cheap in
+   * isolation, and not in company: those renders queue behind the sheet's own,
+   * and on a long sheet a render is a couple of hundred milliseconds. The
+   * number stuttered and, worse, so did the press, because the press was
+   * waiting in the same queue.
+   *
+   * Writing textContent skips reconciliation entirely, so the face keeps time
+   * with the screen no matter what the sheet is doing. React still owns the
+   * things that actually change — running or stopped, Reset enabled or not —
+   * which happen a few times a night, not sixty times a second.
+   */
   useEffect(() => {
+    const paint = (at: number) => {
+      if (faceRef.current) faceRef.current.textContent = face(elapsedNow(state, at));
+    };
+    paint(Date.now());
     if (!running) return;
     let frame = 0;
     const tick = () => {
-      setNow(Date.now());
+      paint(Date.now());
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [running]);
+  }, [running, state]);
 
-  const elapsed = state.accumMs + (state.startedAtMs != null ? now - state.startedAtMs : 0);
+  const elapsed = elapsedNow(state, Date.now());
 
   const startStop = () => {
-    setNow(Date.now());
-    setState((s) =>
-      s.startedAtMs != null
-        ? { startedAtMs: null, accumMs: s.accumMs + (Date.now() - s.startedAtMs) }
-        : { ...s, startedAtMs: Date.now() },
-    );
+    const at = Date.now();
+    const next: Saved =
+      state.startedAtMs != null
+        ? { startedAtMs: null, accumMs: state.accumMs + (at - state.startedAtMs) }
+        : { ...state, startedAtMs: at };
+    // Paint before React hears about it. The finger has already moved; waiting
+    // a frame to show that the press landed is the whole of "feels slow".
+    if (faceRef.current) faceRef.current.textContent = face(elapsedNow(next, at));
+    setState(next);
   };
-  const reset = () => setState({ startedAtMs: null, accumMs: 0 });
+  const reset = () => {
+    if (faceRef.current) faceRef.current.textContent = face(0);
+    setState({ startedAtMs: null, accumMs: 0 });
+  };
 
   return (
     <span className="stopwatch">
@@ -137,7 +165,7 @@ export function Stopwatch() {
         onClick={startStop}
         data-tip={running ? "Stop the stopwatch" : elapsed > 0 ? "Start it again from here" : "Start the stopwatch"}
       >
-        <span className="mono">{face(elapsed)}</span>
+        <span className="mono" ref={faceRef}>{face(elapsed)}</span>
       </button>
       <button
         type="button"

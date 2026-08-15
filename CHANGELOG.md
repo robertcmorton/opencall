@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The pointer is a hand over things you can click.** A run sheet's rows select and cue, and a browser gives a plain table row an arrow — which reads as "nothing here". The row number keeps the grab hand, because that one is a drag handle, and text being edited keeps its caret.
+- **A stray arrow no longer follows the mouse.** Tooltips lost their little pointer when the bubble moved to being placed on the screen rather than under the element — but a later rule quietly put it back, so hovering produced a small diamond floating near nothing. The two rules had been arguing in the same file.
+- **The sheet gets the left edge back.** A 34-pixel gutter ran down the entire page to reserve room for a menu button that floats over everything anyway. Only the header band ever sits behind that button, and the header already reserves its own room — so below it the sheet now runs to the edge, which on a wide cue sheet is a column's worth of width returned.
+- **The connection dots sit on the same line as the readouts beside them.** They were a couple of pixels low and set in a different size and case, which is enough to look like a mistake. Two causes: different type, and the dot itself being part of the layout so the line was measured from the dot rather than from the words.
+
+### Changed
+- **The show's controls and the stopwatch are drawn with a line, not a fill.** A grey panel behind outlined red buttons read as "this area is switched off", which is the opposite of what LIVE means. Both are now a hairline around their group, matching each other.
+- **The stopwatch answers the finger immediately.** It was setting React state sixty times a second for two digits nobody else depends on — cheap alone, not in company, because those updates queue behind the sheet's own rendering, and on a long sheet that is a couple of hundred milliseconds. The number stuttered and so did the press, which was waiting in the same queue. The face is now written straight to the screen and the press paints before React hears about it. Measured: press to visible, 0.2ms.
+
+
 ### Changed
 - **A second track now colours its whole row.** A pre-record or a bell runs alongside the show and takes none of its time, and that was said with three pixels of diagonal stripe beside the row number — which read as a rendering fault to the person who asked for it, a fair verdict on a mark meant to be understood at a glance mid-show. The whole row is now tinted, because that is the claim being made: the row is a second track, not just its number. The colour is violet, and deliberately so — every other hue on a row already means something (blue is where the cue is, amber is a timing problem, teal is yours, red and green are late and on time), and a pre-record is none of those. It is simply not the show. Its duration keeps the struck-through treatment that already means "written down but not spent".
 - **A pre-record that is yours still looks like yours.** The old stripe and the my-role rail fought for the same three pixels of the first cell and the stripe won, so a pre-record assigned to you stopped being marked as yours. Colour now says what kind of row it is and the rail is left to say whose it is.

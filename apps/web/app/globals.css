@@ -20,6 +20,9 @@ html {
   --raised: #181c23;
   --overlay: #1e232c;
   --border: #262c36;
+  /* Light enough to read as a drawn line on the dark bar, where --border
+     vanishes into it. For grouping things, not for panelling them. */
+  --hairline: rgba(255, 255, 255, 0.17);
   --border-subtle: #1d222a;
 
   /* Text */
@@ -416,15 +419,28 @@ input.inline-edit {
   }
 }
 
+/* One row of labels, so it reads as one row.
+   These sat a couple of pixels below SHOW / PROJ. END / EVENT TIME and in
+   different type, which is enough to look like a mistake. Two things caused
+   it: they were set in a different size and case from the labels beside them,
+   and the dot itself was a flex item — so the flex box took ITS box as the
+   baseline rather than the text's. The dot is now positioned out of the flow
+   and the type matches, so the whole right-hand side sits on one line. */
 .status-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--fs-xs);
+  position: relative;
+  display: inline-block;
+  padding-left: 11px;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
   color: var(--text-3);
 }
 .status-dot::before {
   content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1189,14 +1205,16 @@ kbd {
    34px the toggle itself occupies, open or shut, so the page does not move at
    all. Narrow screens already worked this way; now every width does. */
 .with-sidenav {
-  --sidenav-pad: 34px;
+  /* NO left gutter. It reserved 34px down the whole page for a button that is
+     `position: fixed` and floats over everything anyway — so the sheet gave up
+     a strip of every row, for its entire length, to hold a space that did not
+     need holding. The menu button only ever overlaps the header band at the
+     top, and the header reserves its own room for it (see `.topbar-head`).
+     Below that the sheet runs to the edge, which on a 400-row cue sheet is a
+     column's worth of width back. */
+  --sidenav-pad: 0px;
   padding-left: var(--sidenav-pad);
   transition: padding-left var(--t-med) var(--ease);
-}
-@media (max-width: 900px) {
-  .with-sidenav {
-    --sidenav-pad: 0px;
-  }
 }
 /* Floating at every width, so it reads as sitting above the sheet rather than
    beside it. */
@@ -1456,8 +1474,11 @@ kbd {
   flex-wrap: wrap;
   gap: 4px;
   padding: 3px 6px;
-  background: var(--overlay);
-  border: 1px solid var(--border);
+  /* A LINE, not a filled panel. A grey fill sitting behind outlined red
+     buttons read as "this whole area is greyed out" — the opposite of what a
+     live show is saying. The border groups them; nothing needs shading. */
+  background: none;
+  border: 1px solid var(--hairline);
   border-radius: var(--r-md);
 }
 /* The face is the button — pressing the number starts and stops it, which is
@@ -1640,6 +1661,11 @@ kbd {
   color: var(--text-2);
 }
 /* The show's state, centred under the cue timer. */
+/* Boxed, like the stopwatch it sits beside.
+   The two are a pair on one line — the show's state, then the stopwatch — and
+   one of them being in a box and the other loose read as an accident. Same
+   border, same fill, same radius, same padding, so the line has two objects on
+   it rather than one object and some buttons. */
 .show-state {
   display: flex;
   align-items: center;
@@ -1647,6 +1673,10 @@ kbd {
   gap: 8px;
   margin-top: 6px;
   flex-wrap: wrap;
+  padding: 3px 6px;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
 }
 .topbar-center {
   justify-self: center;
@@ -1705,7 +1735,12 @@ kbd {
 }
 .topbar-right {
   display: flex;
-  align-items: center;
+  /* BASELINE, not centre. Every readout here is a small label above a big
+     value; the two connection dots are one line with no label. Centred, they
+     floated in the gap between the labels and the numbers and read as sitting
+     lower than everything else. Aligned on the baseline they sit on the same
+     line as the numbers, which is what they are — a reading, not a caption. */
+  align-items: baseline;
   justify-content: flex-end;
   gap: 0.6rem 1rem;
   flex-wrap: wrap;
@@ -1833,6 +1868,17 @@ kbd {
   width: 3px;
   left: 3px;
 }
+/* A row is clickable — it selects, and on the live surface it can be taken —
+   so the pointer says so. Native table rows give you an arrow, which reads as
+   "nothing here". The number cell keeps `grab`, because that one is a drag
+   handle, and text being edited keeps its caret. */
+.rundown-grid tbody tr {
+  cursor: pointer;
+}
+.rundown-grid tbody tr td.row-number {
+  cursor: grab;
+}
+
 .grid-scroll .rundown-grid {
   /* Was 680px, to force the old side-scroll. The sheet fits now, and a
      min-width is exactly the thing that would stop it. */
@@ -2277,18 +2323,13 @@ th.col-drop-target {
     text-transform: none;
     box-shadow: var(--shadow-lg);
   }
-  /* The little pointer, drawn as a rotated square tucked under the bubble. */
-  [data-tip]::before {
-    content: "";
-    left: 50%;
-    bottom: calc(100% + 4px);
-    transform: translateX(-50%) rotate(45deg);
-    height: 8px;
-    width: 8px;
-    background: var(--surface-2, #1b1f27);
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
+  /* NO POINTER. It was dropped a few rules above — "a fixed bubble is no
+     longer anchored to the element's box, so an arrow drawn from that box
+     would point at nothing" — and then quietly resurrected here, which is
+     exactly what it did: the bubble is placed in viewport coordinates by
+     keepTipsOnScreen, the arrow stayed glued to the element, and hovering
+     produced a small stray diamond with nothing on the end of it. The two
+     rules were in the same file arguing with each other. */
   [data-tip]:hover::after,
   [data-tip]:hover::before,
   [data-tip]:focus-visible::after,
@@ -2302,21 +2343,10 @@ th.col-drop-target {
     top: calc(100% + 8px);
     bottom: auto;
   }
-  .show-topbar [data-tip]::before,
-  .format-bar [data-tip]::before {
-    top: calc(100% + 4px);
-    bottom: auto;
-    transform: translateX(-50%) rotate(225deg);
-  }
   /* …and explicitly, for anything else that needs it. */
   [data-tip][data-tip-below]::after {
     top: calc(100% + 8px);
     bottom: auto;
-  }
-  [data-tip][data-tip-below]::before {
-    top: calc(100% + 4px);
-    bottom: auto;
-    transform: translateX(-50%) rotate(225deg);
   }
 
   /* A table ROW must not generate the arrow, or anything else.

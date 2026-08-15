@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -38,7 +39,25 @@ import { projectRundownDoc, type ColumnDef, type ProjectedRow } from "@opencall/
 import { CuePool } from "./CuePool";
 import { ReconcilePanel, findTimingGaps } from "./ReconcilePanel";
 import { KeyTimesEditor } from "./KeyTimes";
-import { CellEditor } from "./CellEditor";
+/**
+ * The cell editor arrives only if somebody edits a cell.
+ *
+ * It carries the rich-text engine, which is 349 kB of the 1.1 MB this route
+ * downloads before it can even open its socket — and it mounts on one path
+ * only: a double-click on a cell (`renderRichCell`, below). A read-only viewer
+ * on a phone at the side of a pitch could never reach it, and was paying for
+ * it on every load anyway.
+ *
+ * Splitting it out would ordinarily trade boot time for a stall on the first
+ * double-click, which on a show night is the worse bargain. So it is fetched
+ * during the first idle moment after the sheet is up, and only for people who
+ * can actually edit — by the time anyone reaches for a cell it is already
+ * there, and the boot no longer waits for it.
+ */
+const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor), {
+  ssr: false,
+  loading: () => <span className="cell-standin" aria-hidden="true" />,
+});
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { LiveReadouts, ShowStateControls, TransportBar } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
@@ -1011,6 +1030,32 @@ export function RundownEditor({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [undoMgr, canEditContent]);
+
+  /**
+   * Fetch the cell editor once the sheet has stopped being busy.
+   *
+   * It is no longer in the boot bundle (see the CellEditor import), which is
+   * the point — but a double-click that then waits on a download is a worse
+   * fault than the one being fixed. An idle callback lands it after the sheet
+   * has finished arriving and rendering, so the first edit is as immediate as
+   * it ever was, and nothing competes with the load to get there.
+   *
+   * Only for people who can edit. A view-only screen never downloads it at
+   * all, which is most of the screens a run sheet is opened on.
+   */
+  useEffect(() => {
+    if (!canEditContent) return;
+    const warm = () => void import("./CellEditor");
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number })
+      .requestIdleCallback;
+    if (ric) {
+      const id = ric(warm, { timeout: 8000 });
+      return () => (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id);
+    }
+    // Safari has no requestIdleCallback; a timer is close enough for a warm-up.
+    const t = window.setTimeout(warm, 3000);
+    return () => window.clearTimeout(t);
+  }, [canEditContent]);
 
   const getFragment = (rowId: string, columnId: string): Y.XmlFragment | null => {
     const yRow = yRows.get(rowId);

@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-08-15
+
+### Added
+- **A public way to ask what build is running.** `GET /api/version` returns the version, commit and build date — the same three facts the badge shows bottom-right of the dashboard, but readable without signing in. The badge needs an authenticated page, so "did the deploy land?" meant logging in and looking; twice this week it was answered from a stale note instead, and the second time the answer was wrong. Nothing is exposed that was not already public: those values are inlined into the JavaScript every visitor downloads.
+
 ### Changed
 - **No Prev and Next buttons on a live show.** They are how you *walk* a sheet — before the show, with the crew, stepping through to see what is coming — and the walkthrough keeps its own pair. Live they answer the wrong question: a showcaller does not take "the next one", they take a particular item because a producer just said its name, and the sheet already offers that on the row itself where the thing being called can be read. Space and Shift+Space stay, because they are muscle memory, they cost no room on the screen, and they are the one control that can be used without looking down.
 

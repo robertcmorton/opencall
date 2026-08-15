@@ -10,6 +10,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The cue timer and the controls under it are one width.** They sit directly on top of each other and are read as a pair, and they were 360px and 385px — a 25px step down the middle of the screen. One width now, owned by the column that holds them rather than by either box.
+- **No back arrow.** It sat in the same wrapping row as the sheet's name and squeezed it into a five-line tower down the side of a tablet, for a job two other things already do: the sheet's name is the way back on any narrow screen, and the sidenav carries Dashboard on a wide one. The name also gets a single line with an ellipsis on narrow screens instead of wrapping.
+- **No stopwatch on a phone.** It wrapped onto a line of its own above the sheet — a whole row of the scarcest screen there is, for something used a few times a night. It stays on tablets and desktops, where the room exists.
+- **The stopwatch reads in hundredths and redraws at screen rate.** Tenths on a ten-per-second timer read as a number being reported rather than a clock running, and a press could land a tenth of a second before the next redraw, so starting and stopping felt like they lagged the finger. It now redraws on the animation frame — which also costs nothing while stopped and suspends on a hidden tab — and shows two decimals.
+
+### Fixed
+- **The TIME and DUR columns stop being squeezed into nonsense on a tablet.** Sharing the width proportionally meant a narrow screen got narrow columns: at tablet width every single time cell was clipped — "12:00:00 AM" needs 109 pixels and had 69. Those columns now hold a floor measured from the text they carry, and the columns holding prose give up the room instead, because they can. On a screen too small to afford the floors they are dropped entirely rather than leaving the item column unreadable — a shortened time beats a sheet nobody can use.
+
+
+### Changed
 - **The cue timer is a fixed object.** Its width used to be whatever its widest line needed, and the widest line is the name of the row on air — 232px on "HOLD", 362px on "Reynolds Review thanks to Azora", a 130px swing. It sits centred, so every cue change shoved the controls either side of it and moved the number under the eye that was reading it. A clock that jumps when the show does is the one thing it must not do. It is now a fixed width and the name truncates instead.
 - **The stopwatch is one instrument, next to the show's controls.** It was three loose buttons strung along the toolbar, reading as unrelated controls that happened to sit near each other — and near the cue timer, which is a different clock entirely and must never be confused with it. It is now a single bordered box sitting on the end of the LIVE · Pause · Stop line, under the cue timer where the clocks belong.
 - **Lap is gone from the stopwatch — start, stop, reset, nothing else.** Splits are something you read back afterwards, and a live sheet is not where anyone reads anything back. Every control on that screen is one more thing to hit by mistake during a show. A measurement already running survives the change.

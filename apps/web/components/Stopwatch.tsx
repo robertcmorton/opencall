@@ -50,15 +50,22 @@ const read = (): Saved => {
   return { startedAtMs: null, accumMs: 0 };
 };
 
-/** mm:ss.t — tenths, because the things being measured are seconds long. */
+/**
+ * mm:ss.hh — hundredths.
+ *
+ * Tenths updated ten times a second and read as a number being reported rather
+ * than a clock running: the last digit stepped, and the eye sees stepping as
+ * lag. Hundredths at screen rate look continuous, which is what "real time"
+ * actually means to someone watching.
+ */
 function face(ms: number): string {
   const total = Math.max(0, ms);
-  const tenths = Math.floor(total / 100) % 10;
+  const hundredths = Math.floor(total / 10) % 100;
   const secs = Math.floor(total / 1000) % 60;
   const mins = Math.floor(total / 60000) % 60;
   const hrs = Math.floor(total / 3600000);
   const body = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  return `${hrs > 0 ? `${hrs}:` : ""}${body}.${tenths}`;
+  return `${hrs > 0 ? `${hrs}:` : ""}${body}.${String(hundredths).padStart(2, "0")}`;
 }
 
 export function Stopwatch() {
@@ -84,14 +91,30 @@ export function Stopwatch() {
     }
   }, [state]);
 
-  // Only tick while it is actually running. A timer that keeps waking the page
-  // to redraw a number that has not changed is a battery cost on a device
-  // somebody is holding all night.
+  /**
+   * Redraw on every frame while running, and not at all while stopped.
+   *
+   * A 100ms interval made both the number and the buttons feel slow: the face
+   * only moved ten times a second, and a press landed up to a tenth before the
+   * next redraw, so starting and stopping looked like they lagged the finger.
+   * An animation frame redraws at screen rate and the press shows immediately.
+   *
+   * It costs nothing while stopped — the effect does not run — and the browser
+   * suspends frames on a hidden tab, so a timer left running overnight is not
+   * a battery cost on a device somebody is holding all night. The number is
+   * still derived from `Date.now()`, so it cannot drift no matter how the
+   * frames fall.
+   */
   const running = state.startedAtMs != null;
   useEffect(() => {
     if (!running) return;
-    const id = window.setInterval(() => setNow(Date.now()), 100);
-    return () => window.clearInterval(id);
+    let frame = 0;
+    const tick = () => {
+      setNow(Date.now());
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [running]);
 
   const elapsed = state.accumMs + (state.startedAtMs != null ? now - state.startedAtMs : 0);

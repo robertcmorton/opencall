@@ -1193,8 +1193,7 @@ kbd {
   flex-direction: column;
   align-items: center;
   gap: 0;
-  width: 360px;
-  max-width: 100%;
+  width: 100%;
   box-sizing: border-box;
   background: var(--overlay);
   border: 1px solid var(--border);
@@ -1434,18 +1433,17 @@ kbd {
 /* The face is the button — pressing the number starts and stops it, which is
    what a stopwatch is. Fixed width so the toolbar does not jump every tenth. */
 .stopwatch .sw-face {
-  min-width: 84px;
+  min-width: 94px;
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
-/* Phones: the face and start/stop only. Laps are a desk activity and the row
-   is already the last line before the sheet. */
+/* Not on a phone at all. It wrapped onto a line of its own above the sheet —
+   a whole row of the scarcest screen there is, given to something used a few
+   times a night. The cue timer and the show's state earn their place there;
+   this does not. It stays on tablets and desktops, where the room exists. */
 @media (max-width: 760px) {
-  .stopwatch .btn:not(.sw-face) {
+  .stopwatch {
     display: none;
-  }
-  .stopwatch .sw-face {
-    min-width: 76px;
   }
 }
 
@@ -1613,10 +1611,16 @@ kbd {
 .topbar-center {
   justify-self: center;
   min-width: 0;
-  /* The clocks stack on one centreline: the cue timer, the show's state, and
-     the stopwatch under both. Column rather than plain block flow because the
-     stopwatch is an inline-flex box and would otherwise hang off to the left
-     of the timer it belongs to. */
+  /* The clocks stack on one centreline: the cue timer, and under it the show's
+     state with the stopwatch on the end. ONE width for both boxes, owned here
+     rather than by either of them — sized to what the controls need, since
+     they are the wider and their labels are fixed. Letting each box size
+     itself left the timer at 360 and the controls at 385: a 25px step down the
+     middle of the screen, on two boxes that sit directly on top of each other
+     and are read as a pair. */
+  --timer-w: 386px;
+  width: var(--timer-w);
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1635,6 +1639,8 @@ kbd {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 .topbar-right {
   display: flex;
@@ -3031,4 +3037,18 @@ th.col-drop-target {
    glance still separates what the sheet said from what it did not. */
 .cell-standin {
   color: var(--text-3);
+}
+
+/* The sheet's name gets ONE line on a narrow screen.
+   In the header's wrapping flex it broke at every space, so a long name became
+   a five-line tower down the left of a tablet — taller than the cue timer
+   beside it, and it pushed the whole sheet down. One line, ellipsis, and the
+   full name is still in the tooltip. */
+@media (max-width: 1024px) {
+  .topbar-name .sheet-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
-import { useIsPhone } from "../lib/useIsPhone";
+import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
 import { Stopwatch } from "./Stopwatch";
 import { ulid } from "ulid";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -1545,13 +1545,15 @@ export function RundownEditor({
   const [editingName, setEditingName] = useState(false);
   const router = useRouter();
   const isPhone = useIsPhone();
+  const isNarrow = useIsNarrow();
   /**
    * The sheet's name doubles as the way back on a phone.
    *
    * Not for a view-only link — those have no dashboard to go back to, and a
    * heading that lands on a sign-in page is worse than one that does nothing.
    */
-  const tapBack = isPhone && mode !== "view";
+  // Tablets too, not just phones — that is where the arrow was worst.
+  const tapBack = isNarrow && mode !== "view";
   /**
    * Renames the sheet. The name lives in the document, so it reaches every
    * open screen at once; the dashboard's copy is updated too, or the list
@@ -1690,8 +1692,68 @@ export function RundownEditor({
    */
   const colTotalPx = orderedColKeys.reduce((sum, k) => sum + (colWidths[k] ?? 0), 0);
   const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => colWidths[k] != null);
-  const share = (px: number | undefined): string | number | undefined =>
-    sharing && px != null ? `${((px / colTotalPx) * 100).toFixed(4)}%` : px;
+
+  /**
+   * The width below which a column stops saying anything.
+   *
+   * A share of a narrow screen is a narrow column: on a tablet TIME fell to
+   * 71px and every one of its cells was clipped — "12:00:00 AM" needs 108.
+   * A floor cannot be a `min-width`, because a fixed table layout sizes its
+   * columns from the specified width alone and ignores it (it computed to
+   * 96px and the column stayed 71). So the floors are honoured HERE, while the
+   * shares are being worked out, and the answer is still a percentage.
+   */
+  const floorFor = (key: string): number => {
+    if (key === "rownum") return 38;
+    const c = orderedColumns.find((x) => x.key === key);
+    // Measured, not guessed: "12:00:00 AM" needs 109px of content and the cell
+    // spends 20 on padding; the longest duration needs 60.
+    return c?.kind === "startTime" ? 130 : c?.kind === "duration" ? 80 : 0;
+  };
+
+  /**
+   * Every column's share of the grid, as a percentage that sums to 100.
+   *
+   * Floors first, then the rest of the room split in the proportions the
+   * operator dragged. Two passes: pinning a column to its floor takes room
+   * from the others, which can push another below ITS floor. Percentages
+   * rather than pixels so the table still meets both its edges exactly.
+   */
+  const colPct: Record<string, string> = {};
+  if (sharing && gridWidth != null && gridWidth > 2) {
+    const avail = gridWidth - 2;
+    const base = Object.fromEntries(orderedColKeys.map((k) => [k, colWidths[k] ?? 0]));
+    const px: Record<string, number> = {};
+    const pinned = new Set<string>();
+    /**
+     * On a screen too small to afford them, the floors are dropped entirely.
+     *
+     * They protect the structural columns, but held on a phone they would take
+     * half the width for a time and a duration and leave the item column — the
+     * thing actually being read — with a few characters. Better a shortened
+     * time than an unreadable sheet, and the phone layout already folds the
+     * other columns into the item cell for exactly this reason.
+     */
+    const floorTotal = orderedColKeys.reduce((sum, k) => sum + floorFor(k), 0);
+    const affordable = floorTotal <= avail * 0.5;
+    for (let pass = 0; affordable && pass < 3; pass++) {
+      const free = orderedColKeys.filter((k) => !pinned.has(k));
+      const pinnedPx = [...pinned].reduce((sum, k) => sum + px[k]!, 0);
+      const freeBase = free.reduce((sum, k) => sum + base[k]!, 0) || 1;
+      for (const k of free) px[k] = ((avail - pinnedPx) * base[k]!) / freeBase;
+      const shortfall = free.filter((k) => floorFor(k) > 0 && px[k]! < floorFor(k));
+      if (shortfall.length === 0) break;
+      for (const k of shortfall) {
+        px[k] = floorFor(k);
+        pinned.add(k);
+      }
+    }
+    const sum = orderedColKeys.reduce((total, k) => total + (px[k] ?? 0), 0) || 1;
+    for (const k of orderedColKeys) colPct[k] = `${(((px[k] ?? 0) / sum) * 100).toFixed(4)}%`;
+  }
+
+  const share = (key: string, px: number | undefined): string | number | undefined =>
+    colPct[key] ?? (sharing && px != null ? `${((px / colTotalPx) * 100).toFixed(4)}%` : px);
 
   /**
    * The folded columns' values for one row, as a line under the item.
@@ -2031,19 +2093,10 @@ export function RundownEditor({
         <div className="topbar-left">
         <div className="topbar-name">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          {/* The way back. It was only in the settings drawer, so getting to
-              the dashboard meant opening a panel and hunting for a link — and
-              after an import there was no back at all. */}
-          {/* Icon only, and a fixed size. As a text button it changed width
-              with the label and sat in the same wrapping flex as the sheet
-              name, so it moved every time the window did. */}
-          {/* Not for someone on a view-only link: they have no dashboard, and
-              a back button that lands on a sign-in page is worse than none. */}
-          {mode !== "view" && (
-            <Link className="back-to-dash" href="/admin" aria-label="Back to the dashboard" data-tip="Back to the dashboard">
-              ←
-            </Link>
-          )}
+          {/* No back arrow. It sat in the same wrapping flex as the sheet name
+              and squeezed it into a five-line tower on a tablet, for a job two
+              other things already do: the sheet's name IS the way back on any
+              narrow screen, and the sidenav carries Dashboard on a wide one. */}
           {/* The sheet's name, changed where it is read. It was set once at
               import from the file name and could only be altered from the
               dashboard — so every sheet was called whatever the PDF was. */}
@@ -2605,7 +2658,7 @@ export function RundownEditor({
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: share(colWidths["rownum"] ?? COL_W.rownum) }}>
+              <th data-colkey="rownum" style={{ width: share("rownum", colWidths["rownum"] ?? COL_W.rownum) }}>
                 {resizeHandle("rownum", nextColKey("rownum"))}
               </th>
               {orderedColumns.map((c) => {
@@ -2634,7 +2687,7 @@ export function RundownEditor({
                     style={
                       w
                         ? {
-                            width: share(w),
+                            width: share(c.key, w),
                             ...(c.kind === "richtext" && !sharing ? { minWidth: Math.min(w, 140) } : {}),
                           }
                         : undefined
@@ -2699,7 +2752,7 @@ export function RundownEditor({
                   return (
                     <Fragment key={c.id}>
                       {th}
-                      <th data-colkey="zero" style={{ width: share(colWidths["zero"]) }} data-tip="Countdown to the next anchored time">
+                      <th data-colkey="zero" style={{ width: share("zero", colWidths["zero"]) }} data-tip="Countdown to the next anchored time">
                         Zero{resizeHandle("zero", nextColKey("zero"))}
                       </th>
                     </Fragment>

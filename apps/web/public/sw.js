@@ -4,7 +4,10 @@
  * channel) is WebSocket-based and always network-only — nothing here caches
  * API responses, so crew never see stale show state.
  */
-const CACHE = "opencall-shell-v2";
+// Bumped so the activate handler drops the v2 cache: any "/" stored by the old
+// worker may have been served as a fallback for a run sheet, and could be from
+// a deploy whose chunks no longer exist.
+const CACHE = "opencall-shell-v3";
 const SHELL = ["/"];
 
 self.addEventListener("install", (event) => {
@@ -40,7 +43,24 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match("/")),
+        .catch(() => {
+          // ONLY "/" may be answered from the shell.
+          //
+          // This used to answer every failed navigation with the cached "/",
+          // which is the landing page. Ask for a run sheet on a flaky
+          // connection and the browser was handed the landing page's HTML
+          // while the run sheet's JavaScript hydrated on top of it — two
+          // different pages in one document. That is a guaranteed hydration
+          // mismatch, and on a phone at the side of a pitch it is a showcaller
+          // staring at a sign-in box instead of the sheet.
+          //
+          // A run sheet is live data; there is no honest offline copy of it to
+          // serve. So the failure is allowed to surface as the failure it is,
+          // and the browser says it cannot reach the network — which is true,
+          // and is something a person can act on.
+          if (url.pathname === "/") return caches.match("/");
+          return Response.error();
+        }),
     );
     return;
   }

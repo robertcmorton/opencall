@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { reportClientError } from "../lib/errorReport";
+import { installGlobalErrorHandlers } from "../lib/errorReport";
 
 // A redeploy invalidates old hashed chunks; browsers holding the previous
 // build then fail dynamic imports ("Loading chunk …", "e[o] is not a
@@ -38,23 +38,15 @@ export function ErrorReporter() {
         .catch(() => undefined);
     }
   }, []);
-  useEffect(() => {
-    const onError = (e: ErrorEvent) => {
-      reportClientError(e.message || "window error", e.error instanceof Error ? e.error.stack : `${e.filename}:${e.lineno}`);
-      recoverIfStaleChunks(e.message ?? "");
-    };
-    const onRejection = (e: PromiseRejectionEvent) => {
-      const reason = e.reason as unknown;
-      const message = reason instanceof Error ? reason.message : String(reason);
-      reportClientError(`unhandled rejection: ${message}`, reason instanceof Error ? reason.stack : undefined);
-      recoverIfStaleChunks(message);
-    };
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onRejection);
-    return () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onRejection);
-    };
-  }, []);
   return null;
 }
+
+/**
+ * Installed as this module is evaluated, not when the component mounts.
+ *
+ * A hydration error is reported during React's commit, before any effect of
+ * ours could have run — see the note in `installGlobalErrorHandlers`. This
+ * module is in the layout's client chunk, so this line runs before hydration
+ * begins and the listener is there to hear it.
+ */
+installGlobalErrorHandlers(recoverIfStaleChunks);

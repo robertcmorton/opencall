@@ -2362,6 +2362,29 @@ export function RundownEditor({
             ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
           </button>
         )}
+        {isShow && showLive && (
+            /* Only for the person pressing it. The night the show and the
+               showcaller disagreed, the fix was a reload — this is the reload,
+               without losing the page: drop this screen's socket, take the
+               server's answer, and put the cue back under the eye. Nobody
+               else's screen moves, because a button that pushed one laptop's
+               idea of the cue to everyone would let a confused laptop move a
+               live show. */
+            <button
+              className="btn btn-sm"
+              data-tip="Ask the server again and jump to the cue it gives — this screen only, nobody else moves"
+              onClick={() => {
+                channel.resync();
+                window.setTimeout(() => {
+                  document
+                    .querySelector("tr.active-row")
+                    ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                }, 400);
+              }}
+            >
+              ⟲ Sync my screen
+            </button>
+        )}
         {/* Undo stays out in the open while the show runs: the timing nudges are
             row changes, so a mis-tapped −30 is undone with one press — which is
             exactly the moment you cannot go hunting through a menu. */}

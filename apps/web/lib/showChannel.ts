@@ -64,6 +64,19 @@ export interface ShowChannel {
    */
   lastCmdError: { action: string; msg: string; at: number } | null;
   clearCmdError: () => void;
+  /**
+   * Throw away what this screen believes and ask the server again.
+   *
+   * Nothing is sent to anyone else and no state is changed — it drops this
+   * socket, and the reconnect that follows re-reads the show. That is already
+   * how a screen recovers from a socket that died quietly; this is the same
+   * path on demand, for the moment when a showcaller does not trust what they
+   * are looking at and cannot wait for a watchdog to agree.
+   *
+   * Deliberately one screen only. A button that pushed this screen's idea of
+   * the cue to everyone else would let one confused laptop move a live show.
+   */
+  resync: () => void;
 }
 
 /**
@@ -82,6 +95,8 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   // command id → what it was trying to do, so a refusal can name the action.
   const sentRef = useRef(new Map<string, CmdAction>());
   const wsRef = useRef<WebSocket | null>(null);
+  /** Set inside the connection effect; see `resync` on the interface. */
+  const resyncRef = useRef<() => void>(() => {});
   const offsetRef = useRef(0);
   const lastSeqRef = useRef(-1);
   // Commands sent while the socket is CONNECTING (or between reconnects) are
@@ -220,6 +235,13 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       }
     };
     const watchdog = setInterval(checkAlive, 5_000);
+    // The manual version of the watchdog losing faith in a socket.
+    resyncRef.current = () => {
+      if (closed) return;
+      const sock = wsRef.current;
+      if (sock && sock.readyState === WebSocket.OPEN) sock.close();
+      else checkAlive();
+    };
 
     /**
      * Check the moment the machine comes back, not on the next tick.
@@ -259,6 +281,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     serverNow: () => Date.now() + offsetRef.current,
     lastCmdError,
     clearCmdError: () => setLastCmdError(null),
+    resync: () => resyncRef.current(),
     sendCmd: (action, rowId, opts) => {
       const id = ulid();
       // Remember what each id was for, so a refusal can name the button.

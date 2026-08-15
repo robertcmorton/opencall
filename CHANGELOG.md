@@ -10,6 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **Sync my screen.** When a screen and the show disagree, this asks the server again and jumps to the cue it gives. It changes nothing for anyone else — it drops this screen's own connection and takes the answer that comes back, which is already how a screen recovers from a connection that died quietly; this is the same recovery on demand, for the moment when somebody does not trust what they are looking at and cannot wait for a watchdog to agree. Deliberately one screen only: a button that pushed one laptop's idea of the cue to everybody would let a confused laptop move a live show.
+
+### Changed
+- **One cue timer, not two.** The "Item" readout in the top-right group showed the same number as the big cue timer two inches to its left — the same computation, not merely a similar one — and a reader who notices two clocks has to check whether they agree. That group answers how the *show* is doing, cumulatively; the item countdown is a question about one row, and it already has a larger home with the row's name and a progress bar attached.
+
+
+### Added
 - **Row windowing, off by default, waiting for someone to scroll it.** A long sheet puts every row in the page: 3,321 rows became 19,926 cells and 37,122 DOM nodes, of which 24 were on screen. With windowing on, only the rows near the viewport are built and the rest are represented by two empty rows of exactly the right height, so the scrollbar is unchanged. Measured on the 24-hour test sheet: rows rendered 3,321 → 38, DOM nodes 37,131 → 607, and an idle console 95% → 12% of the main thread. Row heights are measured rather than assumed, because a cue sheet's rows are not uniform and a guess would make the scrollbar jump under the thumb of somebody calling a show. **It is off until a person has scrolled a long sheet by hand** — the rendering side is measured, the scrolling side is not, and shipping it on would put that in front of a showcaller at kick-off on the strength of "it ought to work". Turn it on with `localStorage.setItem("oc:virtualrows", "1")` and reload; remove the key to go back. Printing always renders the whole sheet.
 
 

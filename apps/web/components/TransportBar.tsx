@@ -49,16 +49,13 @@ export function LiveReadouts({
   })();
   return (
     <>
-      <div>
-        <div className="header-label">Item</div>
-        <div className="header-clock mono" style={{ color: over ? "var(--over)" : "var(--under)" }}>
-          {live.remainingInRowSec != null
-            ? over
-              ? `+${formatDuration(live.rowOverSec)}`
-              : formatDuration(live.remainingInRowSec)
-            : "—"}
-        </div>
-      </div>
+      {/* No "Item" readout here.
+          It showed the same number as the cue timer two inches to its left —
+          the same computation, not merely a similar one — and a reader who
+          notices two clocks has to check whether they agree. This group answers
+          how the SHOW is doing, cumulatively: drift, and where it now ends. The
+          item countdown is a question about one row, and it already has a
+          larger home with the row's name and a progress bar attached. */}
       <div>
         <div className="header-label">Show</div>
         <div

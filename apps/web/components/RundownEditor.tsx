@@ -30,6 +30,7 @@ import {
   parseDurationShorthand,
   parseTimeOfDay,
   serializeCsv,
+  startEditRipples,
   zoneSecondsOfDay,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
@@ -255,6 +256,32 @@ const COL_W_WIDE = { rownum: 46, time: 120, dur: 78, extra: 118 } as const;
 const COL_W_NARROW = { rownum: 26, time: 88, dur: 58, extra: 96 } as const;
 /** Below this the sheet is on a phone, whichever way up it is held. */
 const NARROW_GRID = 560;
+
+/**
+ * Where the cue sits in the sheet — one place, and a row's height gets no vote.
+ *
+ * The old sum centred the row's MIDDLE: it subtracted half of the row's OWN
+ * height, so the row's TOP landed somewhere different for every row. Measured
+ * on a real sheet in an 803px viewport, rows run 32px to 95px tall and the
+ * cue's top landed anywhere between 386px and 354px — it walked up and down the
+ * screen as the show advanced through short cues and three-line notes. The eye
+ * tracks the top edge of the highlighted row, so that reads as a sheet that
+ * never settles.
+ *
+ * Centring a NOMINAL row instead of the real one pins the position while
+ * keeping "middle" true: an ordinary row still lands centred, and a tall one
+ * extends further down from the same starting line — which is the right way
+ * round, because a long row is read from its top.
+ *
+ * Every path that moves the sheet to the cue goes through this: the exact
+ * centring, and the approximate jump the row window makes when the live row is
+ * not drawn yet. Those two used to disagree — the jump aimed at half the
+ * viewport, 401px here, against 354-386 for the centring — so the sheet landed
+ * in one place and then shifted up to 47px to its final one. One anchor now,
+ * so there is nothing to settle.
+ */
+const NOMINAL_ROW_PX = 44;
+const cueAnchorTop = (viewportH: number): number => Math.max(0, (viewportH - NOMINAL_ROW_PX) / 2);
 
 /**
  * Progress-bar fill that only ever animates forwards. Chrome will start the
@@ -767,7 +794,7 @@ export function RundownEditor({
     if (!scroller) return;
     const row = el.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
-    const target = scroller.scrollTop + (row.top - box.top) - (box.height - row.height) / 2;
+    const target = scroller.scrollTop + (row.top - box.top) - cueAnchorTop(box.height);
     scroller.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
   };
 
@@ -807,7 +834,8 @@ export function RundownEditor({
         // go to where it will be and let the follow effect centre it.
         const i = rows.findIndex((r) => r.id === activeRowId);
         const win = rowWindowRef.current;
-        if (i >= 0 && gridEl) gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - gridEl.clientHeight / 2) });
+        if (i >= 0 && gridEl)
+          gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - cueAnchorTop(gridEl.clientHeight)) });
       }
       programmaticScroll.current = false;
     }, 400);
@@ -849,7 +877,7 @@ export function RundownEditor({
       if (win.active && i >= 0 && gridEl) {
         programmaticScroll.current = true;
         const rowTop = win.offsetOf(i);
-        gridEl.scrollTo({ top: Math.max(0, rowTop - gridEl.clientHeight / 2), behavior: "auto" });
+        gridEl.scrollTo({ top: Math.max(0, rowTop - cueAnchorTop(gridEl.clientHeight)), behavior: "auto" });
       }
       if (left > 0) settle = window.setTimeout(() => attempt(left - 1), 150);
       else programmaticScroll.current = false;
@@ -1686,12 +1714,27 @@ export function RundownEditor({
       const sec = parseTimeOfDay(trimmed);
       if (sec != null && sec !== currentSec) {
         const delta = currentSec != null ? sec - currentSec : 0;
+        const order = yOrder.toArray();
+        const idx = order.indexOf(rowId);
+        /**
+         * Move the show, or correct one row — and they are not the same edit.
+         *
+         * Shifting every later time by the same amount is right when the show
+         * is being re-planned. It was catastrophic when the edit was a repair:
+         * putting an "am" back to "pm" is a twelve-hour change, so every fixed
+         * time below it moved twelve hours too and an 8 PM item came back as
+         * 8 AM. Those rows were already correct — being wrong was this row's
+         * problem alone.
+         *
+         * Order decides. Stays in order: the show moved, everything follows.
+         * Was out of order, or is being taken out of order: a value is being
+         * fixed, and nothing else is touched.
+         */
+        const starts = order.map((id) => (yRows.get(id)?.get("hardStartSec") as number | null | undefined) ?? null);
+        const ripples = idx >= 0 && delta !== 0 && startEditRipples(starts, idx, currentSec, sec);
         doc.transact(() => {
           yRows.get(rowId)?.set("hardStartSec", sec);
-          if (delta === 0) return;
-          const order = yOrder.toArray();
-          const idx = order.indexOf(rowId);
-          if (idx < 0) return;
+          if (!ripples || idx < 0) return;
           for (let i = idx + 1; i < order.length; i++) {
             const later = yRows.get(order[i]!);
             const fixed = later?.get("hardStartSec") as number | null | undefined;

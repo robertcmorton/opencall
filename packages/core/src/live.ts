@@ -533,6 +533,59 @@ export function rowsOnAt(
 }
 
 /** A start time the sheet's own order says cannot be right. */
+/**
+ * Does editing a row's start time move the rest of the show with it?
+ *
+ * Changing a start time shifts every fixed time below it by the same amount,
+ * which is right for the thing it was built for: the show is running ten
+ * minutes late, so everything after moves ten minutes later.
+ *
+ * It is badly wrong for the other reason people edit a time — fixing one that
+ * was already wrong. Correcting an "am" typed for a "pm" is a twelve-hour
+ * change, so every row below it moved twelve hours too, and an 8 PM item came
+ * back as 8 AM. The rows below were CORRECT before the edit; the whole point
+ * of the edit was that this one row was not.
+ *
+ * The two are told apart by order. A run sheet is chronological, so:
+ *
+ *  · a row that sits in order, moved to somewhere still in order, is the show
+ *    being re-planned — everything after it follows;
+ *  · a row that was out of order, or one being moved out of order, is a value
+ *    being corrected — nothing else is touched.
+ *
+ * Same reading of "wrong" that `checkStartTimes` uses, which is what makes a
+ * meridiem repair land here without needing a rule of its own: putting 5:26 AM
+ * back to 5:26 PM between rows at 5:25 PM and 5:26 PM restores the order, so
+ * it corrects rather than shifts.
+ */
+export function startEditRipples(
+  starts: readonly (number | null)[],
+  index: number,
+  fromSec: number | null,
+  toSec: number,
+): boolean {
+  if (fromSec == null) return false; // a row given its first time moves nothing
+  let above: number | null = null;
+  for (let i = index - 1; i >= 0; i--) {
+    const s = starts[i];
+    if (s != null) {
+      above = s;
+      break;
+    }
+  }
+  let below: number | null = null;
+  for (let i = index + 1; i < starts.length; i++) {
+    const s = starts[i];
+    if (s != null) {
+      below = s;
+      break;
+    }
+  }
+  // Equal is in order: rows sharing a moment are ordinary on a run sheet.
+  const inOrder = (sec: number): boolean => (above == null || sec >= above) && (below == null || sec <= below);
+  return inOrder(fromSec) && inOrder(toSec);
+}
+
 export interface StartTimeWarning {
   /** Row index in the sheet. */
   index: number;

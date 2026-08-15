@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The open menu is no longer painted over by the bar above it.** The panel sat below the show's top bar, which was harmless while it pushed the page aside — it never had to cross the header. Now that it floats over the sheet the header stayed where it was and painted straight across the top of it, leaving the first entries as clipped letters behind the sheet's name. A panel that covers the page covers all of it, and the menu button stays one layer above so the way out is never the thing underneath.
+- **A tooltip appeared halfway across the screen from the control it explains.** Hovering the stopwatch put "Start the stopwatch" over on the far right, tucked under My role. The bubbles are positioned in screen coordinates, and the header's centre column was offset with a transform — which quietly makes that column the frame of reference for anything positioned against the screen inside it. The bubble worked out the right coordinate and then had it measured from the wrong origin. The offset is now done in a way that moves the column without changing what its contents are measured against.
+
+
+### Fixed
 - **The console stops rebuilding the whole sheet four times a second.** The live countdowns are sampled every 250ms so a second is never seen to be missed, and each sample produced a new object — which the sheet's render reads, so every row was rebuilt. Idle, touching nothing, a long sheet spent three quarters of its main thread rebuilding a table to produce about thirty DOM changes across three rows, and every press had to queue behind a rebuild already under way. The clock is still sampled four times a second; it now only publishes when a value that is actually SHOWN has changed, and everything shown is whole seconds. The progress bar keeps its smoothness for free, being a CSS width with a linear transition, so it interpolates between the per-second steps.
 
 

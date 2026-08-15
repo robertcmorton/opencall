@@ -39,7 +39,7 @@ import { CuePool } from "./CuePool";
 import { ReconcilePanel, findTimingGaps } from "./ReconcilePanel";
 import { KeyTimesEditor } from "./KeyTimes";
 import { CellEditor } from "./CellEditor";
-import { GuestPassPanel, HistoryPanel, JoinCodesPanel } from "./SharePanels";
+import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { LiveReadouts, ShowStateControls, TransportBar } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
@@ -455,7 +455,7 @@ export function RundownEditor({
     window.localStorage.setItem(OUTCOME_LAYOUT_KEY, v);
   };
   const [durationPopover, setDurationPopover] = useState<string | null>(null); // rowId
-  const [panel, setPanel] = useState<"guest" | "history" | "join" | "info" | null>(null);
+  const [panel, setPanel] = useState<"history" | "join" | "info" | null>(null);
   const [reconciling, setReconciling] = useState(false);
   // The timing-check issue currently on screen: its rows are highlighted in
   // the grid and the disagreeing row is scrolled into view.
@@ -2192,10 +2192,6 @@ export function RundownEditor({
             <span className="check" />
             Save as template
           </button>
-          <button type="button" className="menu-item" onClick={() => setPanel(panel === "guest" ? null : "guest")}>
-            <span className="check" />
-            Guest pass
-          </button>
           {(meta.showInfo?.length ?? 0) > 0 && (
             <button type="button" className="menu-item" onClick={() => setPanel(panel === "info" ? null : "info")}>
               <span className="check" />
@@ -2208,7 +2204,7 @@ export function RundownEditor({
           </button>
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "join" ? null : "join")}>
             <span className="check" />
-            Join codes
+            View-only links
           </button>
         </SideNavSection>
       )}
@@ -2640,11 +2636,6 @@ export function RundownEditor({
         />
       )}
 
-      {panel === "guest" && (
-        <div className="no-print">
-          <GuestPassPanel rundownId={rundownId} columns={columns} onClose={() => setPanel(null)} />
-        </div>
-      )}
       {panel === "info" && (
         <div className="panel no-print" style={{ display: "grid", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>

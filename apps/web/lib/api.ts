@@ -126,6 +126,16 @@ export interface SnapshotSummary {
 
 export interface JoinCodeSummary {
   id: string;
+  /**
+   * "join" for a view-only link; "guest" for an older guest pass.
+   *
+   * Guest passes are no longer issued, but ones already handed out are listed
+   * so they can be revoked — which, while this endpoint filtered them out, was
+   * not possible from anywhere in the app.
+   */
+  kind?: string;
+  /** The guest-pass token, for the `/guest/<token>` URL. Guest passes only. */
+  token?: string | null;
   joinCode: string | null;
   role: string;
   /** Who this code is for — the joiner's identity on every screen. */
@@ -184,8 +194,6 @@ export const api = {
   deleteCompany: (id: string) => request<{ id: string }>(`/companies/${id}`, { method: "DELETE" }),
   patchCompany: (id: string, body: { name?: string; logo?: string | null }) =>
     request<{ id: string }>(`/companies/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  createGuestPass: (body: { rundownId: string; columns?: Record<string, boolean> }) =>
-    request<{ token: string }>("/guest-passes", { method: "POST", body: JSON.stringify(body) }),
   joinCodes: (rundownId: string) => request<JoinCodeSummary[]>(`/rundowns/${rundownId}/join-codes`),
   createJoinCode: (rundownId: string, role: "caller" | "editor" | "follower", label?: string) =>
     request<{ code: string; role: string; label: string | null }>(`/rundowns/${rundownId}/join-codes`, {

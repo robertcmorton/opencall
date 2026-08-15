@@ -14,59 +14,6 @@ const panelStyle: React.CSSProperties = {
   maxWidth: 580,
 };
 
-export function GuestPassPanel({ rundownId, columns, onClose }: { rundownId: string; columns: ColumnDef[]; onClose: () => void }) {
-  const richColumns = columns.filter((c) => c.kind === "richtext");
-  const [visible, setVisible] = useState<Record<string, boolean>>(
-    Object.fromEntries(richColumns.map((c) => [c.key, true])),
-  );
-  const [url, setUrl] = useState<string | null>(null);
-
-  return (
-    <div className="panel" style={panelStyle}>
-      <strong>Guest pass — read-only link, column visibility per pass</strong>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        {richColumns.map((c) => (
-          <label key={c.id} style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={visible[c.key] ?? true}
-              onChange={(e) => setVisible((v) => ({ ...v, [c.key]: e.target.checked }))}
-            />
-            {c.title}
-          </label>
-        ))}
-      </div>
-      {url ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <code style={{ background: "var(--bg)", border: "1px solid var(--border-subtle)", padding: "4px 8px", borderRadius: 4, overflowWrap: "anywhere" }}>{url}</code>
-          <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(url)}>
-            Copy
-          </button>
-          <a className="btn btn-sm" href={url} style={{ textDecoration: "none" }}>
-            Open
-          </a>
-        </div>
-      ) : (
-        <div>
-          <button
-            className="btn btn-sm"
-            onClick={() =>
-              void api
-                .createGuestPass({ rundownId, columns: visible })
-                .then(({ token }) => setUrl(`${window.location.origin}/guest/${token}`))
-            }
-          >
-            Create link
-          </button>
-        </div>
-      )}
-      <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onClose}>
-        Close
-      </button>
-    </div>
-  );
-}
-
 /**
  * View-only links, and who is holding them.
  *
@@ -144,7 +91,15 @@ export function JoinCodesPanel({
   onClose: () => void;
 }) {
   const [codes, setCodes] = useState<
-    { id: string; joinCode: string | null; role: string; label: string | null; columns?: Record<string, boolean> | null }[]
+    {
+      id: string;
+      kind?: string;
+      token?: string | null;
+      joinCode: string | null;
+      role: string;
+      label: string | null;
+      columns?: Record<string, boolean> | null;
+    }[]
   >([]);
   const [editingCols, setEditingCols] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
@@ -158,11 +113,17 @@ export function JoinCodesPanel({
   const urlFor = (code: string) => `${window.location.origin}/view/${rundownId}?code=${code}`;
   const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 
-  // Codes issued before caller and editor links were withdrawn. They no longer
-  // open anything — saying so is better than leaving them in a list looking
-  // like they work.
-  const withdrawn = codes.filter((c) => c.role !== "follower");
-  const live = codes.filter((c) => c.role === "follower");
+  // Three states, and they are genuinely different things.
+  //
+  //   live      — the one kind of link there is now.
+  //   guests    — the older "guest pass": a different URL that still opens the
+  //               sheet read-only, but asks nobody for a name, so its holders
+  //               never appear in the list below. No longer issued. Listed
+  //               here because until now there was no way to revoke one at all.
+  //   withdrawn — caller and editor codes. These are refused outright.
+  const live = codes.filter((c) => c.kind !== "guest" && c.role === "follower");
+  const guests = codes.filter((c) => c.kind === "guest");
+  const withdrawn = codes.filter((c) => c.kind !== "guest" && c.role !== "follower");
 
   return (
     <div className="panel" style={panelStyle}>
@@ -234,6 +195,41 @@ export function JoinCodesPanel({
         ))}
       </ul>
       {live.length === 0 && <span style={{ color: "var(--text-3)" }}>No links yet.</span>}
+
+      {guests.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <strong style={{ color: "var(--warn)" }}>Older guest links — still open</strong>
+          <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)", marginBottom: 6 }}>
+            Guest passes are no longer issued. These still open the sheet read-only, but they never asked for a name, so
+            whoever is holding them will not appear below. Revoke them once you have replaced them with a view-only link.
+          </span>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            {guests.map((c) => (
+              <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                <span style={{ color: "var(--text-2)", minWidth: 120 }}>
+                  {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed guest pass</span>}
+                </span>
+                {c.token && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/guest/${c.token}`)}
+                  >
+                    Copy link
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm btn-ghost"
+                  style={{ color: "var(--over)" }}
+                  data-tip="Revoke: this link stops working immediately, for everyone holding it"
+                  onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
+                >
+                  Revoke
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {withdrawn.length > 0 && (
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>

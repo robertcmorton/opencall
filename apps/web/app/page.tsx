@@ -152,10 +152,10 @@ export default function Landing() {
           {busy ? "Checking…" : "Join"}
         </button>
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
-          Your code decides what you can do: <strong>caller</strong> codes open the full console,{" "}
-          <strong>editor</strong> codes open the editor without transport, <strong>crew</strong> codes open the
-          read-only view. Personal, company, and admin tokens (<code>usr_…</code>, <code>co_…</code>) sign you in to
-          the dashboard.
+          A code opens the run sheet <strong>read-only</strong> — that is the only thing a code does. Running or
+          editing a show needs an account, because a code gets photographed off a wall and forwarded out of a group
+          chat. Personal, company, and admin tokens (<code>usr_…</code>, <code>co_…</code>) sign you in to the
+          dashboard.
         </p>
       </form>
 

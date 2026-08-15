@@ -1591,9 +1591,14 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/join-codes$/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!;
         if (!(await requireEditor(rundownId))) return true;
+        // Both kinds, deliberately. Guest passes are no longer issued, but ones
+        // handed out before they were withdrawn are still open on somebody's
+        // phone — and while this list filtered them out there was no way to
+        // revoke one from the app at all. A live link nobody can kill is worse
+        // than an untidy list.
         const rows = await db.query.shareTokens.findMany({
-          where: and(eq(schema.shareTokens.rundownId, rundownId), eq(schema.shareTokens.kind, "join")),
-          columns: { id: true, joinCode: true, role: true, label: true, revokedAt: true, columnVisibility: true },
+          where: eq(schema.shareTokens.rundownId, rundownId),
+          columns: { id: true, kind: true, token: true, joinCode: true, role: true, label: true, revokedAt: true, columnVisibility: true },
         });
         json(
           res,
@@ -1803,25 +1808,18 @@ export function createApiHandler(
         return true;
       }
 
+      /**
+       * Guest passes are no longer issued. There is one kind of link.
+       *
+       * This minted a second, parallel share — a different URL shape, no name
+       * asked for, no revoke button, and invisible in the list of who has the
+       * sheet open. Two ways to do one thing, and the weaker one was the one
+       * that could not be seen or withdrawn. Passes already handed out keep
+       * working (read-only, as they always were) and can now be revoked from
+       * the same panel as everything else.
+       */
       if (req.method === "POST" && pathname === "/guest-passes") {
-        const body = await readJson(req);
-        const rundownId = String(body.rundownId ?? "");
-        if (!(await requireEditor(rundownId))) return true;
-        const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId) });
-        if (!rundown) {
-          json(res, 404, { error: "rundown not found" });
-          return true;
-        }
-        const token = ulid();
-        await db.insert(schema.shareTokens).values({
-          id: ulid(),
-          rundownId,
-          kind: "guest",
-          token,
-          role: "guest",
-          columnVisibility: (body.columns as Record<string, boolean> | undefined) ?? null,
-        });
-        json(res, 201, { token });
+        json(res, 410, { error: "Guest passes have been withdrawn. Use a view-only link." });
         return true;
       }
 

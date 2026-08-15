@@ -1873,6 +1873,17 @@ kbd {
   width: 3px;
   left: 3px;
 }
+/* A dropdown opens on click, so it points like everything else that does.
+   Browsers give <select> an arrow by default, and next to buttons that all say
+   "clickable" a control that says "nothing here" reads as disabled. Text inputs
+   keep their caret — those you type into, you do not press. */
+select {
+  cursor: pointer;
+}
+select:disabled {
+  cursor: default;
+}
+
 /* A row is clickable — it selects, and on the live surface it can be taken —
    so the pointer says so. Native table rows give you an arrow, which reads as
    "nothing here". The number cell keeps `grab`, because that one is a drag

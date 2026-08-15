@@ -426,10 +426,15 @@ export function RundownEditor({
   rundownId,
   mode = "show",
   joinCode,
+  initialEpoch,
+  initialViewingClosed,
 }: {
   rundownId: string;
   mode?: EditorMode;
   joinCode?: string;
+  /** Both answered by the server render where it can be — see the show page. */
+  initialEpoch?: number;
+  initialViewingClosed?: boolean;
 }) {
   const isShow = mode === "show";
   /**
@@ -448,7 +453,7 @@ export function RundownEditor({
   const mayEditSheet = mode === "edit";
   const lock = useEditLock(rundownId, mayEditSheet);
   const canEditContent = mode === "show" ? true : mayEditSheet ? lock.mine : false;
-  const { doc, revision, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode);
+  const { doc, revision, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode, initialEpoch);
   /**
    * Read the whole document once per CHANGE, not once per render.
    *
@@ -497,7 +502,8 @@ export function RundownEditor({
     [channel.sport, customTypes],
   );
   const live = useLiveTiming(channel, timing);
-  const activeRowId = channel.show?.state === "running" || channel.show?.state === "paused" ? channel.show.activeRowId : null;
+  const showIsLive = channel.show?.state === "running" || channel.show?.state === "paused";
+  const activeRowId = showIsLive ? channel.show!.activeRowId : null;
   // Pre-show walkthrough cursor — shared across every connected device.
   const walkRowId = !activeRowId ? (channel.show?.walkRowId ?? null) : null;
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
@@ -1663,13 +1669,17 @@ export function RundownEditor({
    * read-only accounts stop opening it; whoever calls or edits the show is
    * unaffected, so this is always reversible by the people who did it.
    */
-  const [viewingClosed, setViewingClosed] = useState(false);
+  const [viewingClosed, setViewingClosed] = useState(initialViewingClosed ?? false);
   useEffect(() => {
+    // The server render already asked, in the same call that fetched the epoch
+    // — this used to be a SECOND request to the very same endpoint, from the
+    // same page load, moments apart.
+    if (initialViewingClosed != null) return;
     void api
       .rundownEpoch(rundownId)
       .then((r) => setViewingClosed(r.viewingClosed))
       .catch(() => {});
-  }, [rundownId]);
+  }, [rundownId, initialViewingClosed]);
   const setViewing = (closed: boolean): void => {
     if (
       closed &&
@@ -2474,7 +2484,13 @@ export function RundownEditor({
                 orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
                 preflight={preflight}
               />
-              <Stopwatch />
+              {/* Only once the show is actually running.
+                  Walking the sheet before the doors open is planning, not
+                  timing: there is nothing happening to measure, and a stopwatch
+                  sitting there invites someone to start it during the
+                  walkthrough and then wonder, an hour later, what the number on
+                  it refers to. It appears with the show. */}
+              {showIsLive && <Stopwatch />}
             </div>
           )}
         </div>

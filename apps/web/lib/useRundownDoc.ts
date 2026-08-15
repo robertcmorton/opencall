@@ -110,8 +110,16 @@ function describeRefusal(reason: string, identity: string | null, signedIn: bool
 export function useRundownDoc(
   rundownId: string,
   joinCode?: string,
+  /**
+   * The epoch, already known — see the note on the show page.
+   *
+   * When the server render has it, the socket opens on the first frame instead
+   * of after a cross-origin round trip. Left undefined, everything behaves
+   * exactly as it did.
+   */
+  initialEpoch?: number,
 ): { doc: Y.Doc; revision: number; connected: boolean; synced: boolean; status: DocStatus } {
-  const [epoch, setEpoch] = useState<number | null>(null);
+  const [epoch, setEpoch] = useState<number | null>(initialEpoch ?? null);
   const [doc, setDoc] = useState(() => new Y.Doc());
   const [connected, setConnected] = useState(false);
   // The socket opening is not the same as the CONTENT arriving: a long sheet
@@ -152,6 +160,11 @@ export function useRundownDoc(
       });
 
   useEffect(() => {
+    // Already answered by the server render — connect, do not ask again.
+    if (initialEpoch != null) {
+      setEpoch(initialEpoch);
+      return;
+    }
     let cancelled = false;
     setPhase("fetching epoch");
     void fetchEpoch(rundownId).then((e) => {
@@ -171,7 +184,7 @@ export function useRundownDoc(
     return () => {
       cancelled = true;
     };
-  }, [rundownId]);
+  }, [rundownId, initialEpoch]);
 
   useEffect(() => {
     if (epoch == null) return;

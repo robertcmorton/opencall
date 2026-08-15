@@ -41,6 +41,18 @@ export interface RowWindow {
   report: (heights: Map<number, number>) => void;
   /** True when the window is actually narrowing what renders. */
   active: boolean;
+  /**
+   * Where a row sits from the top of the table, whether or not it is rendered.
+   *
+   * This is what makes following the cue possible at all under a window. The
+   * follow used to look up `tr.active-row` and centre the element it found —
+   * and when the cue moved outside the rendered slice there WAS no element, so
+   * it retried twenty times and gave up. The sheet kept perfect time and
+   * simply stopped showing where it was. Scrolling to the offset brings the
+   * row into the window, after which the element exists and can be centred
+   * exactly.
+   */
+  offsetOf: (index: number) => number;
 }
 
 export function useRowWindow({
@@ -125,8 +137,10 @@ export function useRowWindow({
     if (changed) bump((n) => n + 1);
   }, []);
 
+  const offsetOf = (index: number) => offsets[Math.max(0, Math.min(index, count))] ?? 0;
+
   const active = enabled && !printing && count > 0;
-  if (!active) return { from: 0, to: count, padTop: 0, padBottom: 0, report, active: false };
+  if (!active) return { from: 0, to: count, padTop: 0, padBottom: 0, report, active: false, offsetOf };
 
   const first = view.top - overscanPx;
   const last = view.top + (view.height || 800) + overscanPx;
@@ -142,5 +156,6 @@ export function useRowWindow({
     padBottom: Math.max(0, offsets[count]! - offsets[Math.max(to, from + 1)]!),
     report,
     active: true,
+    offsetOf,
   };
 }

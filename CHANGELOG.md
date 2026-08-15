@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **With row windowing on, the sheet follows the cue again.** Following the cue worked by finding the live row on the page and centring it — and under a window the live row is often not on the page at all, so it searched, found nothing, and stopped. The sheet kept perfect time and simply stopped showing where it was, which reads exactly like the connection having died. The window knows where every row sits whether it is drawn or not, so following now goes to that position first, which brings the row into the window, and then centres it exactly. Sync Cue does the same. Measured: from the top of a 3,321-row sheet with the live row not rendered at all, one press lands on it in a quarter of a second.
+- **The catch-up no longer works from stale measurements.** Each retry had captured the row heights known when it started, so on a cold load — when nothing has been measured and every row is a guess — it scrolled to the same wrong place twenty times and gave up. It now reads the freshest measurements each time, so each attempt is better than the last and it settles in two or three rather than never.
+
+
 ### Changed
 - **One Sync Cue, and it lives over the sheet.** "Sync Cue" scrolled back to the row this screen already believed was live; "Sync my screen" dropped the connection and asked the server. Both finished by centring the live row, so whenever the screen was right — which is nearly always — they did visibly the same thing, and the difference only appeared on the night the screen was wrong. That is the worst imaginable night to be choosing between two similar buttons. There is now one action: ask the server what the cue is, then go to it. The reconnect costs a moment and is invisible when nothing is wrong, which is a fair price for never having to know which button was the one that actually fixed it. Still this screen only — a button that pushed one laptop's idea of the cue to everybody would let a confused laptop move a live show. It appears where it is needed: floating over the sheet the moment you scroll off the cue, and nowhere else. The toolbar is left to the things you use every show rather than the one you use when something has gone wrong.
 

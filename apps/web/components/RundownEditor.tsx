@@ -633,6 +633,20 @@ export function RundownEditor({
   }, []);
   const rowWindow = useRowWindow({ count: rows.length, scrollEl: gridEl, enabled: virtualRows });
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  /**
+   * Always the LATEST window, for code that runs after its render.
+   *
+   * `offsetOf` is only as good as the heights measured so far, and on first
+   * load none are: every row is the 34px guess against a real average nearer
+   * 44, which on row 2,400 is ten thousand pixels of error. That corrects
+   * itself as rows render and report — but a retry that closed over the FIRST
+   * window kept re-using the first guess, so the follow scrolled to the same
+   * wrong place twenty times and gave up. Read through a ref and each attempt
+   * gets the heights learned by the one before it, which converges in two or
+   * three goes instead of never.
+   */
+  const rowWindowRef = useRef(rowWindow);
+  rowWindowRef.current = rowWindow;
 
   /**
    * Tell the window how tall the rows it drew actually are.
@@ -741,7 +755,15 @@ export function RundownEditor({
     programmaticScroll.current = true;
     window.setTimeout(() => {
       const live = document.querySelector("tr.active-row");
-      if (live) centreInSheet(live);
+      if (live) {
+        centreInSheet(live);
+      } else {
+        // Same as the follow: under a window the live row may not be drawn, so
+        // go to where it will be and let the follow effect centre it.
+        const i = rows.findIndex((r) => r.id === activeRowId);
+        const win = rowWindowRef.current;
+        if (i >= 0 && gridEl) gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - gridEl.clientHeight / 2) });
+      }
       programmaticScroll.current = false;
     }, 400);
   };
@@ -762,16 +784,37 @@ export function RundownEditor({
         settle = window.setTimeout(() => {
           programmaticScroll.current = false;
         }, 1000);
-      } else if (left > 0) {
-        settle = window.setTimeout(() => attempt(left - 1), 300);
+        return;
       }
+      /**
+       * The row is not rendered — so go to where it WILL be.
+       *
+       * Under a window the cue can move outside the rendered slice, and then
+       * there is no element to centre: this retried twenty times, found
+       * nothing, and stopped. The sheet kept perfect time and simply stopped
+       * showing where it was, which reads exactly like the sync having died.
+       *
+       * The window knows every row's offset whether it is drawn or not, so
+       * scroll there first. That brings the row into the slice, the next
+       * attempt finds a real element, and it gets centred properly — an
+       * approximate jump followed by an exact one.
+       */
+      const win = rowWindowRef.current;
+      const i = rows.findIndex((r) => r.id === focusRowId);
+      if (win.active && i >= 0 && gridEl) {
+        programmaticScroll.current = true;
+        const rowTop = win.offsetOf(i);
+        gridEl.scrollTo({ top: Math.max(0, rowTop - gridEl.clientHeight / 2), behavior: "auto" });
+      }
+      if (left > 0) settle = window.setTimeout(() => attempt(left - 1), 150);
+      else programmaticScroll.current = false;
     };
-    attempt(20);
+    attempt(40);
     return () => {
       cancelled = true;
       window.clearTimeout(settle);
     };
-  }, [focusRowId, followScroll]);
+  }, [focusRowId, followScroll, rowWindow.active, gridEl]);
   useEffect(() => {
     if (!activeRowId) return;
     const disengage = () => {

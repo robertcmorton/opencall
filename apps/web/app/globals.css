@@ -1181,11 +1181,21 @@ kbd {
 /* ---------- Big live timer (center top while the show runs) ---------- */
 
 /* Embedded in the top bar — never covers other information. */
+/* The cue timer is a fixed object.
+   Its width used to be whatever its widest line needed, and the widest line is
+   the name of the row on air — so it measured 232px on "HOLD" and 362px on
+   "Reynolds Review thanks to Azora", a 130px swing. It sits centred, so every
+   cue change shoved the controls either side of it and the number itself moved
+   under the eye that was reading it. A clock that jumps when the show does is
+   the one thing it must not do. Fixed width; the name truncates instead. */
 .big-timer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
+  width: 360px;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--overlay);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -1197,7 +1207,9 @@ kbd {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-3);
-  max-width: 320px;
+  align-self: stretch;
+  text-align: center;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1404,10 +1416,20 @@ kbd {
 
 /* ---------- Stopwatch ---------- */
 
+/* One instrument, not three loose buttons.
+   The face, Lap and Reset only mean anything together, and scattered along the
+   toolbar they read as unrelated controls that happen to sit near each other —
+   and near the cue timer, which is a different clock entirely and must never be
+   confused with this one. The box says where the stopwatch begins and ends. */
 .stopwatch {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
+  padding: 3px 6px;
+  background: var(--overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
 }
 /* The face is the button — pressing the number starts and stops it, which is
    what a stopwatch is. Fixed width so the toolbar does not jump every tenth. */
@@ -1416,28 +1438,10 @@ kbd {
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
-.stopwatch .sw-laps {
-  display: inline-flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  max-width: 44ch;
-}
-.stopwatch .sw-lap b {
-  color: var(--text-3);
-  font-weight: 600;
-  margin-right: 2px;
-}
-.stopwatch .sw-lap i {
-  color: var(--text-3);
-  font-style: normal;
-}
 /* Phones: the face and start/stop only. Laps are a desk activity and the row
    is already the last line before the sheet. */
 @media (max-width: 760px) {
-  .stopwatch .btn:not(.sw-face),
-  .stopwatch .sw-laps {
+  .stopwatch .btn:not(.sw-face) {
     display: none;
   }
   .stopwatch .sw-face {
@@ -1609,10 +1613,28 @@ kbd {
 .topbar-center {
   justify-self: center;
   min-width: 0;
+  /* The clocks stack on one centreline: the cue timer, the show's state, and
+     the stopwatch under both. Column rather than plain block flow because the
+     stopwatch is an inline-flex box and would otherwise hang off to the left
+     of the timer it belongs to. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   /* The sidenav pushes the content area right — pull the timer back by half
      that padding so it sits on the true centreline of the SCREEN. */
   transform: translateX(calc(var(--sidenav-pad, 0px) / -2));
   transition: transform var(--t-med) var(--ease);
+}
+/* The show's state and the stopwatch share one line under the cue timer: LIVE,
+   Pause, Stop, then the stopwatch on the end. On its own line it pushed the
+   sheet down by a whole row for a control used a few times a night. */
+.show-state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 .topbar-right {
   display: flex;

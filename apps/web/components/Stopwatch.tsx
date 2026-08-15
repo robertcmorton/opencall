@@ -3,17 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * A stopwatch beside the cue timer.
+ * A stopwatch beneath the cue timer.
  *
  * For measuring things the sheet does not: how long a band actually played,
  * how long the crowd took to clear, how long that interview really ran when
  * the sheet said ninety seconds. A showcaller does this on a phone or a wrist
  * today and then has to remember the number.
  *
- * LOCAL to this screen, deliberately. The cue timer is the shared truth and
- * every surface must agree about it; a second shared clock next to it would be
- * a second thing to be wrong about, and the question "whose stopwatch is
- * that?" has no good answer mid-show. This one belongs to whoever started it.
+ * Start, stop, reset — nothing else. Laps were here and are gone: splits are a
+ * thing you read back afterwards, and a live sheet is not where anyone reads
+ * anything back. Every control on this screen is one more thing to hit by
+ * mistake during a show.
+ *
+ * LOCAL to this screen, deliberately. The cue timer above it is the shared
+ * truth and every surface must agree about it; a second shared clock next to
+ * it would be a second thing to be wrong about, and the question "whose
+ * stopwatch is that?" has no good answer mid-show. This one belongs to whoever
+ * started it.
  *
  * It survives a reload — a show can run for eight hours and a refresh must not
  * throw away a measurement — by storing the moment it started rather than the
@@ -26,21 +32,22 @@ interface Saved {
   startedAtMs: number | null;
   /** Milliseconds banked from previous runs. */
   accumMs: number;
-  /** Laps, newest last, as elapsed milliseconds at the moment each was taken. */
-  laps: number[];
 }
 
 const read = (): Saved => {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const v = JSON.parse(raw) as Saved;
-      if (typeof v.accumMs === "number" && Array.isArray(v.laps)) return v;
+      // Tolerant of the older shape, which also carried laps: a running
+      // measurement must survive the release that removed them.
+      const v = JSON.parse(raw) as Partial<Saved>;
+      if (typeof v.accumMs === "number")
+        return { startedAtMs: typeof v.startedAtMs === "number" ? v.startedAtMs : null, accumMs: v.accumMs };
     }
   } catch {
     // A corrupt value is not worth a broken toolbar.
   }
-  return { startedAtMs: null, accumMs: 0, laps: [] };
+  return { startedAtMs: null, accumMs: 0 };
 };
 
 /** mm:ss.t — tenths, because the things being measured are seconds long. */
@@ -55,9 +62,8 @@ function face(ms: number): string {
 }
 
 export function Stopwatch() {
-  const [state, setState] = useState<Saved>({ startedAtMs: null, accumMs: 0, laps: [] });
+  const [state, setState] = useState<Saved>({ startedAtMs: null, accumMs: 0 });
   const [now, setNow] = useState(() => Date.now());
-  const [open, setOpen] = useState(false);
   const loaded = useRef(false);
 
   // Read the stored value on mount rather than at first render: the server has
@@ -94,15 +100,14 @@ export function Stopwatch() {
     setNow(Date.now());
     setState((s) =>
       s.startedAtMs != null
-        ? { ...s, startedAtMs: null, accumMs: s.accumMs + (Date.now() - s.startedAtMs) }
+        ? { startedAtMs: null, accumMs: s.accumMs + (Date.now() - s.startedAtMs) }
         : { ...s, startedAtMs: Date.now() },
     );
   };
-  const reset = () => setState({ startedAtMs: null, accumMs: 0, laps: [] });
-  const lap = () => setState((s) => ({ ...s, laps: [...s.laps, elapsed].slice(-20) }));
+  const reset = () => setState({ startedAtMs: null, accumMs: 0 });
 
   return (
-    <span className="stopwatch" data-open={open ? "1" : undefined}>
+    <span className="stopwatch">
       <button
         type="button"
         className={`btn btn-sm sw-face ${running ? "is-on" : ""}`}
@@ -113,44 +118,13 @@ export function Stopwatch() {
       </button>
       <button
         type="button"
-        className="btn btn-sm"
-        onClick={lap}
-        disabled={!running}
-        data-tip="Mark the time without stopping"
-      >
-        Lap
-      </button>
-      <button
-        type="button"
         className="btn btn-sm btn-ghost"
         onClick={reset}
-        disabled={elapsed === 0 && state.laps.length === 0}
-        data-tip="Back to zero, and clear the laps"
+        disabled={elapsed === 0}
+        data-tip="Back to zero"
       >
         Reset
       </button>
-      {state.laps.length > 0 && (
-        <button
-          type="button"
-          className="btn btn-sm btn-ghost"
-          onClick={() => setOpen((v) => !v)}
-          data-tip={open ? "Hide the laps" : "Show the laps"}
-        >
-          {state.laps.length} lap{state.laps.length === 1 ? "" : "s"}
-        </button>
-      )}
-      {open && state.laps.length > 0 && (
-        <span className="sw-laps mono">
-          {state.laps
-            .map((at, i) => ({ at, n: i + 1, split: at - (state.laps[i - 1] ?? 0) }))
-            .reverse()
-            .map((l) => (
-              <span key={l.n} className="sw-lap">
-                <b>{l.n}</b> {face(l.at)} <i>+{face(l.split)}</i>
-              </span>
-            ))}
-        </span>
-      )}
     </span>
   );
 }

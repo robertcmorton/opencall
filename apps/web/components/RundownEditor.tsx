@@ -1789,12 +1789,16 @@ export function RundownEditor({
             be read from, still carries every word. */}
         {column.kind === "title" ? (
           <span className="cell-clamp">
-            {richXml ? (
-              <RichCellText xml={richXml} />
-            ) : !blankTitle(rowRecord.cells[column.key] ?? "") ? (
-              highlightRoles(rowRecord.cells[column.key] ?? "", roles)
-            ) : (
+            {/* The blank test comes FIRST, before the formatted branch. A dash
+                can be a formatted dash — it was, on the row the cue timer was
+                sitting on — and checking rich text first handed those rows
+                straight past the stand-in and back to the bare "—". */}
+            {blankTitle(rowRecord.cells[column.key] ?? "") ? (
               <span className="cell-standin">{itemStandIn(rowRecord)}</span>
+            ) : richXml ? (
+              <RichCellText xml={richXml} />
+            ) : (
+              highlightRoles(rowRecord.cells[column.key] ?? "", roles)
             )}
           </span>
         ) : richXml ? (
@@ -2140,18 +2144,31 @@ export function RundownEditor({
             <BigTimer
               live={live}
               paused={isPaused ?? false}
-              title={activeRow.title}
+              // A row the sheet never named still has to announce itself on the
+              // biggest readout on the page — the same stand-in the sheet uses,
+              // rather than the dash that told the showcaller nothing.
+              title={blankTitle(activeRow.title) ? itemStandIn(activeRow) : activeRow.title}
               plannedSec={activeRow.durationSec}
             />
           )}
           {/* The show's state sits directly under the cue timer, centred —
-              that is where the eye already is. */}
+              that is where the eye already is — and the stopwatch rides on the
+              end of the same line, to the right of Stop. It measures what the
+              sheet does not time (how long the band actually played, how long
+              the crowd took to clear), so it belongs with the clocks rather
+              than out among the toolbar buttons; on its own line it pushed the
+              sheet down for a control that is used a few times a night. Local
+              to this screen: the cue timer above it is the shared truth, and a
+              second shared clock would be a second thing to be wrong about. */}
           {isShow && (
-            <ShowStateControls
-              channel={channel}
-              orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
-              preflight={preflight}
-            />
+            <div className="show-state-row">
+              <ShowStateControls
+                channel={channel}
+                orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
+                preflight={preflight}
+              />
+              <Stopwatch />
+            </div>
           )}
         </div>
         <div className="topbar-right">
@@ -2176,11 +2193,6 @@ export function RundownEditor({
             orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
           />
         )}
-        {/* A stopwatch for the things the sheet does not time: how long the
-            band actually played, how long the crowd took to clear. Local to
-            this screen — the cue timer is the shared truth, and a second
-            shared clock beside it would be a second thing to be wrong about. */}
-        {isShow && <Stopwatch />}
         {isShow && !showLive && rows.length > 0 && (
           <>
             {/* Pre-show walkthrough: step the shared cursor through the sheet

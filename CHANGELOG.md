@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The console stops rebuilding the whole sheet four times a second.** The live countdowns are sampled every 250ms so a second is never seen to be missed, and each sample produced a new object — which the sheet's render reads, so every row was rebuilt. Idle, touching nothing, a long sheet spent three quarters of its main thread rebuilding a table to produce about thirty DOM changes across three rows, and every press had to queue behind a rebuild already under way. The clock is still sampled four times a second; it now only publishes when a value that is actually SHOWN has changed, and everything shown is whole seconds. The progress bar keeps its smoothness for free, being a CSS width with a linear transition, so it interpolates between the per-second steps.
+
+
+### Fixed
 - **Opening the menu no longer shoves the sheet sideways.** It added around 200 pixels of left padding, so the whole run sheet slid right and every column re-laid itself out — during a live show, mid-cue, to read a menu that is closed again two seconds later. The menu now floats over the sheet at every width, which is how narrow screens already behaved; the only space ever reserved is the 34 pixels the button itself occupies, open or shut.
 - **The cue timer and its controls stay on one row.** The shared width was a number measured off the controls once, and it broke the moment the stopwatch face grew two digits for hundredths: 395 pixels of buttons in a 386 pixel box, so the stopwatch dropped onto a row of its own. The width now follows the controls whatever they become, while the timer's label is stopped from contributing to it — otherwise the longest row name would size the header, which is the jitter this all started with.
 

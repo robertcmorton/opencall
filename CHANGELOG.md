@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The menu button is no longer painted over by the bar beside it.** It and the show's top bar both claimed the same stacking layer, and on a tie the later element in the document wins — so the bar covered the only way in and out of the sidenav, and a press landed on the bar instead. It now sits one layer above the bar, and still below the formatting bar and popovers, which are allowed to cover it while they are open.
+
+
 ### Changed
 - **The cue timer and the controls under it are one width.** They sit directly on top of each other and are read as a pair, and they were 360px and 385px — a 25px step down the middle of the screen. One width now, owned by the column that holds them rather than by either box.
 - **No back arrow.** It sat in the same wrapping row as the sheet's name and squeezed it into a five-line tower down the side of a tablet, for a job two other things already do: the sheet's name is the way back on any narrow screen, and the sidenav carries Dashboard on a wide one. The name also gets a single line with an ellipsis on narrow screens instead of wrapping.

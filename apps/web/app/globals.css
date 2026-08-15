@@ -1128,7 +1128,13 @@ kbd {
 .sidenav-toggle {
   position: fixed;
   top: 10px;
-  z-index: 45;
+  /* Above the show's top bar, which is also 45 — and on a tie the later
+     element in the document wins, so the bar painted straight over this
+     button. It looked like a z-index that had simply been forgotten; it was
+     two layers claiming the same one. The only way out of the sidenav must
+     never be the thing that loses that argument. Still below the format bar
+     (50) and popovers (55), which are allowed to cover it while they are open. */
+  z-index: 46;
   /* Square, and big enough to be a target on a tablet. */
   width: 34px;
   height: 34px;

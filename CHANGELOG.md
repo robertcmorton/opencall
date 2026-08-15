@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A pre-record's mark no longer eats its row number.** Rows that run alongside the show carry a `∥` after their number, and on a long sheet the numbers are four digits: the pair wanted more room than the column had, so the number was clipped and a row numbered 1503 read as "50…". The mark annotating the number was crowding it out. The column is now sized from the longest number the sheet actually has, plus room for the mark when any row needs one — so a long sheet gets the width it needs and a short one still gets a narrow column. Never visible on a hundred-row match sheet; obvious on a three-thousand-row one.
+
+
 ### Added
 - **Sync my screen.** When a screen and the show disagree, this asks the server again and jumps to the cue it gives. It changes nothing for anyone else — it drops this screen's own connection and takes the answer that comes back, which is already how a screen recovers from a connection that died quietly; this is the same recovery on demand, for the moment when somebody does not trust what they are looking at and cannot wait for a watchdog to agree. Deliberately one screen only: a button that pushed one laptop's idea of the cue to everybody would let a confused laptop move a live show.
 

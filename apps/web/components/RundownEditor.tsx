@@ -1748,6 +1748,24 @@ export function RundownEditor({
   const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => colWidths[k] != null);
 
   /**
+   * Wide enough for the longest row number the sheet actually has — plus the
+   * mark that sits beside it.
+   *
+   * A pre-record's number carries a "∥" after it, and on a long sheet the
+   * numbers are four digits: "1015 ∥" wanted 60px in a 55px column, so the
+   * ellipsis ate the NUMBER and left "50…" where a row number should be. The
+   * mark annotating the number was crowding it out. Never visible on a
+   * hundred-row match sheet, obvious on a three-thousand-row one — so the
+   * floor is taken from the sheet in hand rather than from a number typed
+   * here, and a short sheet still gets a narrow column.
+   */
+  const rowNumFloor = useMemo(() => {
+    const longest = rows.reduce((n, r) => Math.max(n, (r.sourceNumber ?? "").trim().length), 0);
+    const anyParallel = rows.some((r) => r.parallel);
+    return Math.max(38, 20 + Math.ceil(longest * 7.5) + (anyParallel ? 13 : 0));
+  }, [rows]);
+
+  /**
    * The width below which a column stops saying anything.
    *
    * A share of a narrow screen is a narrow column: on a tablet TIME fell to
@@ -1758,7 +1776,7 @@ export function RundownEditor({
    * shares are being worked out, and the answer is still a percentage.
    */
   const floorFor = (key: string): number => {
-    if (key === "rownum") return 38;
+    if (key === "rownum") return rowNumFloor;
     const c = orderedColumns.find((x) => x.key === key);
     // Measured, not guessed: "12:00:00 AM" needs 109px of content and the cell
     // spends 20 on padding; the longest duration needs 60.

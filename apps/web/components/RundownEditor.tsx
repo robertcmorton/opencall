@@ -2428,15 +2428,18 @@ export function RundownEditor({
             into the Views menu — it is opened mid-show, by somebody who is
             already holding the sheet. Same tab, like every link in the app;
             the prompter has its own way back. */}
+        {/* Not on a phone: the prompter is its own full screen and a phone that
+            opens it has left the sheet entirely, so the button costs a slot in
+            the only toolbar row there is. It is one tap away in the menu. */}
         <Link
-          className="btn btn-sm"
+          className="btn btn-sm hide-mobile"
           style={{ textDecoration: "none" }}
           href={`/prompter/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
           data-tip="Open the prompter: the sheet with the words to be read set large, paced to the item they belong to"
         >
           ▤ Prompter
         </Link>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+        <div className="toolbar-tail">
           <RolePicker
             rows={rows}
             roles={roles}

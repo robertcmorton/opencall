@@ -136,7 +136,7 @@ export function HeaderClock({ use24h, timeZone }: { use24h: boolean; timeZone?: 
   }, [timeZone]);
   const abbr = timeZone ? zoneAbbreviation(timeZone) : "";
   return (
-    <div style={{ textAlign: "right" }}>
+    <div className="header-clock-block">
       <div className="header-label">Event time{abbr ? ` · ${abbr}` : ""}</div>
       <div className="header-clock mono">{now != null ? formatTimeOfDay(now, use24h) : "--:--:--"}</div>
     </div>

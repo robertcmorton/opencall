@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Three phone-only tidies to the show header.** The event clock puts its label and the time on one line instead of two — stacked, it spent two rows of the scarcest screen there is on a label that never changes. The prompter button is gone from a phone: it opens a full screen of its own, so a phone that reaches it has left the sheet entirely, and it costs a slot in the only toolbar row there is. And My role comes back up beside Clock synced rather than sitting alone at the end of a row of its own. All three are unchanged on tablets and desktops, where the room exists.
+
+
 ### Fixed
 - **The menu button is no longer painted over by the bar beside it.** It and the show's top bar both claimed the same stacking layer, and on a tie the later element in the document wins — so the bar covered the only way in and out of the sidenav, and a press landed on the bar instead. It now sits one layer above the bar, and still below the formatting bar and popovers, which are allowed to cover it while they are open.
 

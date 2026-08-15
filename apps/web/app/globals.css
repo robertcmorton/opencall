@@ -3058,3 +3058,30 @@ th.col-drop-target {
     max-width: 100%;
   }
 }
+
+/* The event clock: label above the time on a wide screen, both on ONE line on a
+   phone. Stacked, it spent two rows of the scarcest screen there is on a label
+   that never changes and a time that could sit beside it. */
+.header-clock-block {
+  text-align: right;
+}
+.toolbar-tail {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 760px) {
+  .header-clock-block {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+  }
+  /* My role comes back onto the row above, beside Clock synced, instead of
+     being pushed to the far end of a row of its own. */
+  .toolbar-tail {
+    margin-left: 0;
+  }
+}

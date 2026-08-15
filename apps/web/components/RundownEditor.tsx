@@ -1716,6 +1716,47 @@ export function RundownEditor({
     );
   };
 
+  /**
+   * What to show in the item column when the sheet left it blank.
+   *
+   * Plenty of real rows have no name: a run sheet writes "DJ — Barracuda" in
+   * the AUDIO column, or "Broadcast | Tries and Goals animations" under
+   * SCREEN, and puts nothing at all in ITEM. They are cues like any other and
+   * the import is right to leave the title empty — inventing one would put
+   * words in the sheet's mouth. But a column of blanks reads as a column of
+   * holes, and a page of them reads as a broken import.
+   *
+   * So the row says what it is, borrowed from its own first piece of content
+   * and shown greyed to mark it as borrowed rather than written. The cell
+   * itself stays genuinely empty: this is not its value, and typing in it
+   * still starts from nothing.
+   *
+   * The role column is skipped on purpose — "AUDIO" names the department, not
+   * the item, and a sheet of rows all called AUDIO is no better than a sheet
+   * of blanks.
+   */
+  /**
+   * A title that is only a dash is not a title.
+   *
+   * Some sheets type one in an item cell they mean to leave blank, and a
+   * rundown imported before the generator stopped writing them carries
+   * hundreds. Read literally that is a row called "—", which is worse than a
+   * row called nothing: it looks like content and says less. Treated as blank
+   * here so those rows get a stand-in like any other — a display decision
+   * only, so nothing is rewritten in anyone's sheet.
+   */
+  const blankTitle = (value: string): boolean => /^[\s—–-]*$/.test(value);
+
+  const itemStandIn = (rowRecord: ProjectedRow): string => {
+    for (const c of columns) {
+      if (c.kind === "title" || c.kind === "startTime" || c.kind === "duration") continue;
+      if (meta.roleColumnKeys.includes(c.key)) continue;
+      const value = (rowRecord.cells[c.key] ?? "").trim();
+      if (value) return value.split("\n")[0]!.trim();
+    }
+    return "";
+  };
+
   const richColClass = (column: ColumnDef): string =>
     column.kind !== "richtext" ? "" : `col-rich${meta.roleColumnKeys.includes(column.key) ? " col-role" : ""}`;
 
@@ -1748,7 +1789,13 @@ export function RundownEditor({
             be read from, still carries every word. */}
         {column.kind === "title" ? (
           <span className="cell-clamp">
-            {richXml ? <RichCellText xml={richXml} /> : highlightRoles(rowRecord.cells[column.key] ?? "", roles)}
+            {richXml ? (
+              <RichCellText xml={richXml} />
+            ) : !blankTitle(rowRecord.cells[column.key] ?? "") ? (
+              highlightRoles(rowRecord.cells[column.key] ?? "", roles)
+            ) : (
+              <span className="cell-standin">{itemStandIn(rowRecord)}</span>
+            )}
           </span>
         ) : richXml ? (
           <RichCellText xml={richXml} />

@@ -3002,3 +3002,11 @@ th.col-drop-target {
     line-clamp: none;
   }
 }
+
+/* An item column the sheet left blank, standing in with the row's own first
+   piece of content. Greyed and slightly lighter than real text: it marks the
+   words as borrowed from another column rather than written in this one, so a
+   glance still separates what the sheet said from what it did not. */
+.cell-standin {
+  color: var(--text-3);
+}

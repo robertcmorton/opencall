@@ -776,6 +776,16 @@ export function adoptExtraDurations(rows: ClassifiedRow[]): void {
  * rule matches 15, and every one of them is a game half.
  */
 export function adoptCaptionTitles(rows: ClassifiedRow[]): void {
+  /**
+   * A cell holding nothing but a dash is an empty cell.
+   *
+   * Sheets type one where they mean to leave the item blank, and so did our
+   * own soak-test generator until today — which means a sheet already imported
+   * can carry hundreds. Without this the timing row reads as a row NAMED "—",
+   * the caption below it is never adopted, and re-importing the same file
+   * cannot repair a sheet that predates the fix.
+   */
+  const untitled = (r: ClassifiedRow): boolean => /^[\s—–-]*$/.test(r.title);
   const nextReal = (from: number): number => {
     let j = from;
     while (j < rows.length && rows[j]!.kind === "spacer") j += 1;
@@ -783,7 +793,7 @@ export function adoptCaptionTitles(rows: ClassifiedRow[]): void {
   };
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
-    if (row.kind === "spacer" || row.title.trim() !== "") continue;
+    if (row.kind === "spacer" || !untitled(row)) continue;
     if (row.startSec == null && row.durationSec == null) continue;
     const j = nextReal(i + 1);
     const caption = rows[j];

@@ -288,3 +288,27 @@ describe("adoptExtraDurations", () => {
     expect(rows[0]!.durationSec).toBe(2400);
   });
 });
+
+describe("adoptCaptionTitles: a dash is not a name", () => {
+  it("adopts the caption when the timing row was given a bare dash", () => {
+    // Sheets type one where they mean to leave the cell blank, and our own
+    // soak-test generator wrote hundreds before it was fixed — so an already
+    // imported sheet must be repairable by re-importing the same file.
+    const rows: ClassifiedRow[] = [
+      { ...cue("—"), sourceNumber: "87", startSec: 20 * 3600 + 120, durationSec: 2400 },
+      { ...cue("NRL | BULLDOGS v RABBITOHS - FIRST HALF"), kind: "banner" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.title).toBe("NRL | BULLDOGS v RABBITOHS - FIRST HALF");
+  });
+
+  it("leaves a row that has a real name alone", () => {
+    const rows: ClassifiedRow[] = [
+      { ...cue("Team Entry - Bulldogs"), durationSec: 40 },
+      { ...cue("NRL | SECOND HALF"), kind: "banner" },
+    ];
+    adoptCaptionTitles(rows);
+    expect(rows).toHaveLength(2);
+  });
+});

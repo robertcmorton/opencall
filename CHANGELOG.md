@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A row with no name says what it is, instead of showing a dash.** Plenty of real rows have no name: a sheet writes "DJ — Barracuda" under AUDIO, or "Broadcast | Tries and Goals animations" under SCREEN, and puts nothing at all in the item column. Those are cues like any other, and the import is right to leave the title empty rather than invent one — but a column of blanks and dashes reads as a column of holes, and a page of them reads as a broken import. The item column now borrows the row's own first piece of content and shows it greyed, so it is clear the words came from another column rather than being written in this one. The cell stays genuinely empty underneath: nothing is rewritten, and typing in it still starts from nothing. The department column is skipped when choosing — a sheet of rows all called "AUDIO" would be no better than a sheet of blanks.
+- **A title that is only a dash is treated as no title.** Some sheets type one into an item cell they mean to leave blank. Read literally that is a row named "—", which is worse than a row named nothing: it looks like content and says less. It now counts as blank both on screen and during import — which matters because a sheet imported before the game-period fix carries these, and without it re-importing the very same file could not repair it.
+
+
+### Fixed
 - **The sheet reaches its own right edge again.** The grid is laid out at full width on the belief that a browser scales stored column widths proportionally to fill it. It does not — a fixed table layout honours every width it is given and leaves whatever is left over as dead space at the end. Once every column had been sized, which happens the first time anyone drags one and catches the item column too (the one that is supposed to flex), nothing absorbed the remainder: a sheet whose widths were saved on a narrower window ran 1229px of columns down a 1442px grid, first column flush to its edge and 213px of ruled nothing down the right-hand side. Widths are now written as a share of their own total instead of in pixels, so the same numbers describe the same layout and 100% of the grid is exactly the grid. Every proportion that was dragged is kept, and both edges stay pinned at any window size.
 
 

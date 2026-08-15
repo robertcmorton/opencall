@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Opening the menu no longer nudges the cue timer sideways.** The room kept clear for the menu button was only reserved while the menu was shut, so opening it handed that space back to the header, the header re-laid itself out, and the timer — which sits centred between two equal sides — slid sideways by half of it. Reading a menu should not move the clock somebody is calling a show against. Measured: every part of the header and the sheet now moves zero pixels when the menu opens.
+
 ### Added
 - **A run sheet is kept on the device, so opening it again is quick.** The browser started from nothing every time, so the server had to send the entire sheet on every load and every reload — 1.7 MB of it on a real one. The sheet is now held on the device and only what has changed since is sent, which for a sheet reopened between two halves is usually nothing at all. It also means the rows are on screen while the connection is still being made, instead of an empty grid: a sheet that is a few minutes old and says so beats one you cannot see. Nothing can go stale behind your back — the stored copy and the server are merged rather than one replacing the other, so anything the server knows still arrives. A sheet whose contents have been replaced wholesale is stored separately and starts clean, and the copies left behind by that are removed.
 

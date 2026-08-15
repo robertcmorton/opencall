@@ -3021,8 +3021,16 @@ th.col-drop-target {
    the top bar shares that height, so it reserves the room and the rest of the
    page keeps its full width. Without it the button and the back arrow sat
    exactly edge to edge and read as one control. */
-.with-sidenav.sidenav-closed .topbar-head,
-.with-sidenav.sidenav-closed .admin-main > header {
+/* The room kept for the menu button does not come and go with the menu.
+   It used to apply only while the menu was SHUT, so opening it handed 52px
+   back to the header — the grid re-laid itself out and the cue timer, which is
+   centred between two equal sides, slid 26px sideways. Measured: .topbar-left
+   started at 61.6px shut and 9.6px open, and the timer moved with it. Reading
+   a menu should not move the clock somebody is calling a show against, and the
+   button floats over that space whether the menu is open or not, so the space
+   is held either way. */
+.with-sidenav .topbar-head,
+.with-sidenav .admin-main > header {
   padding-left: max(0px, calc(52px - var(--sidenav-pad, 0px)));
 }
 @media (max-width: 900px) {

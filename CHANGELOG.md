@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **A second track now colours its whole row.** A pre-record or a bell runs alongside the show and takes none of its time, and that was said with three pixels of diagonal stripe beside the row number — which read as a rendering fault to the person who asked for it, a fair verdict on a mark meant to be understood at a glance mid-show. The whole row is now tinted, because that is the claim being made: the row is a second track, not just its number. The colour is violet, and deliberately so — every other hue on a row already means something (blue is where the cue is, amber is a timing problem, teal is yours, red and green are late and on time), and a pre-record is none of those. It is simply not the show. Its duration keeps the struck-through treatment that already means "written down but not spent".
+- **A pre-record that is yours still looks like yours.** The old stripe and the my-role rail fought for the same three pixels of the first cell and the stripe won, so a pre-record assigned to you stopped being marked as yours. Colour now says what kind of row it is and the rail is left to say whose it is.
+- **On paper it is drawn in ink.** A tint is the first thing a printer throws away, and a printed sheet is where a second track is most easily misread as the next cue — so print gets a rule down the left of the row and the mark in black.
+
+
 ### Fixed
 - **A pre-record's mark no longer eats its row number.** Rows that run alongside the show carry a `∥` after their number, and on a long sheet the numbers are four digits: the pair wanted more room than the column had, so the number was clipped and a row numbered 1503 read as "50…". The mark annotating the number was crowding it out. The column is now sized from the longest number the sheet actually has, plus room for the mark when any row needs one — so a long sheet gets the width it needs and a short one still gets a narrow column. Never visible on a hundred-row match sheet; obvious on a three-thousand-row one.
 

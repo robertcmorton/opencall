@@ -40,6 +40,13 @@ html {
   --warn-soft: rgba(232, 176, 60, 0.12);
   --live: #e5484d;
   --live-soft: rgba(229, 72, 77, 0.16);
+  /* A second track: shot or rung alongside the running order, taking none of
+     its time. Violet because every other hue on a row already means something
+     — blue is where the cue IS, amber is a timing problem, teal is yours, red
+     and green are late and on time. A pre-record is none of those; it is
+     simply not the show. */
+  --aside: #a78bfa;
+  --aside-soft: rgba(167, 139, 250, 0.11);
 
   /* Shape & depth */
   --r-sm: 6px;
@@ -1497,27 +1504,37 @@ kbd {
    pre-record need to read it as clearly as anyone reads a live cue. Deliberately
    NOT the outcome-branch rails, which mean "one of these will happen"; a
    pre-record is not an alternative to anything, it is concurrent with it. */
-.rundown-grid tr.parallel-row td:first-child {
-  background-image: repeating-linear-gradient(
-    135deg,
-    var(--accent-2, #58a6ff) 0 3px,
-    transparent 3px 6px
-  );
-  background-repeat: no-repeat;
-  background-size: 3px 100%;
-  background-position: left top;
+/* THE WHOLE ROW, not a rail on its first cell.
+   The rail was three pixels of diagonal stripe, and it read as a rendering
+   fault to the person who commissioned it — which is a fair verdict on a mark
+   meant to be understood at a glance mid-show. It also fought the my-role rail
+   for the same three pixels and won, so a pre-record that was YOURS stopped
+   looking like yours.
+
+   So: colour says what kind of row this is, and the rail is left free to say
+   whose it is. The tint runs the full width because that is the claim being
+   made — the whole row is a second track, not just its number. */
+.rundown-grid tr.parallel-row td {
+  background: var(--aside-soft);
 }
 .rundown-grid tr.parallel-row .rn-num::after {
   content: "∥";
   margin-left: 4px;
   font-size: 0.8em;
-  color: var(--accent-2, #58a6ff);
+  color: var(--aside);
   /* The row number stays the row number; this is a mark beside it. */
-  opacity: 0.85;
+  opacity: 0.9;
 }
 @media print {
-  /* Print keeps the mark — a paper sheet is where the parallel track is most
-     easily misread as the next cue. */
+  /* Paper is where a second track is most easily misread as the next cue, and
+     a tint is the first thing a printer throws away. So on paper the claim is
+     made in ink: a rule down the left of the row, and the mark in black. */
+  .rundown-grid tr.parallel-row td {
+    background: none;
+  }
+  .rundown-grid tr.parallel-row td:first-child {
+    box-shadow: inset 3px 0 0 #000;
+  }
   .rundown-grid tr.parallel-row .rn-num::after {
     color: #000;
   }

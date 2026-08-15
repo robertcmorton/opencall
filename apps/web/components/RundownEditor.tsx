@@ -716,6 +716,35 @@ export function RundownEditor({
   // scroll (wheel/touch) disengages following instead of fighting the user;
   // the floating "Sync Cue" button re-engages it.
   const programmaticScroll = useRef(false);
+
+  /**
+   * Put this screen back on the cue — and check what the cue IS on the way.
+   *
+   * There were two buttons here. "Sync Cue" scrolled back to the row this
+   * screen already believed was live; "Sync my screen" dropped the socket and
+   * asked the server. Both finished by centring the active row, so whenever
+   * the screen was RIGHT — which is nearly always — they did visibly the same
+   * thing. The difference only appeared on the night the screen was wrong,
+   * which is the worst imaginable night to be choosing between two similar
+   * buttons.
+   *
+   * So: one action. Ask the server, then take me there. The reconnect costs a
+   * moment and is invisible when nothing is wrong, which is a fair price for
+   * never having to know which button was the one that actually fixed it.
+   *
+   * Still this screen only. A button that pushed one laptop's idea of the cue
+   * to everybody would let a confused laptop move a live show.
+   */
+  const syncToCue = () => {
+    channel.resync();
+    setFollowScroll(true);
+    programmaticScroll.current = true;
+    window.setTimeout(() => {
+      const live = document.querySelector("tr.active-row");
+      if (live) centreInSheet(live);
+      programmaticScroll.current = false;
+    }, 400);
+  };
   const focusRowId = activeRowId ?? walkRowId;
   useEffect(() => {
     if (!focusRowId || !followScroll) return;
@@ -2390,17 +2419,10 @@ export function RundownEditor({
                live show. */
             <button
               className="btn btn-sm"
-              data-tip="Ask the server again and jump to the cue it gives — this screen only, nobody else moves"
-              onClick={() => {
-                channel.resync();
-                window.setTimeout(() => {
-                  document
-                    .querySelector("tr.active-row")
-                    ?.scrollIntoView({ block: "center", behavior: "smooth" });
-                }, 400);
-              }}
+              data-tip="Ask the server what the cue is and jump to it — this screen only, nobody else moves"
+              onClick={syncToCue}
             >
-              ⟲ Sync my screen
+              ⇣ Sync Cue
             </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are
@@ -2630,16 +2652,8 @@ export function RundownEditor({
         {activeRowId && !followScroll && (
           <button
             className="btn btn-primary sync-cue"
-            data-tip="Jump back to the live cue and follow along again"
-            onClick={() => {
-              setFollowScroll(true);
-              programmaticScroll.current = true;
-              const live = document.querySelector("tr.active-row");
-              if (live) centreInSheet(live);
-              window.setTimeout(() => {
-                programmaticScroll.current = false;
-              }, 1000);
-            }}
+            data-tip="Ask the server what the cue is, jump to it, and follow along again"
+            onClick={syncToCue}
           >
             ⇣ Sync Cue
           </button>

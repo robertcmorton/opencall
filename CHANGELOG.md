@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **One Sync Cue, not two buttons that looked the same.** "Sync Cue" scrolled back to the row this screen already believed was live; "Sync my screen" dropped the connection and asked the server. Both finished by centring the live row, so whenever the screen was right — which is nearly always — they did visibly the same thing, and the difference only appeared on the night the screen was wrong. That is the worst imaginable night to be choosing between two similar buttons. There is now one action: ask the server what the cue is, then go to it. The reconnect costs a moment and is invisible when nothing is wrong, which is a fair price for never having to know which button was the one that actually fixed it. Still this screen only — a button that pushed one laptop's idea of the cue to everybody would let a confused laptop move a live show.
+
+### Fixed
+- **The show's controls and the stopwatch sit on the same line.** The controls kept a top margin from when they sat alone under the cue timer, and in a centred row a margin is counted in the box being centred — so one box rode a few pixels below its neighbour. The line's spacing belongs to the line, not to one thing in it.
+
+
 ### Fixed
 - **The pointer is a hand over things you can click.** A run sheet's rows select and cue, and a browser gives a plain table row an arrow — which reads as "nothing here". The row number keeps the grab hand, because that one is a drag handle, and text being edited keeps its caret.
 - **A stray arrow no longer follows the mouse.** Tooltips lost their little pointer when the bubble moved to being placed on the screen rather than under the element — but a later rule quietly put it back, so hovering produced a small diamond floating near nothing. The two rules had been arguing in the same file.

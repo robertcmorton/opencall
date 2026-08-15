@@ -1671,7 +1671,12 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 6px;
+  /* NO top margin. It dates from when this sat on its own line under the cue
+     timer and needed air. It now shares a line with the stopwatch, and in a
+     centred flex row a top margin is counted in the box being centred — so
+     six pixels of margin pushed this box about three pixels below its
+     neighbour, and the two read as misaligned. The line's spacing belongs to
+     the row, not to one thing in it. */
   flex-wrap: wrap;
   padding: 3px 6px;
   background: none;

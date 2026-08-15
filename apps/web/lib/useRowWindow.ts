@@ -101,20 +101,42 @@ export function useRowWindow({
   }, [scrollEl, enabled]);
 
   /**
-   * Printing renders the whole sheet.
+   * Two things make the window stand aside and render the whole sheet.
    *
-   * A printed run sheet with sixty of its rows on it is not a run sheet. The
-   * window is dropped for the duration and restored afterwards.
+   * PRINTING. A printed run sheet with sixty of its rows on it is not a run
+   * sheet. The window is dropped for the duration and restored afterwards.
+   *
+   * SEARCHING. The browser's own find can only match text that exists in the
+   * page, so under a window Ctrl-F silently stops finding most of the sheet —
+   * and silently is the problem. It does not report "3 of 40 rows searched";
+   * it just says nothing is there. That one flaw is why this whole thing sat
+   * behind a switch.
+   *
+   * So the find key is watched, and the window steps aside when it is pressed.
+   * `preventDefault` is deliberately NOT called: the browser's real find bar
+   * opens, over a sheet that by then holds every row, and works exactly as it
+   * always did. Escape puts the window back.
+   *
+   * The cost lands on the person who asked for it, once, instead of on every
+   * person who opens a sheet — which is the whole trade. Nothing is intercepted
+   * and no search box of ours has to be learned.
    */
-  const [printing, setPrinting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    const on = () => setPrinting(true);
-    const off = () => setPrinting(false);
+    const on = () => setExpanded(true);
+    const off = () => setExpanded(false);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") on();
+      else if (e.key === "Escape") off();
+    };
     window.addEventListener("beforeprint", on);
     window.addEventListener("afterprint", off);
+    // Capture: the find key must be seen even while a cell editor has focus.
+    window.addEventListener("keydown", onKey, true);
     return () => {
       window.removeEventListener("beforeprint", on);
       window.removeEventListener("afterprint", off);
+      window.removeEventListener("keydown", onKey, true);
     };
   }, []);
 
@@ -139,7 +161,7 @@ export function useRowWindow({
 
   const offsetOf = (index: number) => offsets[Math.max(0, Math.min(index, count))] ?? 0;
 
-  const active = enabled && !printing && count > 0;
+  const active = enabled && !expanded && count > 0;
   if (!active) return { from: 0, to: count, padTop: 0, padBottom: 0, report, active: false, offsetOf };
 
   const first = view.top - overscanPx;

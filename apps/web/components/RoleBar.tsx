@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatDuration, zoneSecondsOfDay, type LiveShowTiming, type PlanTiming } from "@opencall/core";
 import type { ProjectedRow, RoleDef } from "@opencall/db/doc";
 import type { ShowChannel } from "../lib/showChannel";
@@ -27,14 +27,42 @@ export const mentionsRole = (text: string, role: string): boolean => {
   return new RegExp(`(?<![A-Za-z0-9])${escapeRe(needle)}(?![A-Za-z0-9])`, "i").test(text);
 };
 
-/** Colour-codes every mention of a known role inside plain cell text. */
-export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode {
-  if (!text || roles.length === 0) return text;
+/**
+ * The pattern is built once per set of roles, not once per cell.
+ *
+ * This runs for every rich cell on the sheet — thousands of times on a long
+ * one, on every render — and all of it (sorting the roles, escaping them,
+ * compiling the alternation, building the colour lookup) depends only on the
+ * roles, which change when somebody edits the role list and at no other time.
+ *
+ * One entry is enough: the caller passes the same array throughout a render,
+ * so the first cell pays and the rest hit. Keyed on the array's identity, and
+ * that identity is now stable between document changes, so the cache survives
+ * whole renders rather than being rebuilt by each one.
+ */
+let rolePatternFor: RoleDef[] | null = null;
+let rolePattern: { regex: RegExp; byName: Map<string, string> } | null = null;
+const patternOf = (roles: RoleDef[]): { regex: RegExp; byName: Map<string, string> } => {
+  if (rolePatternFor === roles && rolePattern) return rolePattern;
   const escaped = [...roles]
     .sort((a, b) => b.name.length - a.name.length)
     .map((r) => escapeRe(r.name));
-  const regex = WHOLE_WORD(escaped.join("|"));
-  const byName = new Map(roles.map((r) => [r.name.toLowerCase(), r.color]));
+  rolePattern = {
+    regex: WHOLE_WORD(escaped.join("|")),
+    byName: new Map(roles.map((r) => [r.name.toLowerCase(), r.color])),
+  };
+  rolePatternFor = roles;
+  return rolePattern;
+};
+
+/** Colour-codes every mention of a known role inside plain cell text. */
+export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode {
+  if (!text || roles.length === 0) return text;
+  const { regex, byName } = patternOf(roles);
+  // A shared /g regex carries lastIndex between calls; split() does not use it,
+  // but resetting costs nothing and stops a later edit here from surprising
+  // somebody.
+  regex.lastIndex = 0;
   const parts = text.split(regex);
   if (parts.length === 1) return text;
   return parts.map((part, i) => {
@@ -139,20 +167,35 @@ export function RolePicker({
   };
   const firstColor = roles.find((r) => r.name.toLowerCase() === myRoles[0]?.toLowerCase())?.color ?? "#2dd4bf";
 
-  // Candidate roles: short cell lines seen at least twice.
-  const counts = new Map<string, number>();
-  for (const row of rows)
-    for (const value of Object.values(row.cells))
-      for (const line of value.split("\n")) {
-        const v = line.trim();
-        if (!v || v.length > 24) continue;
-        counts.set(v, (counts.get(v) ?? 0) + 1);
-      }
-  const suggestions = [...counts.entries()]
-    .filter(([v, n]) => n >= 2 && !/^\d/.test(v))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 18)
-    .map(([v]) => v);
+  /**
+   * Candidate roles: short cell lines seen at least twice.
+   *
+   * This reads every line of every cell of every row — the whole sheet, split
+   * on newlines — and it used to do so on every render of this component, open
+   * or shut. The list is only ever shown inside the picker, so on a long sheet
+   * that was a full pass over the document to produce something nobody was
+   * looking at, repeatedly, while a show was running.
+   *
+   * Now it waits until the picker is actually open, and is remembered between
+   * renders. `rows` only changes when the document does, so opening and
+   * closing the picker does not re-count anything.
+   */
+  const suggestions = useMemo(() => {
+    if (!open) return [];
+    const counts = new Map<string, number>();
+    for (const row of rows)
+      for (const value of Object.values(row.cells))
+        for (const line of value.split("\n")) {
+          const v = line.trim();
+          if (!v || v.length > 24) continue;
+          counts.set(v, (counts.get(v) ?? 0) + 1);
+        }
+    return [...counts.entries()]
+      .filter(([v, n]) => n >= 2 && !/^\d/.test(v))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 18)
+      .map(([v]) => v);
+  }, [open, rows]);
 
   const isMine = (name: string) => myRoles.some((r) => r.toLowerCase() === name.toLowerCase());
 

@@ -393,6 +393,17 @@ input.inline-edit {
 .menu-item:hover {
   background: var(--accent-soft);
 }
+/* Ending the event is the one item in this menu that changes what other people
+   can open, so it does not look like the ones that merely change this screen.
+   Colour only — it keeps the row's shape, so the menu does not reflow when the
+   event ends and the item turns back into an ordinary "reopen". */
+.menu-item-danger {
+  color: var(--over);
+  font-weight: 600;
+}
+.menu-item-danger:hover {
+  background: var(--over-soft);
+}
 .menu-item .check {
   width: 14px;
   color: var(--accent-text);

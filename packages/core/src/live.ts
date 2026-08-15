@@ -457,11 +457,58 @@ export function rowsOnAt(
    * the half, the standby, the block and its first cue — showed a progress
    * bar on one of them and nothing on the rest.
    */
+  /**
+   * The forward scan above is quadratic, and the sheets that trigger it worst
+   * are the ordinary ones.
+   *
+   * Every row with no length of its own scans forward for the next later
+   * start, and this runs inside the loop over all rows — so a sheet where many
+   * rows share a moment (untimed sub-rows, standbys, a block and its first
+   * cue) makes each scan cover a long stretch of the sheet. That is exactly
+   * the shape of a real run sheet, and it happens on every tick of the clock.
+   *
+   * When the sheet's start times run forwards, which is what a running order
+   * normally means, the same answer comes out of one backward pass: rows
+   * sharing a start are contiguous, so each one's end is either the next
+   * distinct start or, if the neighbour shares its start, the neighbour's
+   * answer.
+   *
+   * A sheet whose starts go BACKWARDS somewhere is a real case — there is a
+   * whole warning kind for it — and the shortcut would quietly give a
+   * different answer there. So it is used only when the starts are checked to
+   * run forwards, and the original scan still handles the rest. Same answers,
+   * both ways; the fast path just covers nearly every sheet.
+   */
+  let forwards = true;
+  let prev: number | null = null;
+  for (let i = 0; i < rows.length && forwards; i++) {
+    const s = timing.rows[i]?.startSec;
+    if (s == null) continue;
+    if (prev != null && s < prev) forwards = false;
+    prev = s;
+  }
+
+  const nextLaterStart: (number | null)[] = new Array(rows.length).fill(null);
+  if (forwards) {
+    let nextIdx: number | null = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const s = timing.rows[i]?.startSec;
+      if (s != null) {
+        if (nextIdx != null) {
+          const ns = timing.rows[nextIdx]!.startSec!;
+          nextLaterStart[i] = ns > s ? ns : (nextLaterStart[nextIdx] ?? null);
+        }
+        nextIdx = i;
+      }
+    }
+  }
+
   const endOf = (i: number): number | null => {
     const t = timing.rows[i];
     if (!t?.startSec) return null;
     const own = t.endSec ?? t.startSec;
     if (own > t.startSec) return own;
+    if (forwards) return nextLaterStart[i] ?? null;
     for (let j = i + 1; j < rows.length; j++) {
       const n = timing.rows[j];
       if (n?.startSec != null && n.startSec > t.startSec) return n.startSec;

@@ -110,7 +110,7 @@ function describeRefusal(reason: string, identity: string | null, signedIn: bool
 export function useRundownDoc(
   rundownId: string,
   joinCode?: string,
-): { doc: Y.Doc; connected: boolean; synced: boolean; status: DocStatus } {
+): { doc: Y.Doc; revision: number; connected: boolean; synced: boolean; status: DocStatus } {
   const [epoch, setEpoch] = useState<number | null>(null);
   const [doc, setDoc] = useState(() => new Y.Doc());
   const [connected, setConnected] = useState(false);
@@ -125,7 +125,17 @@ export function useRundownDoc(
   const [lastError, setLastError] = useState<string | null>(null);
   const [tokenKind, setTokenKind] = useState("none");
   const [blocked, setBlocked] = useState<DocBlock | null>(null);
-  const [, setTick] = useState(0);
+  /**
+   * How many times the document has changed.
+   *
+   * This counter already existed, purely to force a re-render on every update —
+   * its value was thrown away. Handing it out turns it into the thing consumers
+   * can memoise against, which nothing could do before: a `Y.Doc` is the SAME
+   * object before and after an edit, so `useMemo(..., [doc])` never recomputes
+   * and `useMemo(..., [])`-style caching on identity is simply wrong. The
+   * revision changes exactly when the contents do.
+   */
+  const [revision, setTick] = useState(0);
 
   /** null = the rundown does not exist; the caller must not open a socket for it. */
   const fetchEpoch = (id: string): Promise<number | null> =>
@@ -270,6 +280,7 @@ export function useRundownDoc(
 
   return {
     doc,
+    revision,
     connected,
     synced,
     status: { connected, synced, phase, authFailed, attempts, epoch, url: DOC_WS_URL, tokenKind, lastError, blocked },

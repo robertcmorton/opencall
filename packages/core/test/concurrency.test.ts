@@ -136,3 +136,64 @@ describe("rowsOnAt: rows the sheet gives no length", () => {
     expect(rowsOnAt(win(withGroup), computeTiming(withGroup, null), 20 * H2 + 30)).not.toContain("hdr");
   });
 });
+
+/**
+ * `rowsOnAt` works out where an untimed row ends by looking forward for the
+ * next later start. That scan is quadratic, so it takes a one-pass shortcut
+ * when the sheet's starts run forwards — and a sheet whose starts go backwards
+ * somewhere must still get the scan, or it would quietly answer differently.
+ * These pin both sides of that switch.
+ */
+describe("rowsOnAt: sheets whose start times do not run forwards", () => {
+  const H3 = 3600;
+  // The middle row starts an hour EARLIER than the one above it. Real sheets
+  // do this — there is a whole warning kind for it — usually a typo'd am/pm.
+  const outOfOrder: PlanRow[] = [
+    { id: "untimed", type: "cue", durationSec: null, hardStartSec: 20 * H3 },
+    { id: "backwards", type: "cue", durationSec: 60, hardStartSec: 19 * H3 },
+    { id: "later", type: "cue", durationSec: 60, hardStartSec: 20 * H3 + 30 * 60 },
+  ];
+  const timing = computeTiming(outOfOrder, null);
+  const w = win(outOfOrder);
+
+  it("an untimed row runs to the next LATER start, skipping the backwards one", () => {
+    // 19:00 is not after 20:00, so it cannot be where the 20:00 row ends;
+    // the answer is 20:30. Half an hour later the row is still on.
+    expect(rowsOnAt(w, timing, 20 * H3 + 15 * 60)).toContain("untimed");
+  });
+
+  it("and has ended once that later start arrives", () => {
+    expect(rowsOnAt(w, timing, 20 * H3 + 31 * 60)).not.toContain("untimed");
+  });
+});
+
+describe("rowsOnAt: many rows sharing one start", () => {
+  const H4 = 3600;
+  // The shape that made the scan quadratic: a long run of rows on the same
+  // moment, each having to look past all the others to find the next start.
+  const many: PlanRow[] = [
+    ...Array.from({ length: 50 }, (_, i) => ({
+      id: `same${i}`,
+      type: "cue" as const,
+      durationSec: null,
+      hardStartSec: 21 * H4,
+    })),
+    { id: "next", type: "cue", durationSec: 60, hardStartSec: 21 * H4 + 10 * 60 },
+  ];
+  const timing = computeTiming(many, null);
+  const w = win(many);
+
+  it("has every one of them on, ending at the next distinct start", () => {
+    const on = rowsOnAt(w, timing, 21 * H4 + 5 * 60);
+    expect(on).toHaveLength(50);
+    expect(on).toContain("same0");
+    expect(on).toContain("same49");
+  });
+
+  it("and all of them off once it arrives", () => {
+    // Half a minute into the next row: it is on, the fifty that ended when it
+    // began are not. Sampled inside it rather than on its last second, because
+    // a row is over AT its end — `start <= now < end`.
+    expect(rowsOnAt(w, timing, 21 * H4 + 10 * 60 + 30)).toEqual(["next"]);
+  });
+});

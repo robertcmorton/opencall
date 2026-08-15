@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
+import { IndexeddbPersistence } from "y-indexeddb";
 import { API_URL } from "./api";
 import { resolveSyncUrl } from "./syncUrl";
 
@@ -145,7 +146,35 @@ export function useRundownDoc(
    */
   const [revision, setTick] = useState(0);
 
-  /** null = the rundown does not exist; the caller must not open a socket for it. */
+  /**
+ * Drop this sheet's stores from older epochs.
+ *
+ * A sheet restored in place gets a new epoch and therefore a new store, and the
+ * old one would sit on the device forever holding a copy of a run sheet nobody
+ * can reach any more. Only this sheet's own leftovers are removed — another
+ * sheet's store belongs to whoever is using that sheet, and a tab open on it
+ * right now would not thank us.
+ *
+ * Everything here is best-effort: `databases()` does not exist in every browser
+ * (Firefox notably), and a failure means a little wasted space, never a broken
+ * sheet.
+ */
+async function pruneStaleStores(rundownId: string, keep: string): Promise<void> {
+  try {
+    const list = (indexedDB as { databases?: () => Promise<{ name?: string }[]> }).databases;
+    if (!list) return;
+    const dbs = await list.call(indexedDB);
+    for (const db of dbs) {
+      const name = db.name;
+      if (!name || name === keep) continue;
+      if (name.startsWith(`oc:${rundownId}@`)) indexedDB.deleteDatabase(name);
+    }
+  } catch {
+    // Wasted space is not worth a thrown error on the way into a show.
+  }
+}
+
+/** null = the rundown does not exist; the caller must not open a socket for it. */
   const fetchEpoch = (id: string): Promise<number | null> =>
     fetch(`${API_URL}/rundowns/${id}/epoch`)
       .then((r) => {
@@ -190,6 +219,33 @@ export function useRundownDoc(
     if (epoch == null) return;
     let cancelled = false;
     const fresh = new Y.Doc();
+    /**
+     * Keep the document on the device, so opening it again is a delta.
+     *
+     * The browser started from an empty document every time, which means it had
+     * nothing to diff against and the server had to send the WHOLE sheet — 1.7MB
+     * on a real one, measured, on every single load and every reload. Held here,
+     * the browser arrives with a state vector and gets back only what changed
+     * since, which for a sheet reopened between two halves is usually nothing.
+     *
+     * It is also why a sheet now appears at all on a dead connection: the rows
+     * are already on the device, so the last known running order is on screen
+     * while the socket is still trying. A run sheet you cannot reach is worse
+     * than one that is a few minutes old and says so.
+     *
+     * SAFE BECAUSE OF WHAT YJS IS. This is not a cache that can go stale and
+     * win: the stored document is loaded AND the socket still syncs, and a CRDT
+     * merges the two — anything the server has that the device does not arrives
+     * and is applied. The device cannot hold back a change.
+     *
+     * The one case that is NOT a merge is a sheet whose content was replaced
+     * wholesale (an in-place restore), and that is exactly what the epoch marks:
+     * it is part of the key, so a restored sheet reads from a different store
+     * and starts clean. The epoch was already doing this job for the socket.
+     */
+    const store = `oc:${rundownId}@${epoch}`;
+    const persistence = new IndexeddbPersistence(store, fresh);
+    void pruneStaleStores(rundownId, store);
     setDoc(fresh);
     setSynced(false);
     setBlocked(null);
@@ -288,6 +344,9 @@ export function useRundownDoc(
       cancelled = true;
       fresh.off("update", bump);
       provider.destroy();
+      // Closes the connection, keeps what is stored — the point is that it
+      // survives to the next load.
+      void persistence.destroy();
     };
   }, [rundownId, joinCode, epoch]);
 

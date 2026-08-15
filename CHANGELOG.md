@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **A run sheet is kept on the device, so opening it again is quick.** The browser started from nothing every time, so the server had to send the entire sheet on every load and every reload — 1.7 MB of it on a real one. The sheet is now held on the device and only what has changed since is sent, which for a sheet reopened between two halves is usually nothing at all. It also means the rows are on screen while the connection is still being made, instead of an empty grid: a sheet that is a few minutes old and says so beats one you cannot see. Nothing can go stale behind your back — the stored copy and the server are merged rather than one replacing the other, so anything the server knows still arrives. A sheet whose contents have been replaced wholesale is stored separately and starts clean, and the copies left behind by that are removed.
+
 ### Fixed
 - **Pausing a show no longer shifts the controls sideways.** "Resume" is a wider word than "Pause" and "PAUSED" a wider word than "LIVE", so pausing moved Stop and the stopwatch along the row and resuming moved them back — the controls walking about underneath a hand that is reaching for them. Both now hold the width of their longer word, whichever they currently show. Measured: Stop moves zero pixels through a pause and a resume, where it moved twelve before.
 

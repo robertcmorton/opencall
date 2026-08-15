@@ -387,7 +387,31 @@ wss.on("connection", (ws, req) => {
           if (idx >= 0) startedAtMs = plannedStartMs(sheet.timing, idx, sheet.nowMs, sheet.nowSec);
         }
       }
-      const result = (await showStore.get(ctx.rundownId)).apply(msg.action, msg.rowId, undefined, startedAtMs);
+      /**
+       * Starting a show the CLOCK is driving does not cue the first row.
+       *
+       * "Start show" cued whatever the console suggested, which is the first
+       * row, and began timing it — even with the clock in charge and the first
+       * item hours away. A sheet opening at 1:15 PM, started at 9:04 AM, sat
+       * there counting down an item that had not begun, reporting the show four
+       * hours ahead of itself. The follower could not undo it either: when the
+       * clock says nothing is on yet, its target is null and the loop below
+       * leaves the cue alone rather than clearing it. So the show stayed parked
+       * on a row nothing had asked for until its time came round.
+       *
+       * When the clock is driving, the clock picks — including picking NOTHING.
+       * The show goes live and waits, and the follower cues the first item at
+       * its own time, which is the entire promise of handing it the show.
+       *
+       * Only when it IS driving. With the follower off a person is in charge,
+       * and starting early on the row they chose is exactly what they meant.
+       */
+      let startRowId = msg.rowId;
+      if (msg.action === "start" && (await showStore.get(ctx.rundownId)).current.clockFollow) {
+        sheet ??= await sheetNow(ctx.rundownId);
+        if (sheet) startRowId = clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) ?? undefined;
+      }
+      const result = (await showStore.get(ctx.rundownId)).apply(msg.action, startRowId, undefined, startedAtMs);
       if (typeof result === "string") {
         send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: result });
         return;
@@ -552,6 +576,21 @@ async function clockTick(): Promise<void> {
       if (!sheet) continue;
       const { rows, timing, nowMs, nowSec } = sheet;
       const target = clockTargetRow(rows, timing, nowSec);
+      /**
+       * A null target means the clock has not reached the first item yet, and
+       * this leaves the cue alone rather than clearing it.
+       *
+       * Deliberate, and worth knowing: it means the follower cannot UNDO a cue
+       * that is ahead of the clock. A show started before its sheet begins used
+       * to land in exactly that state and stay there until its first item came
+       * round. The start path above no longer creates it — but a show already
+       * parked that way, by an older build or by a start made before the
+       * follower was switched on, still needs a Stop to clear. Clearing it from
+       * here would mean the follower yanking a row out from under whoever cued
+       * it, and `jump` cannot express "cue nothing" anyway (`rowId ?? current`
+       * keeps what is there), so it would take a protocol change to say it
+       * properly.
+       */
       if (!target || target === current.activeRowId) continue;
 
       const targetIndex = rows.findIndex((r) => r.id === target);

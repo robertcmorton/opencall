@@ -204,3 +204,38 @@ describe("followerMayMove", () => {
     expect(followerMayMove(sheet, "a", "nope")).toBe(true);
   });
 });
+
+/**
+ * The invariant the show-start fix rests on: before the sheet's first item, the
+ * clock points at NOTHING.
+ *
+ * "Start show" used to cue whatever the console suggested — the first row — even
+ * with the clock driving and that row hours away. A sheet opening at 1:15 PM,
+ * started at 9:04 AM, counted down an item that had not begun and reported the
+ * show four hours ahead of itself. The server now asks the clock which row to
+ * open on, so this answering null is what makes it wait.
+ */
+describe("clockTargetRow before the sheet begins", () => {
+  const H = 3600;
+  const rows = [
+    { id: "a", type: "cue" as const, skipped: false },
+    { id: "b", type: "cue" as const, skipped: false },
+  ];
+  const starts = [13 * H + 15 * 60, 14 * H]; // 1:15 PM, 2:00 PM
+
+  it("points at nothing hours before the first item", () => {
+    expect(clockTargetRow(rows, starts, 9 * H + 4 * 60)).toBeNull();
+  });
+
+  it("points at nothing one second before the first item", () => {
+    expect(clockTargetRow(rows, starts, 13 * H + 15 * 60 - 1)).toBeNull();
+  });
+
+  it("takes the first item the moment its time arrives", () => {
+    expect(clockTargetRow(rows, starts, 13 * H + 15 * 60)).toBe("a");
+  });
+
+  it("and moves on at the next", () => {
+    expect(clockTargetRow(rows, starts, 14 * H)).toBe("b");
+  });
+});

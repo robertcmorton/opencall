@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Starting a show early no longer runs an item that has not begun.** With the clock in charge, pressing start cued the first item and began timing it whatever the time was — so a sheet opening at 1:15 in the afternoon, started that morning, sat counting down an item hours away and reported the show four hours ahead of itself. The clock now chooses what to open on, including choosing nothing: the show goes live and waits, and the first item is cued at its own time, which is the whole point of handing the show to the clock. Starting with the clock switched off is unchanged — a person in charge, starting on the row they picked, is exactly what was meant.
+
+### Fixed
 - **The progress sweep across the live item moves smoothly.** It was being told a new position four times a second while each move was set to take nearly a second, so it never once arrived before being sent somewhere else — permanently behind, and changing speed every quarter second, which is what made it look like it was stepping rather than sweeping. The movement now takes exactly as long as the gap between updates, so it is one continuous sweep. The wash is a deeper blue while it is at it.
 - **The live item stays in the middle when "You're on" appears.** That bar sits on top of the bottom of the sheet without making the sheet any shorter, so the middle of what you can actually see moves up — and the cue, still centred in the full height, dropped low at the exact moment the screen was telling somebody they were on. The cue is now centred in what is left visible, and it re-centres the instant the bar arrives or goes.
 

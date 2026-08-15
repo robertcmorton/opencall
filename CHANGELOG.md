@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Pausing a show no longer shifts the controls sideways.** "Resume" is a wider word than "Pause" and "PAUSED" a wider word than "LIVE", so pausing moved Stop and the stopwatch along the row and resuming moved them back — the controls walking about underneath a hand that is reaching for them. Both now hold the width of their longer word, whichever they currently show. Measured: Stop moves zero pixels through a pause and a resume, where it moved twelve before.
+
 ### Changed
 - **A run sheet starts connecting the moment it opens.** The document's connection could not begin until the browser had asked the server one small question and waited for the answer — a full round trip out and back, from wherever the operator happens to be, before the sheet could even start arriving. It was measured at between a third and half a second on a live sheet, sitting in front of everything else. That question is now answered while the page is being built, on the server, one hop away, and the answer arrives with the page. The same answer covers a second question the page used to ask separately, so two waits became none.
 - **The stopwatch appears with the show.** Walking a sheet before the doors open is planning, not timing: there is nothing running to measure, and a stopwatch sitting there invites someone to start it during the walkthrough and wonder an hour later what the number refers to.

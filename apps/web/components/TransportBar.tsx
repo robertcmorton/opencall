@@ -190,18 +190,34 @@ export function ShowStateControls({
         </>
       ) : (
         <>
+          {/* PAUSED is a wider word than LIVE, and this badge sits at the head
+              of the row — so pausing shoved every control after it sideways.
+              Fixing the button beside it was not enough; measuring showed Stop
+              still moving 11.8px, and this was the rest of it. Same cell trick:
+              the badge is always as wide as the longer word. */}
           <span className={`live-badge ${liveState === "paused" ? "paused" : ""}`}>
-            {liveState === "paused" ? "PAUSED" : "LIVE"}
+            <span className="label-swap">
+              <span className={liveState === "paused" ? "is-off" : undefined}>LIVE</span>
+              <span className={liveState === "paused" ? undefined : "is-off"}>PAUSED</span>
+            </span>
           </span>
-          {liveState === "running" ? (
-            <button className="btn btn-sm" data-tip="Hold the show here — the clock keeps running" onClick={() => channel.sendCmd("pause")}>
-              {Icon.pause} Pause
-            </button>
-          ) : (
-            <button className="btn btn-sm btn-positive" data-tip="Resume" onClick={() => channel.sendCmd("resume")}>
-              {Icon.play} Resume
-            </button>
-          )}
+          {/* One button, two states — not two buttons.
+              As two, "Resume" was wider than "Pause", so pausing a show shifted
+              Stop and the stopwatch sideways and then shifted them back on
+              resume. The same fault Stop had when it became Confirm, and the
+              same fix: both words share a cell, so the button is as wide as the
+              longer of them whatever it currently says. Green still means go. */}
+          <button
+            className={`btn btn-sm ${liveState === "running" ? "" : "btn-positive"}`}
+            data-tip={liveState === "running" ? "Hold the show here — the clock keeps running" : "Resume"}
+            onClick={() => channel.sendCmd(liveState === "running" ? "pause" : "resume")}
+          >
+            {liveState === "running" ? Icon.pause : Icon.play}{" "}
+            <span className="label-swap">
+              <span className={liveState === "running" ? undefined : "is-off"}>Pause</span>
+              <span className={liveState === "running" ? "is-off" : undefined}>Resume</span>
+            </span>
+          </button>
           <button
             // Stopping needs a second press — ending a live show by a stray
             // tap is worse than a wasted one. But the first press has to LOOK

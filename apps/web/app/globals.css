@@ -190,6 +190,33 @@ a {
   box-shadow: inset 0 0 0 999px var(--press-veil);
 }
 
+/* A button that changes its wording must not change its width.
+
+   Stop becomes Confirm when it is armed, and "Confirm" is 19px wider than
+   "Stop" in the UI face — enough to shove Pause and the LIVE badge sideways at
+   the exact moment somebody is aiming at them. A control that moves under the
+   finger is worse than one that says the wrong thing.
+
+   Both labels are laid in the SAME grid cell, so the button is always as wide
+   as the longest of them and the width never depends on which is showing. A
+   hardcoded min-width would do it too, and would be wrong the first time the
+   font, the wording or the language changed — this cannot drift, because the
+   real text is doing the measuring. `visibility: hidden` keeps the space and
+   takes the hidden label out of the accessibility tree, so it is not read out
+   twice. */
+.label-swap {
+  display: grid;
+  grid-template-areas: "label";
+  align-items: center;
+  justify-items: center;
+}
+.label-swap > * {
+  grid-area: label;
+}
+.label-swap > .is-off {
+  visibility: hidden;
+}
+
 .btn:disabled {
   opacity: 0.45;
   cursor: default;

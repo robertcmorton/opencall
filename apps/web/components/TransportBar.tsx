@@ -228,7 +228,11 @@ export function ShowStateControls({
               }
             }}
           >
-            {Icon.stop} {armStop ? "Confirm" : "Stop"}
+            {Icon.stop}{" "}
+            <span className="label-swap">
+              <span className={armStop ? "is-off" : undefined}>Stop</span>
+              <span className={armStop ? undefined : "is-off"}>Confirm</span>
+            </span>
           </button>
         </>
       )}

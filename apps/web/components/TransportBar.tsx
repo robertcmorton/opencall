@@ -105,6 +105,39 @@ export function ShowStateControls({
   const isLive = liveState === "running" || liveState === "paused";
   const [armStop, setArmStop] = useState(false);
   const armTimer = useRef<number | undefined>(undefined);
+  const stopRef = useRef<HTMLButtonElement>(null);
+  /**
+   * Anything else you touch is an answer of "no".
+   *
+   * An armed Stop used to sit there until it timed out, so the way to back out
+   * was to do nothing and wait — and waiting is the one thing nobody is doing
+   * during a show. Carrying on with the sheet now cancels it, which is what
+   * carrying on with the sheet means.
+   *
+   * pointerdown, not click: it runs before the click, so pressing Stop a second
+   * time is seen as inside the button and stops the show, while a press
+   * anywhere else disarms before that element's own click is delivered. Escape
+   * does the same, because a keyboard has nowhere else to press.
+   *
+   * The ten-second timeout stays underneath as a backstop. Without it an armed
+   * button left alone on an unattended console stays armed, and the next stray
+   * tap on it ends a live show with no confirmation at all.
+   */
+  useEffect(() => {
+    if (!armStop) return;
+    const off = (e: PointerEvent) => {
+      if (!stopRef.current?.contains(e.target as Node)) setArmStop(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setArmStop(false);
+    };
+    document.addEventListener("pointerdown", off, true);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", off, true);
+      document.removeEventListener("keydown", key);
+    };
+  }, [armStop]);
   /**
    * Warned about, never blocked.
    *
@@ -175,8 +208,14 @@ export function ShowStateControls({
             // like it did something, and three seconds was short enough that a
             // glance away read as a dead button. Ten seconds, and the button
             // says what it is waiting for.
+            //
+            // Armed, it reads "Confirm" — one word, the same width class as
+            // "Stop", and it names the act rather than narrating the mechanism.
+            // "Press again to stop" was an instruction to read at the moment
+            // there is least time to read one.
+            ref={stopRef}
             className={`btn btn-sm btn-danger ${armStop ? "is-on armed" : ""}`}
-            data-tip={armStop ? "Press again to end the show" : "Stop the show — asks once to confirm"}
+            data-tip={armStop ? "Press again to end the show — or touch anything else to cancel" : "Stop the show — asks once to confirm"}
             onClick={() => {
               if (armStop) {
                 channel.sendCmd("stop");
@@ -189,7 +228,7 @@ export function ShowStateControls({
               }
             }}
           >
-            {Icon.stop} {armStop ? "Press again to stop" : "Stop"}
+            {Icon.stop} {armStop ? "Confirm" : "Stop"}
           </button>
         </>
       )}

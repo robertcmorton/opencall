@@ -71,7 +71,14 @@ html {
   /* Motion */
   --t-fast: 130ms;
   --t-med: 190ms;
+  /* How long a control takes to answer a hover. Shorter than --t-fast on
+     purpose: see the note on .btn. */
+  --t-press: 90ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* What a pressed control is veiled with. A wash rather than a per-variant
+     colour, so one rule covers primary, positive, danger and ghost without
+     four more rules to keep in step. Light on dark, dark on light. */
+  --press-veil: rgba(255, 255, 255, 0.14);
 }
 
 [data-theme="light"] {
@@ -88,6 +95,7 @@ html {
   --accent-soft: rgba(76, 141, 255, 0.1);
   --shadow-raised: 0 1px 2px rgba(20, 30, 50, 0.07);
   --shadow-overlay: 0 8px 32px rgba(20, 30, 50, 0.16), 0 2px 8px rgba(20, 30, 50, 0.08);
+  --press-veil: rgba(20, 30, 50, 0.11);
 }
 
 /* ---------- Base ---------- */
@@ -141,15 +149,47 @@ a {
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  /* Buttons move faster than the rest of the chrome. A panel sliding or a
+     drawer opening is a place changing and wants to be followed; a button is
+     answering you, and an answer that takes as long as a journey feels like
+     hesitation. 90ms with this curve is half-done in 18ms and all but finished
+     in 48. The live-show controls already used 60ms on the same reasoning. */
   transition:
-    background var(--t-fast) var(--ease),
-    border-color var(--t-fast) var(--ease),
-    color var(--t-fast) var(--ease);
+    background var(--t-press) var(--ease),
+    border-color var(--t-press) var(--ease),
+    color var(--t-press) var(--ease);
 }
 .btn:hover {
   background: var(--overlay);
   border-color: var(--text-3);
 }
+/* A press shows in the frame it happens in.
+
+   Nothing in this stylesheet had an :active state, so pressing a button changed
+   nothing until React re-rendered with the new state — and a click on the show
+   page was measured at 104ms from press to painted frame, with row windowing on
+   and only 42 rows drawn. Without the window, on a three-thousand-row sheet, it
+   is far worse. The button was not slow to animate; it had nothing to animate
+   until the app caught up.
+
+   :active is the browser's own pointer-down state. It owes React nothing and
+   lands on the next frame, so the finger gets its answer in ~8ms whatever the
+   sheet is doing — the same trick as painting the stopwatch face before telling
+   React about it. `transition: none` is the point: a press is an event, not a
+   journey. Releasing DOES transition, because the hover rule underneath still
+   carries one, so it snaps in and settles out.
+
+   No transform and no filter, deliberately. Either would make the button a
+   containing block for position:fixed descendants, and the tooltips are placed
+   in viewport coordinates — that exact trap put a bubble 571px from its button
+   earlier. A colour wash costs nothing and moves no layout. */
+.btn:active:not(:disabled),
+.menu-item:active,
+.chip:active:not(:disabled) {
+  transition: none;
+  box-shadow: inset 0 0 0 999px var(--press-veil);
+}
+
 .btn:disabled {
   opacity: 0.45;
   cursor: default;

@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A run sheet no longer prints a time the document does not contain.** Where a sheet left the time column blank, the app worked out where the row fell from the durations above it and showed that — and on screen an inferred time is indistinguishable from one somebody typed, so a showcaller could hold a cue to a minute the sheet never claimed. Blank in the source is now blank on the sheet, marked so it can be filled in if you want one. On one real run sheet that is 52 rows of 119 that were showing invented times. Nothing about the running order changes: those rows keep their place and still spend their duration, so the projected end is exactly where it was — measured across every sample sheet, and identical before and after.
+
+### Fixed
 - **A reminder is no longer mistaken for the show.** A milestone is something the showcaller has to get done by a time — team sheets due, comms check, doors — not an item that goes to air. The clock could take one as the cue, and when it did, everything went with it: a milestone carries no duration, so the big timer took the reminder's name, counted up and went red, while the item genuinely on air ran on below with nothing pointing at it. Three rows signalling at once and none of them the show. The clock now passes over reminders the way it already passes over pre-records and headings.
 
 ### Fixed

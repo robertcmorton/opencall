@@ -1809,7 +1809,32 @@ export function buildSheet(
       };
     }
     const assigned = rolesFor(r);
-    const untimed = sparseTimed && r.startSec == null;
+    /**
+     * Two different questions, which used to share one answer.
+     *
+     * `untimed` is about what the sheet SAYS. A row whose TIME cell was blank
+     * has no time, and the grid must not print one — on a run sheet the
+     * cascade can work out where the row falls, and that number looks exactly
+     * like a time somebody typed. A showcaller reading a screen cannot tell an
+     * inferred time from a printed one, and will hold a cue to a minute the
+     * document never claimed. Blank in, blank out.
+     *
+     * `durationMuted` is about what the sheet MEANS, and that really does
+     * differ by shape: on a cue sheet a timed parent is followed by its
+     * contents and their durations are a listing (the thirty seconds of each
+     * ad inside a three-minute reel), while on a run sheet the chain IS the
+     * point and every duration is spent. That measurement stands — see the
+     * note on `sparseTimed` above — so it keeps the sheet-shaped test.
+     *
+     * Splitting them costs nothing in the running order: `untimed` is not read
+     * by computeTiming at all, so the row still takes its duration and the
+     * projected end does not move. What changes is that the row stops showing
+     * a time nobody wrote, and stops being a target the clock can jump to —
+     * which is right, because following the clock means following the times
+     * the sheet actually gives.
+     */
+    const untimed = r.startSec == null;
+    const muteDuration = sparseTimed && untimed && r.durationSec != null;
     // Text in a TIME or DUR column that is not a time or a duration — a sheet
     // that puts "Fullback" or "Interchange" in the duration column of a team
     // list — has nowhere to live in a structural column, and used to simply
@@ -1826,7 +1851,7 @@ export function buildSheet(
       durationSec: r.durationSec,
       hardStartSec: r.startSec,
       untimed: untimed || undefined,
-      durationMuted: untimed && r.durationSec != null ? true : undefined,
+      durationMuted: muteDuration || undefined,
       parallel: r.parallel || undefined,
       spans: r.spans || undefined,
       sourceNumber: r.sourceNumber,

@@ -745,3 +745,57 @@ describe("a column that is not the sheet's numbering", () => {
     expect(built.rows.length).toBe(30);
   });
 });
+
+/**
+ * A blank TIME cell must not come back as a printed time.
+ *
+ * From a live sheet: two rows with nothing in the TIME column arrived showing
+ * 7:06:00 PM, because the cascade could work out where they fell. That number
+ * is indistinguishable on screen from one somebody typed, so a showcaller
+ * holds a cue to a minute the document never claimed.
+ *
+ * The two questions had been fused into one flag. What the sheet SAYS (is
+ * there a time?) is per row and universal. What the sheet MEANS (is a
+ * duration spent or merely listed?) genuinely differs by sheet shape, and
+ * keeps its measured test.
+ */
+describe("blank times are never invented, whatever shape the sheet is", () => {
+  /** Densely timed — a match-day run sheet, where the chain is the point. */
+  const runSheet = (): string[][] => [
+    ["ITEM", "TIME", "DUR", "ACTION"],
+    ["1", "18:00:00", "10:00", "First"],
+    ["2", "18:10:00", "10:00", "Second"],
+    ["3", "", "05:00", "Buffer with no printed time"],
+    ["4", "18:25:00", "10:00", "Third"],
+    ["5", "18:35:00", "10:00", "Fourth"],
+    ["6", "18:45:00", "10:00", "Fifth"],
+    ["7", "18:55:00", "10:00", "Sixth"],
+    ["8", "19:05:00", "10:00", "Seventh"],
+    ["9", "19:15:00", "10:00", "Eighth"],
+    ["10", "19:25:00", "10:00", "Ninth"],
+  ];
+
+  it("marks a blank-time row untimed even on a densely timed run sheet", () => {
+    const built = buildSheet(planImport(runSheet()));
+    const blank = built.rows.find((r) => r.sourceNumber === "3");
+    expect(blank?.untimed).toBe(true);
+    expect(blank?.hardStartSec ?? null).toBeNull();
+  });
+
+  it("still SPENDS that row's duration — the running order is unchanged", () => {
+    const built = buildSheet(planImport(runSheet()));
+    const blank = built.rows.find((r) => r.sourceNumber === "3");
+    // durationMuted is what stops a duration counting. On a run sheet it must
+    // stay off, or the buffer would take no time and every later row would
+    // drift five minutes early.
+    expect(blank?.durationMuted).toBeUndefined();
+    expect(blank?.durationSec).toBe(300);
+  });
+
+  it("leaves rows that DO carry a printed time exactly as they were", () => {
+    const built = buildSheet(planImport(runSheet()));
+    const timed = built.rows.find((r) => r.sourceNumber === "4");
+    expect(timed?.untimed).toBeUndefined();
+    expect(timed?.hardStartSec).toBe(18 * 3600 + 25 * 60);
+  });
+});

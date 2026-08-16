@@ -1855,8 +1855,8 @@ kbd {
      (see the lamps, which ended up at the far LEFT). Name all four or name
      none. */
   display: grid;
-  grid-template-columns: max-content max-content;
-  grid-template-rows: auto auto;
+  grid-template-columns: max-content max-content max-content;
+  grid-template-rows: auto;
   /* The gap is what moves the times column left: the group is anchored to the
      right of the header, so widening the space between the columns pushes the
      leftmost one further out. */
@@ -1864,19 +1864,20 @@ kbd {
   row-gap: 0.35rem;
   justify-content: end;
 }
-/* Column 1 — the two times, stacked: when we come off, and what time it is
-   now. The drift that used to sit up here is on the clock chip's hover. */
-.topbar-right > .header-proj {
+/* One row, read left to right: what time it is NOW, what time we come OFF,
+   then the connection lamps. The two clocks side by side is the comparison
+   anybody in the room is actually making. */
+.topbar-right > .header-clock-block {
   grid-area: 1 / 1;
 }
-/* Column 2 — the lamps, hard right, holding both rows between them. */
+.topbar-right > .header-proj {
+  grid-area: 1 / 2;
+}
 .topbar-right > .header-dots {
-  grid-area: 1 / 2 / span 2;
+  grid-area: 1 / 3;
 }
 /* Under the readouts, starting where the first one starts. */
 .topbar-right > .header-clock-block {
-  /* Under Proj. end, in the times column, left edges lined up. */
-  grid-area: 2 / 1;
   justify-self: start;
 }
 /* The two connection lamps: one above the other, hard right, clear of the

@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The sign-in page no longer points at the administrator's dashboard.** It carried a button to it, and named administrator tokens in its help text. The sign-in page is the most public surface the app has — it is what a stranger, a search crawler, or anyone handed a view-only link sees first — and it has no business naming the administrative side or showing the way there. Administrators reach their dashboard directly, or by signing in here as before; nothing about who can get in has changed, because none of that was ever decided by a link. The help text now describes what a member of a crew needs and stops there.
+
 ### Fixed
 - **A show whose clock has stepped backwards no longer floods the server log.** The clock refuses to drag a running show backwards through its own order, which is right, and it said so on every check — once a second, for as long as the show stayed that way. On a four-hour event that is around fourteen thousand identical lines, and because hosts treat that channel as errors, one show in that state buried the error log a self-hoster reads to find real faults. It is now said once, when it starts, and again if it genuinely recurs or the clock picks a different target. The refusal itself is unchanged.
 

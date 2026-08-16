@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, getAdminToken, setAdminToken } from "../lib/api";
 import { BrandWordmark } from "../components/ui";
@@ -154,8 +153,13 @@ export default function Landing() {
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
           A code opens the run sheet <strong>read-only</strong> — that is the only thing a code does. Running or
           editing a show needs an account, because a code gets photographed off a wall and forwarded out of a group
-          chat. Personal, company, and admin tokens (<code>usr_…</code>, <code>co_…</code>) sign you in to the
-          dashboard.
+          chat. Personal and company tokens (<code>usr_…</code>, <code>co_…</code>) sign you in to the dashboard.
+          {/* An administrator's token still works in this box — the server decides
+              what a token is worth, not this sentence. It is simply not named
+              here: this is the public face of the app, and it should describe
+              what an ordinary member of a crew needs, not enumerate the levels
+              of access above them. The list was wrong anyway — three kinds of
+              token, two prefixes. */}
         </p>
       </form>
 
@@ -188,9 +192,14 @@ export default function Landing() {
         </p>
       </form>
 
-      <Link href="/admin" className="btn btn-ghost" style={{ textDecoration: "none" }}>
-        Admin dashboard →
-      </Link>
+      {/* No link to the admin dashboard, deliberately — do not add one back.
+          The sign-in page is the most public surface this app has: it is what
+          a stranger, a search crawler, or anyone handed a view-only link sees
+          first, and it has no business naming the administrative surface or
+          pointing at it. An administrator knows where their own dashboard is
+          and can sign in here or go straight to it; nobody else needs telling
+          it exists. This removes a signpost, not a lock — the lock is the
+          server, which refuses every administrative read without a token. */}
     </main>
   );
 }

@@ -1863,8 +1863,28 @@ kbd {
 /* Under the readouts, starting where the first one starts. */
 .topbar-right > .header-clock-block {
   grid-row: 2;
+  /* Spans the full width and aligns left, so its first character sits under
+     the first readout's. Its BOX runs under the lamps' column too, which is
+     invisible — the row has no content out there. Tried stopping it at -2 to
+     make the lamps measurably rightmost: negative grid lines move as spans
+     change, the clock lost its alignment by 139px, and the thing being fixed
+     was never visible. Left alone. */
   grid-column: 1 / -1;
   justify-self: start;
+}
+/* The two connection lamps: one above the other, hard right, clear of the
+   numbers. They answer one question between them and are the only state in a
+   row of readings. */
+.header-dots {
+  /* NO explicit placement. The markup already puts the lamps after the
+     readouts, so auto-flow lands them in the next column — the far right,
+     which is where they belong. Naming a column (-2) instead FOUGHT the
+     auto-flow and parked them at the far LEFT, ahead of everything. Let the
+     order in the markup decide the order on the screen. */
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  justify-items: start;
 }
 
 @media (max-width: 760px) {
@@ -1995,7 +2015,11 @@ kbd {
   top: 22%;
   height: 56%;
   width: 1px;
-  background: var(--border-subtle);
+  /* Brighter than the body's dividers ON PURPOSE. It is not decoration — it is
+     the thing you aim at to resize a column, and a grab point you cannot see
+     is a grab point you have to hunt for. The alignment fix was about WHERE it
+     is drawn, not whether you can see it. */
+  background: var(--border);
   transition: background var(--t-fast) var(--ease), width var(--t-fast) var(--ease);
 }
 .col-resize:hover::after {

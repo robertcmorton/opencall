@@ -2539,8 +2539,15 @@ export function RundownEditor({
               activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null
             }
           />
-          <span className={`status-dot hide-mobile ${connected ? "ok" : ""}`}>doc</span>
-          <span className={`status-dot hide-mobile ${channel.connected ? "ok" : ""}`}>show</span>
+          {/* Both connection lamps together, stacked, hard right — they are one
+              reading ("am I connected?"), not two readouts, and they are the
+              only thing here that is a state rather than a number. Kept out of
+              the row of clocks so the eye can skip them until something goes
+              red, which is the only time they matter. */}
+          <div className="header-dots hide-mobile">
+            <span className={`status-dot ${connected ? "ok" : ""}`}>doc</span>
+            <span className={`status-dot ${channel.connected ? "ok" : ""}`}>show</span>
+          </div>
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />
         </div>
       </header>

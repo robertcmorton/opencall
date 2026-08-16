@@ -56,6 +56,16 @@ export function LiveReadouts({
           how the SHOW is doing, cumulatively: drift, and where it now ends. The
           item countdown is a question about one row, and it already has a
           larger home with the row's name and a progress bar attached. */}
+      {/* Projected end first, drift second. The end time is the number people
+          ask each other for — "what time are we off?" — and it belongs nearer
+          the clocks it is a kind of. The drift beside it then reads as the
+          reason that number is moving. */}
+      <div>
+        <div className="header-label">Proj. end</div>
+        <div className="header-clock mono">
+          {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
+        </div>
+      </div>
       <div>
         <div className="header-label">Show</div>
         <div
@@ -64,12 +74,6 @@ export function LiveReadouts({
           data-tip={driftWhy}
         >
           {live.showDriftSec != null ? signed(live.showDriftSec) : "—"}
-        </div>
-      </div>
-      <div>
-        <div className="header-label">Proj. end</div>
-        <div className="header-clock mono">
-          {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
         </div>
       </div>
     </>

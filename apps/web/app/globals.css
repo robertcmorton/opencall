@@ -1864,12 +1864,13 @@ kbd {
   row-gap: 0.35rem;
   justify-content: end;
 }
-/* Column 1 — TIMES, stacked: when we come off, and what time it is now. */
-.topbar-right > .header-proj {
+/* Column 1 — the drift, above the event clock. How far off the plan we are,
+   over the time it is now: the two things that change second by second. */
+.topbar-right > .header-drift {
   grid-area: 1 / 1;
 }
-/* Column 2 — the drift, on the TOP row beside the projected end it explains. */
-.topbar-right > .header-drift {
+/* Column 2 — the projected end. The one fixed-looking number of the three. */
+.topbar-right > .header-proj {
   grid-area: 1 / 2;
 }
 /* Column 3 — the lamps, hard right, holding both rows between them. */

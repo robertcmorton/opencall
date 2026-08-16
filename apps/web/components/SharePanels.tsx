@@ -103,7 +103,8 @@ export function JoinCodesPanel({
   >([]);
   const [editingCols, setEditingCols] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
-  const [name, setName] = useState("");
+  /** The URL just copied, so the panel can say so. */
+  const [copied, setCopied] = useState<string | null>(null);
   const reload = () => {
     void api.joinCodes(rundownId).then(setCodes);
     void api.viewers(rundownId).then(setViewers).catch(() => setViewers([]));
@@ -129,44 +130,61 @@ export function JoinCodesPanel({
     <div className="panel" style={panelStyle}>
       <strong>View-only links</strong>
       <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-        A link opens this run sheet read-only and asks for a name before it shows anything. Running or editing the show
-        needs an account.
+        A link opens this run sheet read-only, and it is the same link for everybody — send it to whoever needs to
+        watch. Running or editing the show needs an account.
       </span>
+      {/* One button, and it always works.
+          There was a "who is this link for?" box first, which asked a question
+          the link cannot answer: it is one URL and anyone holding it can open
+          the sheet, so naming it described the sender's intention rather than
+          anything the link does. And nothing could be copied until a link had
+          been made, so the common case — "send the crew the sheet" — took two
+          steps and a decision. Copy makes one if there is not one yet. */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          className="input"
-          placeholder="Who is this link for? (e.g. Camera crew)"
-          data-tip="Names the link, so you can tell one from another and revoke the right one"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ minWidth: 220 }}
-        />
         <button
           className="btn btn-sm btn-primary"
+          data-tip="Copies a link that opens this run sheet read-only. Anyone with it can watch; nobody with it can change anything."
           onClick={() =>
-            void api.createJoinCode(rundownId, "follower", name.trim() || undefined).then(() => {
-              setName("");
+            void copyViewOnlyLink(rundownId).then((url) => {
+              setCopied(url);
               reload();
             })
           }
         >
-          + View-only link
+          Copy view-only link
         </button>
+        {copied && (
+          <span style={{ color: "var(--under)", fontSize: "var(--fs-sm)" }}>Copied — paste it wherever your crew is.</span>
+        )}
       </div>
 
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
         {live.map((c) => (
           <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-            <code style={{ background: "var(--bg)", border: "1px solid var(--border-subtle)", padding: "3px 8px", borderRadius: 4, fontSize: "1rem", letterSpacing: "0.15em" }}>
-              {c.joinCode}
-            </code>
-            <span style={{ color: "var(--text-2)", minWidth: 120 }}>
-              {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed</span>}
-            </span>
+            {/* The LINK is the thing. It used to lead with the six-character
+                code, which made the panel look like something to read out and
+                have somebody type — and typing it is the fallback, not the
+                point. The URL is shown as a URL, and the code sits after it in
+                small type for the case where someone is looking at a printed
+                sheet rather than a screen. */}
+            {c.joinCode && (
+              <a
+                href={urlFor(c.joinCode)}
+                style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}
+                data-tip="Opens the read-only view, exactly as a recipient sees it"
+              >
+                /view/{rundownId}?code={c.joinCode}
+              </a>
+            )}
             {c.joinCode && (
               <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(urlFor(c.joinCode!))}>
                 Copy link
               </button>
+            )}
+            {c.joinCode && (
+              <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }} data-tip="Can be typed on the sign-in page instead of following the link">
+                or type {c.joinCode}
+              </span>
             )}
             <button
               className="btn btn-sm"

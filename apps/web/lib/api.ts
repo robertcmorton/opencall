@@ -399,7 +399,17 @@ export async function copyViewOnlyLink(rundownId: string): Promise<string> {
   let code = codes.find((c) => c.role === "follower")?.joinCode ?? null;
   if (!code) code = (await api.createJoinCode(rundownId, "follower")).code;
   const url = `${window.location.origin}/view/${rundownId}?code=${encodeURIComponent(code)}`;
-  await navigator.clipboard.writeText(url);
+  /**
+   * The LINK is the product; putting it on the clipboard is a convenience.
+   *
+   * `writeText` rejects in more situations than it looks: no permission, an
+   * insecure context, a browser that wants the write closer to the click. When
+   * it did, this threw — and the caller lost the URL, even though the link had
+   * already been created on the server a line earlier. So a crew got nothing,
+   * for a failure that had nothing to do with whether they can watch the show.
+   * The URL is returned either way, and the panel shows it to copy by hand.
+   */
+  await navigator.clipboard?.writeText(url).catch(() => undefined);
   return url;
 }
 

@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The view-only link is a link, and there is one button to get it.** It no longer asks who the link is for — it is one URL and anyone holding it can watch, so naming it described the sender's intention rather than anything the link does. Copy now works whether or not a link has been made yet: if there is not one, it makes one. The panel shows the address itself rather than leading with a six-character code, with the code kept in small type underneath for anyone reading off a printed sheet instead of a screen.
+
+### Fixed
+- **Copying a view-only link no longer loses it when the clipboard refuses.** Browsers decline that write for several reasons that have nothing to do with the link — no permission, an insecure page, a browser that wants the write nearer the click — and when it happened the address was thrown away, though the link itself had already been created. The link is the point and copying is the convenience; the address now comes back either way, on screen to copy by hand.
+
 ### Fixed
 - **The error log records where a browser error happened, not where the server wrote it down.** Every error reported by a browser was filed with the server's own stack — the same three lines pointing at the code that receives the report — while the browser's real stack was kept somewhere the log does not show. A fault in a page therefore read as a fault in the server, which is worse than having no stack at all: it sends whoever is reading the log to the wrong file. The browser's stack now goes where the log is read from.
 

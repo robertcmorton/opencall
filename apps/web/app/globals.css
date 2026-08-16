@@ -1728,7 +1728,25 @@ kbd {
    everything else sits around it (equal 1fr sides keep the centre centred). */
 .topbar-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* The readouts column will not go below its own content; the TITLE absorbs
+     the squeeze instead.
+     Both sides were `minmax(0, 1fr)`, which permits a column to be narrower
+     than what is in it — so as the header tightened, the readouts were clipped
+     and slid under the cue timer. Measured at a 1406px header: sides 425.8px
+     each against a 462px centre, and the readouts need 332px, so they start
+     disappearing below about 1166px of header.
+     Only one of the three CAN shrink gracefully: the sheet's name already
+     ellipsises, and losing the end of a title you chose is nothing like losing
+     the clock. `minmax(max-content, 1fr)` keeps the sides equal — and the
+     timer centred — while there is room, and gives up exact centring only when
+     the alternative is hiding a reading.
+
+     The title gets a floor of its own. Absorbing the squeeze is its job, but
+     measured at 790px it had been reduced to 24.9px — a few pixels of a name,
+     which is not a truncation, it is a deletion. 96px keeps enough to
+     recognise the sheet you are on, and below that the cue timer gives up some
+     of its own width (it has a 300px floor) before anything else is harmed. */
+  grid-template-columns: minmax(96px, 1fr) auto minmax(max-content, 1fr);
   /* Top, not centre: every readout across the bar — the sheet's name, the item
      and show clocks, the projected end, the connection dots, the event time —
      lines up with the top of the cue timer box, so the bar reads as one row of

@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The header readouts cannot be hidden by a narrow window any more.** The clocks and the projected end were sliding under the cue timer and being cut in half, because the columns either side of the timer were allowed to be narrower than what was in them — so the readouts were crushed rather than the one thing that can shrink gracefully. The sheet's name absorbs it now, down to a floor where it still reads as a name; losing the end of a title you chose is nothing like losing the clock. The timer stays centred while there is room, and gives up exact centring only when the alternative is hiding a reading.
+
 ### Changed
 - **The view-only link is a link, and there is one button to get it.** It no longer asks who the link is for — it is one URL and anyone holding it can watch, so naming it described the sender's intention rather than anything the link does. Copy now works whether or not a link has been made yet: if there is not one, it makes one. The panel shows the address itself rather than leading with a six-character code, with the code kept in small type underneath for anyone reading off a printed sheet instead of a screen.
 

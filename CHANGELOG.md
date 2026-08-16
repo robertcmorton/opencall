@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The admin dashboard no longer breaks its first render for anyone signed in.** Whether the browser was holding an access token was checked while the page was being drawn — and the server drawing that same page has no browser storage to check, so it always decided nobody was signed in. A signed-in admin was therefore sent a page saying no sign-in was needed and offering no way out, and their browser then drew the opposite; the two disagreeing is an error the page recovers from by redrawing, every single load. The question is now asked once the browser is running, which is the only place it can be answered.
+
 ### Changed
 - **View-only links open over the run sheet instead of pushing it down.** The panel used to appear above the grid, so asking a question about sharing moved every row somebody was reading — and on a live sheet that means the cue moves while you are looking at it. It now floats over the page: the rows stay exactly where they were, and the panel leaves the moment it is answered. Escape closes it as well as clicking away, because it can be opened mid-show and a way out that has to be aimed at is not a way out.
 

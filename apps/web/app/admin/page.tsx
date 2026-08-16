@@ -660,8 +660,24 @@ export default function AdminPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>([]);
   /** Kinds of show this company added for itself, offered beside the built-ins. */
   const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
+  /**
+   * Whether this browser is holding an access token — answered AFTER hydration.
+   *
+   * It used to be read straight out of localStorage while rendering, and the
+   * server has no localStorage to read: it always answered "no". So a signed-in
+   * admin got server HTML saying no sign-in was needed and no Sign out button,
+   * then their own browser rendered the opposite, and React threw a hydration
+   * mismatch on every single load of this page. Starting from the server's
+   * answer and correcting it once the browser is running is the same shape the
+   * side panel already uses for its own stored state.
+   *
+   * Kept in step by `reload`, which runs on mount and again after anything that
+   * can change the token — signing in through the gate, or signing out.
+   */
+  const [hasToken, setHasToken] = useState(false);
 
   const reload = useCallback(() => {
+    setHasToken(getAdminToken() != null);
     api
       .events(showArchived)
       .then((data) => {
@@ -786,7 +802,7 @@ export default function AdminPage() {
                   ? me.canManage
                     ? "Manager"
                     : "View access"
-                  : getAdminToken()
+                  : hasToken
                     ? "Session not recognised"
                     : "Dev-open server — no sign-in needed"}
           </span>
@@ -795,7 +811,7 @@ export default function AdminPage() {
           <span className="check" />
           My account
         </Link>
-        {getAdminToken() && (
+        {hasToken && (
           <button
             type="button"
             className="menu-item"

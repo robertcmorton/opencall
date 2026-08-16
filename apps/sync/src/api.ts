@@ -646,6 +646,36 @@ export function createApiHandler(
           json(res, 403, { error: "That is not yours to give access to" });
           return true;
         }
+        /**
+         * A company grant has to name a company.
+         *
+         * `resolveGrants` fills the id in for a caller with exactly one — but
+         * an admin can reach every company, so it deliberately does not guess,
+         * and an unnamed one used to travel all the way down: for a new email
+         * the empty string is not null and broke the invitation's foreign key,
+         * surfacing as a 500; for an email that already had an account it was
+         * written into user_grants (which has no such key) and reported as
+         * success, leaving a grant that can never match a company. Refused
+         * here, where it can still be explained.
+         *
+         * The kinds are checked at the same time. Creating a user has always
+         * whitelisted them; inviting one never did, and cast the difference
+         * away on the way to the database.
+         */
+        const KINDS = ["admin", "company", "event", "view"];
+        const badKind = grants.find((g) => !KINDS.includes(g.kind));
+        if (badKind) {
+          json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });
+          return true;
+        }
+        if (grants.some((g) => g.kind === "company" && !g.targetId)) {
+          json(res, 400, { error: "Choose which company this person may open" });
+          return true;
+        }
+        if (grants.some((g) => (g.kind === "event" || g.kind === "view") && !g.targetId)) {
+          json(res, 400, { error: "Choose which event this person may open" });
+          return true;
+        }
 
         const ctx = await authContext(handle, req);
         // Which company's invitation this is. An admin may say; otherwise it

@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **An invitation can name which company the person may open.** On a server running more than one company, the invite form offered a single "Everything at this company" — which had no company attached to it. An administrator, who can reach every company, had no way to say which one they meant, and the choice was not refused either: inviting somebody with an existing account recorded access to a company that does not exist, and reported success, while inviting a new email address failed outright. The form now lists the companies by name, one option each. Whoever is signed in as a single company still sees the same one-line choice as before, because for them there is nothing to choose. The people list now names the company somebody has access to, rather than saying only that they have a whole one.
+
+### Fixed
 - **A narrow window no longer empties a run sheet whose columns have been dragged.** Below roughly 500px the app decided it could not afford the minimum widths that protect the time and duration columns — and instead of dropping just those minimums, it abandoned the whole calculation, handing every column a width of zero. The item column collapsed to nothing, so the sheet's own text disappeared: on a 520px window the run sheet rendered with no readable content at all. It only ever affected sheets whose columns had been dragged to a width, since untouched sheets never reach that calculation. The widths chosen by dragging are now kept on any screen; only the minimums are given up when there is no room for them.
 
 ### Fixed

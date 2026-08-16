@@ -16,7 +16,21 @@ import { MissingFields } from "./ui";
  * So a person may appear in two companies' lists showing entirely different
  * access in each, and neither knows about the other. That is the intent.
  */
-export function PeoplePanel({ companyName }: { companyName?: string | null }) {
+export function PeoplePanel({
+  companyName,
+  /**
+   * Every company the viewer may hand out, for naming one in an invitation.
+   *
+   * Only an admin is given a list: a company signed in as itself has exactly
+   * one and being asked which would be a strange question, so its invitations
+   * carry an empty id that the server resolves to whoever asked. Empty here
+   * therefore means "you have no choice to make", not "we could not load it".
+   */
+  companies = [],
+}: {
+  companyName?: string | null;
+  companies?: { id: string; name: string }[];
+}) {
   const [data, setData] = useState<Awaited<ReturnType<typeof api.people>> | null>(null);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +46,7 @@ export function PeoplePanel({ companyName }: { companyName?: string | null }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <InviteForm events={events} mailConfigured={data.mailConfigured} onDone={reload} />
+      <InviteForm events={events} companies={companies} mailConfigured={data.mailConfigured} onDone={reload} />
 
       {data.invites.length > 0 && (
         <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -72,7 +86,10 @@ export function PeoplePanel({ companyName }: { companyName?: string | null }) {
               {p.grants.map((g) => (
                 <span key={`${g.kind}:${g.targetId}`} className="chip">
                   {g.kind === "company"
-                    ? "Whole company"
+                    ? // Named where we can name it. "Whole company" alone is
+                      // ambiguous on a server running several, which is the
+                      // same screen where you are choosing between them.
+                      (companies.find((c) => c.id === g.targetId)?.name ?? "Whole company")
                     : `${events.find((e) => e.id === g.targetId)?.name ?? "An event"}${g.kind === "view" ? " (view)" : ""}`}
                 </span>
               ))}
@@ -97,9 +114,11 @@ export function PeoplePanel({ companyName }: { companyName?: string | null }) {
 function InviteForm({
   events,
   mailConfigured,
+  companies,
   onDone,
 }: {
   events: EventSummary[];
+  companies: { id: string; name: string }[];
   mailConfigured: boolean;
   onDone: () => void;
 }) {
@@ -160,7 +179,24 @@ function InviteForm({
           style={{ minWidth: 240 }}
         >
           <option value="">Choose…</option>
-          <option value="company:">Everything at this company</option>
+          {/* Which company, when there is more than one to mean.
+              This offered a single "Everything at this company" carrying an
+              empty id. For a company signing in as itself that is right — it
+              has one, and the server fills the id in. For an admin, who can
+              reach every company, there was no way to say which, and the empty
+              id was not refused: it was written down as a grant that matches
+              nothing, or failed the invitation outright. */}
+          {companies.length > 0 ? (
+            <optgroup label="Everything at one company">
+              {companies.map((c) => (
+                <option key={c.id} value={`company:${c.id}`}>
+                  {c.name}
+                </option>
+              ))}
+            </optgroup>
+          ) : (
+            <option value="company:">Everything at this company</option>
+          )}
           {events.length > 0 && (
             <optgroup label="One event only">
               {events.map((ev) => (

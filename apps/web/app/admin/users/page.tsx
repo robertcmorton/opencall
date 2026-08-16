@@ -54,7 +54,7 @@ export default function AdminUsersPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              <PeoplePanel companyName={me?.role === "company" ? me.teamName : null} />
+              <PeoplePanel companyName={me?.role === "company" ? me.teamName : null} companies={companies} />
               {me?.role === "admin" && (
                 <div>
                   <h2 style={{ fontSize: "1.05rem", fontWeight: 650, margin: "0 0 8px" }}>Every account on this server</h2>

@@ -66,17 +66,26 @@ export function WithSideNav({
         {open ? Icon.close : Icon.menu}
       </button>
       <aside className={`sidenav no-print ${open ? "" : "closed"}`} onClick={closeAfterChoosing}>
-        <Link href="/" className="sidenav-brand">
+        {/* prefetch={false} on all three. The menu is rendered on every page
+            INCLUDING a live run sheet, and Next prefetches a Link as soon as
+            it is in the tree — so opening a sheet pulled down the dashboard
+            and admin bundles too: ~133 KB of JavaScript, 90%+ of it never
+            executed, arriving at the exact moment the document is syncing over
+            the socket. On a venue's wifi that is bandwidth taken from the one
+            thing that matters. The cost is that Dashboard fetches its chunks
+            on click instead — a few hundred ms, on a navigation nobody makes
+            mid-show. */}
+        <Link href="/" className="sidenav-brand" prefetch={false}>
           <BrandWordmark size={17} />
         </Link>
         {title && <div className="sidenav-title">{title}</div>}
         <nav className="sidenav-section">
           <div className="menu-heading">Navigate</div>
-          <Link className="menu-item" href="/">
+          <Link className="menu-item" href="/" prefetch={false}>
             <span className="check" />
             Login
           </Link>
-          <Link className="menu-item" href="/admin">
+          <Link className="menu-item" href="/admin" prefetch={false}>
             <span className="check" />
             Dashboard
           </Link>

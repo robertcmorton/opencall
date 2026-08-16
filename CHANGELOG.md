@@ -10,6 +10,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The run sheet reads properly to a screen reader.** The page had no marked main region, so there was no way to skip past the menu and the header band and land on the sheet — every other page in the app already said where its content began; the one people actually live in did not. The sheet is now announced as the page's content.
+- **The control that picks up a row has a name.** Selecting or dragging a row is done from its number, and on a sheet that arrived without numbering — or on a heading row — that control had no name at all: a button announced as nothing. It now names the row by its number, or by the item's own title when there is no number.
+- **The small labels are legible.** The column headings across the sheet, and the captions above the readouts in the header, were set too faint against their background to meet the standard for text that size — measured at 3.5 and 3.7 where 4.5 is required. Lifted two steps, to 5.3 and 5.6. They stay clearly quieter than the values they label.
+
+### Changed
+- **Opening a run sheet no longer downloads the dashboard as well.** The menu is present on every page, including a live sheet, and the pages it links to were being fetched in advance the moment a sheet opened — about 130 KB of code for pages nobody is on, more than nine tenths of it never used, arriving at exactly the moment the sheet is coming down the wire. On a venue's connection that is bandwidth taken from the only thing that matters. Those pages are now fetched when they are asked for, which costs a short wait on a trip nobody makes in the middle of a show.
+
+### Fixed
 - **Starting a show early no longer runs an item that has not begun.** With the clock in charge, pressing start cued the first item and began timing it whatever the time was — so a sheet opening at 1:15 in the afternoon, started that morning, sat counting down an item hours away and reported the show four hours ahead of itself. The clock now chooses what to open on, including choosing nothing: the show goes live and waits, and the first item is cued at its own time, which is the whole point of handing the show to the clock. Starting with the clock switched off is unchanged — a person in charge, starting on the row they picked, is exactly what was meant.
 
 ### Fixed

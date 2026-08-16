@@ -198,7 +198,18 @@ function SortableRow({
         boxShadow: mine ? `inset 3px 0 0 ${mineColor}` : undefined,
       }}
     >
-      <td className="row-number mono" onClick={onSelect} {...attributes} {...listeners}>
+      {/* useSortable makes this cell a role="button", and its only text is the
+          row number — so on a sheet that came in unnumbered, or on a group
+          heading, it is a button called nothing at all. The label goes AFTER
+          the spread so it wins, and names the row by whatever the row has:
+          its number, else its title. */}
+      <td
+        className="row-number mono"
+        onClick={onSelect}
+        {...attributes}
+        {...listeners}
+        aria-label={`Select or drag ${displayNumber ? `row ${displayNumber}` : row.title ? `row: ${row.title}` : "this row"}`}
+      >
         <span className="rn-num">{displayNumber}</span>
         {active && <span className="cue-badge">CUE</span>}
         {!active && row.outcome && (branch?.opens ?? true) && (
@@ -2357,7 +2368,11 @@ export function RundownEditor({
     <WithSideNav title={meta.name} settings={settings}>
     {/* --diag-h is published by the diagnostics bar (fixed to the bottom) so
         the page never hides its own failure message behind it. */}
-    <div
+    {/* A <main>, not a div: the sheet IS this page's content, and without a
+        main landmark a screen-reader user has no way to skip the sidenav and
+        the header band to reach it. Every other page in the app already has
+        one; this — the page people actually live in — did not. */}
+    <main
       className="show-page"
       // --diag-h is published by the diagnostics bar; dockBottom is the role
       // bar's height. Both are fixed to the bottom of the screen, and the sheet
@@ -3559,7 +3574,7 @@ export function RundownEditor({
       </div>
 
 
-    </div>
+    </main>
     </WithSideNav>
   );
 }

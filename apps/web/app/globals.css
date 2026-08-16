@@ -29,6 +29,12 @@ html {
   --text: #e7eaf0;
   --text-2: #9aa3b2;
   --text-3: #636d7d;
+  /* --text-3 set in 10px uppercase measures 3.49:1 on --surface and 3.71:1 on
+     --bg; small text needs 4.5:1. Two steps lighter clears it (5.31:1 and
+     5.64:1) while staying clearly quieter than --text-2. For the tiny
+     letter-spaced labels ONLY — column headings and the readout captions —
+     not a general replacement for --text-3, which is fine at larger sizes. */
+  --text-label: #808b9c;
 
   /* Semantic color */
   --accent: #4c8dff;
@@ -559,7 +565,7 @@ input.inline-edit {
 /* ---------- Header pieces ---------- */
 
 .header-label {
-  color: var(--text-3);
+  color: var(--text-label);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -2087,6 +2093,7 @@ select:disabled {
 /* Spreadsheet-style headers: click a label to rename, drag it to move the
    column; the drop target shows an accent edge. */
 .col-label {
+  color: var(--text-label);
   cursor: grab;
   display: inline-block;
   max-width: 100%;

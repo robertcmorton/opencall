@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
-- **The header readouts are ordered the way they are asked for.** Projected end comes first — it is the number people ask each other for, "what time are we off?" — with the show's drift beside it as the reason that number moves. The two connection lamps sit together at the far right, one above the other: they answer one question between them, and they are the only thing up there that is a state rather than a number, so the eye can skip them until one goes red.
+- **The header readouts are arranged in two columns.** Times on the left — what time we come off, and what time it is now, which is the pair anybody reads together. State on the right — the two connection lamps, and beneath them how far off the plan the show is running. Projected end comes first — it is the number people ask each other for, "what time are we off?" — with the show's drift beside it as the reason that number moves. The two connection lamps sit together at the far right, one above the other: they answer one question between them, and they are the only thing up there that is a state rather than a number, so the eye can skip them until one goes red.
 
 ### Removed
 - **The follower screen has gone.** It showed the item on air, a countdown and the one after — which is the timer's job with more context. Two companion screens instead of three: one fewer thing to explain to a crew, and one fewer to be looking at the wrong one of. View-only links are untouched; they never used that screen.

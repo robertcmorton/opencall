@@ -60,13 +60,13 @@ export function LiveReadouts({
           ask each other for — "what time are we off?" — and it belongs nearer
           the clocks it is a kind of. The drift beside it then reads as the
           reason that number is moving. */}
-      <div>
+      <div className="header-proj">
         <div className="header-label">Proj. end</div>
         <div className="header-clock mono">
           {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
         </div>
       </div>
-      <div>
+      <div className="header-drift">
         <div className="header-label">Show</div>
         <div
           className="header-clock mono"

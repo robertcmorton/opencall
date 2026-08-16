@@ -1846,30 +1846,34 @@ kbd {
   align-items: baseline;
   gap: 0.6rem 1rem;
   min-width: 0;
-  /* A GRID, not a wrapping flex row.
-     The readouts sit on one line and the event clock takes a row beneath
-     them, aligned with the FIRST of them — under SHOW. Flex could not do
-     that: a wrapped line fills the whole box, so the clock started at the
-     box's left edge, 140px adrift of SHOW with nothing in between, and
-     shrinking the box to its content is impossible while an item asks for a
-     full-width line. As a grid the columns are the readouts themselves, so
-     "column 1" IS SHOW's left edge, and the whole group still hugs the right
-     of the header. */
+  /* Two columns, two rows, everything placed by hand.
+     TIMES on the left — what time we come off, and what time it is now, which
+     is the pair anybody reads together. STATE on the right — the two
+     connection lamps, and beneath them how far off the plan the show is
+     running. Nothing auto-flows here: every previous attempt at this mixed
+     explicit placement with auto-placement, and the two fought each other
+     (see the lamps, which ended up at the far LEFT). Name all four or name
+     none. */
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
+  grid-template-columns: max-content max-content;
+  grid-template-rows: auto auto;
+  column-gap: 2.2rem;
+  row-gap: 0.35rem;
   justify-content: end;
+}
+.topbar-right > .header-proj {
+  grid-area: 1 / 1;
+}
+.topbar-right > .header-dots {
+  grid-area: 1 / 2;
+}
+.topbar-right > .header-drift {
+  grid-area: 2 / 2;
 }
 /* Under the readouts, starting where the first one starts. */
 .topbar-right > .header-clock-block {
-  grid-row: 2;
-  /* Spans the full width and aligns left, so its first character sits under
-     the first readout's. Its BOX runs under the lamps' column too, which is
-     invisible — the row has no content out there. Tried stopping it at -2 to
-     make the lamps measurably rightmost: negative grid lines move as spans
-     change, the clock lost its alignment by 139px, and the thing being fixed
-     was never visible. Left alone. */
-  grid-column: 1 / -1;
+  /* Under Proj. end, in the times column, left edges lined up. */
+  grid-area: 2 / 1;
   justify-self: start;
 }
 /* The two connection lamps: one above the other, hard right, clear of the

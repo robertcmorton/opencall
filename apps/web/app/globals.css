@@ -1876,6 +1876,35 @@ kbd {
 .topbar-right > .header-dots {
   grid-area: 1 / 3;
 }
+
+/* One row only while there is room for one.
+   The header is three cells — title, cue timer, readouts — and the readouts
+   share a `minmax(0, 1fr)` with the timer holding the middle. Below a certain
+   width three columns of readouts stopped fitting and were simply CLIPPED:
+   "EVENT TIME" and its clock slid under the timer and vanished, which is the
+   worst possible failure for a readout. So it steps down instead — first the
+   gaps close, then the event clock drops beneath the projected end and the
+   lamps hold both rows. Nothing is ever hidden; it only gets narrower. */
+@media (max-width: 1500px) {
+  .topbar-right {
+    column-gap: 1.4rem;
+  }
+}
+@media (max-width: 1320px) {
+  .topbar-right {
+    grid-template-columns: max-content max-content;
+    grid-template-rows: auto auto;
+  }
+  .topbar-right > .header-proj {
+    grid-area: 1 / 1;
+  }
+  .topbar-right > .header-clock-block {
+    grid-area: 2 / 1;
+  }
+  .topbar-right > .header-dots {
+    grid-area: 1 / 2 / span 2;
+  }
+}
 /* Under the readouts, starting where the first one starts. */
 .topbar-right > .header-clock-block {
   justify-self: start;

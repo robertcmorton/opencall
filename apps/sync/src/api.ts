@@ -1245,7 +1245,18 @@ export function createApiHandler(
         let doc: Y.Doc;
         if (typeof body.templateId === "string" && body.templateId) {
           const template = await db.query.templates.findFirst({ where: eq(schema.templates.id, body.templateId) });
-          if (!template) {
+          /**
+           * A template may be built from it only if it is a built-in starter
+           * (teamId null, offered to everybody) or belongs to the same company
+           * as the event being built into. Access to the destination event was
+           * never a licence to read another company's document, and a template
+           * id is a bare ULID in a request body — the only thing standing
+           * between the two was that nobody had tried.
+           *
+           * Answers "not found" rather than "not yours" on purpose: whether a
+           * given id exists is not something to confirm to somebody guessing.
+           */
+          if (!template || (template.teamId !== null && template.teamId !== event.teamId)) {
             json(res, 404, { error: "template not found" });
             return true;
           }
@@ -2044,10 +2055,33 @@ export function createApiHandler(
           json(res, 404, { error: "rundown not found" });
           return true;
         }
+        /**
+         * A template belongs to the company whose sheet it was made from.
+         *
+         * This filed every one of them under `defaultTeamId()`, which is a dev
+         * stub that returns whichever team the database hands back first. Two
+         * consequences, both bad. A company saving a template was told it had
+         * been saved and then never saw it again, because the listing only
+         * returns templates matching the caller's own team. And whichever
+         * company happened to be that first team saw EVERYONE's — a template
+         * carries the whole document, so that is one company's run sheets
+         * readable by another.
+         *
+         * The event knows who it belongs to and its `teamId` cannot be null,
+         * so the sheet's own event is the answer. Leaving it null was not an
+         * option: null means "built-in starter", i.e. offered to everybody.
+         */
+        const event = await db.query.events.findFirst({
+          where: eq(schema.events.id, rundown.eventId),
+        });
+        if (!event) {
+          json(res, 404, { error: "event not found" });
+          return true;
+        }
         const id = ulid();
         await db.insert(schema.templates).values({
           id,
-          teamId: await defaultTeamId(),
+          teamId: event.teamId,
           name: String(body.name ?? `${rundown.name} (template)`),
           description: body.description ? String(body.description) : null,
           doc: rundown.doc,

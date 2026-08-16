@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A reminder is no longer mistaken for the show.** A milestone is something the showcaller has to get done by a time — team sheets due, comms check, doors — not an item that goes to air. The clock could take one as the cue, and when it did, everything went with it: a milestone carries no duration, so the big timer took the reminder's name, counted up and went red, while the item genuinely on air ran on below with nothing pointing at it. Three rows signalling at once and none of them the show. The clock now passes over reminders the way it already passes over pre-records and headings.
+
+### Fixed
 - **Handing the show to the clock no longer leaves it timing an item that has not begun.** This is the sheet that opened at 1:15 in the afternoon, was started that morning, and sat counting down an item hours away while reporting the show four hours ahead of itself. The earlier attempt at this fixed the wrong moment — it guarded the start, and the clock cannot be put in charge until a show is already live, so the guard never once ran. The correction belongs at the handover: if the clock has not reached the sheet at all, it would have cued nothing, and nothing is what the show now holds — live, waiting, with the first item cued at its own time. A cue that is merely ahead of the clock in the middle of a show is left exactly where it is, because the clock refuses to drag a running show backwards and switching it on must not do what it would not do itself.
 
 ### Changed

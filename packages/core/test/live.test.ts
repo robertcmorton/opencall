@@ -239,3 +239,48 @@ describe("clockTargetRow before the sheet begins", () => {
     expect(clockTargetRow(rows, starts, 14 * H)).toBe("b");
   });
 });
+
+/**
+ * A reminder is not a cue.
+ *
+ * From a real sheet: a milestone reading TEAM LIST DUE, timed 6:30 PM, sitting
+ * in the sheet between rows at 7:06 and 7:02. At 7:03 the clock took it as the
+ * show — so the second half, genuinely on air since 6:26, had nothing pointing
+ * at it, and the big timer wore the deadline's name and counted up in red,
+ * because a milestone has no duration and can only ever read as overrun.
+ */
+describe("clockTargetRow ignores rows that are not the show", () => {
+  const at = (h: number, m: number) => h * 3600 + m * 60;
+
+  const rows = [
+    { id: "secondHalf", type: "cue" },
+    { id: "spare41", type: "cue" },
+    { id: "spare42", type: "cue" },
+    { id: "teamListDue", type: "milestone" },
+    { id: "coinToss", type: "cue", parallel: true },
+    { id: "fullTime", type: "group" },
+    { id: "wrap", type: "cue" },
+  ];
+  //                secondHalf  41        42        milestone  preRec    group  wrap
+  const starts = [at(18, 26), at(19, 6), at(19, 6), at(18, 30), at(19, 2), null, at(19, 11)];
+
+  it("stays on the item that is actually on air", () => {
+    expect(clockTargetRow(rows, starts, at(19, 3))).toBe("secondHalf");
+  });
+
+  it("does not take a deadline as the cue even once its time has passed", () => {
+    // 6:31 PM — one minute after the milestone, still inside the second half.
+    expect(clockTargetRow(rows, starts, at(18, 31))).toBe("secondHalf");
+  });
+
+  it("still moves on to the next real item when its time comes", () => {
+    expect(clockTargetRow(rows, starts, at(19, 12))).toBe("wrap");
+  });
+
+  it("keeps ignoring the pre-record and the group heading", () => {
+    for (const t of [at(19, 2), at(19, 3), at(19, 5)]) {
+      expect(clockTargetRow(rows, starts, t)).not.toBe("coinToss");
+      expect(clockTargetRow(rows, starts, t)).not.toBe("fullTime");
+    }
+  });
+});

@@ -324,6 +324,23 @@ export function clockTargetRow(
     // clock either. A pre-record runs and finishes on its own; parking the
     // show on one would take the running order off air to watch it.
     if (r.parallel) continue;
+    /**
+     * Neither is a milestone. It is a reminder with a time on it — team sheets
+     * due, comms check, doors — something the showcaller has to GET DONE by
+     * then. It is not an item that goes to air and there is nothing to call,
+     * so it has no business becoming the cue.
+     *
+     * It did, and the damage was not only the wrong row highlighted. A
+     * milestone carries no duration, so a show parked on one can only ever
+     * read as overrunning: the big timer took its name, counted up, and went
+     * red, while the item actually on air kept running below with nothing
+     * pointing at it. Three rows signalling at once and none of them the show.
+     *
+     * Reported on a real sheet where a deadline listed at 6:30 PM sat between
+     * rows at 7:06 and 7:02 — late enough in the sheet, and early enough on
+     * the clock, to beat the second half that was genuinely on air.
+     */
+    if (r.type === "milestone") continue;
     if (r.untimed && r.hardStartSec == null) continue;
     const start = startSecs[i] ?? null;
     if (start == null) continue;

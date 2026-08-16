@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **View-only links open over the run sheet instead of pushing it down.** The panel used to appear above the grid, so asking a question about sharing moved every row somebody was reading — and on a live sheet that means the cue moves while you are looking at it. It now floats over the page: the rows stay exactly where they were, and the panel leaves the moment it is answered. Escape closes it as well as clicking away, because it can be opened mid-show and a way out that has to be aimed at is not a way out.
+
 ### Fixed
 - **The header readouts cannot be hidden by a narrow window any more.** The clocks and the projected end were sliding under the cue timer and being cut in half, because the columns either side of the timer were allowed to be narrower than what was in them — so the readouts were crushed rather than the one thing that can shrink gracefully. The sheet's name absorbs it now, down to a floor where it still reads as a name; losing the end of a title you chose is nothing like losing the clock. The timer stays centred while there is room, and gives up exact centring only when the alternative is hiding a reading.
 

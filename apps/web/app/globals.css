@@ -3419,3 +3419,19 @@ th.col-drop-target {
   background: none;
   pointer-events: none;
 }
+
+/* A panel that floats over the sheet rather than pushing it down the screen.
+   Fixed to the viewport and centred, above the show chrome but below nothing
+   that matters — the run sheet stays exactly where it was, which on a live
+   sheet means the cue stays where the eye left it. */
+.panel-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 92;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  overflow: auto;
+  animation: menu-in var(--t-fast) var(--ease);
+}

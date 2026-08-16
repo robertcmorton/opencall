@@ -509,10 +509,29 @@ export function createApiHandler(
         const body = await readJson(req).catch(() => ({}) as Record<string, unknown>);
         if (clientErrorBudget > 0 && typeof body.message === "string" && body.message.trim()) {
           clientErrorBudget -= 1;
-          logServerError(handle, "client", new Error(String(body.message).slice(0, 2000)), {
+          /**
+           * Record the BROWSER's stack, not this server's.
+           *
+           * `new Error(...)` here captures the frames of whatever is running
+           * when the report arrives — handleApi, processTicksAndRejections,
+           * Server.<anonymous> — and those went into the stack column. So
+           * every client error in the journal read as though it had happened
+           * inside the sync server, pointing at this very line. A React
+           * hydration error reported from a browser looked like a server
+           * fault, which is worse than no stack at all: it sends whoever
+           * reads the log to the wrong file.
+           *
+           * The real stack is in the report body. It goes in the stack column,
+           * where the log is read from.
+           */
+          const reported = new Error(String(body.message).slice(0, 2000));
+          const browserStack = typeof body.stack === "string" ? body.stack.trim() : "";
+          reported.stack = browserStack
+            ? browserStack.slice(0, 8000)
+            : `${reported.message}\n    (the browser reported no stack)`;
+          logServerError(handle, "client", reported, {
             url: typeof body.url === "string" ? body.url : undefined,
             userAgent: req.headers["user-agent"],
-            context: typeof body.stack === "string" ? { stack: body.stack.slice(0, 8000) } : undefined,
           });
         }
         res.statusCode = 204;

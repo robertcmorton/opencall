@@ -9,6 +9,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Removed
+- **The follower screen has gone.** It showed the item on air, a countdown and the one after — which is the timer's job with more context. Two companion screens instead of three: one fewer thing to explain to a crew, and one fewer to be looking at the wrong one of. View-only links are untouched; they never used that screen.
+
+### Fixed
+- **The column dividers in the header line up with the sheet again.** The header's divider was drawn inside the grab area you use to resize a column, positioned from that area's edge rather than the column's — so widening the grab area to make the resize cursor easier to find slid every header divider several pixels away from the sheet's. It is now drawn on the column boundary itself, the same pixel the rows below use, and the grab area can be any size without moving it.
+
+### Changed
+- **The event clock reads like the other readouts.** It sits on its own row beneath them, aligned with the left edge of SHOW rather than adrift at the far side, and keeps its label above its value at every width — including on a phone, where it used to flatten onto one line and become the only readout shaped differently from the rest.
+- **Sync Cue is the size of the other buttons.** It was the largest control on the page, for an action that is a convenience rather than a transport command.
+- **The resize target on a column divider is easier to hit.** It read as a hairline, so the cursor only changed once you had hunted a few pixels to one side of it.
+- **The menu closes when you touch the sheet.** It floats over the rows, so reaching past it for the run sheet is the clearest statement that you are done with it; making you find the button again was a toll on the one screen that should never charge one.
+
 ### Fixed
 - **A run sheet no longer prints a time the document does not contain.** Where a sheet left the time column blank, the app worked out where the row fell from the durations above it and showed that — and on screen an inferred time is indistinguishable from one somebody typed, so a showcaller could hold a cue to a minute the sheet never claimed. Blank in the source is now blank on the sheet, marked so it can be filled in if you want one. On one real run sheet that is 52 rows of 119 that were showing invented times. Nothing about the running order changes: those rows keep their place and still spend their duration, so the projected end is exactly where it was — measured across every sample sheet, and identical before and after.
 

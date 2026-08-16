@@ -1105,8 +1105,7 @@ export default function AdminPage() {
                     )}
                     {(
                       [
-                        ["follow", "Crew companion for phones — tracks the live cue with your role highlighted"],
-                        ["timer", "Full-screen speaker timer — big countdown of the current item"],
+                        ["timer", "Full-screen timer for phones and confidence monitors — the item on air, what came before it and what is next"],
                         ["prompter", "Script prompter — large scrolling script that follows the caller"],
                       ] as const
                     ).map(([view, hint]) => (

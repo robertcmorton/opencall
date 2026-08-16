@@ -50,6 +50,30 @@ export function WithSideNav({
     if (chosen && e.currentTarget.contains(chosen)) setOpenPersisted(false);
   };
 
+  /**
+   * Anywhere else on the page closes it too.
+   *
+   * The panel floats OVER the sheet, so while it is open it is covering rows
+   * somebody may be trying to read — and reaching for the sheet is the
+   * clearest possible statement that they are done with the menu. Making them
+   * find the toggle again to get back to their own run sheet is a toll on the
+   * one screen that should never charge one.
+   *
+   * `pointerdown`, not click: it fires before the sheet acts on the press, so
+   * the panel is already going as the finger lands rather than a frame later.
+   * The toggle is excluded or its own click would close and reopen in one go.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.(".sidenav, .sidenav-toggle")) return;
+      setOpenPersisted(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  });
+
   return (
     <>
       {/* A hamburger, not a triangle. The triangle read as "there is something

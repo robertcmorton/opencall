@@ -1495,9 +1495,14 @@ kbd {
   width: fit-content;
   z-index: 68;
   height: auto;
-  min-height: 44px;
-  padding: 11px 22px;
-  font-size: 1rem;
+  /* Sized like the rest of the toolbar, not as a special case. It was built
+     at 44px tall with 1rem type, which made it the largest control on the
+     page — for an action that is a convenience, not a transport command. It
+     still reads clearly because it is alone in the middle of the sheet with a
+     pill and a shadow; it no longer out-shouts Stop. */
+  min-height: 32px;
+  padding: 7px 16px;
+  font-size: var(--fs-sm);
   font-weight: 650;
   letter-spacing: 0.01em;
   border-radius: 999px;
@@ -1506,9 +1511,11 @@ kbd {
 }
 @media (max-width: 760px) {
   .sync-cue {
-    min-height: 52px;
-    padding: 14px 26px;
-    font-size: 1.05rem;
+    /* A shade bigger on a phone — a thumb, not a mouse — but still in
+       proportion to the controls around it. */
+    min-height: 38px;
+    padding: 9px 18px;
+    font-size: var(--fs-md);
   }
 }
 @media print {
@@ -1837,10 +1844,27 @@ kbd {
      lower than everything else. Aligned on the baseline they sit on the same
      line as the numbers, which is what they are — a reading, not a caption. */
   align-items: baseline;
-  justify-content: flex-end;
   gap: 0.6rem 1rem;
-  flex-wrap: wrap;
   min-width: 0;
+  /* A GRID, not a wrapping flex row.
+     The readouts sit on one line and the event clock takes a row beneath
+     them, aligned with the FIRST of them — under SHOW. Flex could not do
+     that: a wrapped line fills the whole box, so the clock started at the
+     box's left edge, 140px adrift of SHOW with nothing in between, and
+     shrinking the box to its content is impossible while an item asks for a
+     full-width line. As a grid the columns are the readouts themselves, so
+     "column 1" IS SHOW's left edge, and the whole group still hugs the right
+     of the header. */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-content: end;
+}
+/* Under the readouts, starting where the first one starts. */
+.topbar-right > .header-clock-block {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 @media (max-width: 760px) {
@@ -1942,7 +1966,12 @@ kbd {
      pixels of overflow is still overflow, and it is what a horizontal
      scrollbar is made of. */
   right: 0;
-  width: 9px;
+  /* 9px was a target you had to go looking for: the divider reads as a
+     hairline, so the pointer arrives ON the line and the resize cursor only
+     appeared once you had hunted a few pixels to the left of it. Widened so
+     the cursor changes when the pointer is over the divider, which is where
+     anybody would expect to grab it. Still inside the cell — see above. */
+  width: 16px;
   height: 100%;
   cursor: col-resize;
   user-select: none;
@@ -1952,11 +1981,21 @@ kbd {
 .col-resize::after {
   content: "";
   position: absolute;
-  left: 4px;
+  /* Anchored to the COLUMN BOUNDARY, not to the grab handle.
+     It was `left: 4px` inside the handle, so the visible divider sat at
+     (cell right − handle width + 4) and MOVED whenever the handle was
+     resized — widening the grab area from 9px to 16px for the resize cursor
+     silently slid every header divider 7px left of the body's, which is how
+     the header and the sheet stopped lining up.
+     The body draws its divider as `td + td { border-left }`, occupying the
+     first pixel of the next cell. `right: -1px` puts this on exactly that
+     pixel, so the two are the same line. The grab area can now be any width
+     without touching what is drawn. */
+  right: -1px;
   top: 22%;
   height: 56%;
   width: 1px;
-  background: var(--border);
+  background: var(--border-subtle);
   transition: background var(--t-fast) var(--ease), width var(--t-fast) var(--ease);
 }
 .col-resize:hover::after {
@@ -3260,11 +3299,18 @@ th.col-drop-target {
   }
 }
 
-/* The event clock: label above the time on a wide screen, both on ONE line on a
-   phone. Stacked, it spent two rows of the scarcest screen there is on a label
-   that never changes and a time that could sit beside it. */
+/* The event clock reads like every other readout in the bar: label above value.
+   It takes a row of its own inside the readout group and aligns LEFT, under
+   SHOW — because the group is right-justified, and a lone right-aligned block
+   on a second row drifted to the far corner, away from the numbers it belongs
+   with. It is one row of readouts that has wrapped, not a separate thing.
+
+   It used to collapse onto ONE line on a phone to save a row. That made it the
+   only readout shaped differently from the rest, on the screen where telling
+   them apart matters most; the row is worth more than the saving. */
 .header-clock-block {
-  text-align: right;
+  flex-basis: 100%;
+  text-align: left;
 }
 .toolbar-tail {
   margin-left: auto;
@@ -3273,11 +3319,9 @@ th.col-drop-target {
   align-items: center;
 }
 @media (max-width: 760px) {
+  /* Centred, because the whole readout stack is centred under the timer here —
+     but still label above value, the same shape as SHOW and PROJ. END. */
   .header-clock-block {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 6px;
     text-align: center;
   }
   /* My role comes back onto the row above, beside Clock synced, instead of

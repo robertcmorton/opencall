@@ -2299,7 +2299,12 @@ export function RundownEditor({
         </SideNavSection>
       )}
       <SideNavSection heading="Views">
-        {(["follow", "timer", "prompter"] as const).map((view) => (
+        {/* Two companion screens, not three. The follower screen showed the
+            current item, a countdown and the next one — which is the timer's
+            job with more context, so the timer now carries the item before and
+            after and the follower has gone. One fewer thing to explain to a
+            crew, and one fewer screen to be looking at the wrong one of. */}
+        {(["timer", "prompter"] as const).map((view) => (
           <a
             key={view}
             className="menu-item"

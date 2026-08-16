@@ -2031,11 +2031,20 @@ export function RundownEditor({
      */
     const floorTotal = orderedColKeys.reduce((sum, k) => sum + floorFor(k), 0);
     const affordable = floorTotal <= avail * 0.5;
-    for (let pass = 0; affordable && pass < 3; pass++) {
+    for (let pass = 0; pass < 3; pass++) {
       const free = orderedColKeys.filter((k) => !pinned.has(k));
       const pinnedPx = [...pinned].reduce((sum, k) => sum + px[k]!, 0);
       const freeBase = free.reduce((sum, k) => sum + base[k]!, 0) || 1;
       for (const k of free) px[k] = ((avail - pinnedPx) * base[k]!) / freeBase;
+      /* Unaffordable floors are dropped, not the whole allocation.
+         This loop used to be skipped entirely when they would not fit, which
+         left every width at zero — and a percentage of nothing is nothing, so
+         the table went out with `width: 0%` on every column and the item
+         column, the one being read, rendered at 0px. Measured on a 520px
+         window: the sheet's text was gone. The proportions the operator
+         dragged are still the right answer on a narrow screen; only the floors
+         are the luxury it cannot pay for. */
+      if (!affordable) break;
       const shortfall = free.filter((k) => floorFor(k) > 0 && px[k]! < floorFor(k));
       if (shortfall.length === 0) break;
       for (const k of shortfall) {

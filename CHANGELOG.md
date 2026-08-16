@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A narrow window no longer empties a run sheet whose columns have been dragged.** Below roughly 500px the app decided it could not afford the minimum widths that protect the time and duration columns — and instead of dropping just those minimums, it abandoned the whole calculation, handing every column a width of zero. The item column collapsed to nothing, so the sheet's own text disappeared: on a 520px window the run sheet rendered with no readable content at all. It only ever affected sheets whose columns had been dragged to a width, since untouched sheets never reach that calculation. The widths chosen by dragging are now kept on any screen; only the minimums are given up when there is no room for them.
+
+### Fixed
 - **The admin dashboard no longer breaks its first render for anyone signed in.** Whether the browser was holding an access token was checked while the page was being drawn — and the server drawing that same page has no browser storage to check, so it always decided nobody was signed in. A signed-in admin was therefore sent a page saying no sign-in was needed and offering no way out, and their browser then drew the opposite; the two disagreeing is an error the page recovers from by redrawing, every single load. The question is now asked once the browser is running, which is the only place it can be answered.
 
 ### Changed

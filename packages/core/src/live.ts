@@ -701,3 +701,32 @@ export function followerMayMove(
   if (from < 0 || to < 0) return true;
   return to >= from;
 }
+
+/**
+ * Whether a refusal by `followerMayMove` is worth saying out loud this time.
+ *
+ * The refusal is correct. Reporting it was not: the follower runs once a
+ * second, so a show parked in that state wrote the same line 3,600 times an
+ * hour — about 14,400 across a four-hour show. A host that treats stderr as
+ * error then buries its own error filter under one stuck show, on the log
+ * somebody is meant to read to find real faults. Noise there does not merely
+ * waste attention; it hides the thing you opened the log to find.
+ *
+ * So: once per state, not once per tick. `seen` remembers which target was
+ * last reported for each show, and the caller clears the entry whenever the
+ * follower is NOT refusing — the show stops, the clock catches up, or the
+ * follower moves. A genuine recurrence is therefore reported again, and a
+ * refusal against a DIFFERENT target is a different state and says so.
+ *
+ * Kept here, beside the rule it reports on, because it is pure and testable
+ * and the loop it runs in is neither.
+ */
+export function reportClockRefusal(
+  seen: Map<string, string>,
+  rundownId: string,
+  target: string,
+): boolean {
+  if (seen.get(rundownId) === target) return false;
+  seen.set(rundownId, target);
+  return true;
+}

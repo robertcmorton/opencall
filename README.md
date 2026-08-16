@@ -103,9 +103,23 @@ NEXT_PUBLIC_SYNC_WS_URL=wss://sync.example.com \
 NEXT_PUBLIC_DOC_WS_URL=wss://sync.example.com/doc \
 pnpm --filter @opencall/web build
 # run both under your process manager (systemd, pm2):
-DATABASE_URL=postgres://… ADMIN_TOKEN=… ALLOW_DEV_JOIN=0 pnpm --filter @opencall/sync start
+DATABASE_URL=postgres://… ADMIN_TOKEN=… ALLOW_DEV_JOIN=0 \
+  PUBLIC_WEB_URL=https://app.example.com \
+  pnpm --filter @opencall/sync start
 PORT=3000 pnpm --filter @opencall/web start
 ```
+
+`PUBLIC_WEB_URL` is where invitation links point. The sync server is a separate
+service on a separate host and cannot work out the app's address by looking at
+itself, so without this it falls back to the `Origin` of whichever browser
+created the invitation — meaning an admin working from a staging URL or an IP
+address mints links to *that*, and they go out by email to people with no way
+of telling. Set it.
+
+Email is optional: `SMTP_HOST` and `SMTP_FROM` (plus `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASSWORD` if your relay wants them) turn on sending invitations. With no
+mail server the invitation is still created and the dashboard hands you the
+link to pass on however you already reach your crew. See `.env.example`.
 
 Requires Node 20+ and pnpm 9+. Reverse-proxy `https://app.example.com` → :3000 and `https://sync.example.com` → :8787 (WebSocket upgrades on).
 
@@ -114,7 +128,7 @@ Requires Node 20+ and pnpm 9+. Reverse-proxy `https://app.example.com` → :3000
 1. Open the web URL → **Admin dashboard** → paste your `ADMIN_TOKEN` at the gate.
 2. Create an **event company** (its token is the showcaller credential for that company), then events and rundowns — or import a run sheet straight from XLSX/CSV/PDF.
 3. Create **users** under *Users & access* in the sidebar (admin-only): give each an email, a password, and grants — full admin, one company, one event, or view-only. They sign in with email + password on the landing page (each also gets a personal `usr_…` backup token).
-4. For per-show crew access without accounts, use a rundown's *Join codes* panel: **Copy view-only link** hands camera operators and crew a URL that opens the rundown read-only, and caller/editor/follower codes can be typed on the landing page.
+4. For per-show crew access without accounts, use a rundown's *View-only links* panel: **Copy view-only link** hands camera operators and crew a URL that opens the rundown read-only, and a six-character code from the same panel can be typed on the landing page instead. Both are **view-only, and that is the only kind there is** — calling or editing a show takes an account with a password, because a code is a thing that gets photographed off a wall and forwarded out of a group chat, and neither should end with a stranger holding the transport.
 5. Check *Error log* in the admin sidebar occasionally — server, process, and browser errors all land there.
 
 ### Verify a deployment

@@ -10,6 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A show whose clock has stepped backwards no longer floods the server log.** The clock refuses to drag a running show backwards through its own order, which is right, and it said so on every check — once a second, for as long as the show stayed that way. On a four-hour event that is around fourteen thousand identical lines, and because hosts treat that channel as errors, one show in that state buried the error log a self-hoster reads to find real faults. It is now said once, when it starts, and again if it genuinely recurs or the clock picks a different target. The refusal itself is unchanged.
+
+### Changed
+- **The sharing instructions describe what the app actually does.** They told a self-hoster to hand out caller and editor codes; those cannot be created — every code and link is view-only, and running or editing a show takes an account, because a code gets photographed off a wall and forwarded out of a group chat.
+- **The settings a self-hosted server actually reads are all written down.** Six were not, including the one that decides where emailed invitation links point: unset, links are built from whatever address the admin's own browser happened to be using, so an invitation created from a staging URL sent people there instead — by email, with no way for them to tell. Mail settings are documented as optional, which they are: with no mail server an invitation is still made and the link handed back to pass on however you like.
+
+### Fixed
 - **The run sheet reads properly to a screen reader.** The page had no marked main region, so there was no way to skip past the menu and the header band and land on the sheet — every other page in the app already said where its content began; the one people actually live in did not. The sheet is now announced as the page's content.
 - **The control that picks up a row has a name.** Selecting or dragging a row is done from its number, and on a sheet that arrived without numbering — or on a heading row — that control had no name at all: a button announced as nothing. It now names the row by its number, or by the item's own title when there is no number.
 - **The small labels are legible.** The column headings across the sheet, and the captions above the readouts in the header, were set too faint against their background to meet the standard for text that size — measured at 3.5 and 3.7 where 4.5 is required. Lifted two steps, to 5.3 and 5.6. They stay clearly quieter than the values they label.

@@ -12,6 +12,7 @@ import {
   absoluteNow,
   clockTargetRow as coreClockTargetRow,
   followerMayMove,
+  reportClockRefusal,
   computeTiming,
   zoneSecondsOfDay,
   type PlanTiming,
@@ -557,6 +558,14 @@ function plannedStartMs(
   return plannedStartSec != null && plannedStartSec <= absNow ? nowMs - (absNow - plannedStartSec) * 1000 : nowMs;
 }
 
+/**
+ * Which clock refusal has already been reported, per rundown: rundownId → the
+ * target row we declined to move to. The decision itself is
+ * `reportClockRefusal` in core, where it can be tested; this loop cannot be.
+ * Cleared below wherever the follower is NOT refusing.
+ */
+const refusedClockTarget = new Map<string, string>();
+
 let clockTicking = false;
 async function clockTick(): Promise<void> {
   if (clockTicking) return; // never overlap slow ticks
@@ -570,7 +579,10 @@ async function clockTick(): Promise<void> {
       const machine = await showStore.get(rundownId);
       const current = machine.current;
       // Paused holds the whole show. Otherwise the clock advances it.
-      if (current.state !== "running" || !current.clockFollow) continue;
+      if (current.state !== "running" || !current.clockFollow) {
+        refusedClockTarget.delete(rundownId);
+        continue;
+      }
 
       const sheet = await sheetNow(rundownId);
       if (!sheet) continue;
@@ -591,7 +603,10 @@ async function clockTick(): Promise<void> {
        * keeps what is there), so it would take a protocol change to say it
        * properly.
        */
-      if (!target || target === current.activeRowId) continue;
+      if (!target || target === current.activeRowId) {
+        refusedClockTarget.delete(rundownId);
+        continue;
+      }
 
       const targetIndex = rows.findIndex((r) => r.id === target);
 
@@ -621,9 +636,12 @@ async function clockTick(): Promise<void> {
        * sitting on one is not ahead of anything and the clock may take it back.
        */
       if (!followerMayMove(rows, current.activeRowId, target)) {
-        console.warn(
-          `[clock] not moving ${rundownId} back to ${target} — the clock stepped backwards in the running order`,
-        );
+        // Once per state, not once per tick — see `reportClockRefusal`.
+        if (reportClockRefusal(refusedClockTarget, rundownId, target)) {
+          console.warn(
+            `[clock] not moving ${rundownId} back to ${target} — the clock stepped backwards in the running order`,
+          );
+        }
         continue;
       }
 
@@ -633,6 +651,7 @@ async function clockTick(): Promise<void> {
       // instead of reporting however long ago the row was due to start.
       const result = machine.apply("jump", target, nowMs, plannedStartMs(timing, targetIndex, nowMs, nowSec));
       if (typeof result === "string") continue;
+      refusedClockTarget.delete(rundownId);
       broadcast(rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
       showStore.persist(rundownId, result, "jump", target);
     }

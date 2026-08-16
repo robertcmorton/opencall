@@ -60,7 +60,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
   loading: () => <span className="cell-standin" aria-hidden="true" />,
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
-import { LiveReadouts, ShowStateControls, TransportBar } from "./TransportBar";
+import { LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
@@ -2605,13 +2605,26 @@ export function RundownEditor({
                   ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }
                   : undefined
             }
-            data-tip={
+            /* The drift lives here now, appended to whichever state applies —
+               it is a fact ABOUT this chip's subject, and putting it in the
+               header meant a number that read +00:00 all night while the clock
+               was in charge. On hover it is one sentence that also says what it
+               is measured on, which the bare figure never did. */
+            data-tip={[
               clockSynced
                 ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off and step the show yourself."
                 : clockFollow
                   ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off and step the show yourself."
-                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct."
-            }
+                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct.",
+              describeShowDrift(
+                live,
+                meta.use24h,
+                activeRow?.title,
+                activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null,
+              ),
+            ]
+              .filter(Boolean)
+              .join(" ")}
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
           >
             {/* "Following clock" is a claim about who is driving. "Clock

@@ -11,6 +11,44 @@ function signed(sec: number): string {
   return `${sign}${formatDuration(Math.abs(sec))}`;
 }
 
+/**
+ * How far off the plan the show is, in a sentence — and what that is measured
+ * ON, which is the part that matters.
+ *
+ * "+8:59:01" is a true number and a useless one alone. It is measured against
+ * the row the show is sitting on, so when that row's printed time is wrong the
+ * figure is wrong with it, and nothing on screen says which row or what time it
+ * claims. That took an evening to work out once, from a number that could have
+ * explained itself.
+ *
+ * It used to be a readout in the header. It stopped being one because while the
+ * clock is driving and synced it is pinned near zero by construction — the
+ * follower backdates each row to the sheet's own time — so it sat there
+ * restating the green chip. It is a real reading only when a person is calling,
+ * and then it is a question asked now and then rather than a number watched. So
+ * it lives on the clock chip's hover, attached to the state it qualifies.
+ */
+export function describeShowDrift(
+  live: LiveShowTiming | null,
+  use24h: boolean,
+  activeTitle?: string,
+  activePlannedSec?: number | null,
+): string | undefined {
+  if (!live || live.showDriftSec == null) return undefined;
+  // A row with no title of its own — real sheets have them — should not be
+  // quoted as if it had one. "measured on “—”" reads like a bug.
+  const raw = activeTitle?.split("\n")[0]?.trim() ?? "";
+  const named = raw && raw !== "—" ? `“${raw.slice(0, 40)}”` : "the row on air";
+  const planned = activePlannedSec != null ? formatTimeOfDayWithDay(activePlannedSec, use24h) : null;
+  const on = planned ? `${named}, which the sheet puts at ${planned}` : named;
+  const late =
+    Math.abs(live.showDriftSec) < 1
+      ? "on time"
+      : `${signed(live.showDriftSec)} ${live.showDriftSec > 0 ? "behind" : "ahead"}`;
+  const over = live.rowOverSec > 1 ? ` It has also run ${formatDuration(live.rowOverSec)} past its length.` : "";
+  return `The show is ${late}, measured on ${on}.${over}`;
+}
+
 export function LiveReadouts({
   live,
   use24h,
@@ -25,28 +63,6 @@ export function LiveReadouts({
   activePlannedSec?: number | null;
 }) {
   if (!live) return null;
-  const over = live.remainingInRowSec != null && live.remainingInRowSec < 0;
-  /**
-   * Say what the drift is measured ON.
-   *
-   * "SHOW +8:59:01" is a true number and a useless one on its own. It is
-   * measured against the row the show is sitting on, so when that row's
-   * printed time is wrong the readout is wrong with it — and there is nothing
-   * on the screen to say which row, or what time it claims. That took an
-   * evening to work out once, from a number that could have explained itself.
-   */
-  const driftWhy = (() => {
-    if (live.showDriftSec == null) return undefined;
-    // A row with no title of its own — real sheets have them — should not be
-    // quoted as if it had one. "measured on “—”" reads like a bug.
-    const raw = activeTitle?.split("\n")[0]?.trim() ?? "";
-    const named = raw && raw !== "—" ? `“${raw.slice(0, 40)}”` : "the row on air";
-    const planned = activePlannedSec != null ? formatTimeOfDayWithDay(activePlannedSec, use24h) : null;
-    const on = planned ? `${named}, which the sheet puts at ${planned}` : named;
-    const late = Math.abs(live.showDriftSec) < 1 ? "on time" : live.showDriftSec > 0 ? "behind" : "ahead";
-    const over = live.rowOverSec > 1 ? ` It has also run ${formatDuration(live.rowOverSec)} past its length.` : "";
-    return `The show is ${late}, measured on ${on}.${over}`;
-  })();
   return (
     <>
       {/* No "Item" readout here.
@@ -66,16 +82,14 @@ export function LiveReadouts({
           {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
         </div>
       </div>
-      <div className="header-drift">
-        <div className="header-label">Show</div>
-        <div
-          className="header-clock mono"
-          style={{ color: (live.showDriftSec ?? 0) > 0 ? "var(--over)" : "var(--under)" }}
-          data-tip={driftWhy}
-        >
-          {live.showDriftSec != null ? signed(live.showDriftSec) : "—"}
-        </div>
-      </div>
+      {/* No drift readout here any more.
+          While the clock is driving and synced it is pinned near zero by
+          construction — the follower backdates every row to the time the sheet
+          gives it — so it stood in the header restating what the green chip
+          already said. It is a real number only when a person is calling, and
+          then it is one question ("how are we doing?") asked occasionally
+          rather than a reading watched continuously. It now lives on the
+          clock chip's hover, where the state it qualifies already is. */}
     </>
   );
 }

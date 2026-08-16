@@ -1855,7 +1855,7 @@ kbd {
      (see the lamps, which ended up at the far LEFT). Name all four or name
      none. */
   display: grid;
-  grid-template-columns: max-content max-content max-content;
+  grid-template-columns: max-content max-content;
   grid-template-rows: auto auto;
   /* The gap is what moves the times column left: the group is anchored to the
      right of the header, so widening the space between the columns pushes the
@@ -1864,18 +1864,14 @@ kbd {
   row-gap: 0.35rem;
   justify-content: end;
 }
-/* Column 1 — the drift, above the event clock. How far off the plan we are,
-   over the time it is now: the two things that change second by second. */
-.topbar-right > .header-drift {
+/* Column 1 — the two times, stacked: when we come off, and what time it is
+   now. The drift that used to sit up here is on the clock chip's hover. */
+.topbar-right > .header-proj {
   grid-area: 1 / 1;
 }
-/* Column 2 — the projected end. The one fixed-looking number of the three. */
-.topbar-right > .header-proj {
-  grid-area: 1 / 2;
-}
-/* Column 3 — the lamps, hard right, holding both rows between them. */
+/* Column 2 — the lamps, hard right, holding both rows between them. */
 .topbar-right > .header-dots {
-  grid-area: 1 / 3 / span 2;
+  grid-area: 1 / 2 / span 2;
 }
 /* Under the readouts, starting where the first one starts. */
 .topbar-right > .header-clock-block {

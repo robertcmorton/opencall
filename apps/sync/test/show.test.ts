@@ -163,3 +163,66 @@ describe("the cue timer represents the live show only", () => {
     expect((after as { activeRowId: string | null }).activeRowId).toBe("b");
   });
 });
+
+/**
+ * The show that reported itself four hours ahead of itself.
+ *
+ * Start cues the first row — right, while a person is in charge. Switching the
+ * follower on afterwards changed who was in charge without changing what was
+ * cued, and the follower could not correct it: a clock that has not reached
+ * the sheet returns no target, and the loop leaves the cue alone. So the
+ * correction happens at the handover, and the server decides, because only the
+ * server can see the sheet's times.
+ */
+describe("handing the show to the clock", () => {
+  it("clears a cue the clock would never have made", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "first", 1000);
+    expect(m.current.activeRowId).toBe("first");
+
+    // clearCue: the clock has not reached the sheet's first item.
+    const after = m.apply("clock_on", undefined, 2000, undefined, true);
+    expect(after).toMatchObject({ clockFollow: true, activeRowId: null, activeRowStartedAtMs: null });
+  });
+
+  it("leaves a cue alone when the clock HAS reached the sheet", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "first", 1000);
+    const after = m.apply("clock_on", undefined, 2000);
+    expect(after).toMatchObject({ clockFollow: true, activeRowId: "first" });
+  });
+
+  it("never drags a show backwards just because the follower was switched on", () => {
+    // Mid-show, deliberately ahead of the clock. Switching the follower on
+    // must not yank the cue back — the follower itself refuses to do that.
+    const m = new ShowStateMachine();
+    m.apply("start", "first", 1000);
+    m.apply("jump", "eighth", 2000);
+    const after = m.apply("clock_on", undefined, 3000);
+    expect(after).toMatchObject({ clockFollow: true, activeRowId: "eighth" });
+  });
+
+  it("goes live and waits: the first item can still be cued afterwards", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "first", 1000);
+    m.apply("clock_on", undefined, 2000, undefined, true);
+    expect(m.current.activeRowId).toBeNull();
+    expect(m.current.state).toBe("running");
+
+    // What the follower does when the clock finally arrives at the first item.
+    const after = m.apply("jump", "first", 9000, 8500);
+    expect(after).toMatchObject({ activeRowId: "first", activeRowStartedAtMs: 8500 });
+  });
+
+  it("cannot arm the follower before a show is live — which is why `start` needs no guard", () => {
+    const m = new ShowStateMachine();
+    expect(m.apply("clock_on", undefined, 1000)).toBe("not live");
+    expect(m.current.clockFollow).toBe(false);
+    // And stopping puts it back down, so every start begins with it off.
+    m.apply("start", "first", 2000);
+    m.apply("clock_on", undefined, 3000);
+    expect(m.current.clockFollow).toBe(true);
+    m.apply("stop", undefined, 4000);
+    expect(m.current.clockFollow).toBe(false);
+  });
+});

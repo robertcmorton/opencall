@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Handing the show to the clock no longer leaves it timing an item that has not begun.** This is the sheet that opened at 1:15 in the afternoon, was started that morning, and sat counting down an item hours away while reporting the show four hours ahead of itself. The earlier attempt at this fixed the wrong moment — it guarded the start, and the clock cannot be put in charge until a show is already live, so the guard never once ran. The correction belongs at the handover: if the clock has not reached the sheet at all, it would have cued nothing, and nothing is what the show now holds — live, waiting, with the first item cued at its own time. A cue that is merely ahead of the clock in the middle of a show is left exactly where it is, because the clock refuses to drag a running show backwards and switching it on must not do what it would not do itself.
+
 ### Changed
 - **The sign-in page no longer points at the administrator's dashboard.** It carried a button to it, and named administrator tokens in its help text. The sign-in page is the most public surface the app has — it is what a stranger, a search crawler, or anyone handed a view-only link sees first — and it has no business naming the administrative side or showing the way there. Administrators reach their dashboard directly, or by signing in here as before; nothing about who can get in has changed, because none of that was ever decided by a link. The help text now describes what a member of a crew needs and stops there.
 

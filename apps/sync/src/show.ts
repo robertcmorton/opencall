@@ -48,6 +48,13 @@ export class ShowStateMachine {
     rowId: string | undefined,
     now = Date.now(),
     startedAtMs?: number,
+    /**
+     * `clock_on` only: the clock has not reached the sheet's first item yet,
+     * so there is nothing it would have cued — clear the cue rather than let
+     * the show carry on timing a row that has not begun. The server decides
+     * this, because only the server can see the sheet's times.
+     */
+    clearCue = false,
   ): ShowStatePayload | string {
     const s = this.state;
     const next = (patch: Partial<ShowStatePayload>): ShowStatePayload => {
@@ -108,7 +115,29 @@ export class ShowStateMachine {
       // TIME column — no console needs to stay open. Pause holds the show.
       case "clock_on": {
         if (s.state !== "running" && s.state !== "paused") return "not live";
-        return next({ clockFollow: true });
+        /**
+         * Handing the show to the clock hands it the cue as well — including
+         * the case where the clock's answer is "nothing yet".
+         *
+         * This is the path that produced a show reporting itself four hours
+         * ahead of itself: start (which cues the first item, correctly, since
+         * with no follower a person is in charge), then switch the follower
+         * on. The follower then had nothing to say, because a clock that has
+         * not reached the sheet returns no target and the loop leaves the cue
+         * alone — so the show sat timing an item that would not begin for
+         * hours, and said so in red.
+         *
+         * ONLY when the clock has not reached the sheet at all. A cue that is
+         * merely ahead of the clock mid-show is left exactly where it is: the
+         * follower refuses to drag a running show backwards, deliberately, and
+         * switching the follower on must not do what the follower itself would
+         * not.
+         */
+        return next(
+          clearCue
+            ? { clockFollow: true, activeRowId: null, activeRowStartedAtMs: null, pausedAccumMs: 0 }
+            : { clockFollow: true },
+        );
       }
       case "clock_off": {
         if (s.state !== "running" && s.state !== "paused") return "not live";

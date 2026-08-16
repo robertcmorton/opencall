@@ -389,30 +389,44 @@ wss.on("connection", (ws, req) => {
         }
       }
       /**
-       * Starting a show the CLOCK is driving does not cue the first row.
+       * Handing the show to the clock does not leave it timing an item that
+       * has not begun.
        *
-       * "Start show" cued whatever the console suggested, which is the first
-       * row, and began timing it — even with the clock in charge and the first
-       * item hours away. A sheet opening at 1:15 PM, started at 9:04 AM, sat
-       * there counting down an item that had not begun, reporting the show four
-       * hours ahead of itself. The follower could not undo it either: when the
-       * clock says nothing is on yet, its target is null and the loop below
-       * leaves the cue alone rather than clearing it. So the show stayed parked
-       * on a row nothing had asked for until its time came round.
+       * The report: a sheet opening at 1:15 PM, started that morning, sitting
+       * there counting down an item hours away and declaring the show four
+       * hours ahead of itself.
        *
-       * When the clock is driving, the clock picks — including picking NOTHING.
-       * The show goes live and waits, and the follower cues the first item at
-       * its own time, which is the entire promise of handing it the show.
+       * The path is start, THEN switch the follower on — and it has to be that
+       * way round, because the follower cannot be switched on before a show is
+       * live. Start cues the first row, which is right while a person is in
+       * charge. Switching the follower on then changed who is in charge without
+       * changing what was cued, and the follower had nothing to say about it: a
+       * clock that has not reached the sheet yet returns no target, and the
+       * loop below leaves the cue alone rather than clearing it.
        *
-       * Only when it IS driving. With the follower off a person is in charge,
-       * and starting early on the row they chose is exactly what they meant.
+       * So the correction belongs at the handover. If the clock has not reached
+       * the sheet at all, it would have cued nothing, and nothing is what the
+       * show should be holding — live, waiting, with the first item cued at its
+       * own time. That is the whole promise of giving the clock the show.
+       *
+       * NOT applied to `start`: it cannot help there. `clock_on` is refused
+       * unless the show is already live and `stop` clears the flag, so the
+       * follower is off at every start there is. A guard there would be a
+       * comment pretending to be code. If that ever changes — if the follower
+       * can be armed before a show goes live — this belongs on `start` too.
        */
-      let startRowId = msg.rowId;
-      if (msg.action === "start" && (await showStore.get(ctx.rundownId)).current.clockFollow) {
+      let clearCue = false;
+      if (msg.action === "clock_on") {
         sheet ??= await sheetNow(ctx.rundownId);
-        if (sheet) startRowId = clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) ?? undefined;
+        if (sheet && clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) == null) clearCue = true;
       }
-      const result = (await showStore.get(ctx.rundownId)).apply(msg.action, startRowId, undefined, startedAtMs);
+      const result = (await showStore.get(ctx.rundownId)).apply(
+        msg.action,
+        msg.rowId,
+        undefined,
+        startedAtMs,
+        clearCue,
+      );
       if (typeof result === "string") {
         send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: result });
         return;

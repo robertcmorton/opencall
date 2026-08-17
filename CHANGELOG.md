@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Access that names no company is cleared out.** Some accounts carry a record of company access pointing at a company that does not exist — either left by the invitation fault above, or naming a company that has since been deleted. It never granted anything, because access is decided by matching the company and nothing matches. It was not quite harmless: holding one counted as holding company access for the purpose of the check that guards people administration, so its holder could see other people in the same broken state. These are removed when the server next starts. Anyone who was *meant* to have company access will need it granted again, deliberately — the note in the migration says how to list who is affected before updating.
+
 ### Changed
 - **The lists you choose from on Users & access are in an order you can predict.** Companies read A to Z, and events run oldest first, the way a diary does — in the invitation form and in the account form alike, which previously disagreed with each other because both simply showed whatever order the server happened to return. Names sort the way a person reads them: capitals do not jump the queue, and "Studio 2" comes before "Studio 10".
 

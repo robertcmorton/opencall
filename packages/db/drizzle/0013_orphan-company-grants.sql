@@ -1,0 +1,32 @@
+-- Company grants that name no company.
+--
+-- The invite form offered one "Everything at this company" option carrying an
+-- empty id. For a caller who belongs to exactly one company the server fills
+-- that in; for an administrator, who can reach every company, it deliberately
+-- does not guess — and nothing refused the unnamed grant. Inviting an address
+-- that already had an account therefore wrote `('company', '')` here and
+-- reported success.
+--
+-- The row grants nothing: access is decided by comparing target_id against a
+-- company id, and '' matches none. But it is not merely inert. The permission
+-- check reads "does this person hold any company grants" before it reads which
+-- ones, so [''] counts as a non-empty set — its holder passes the check that
+-- guards people administration, and can then see other holders of the same
+-- broken grant. Small, but not nothing, and not something anybody chose.
+--
+-- Grants pointing at a company that has since been deleted are removed on the
+-- same grounds: identical effect, identical cause of confusion, and the screen
+-- shows both as "unknown company".
+--
+-- WHAT THIS COSTS: somebody who was meant to have company access loses the
+-- record of that intention. They had no access to lose — the row never worked —
+-- but re-granting it is a deliberate act by an administrator, which is what it
+-- should have been in the first place. To see who is affected BEFORE deploying:
+--
+--   SELECT u.email, u.name, g.target_id
+--     FROM user_grants g JOIN users u ON u.id = g.user_id
+--    WHERE g.kind = 'company'
+--      AND (g.target_id = '' OR g.target_id NOT IN (SELECT id FROM teams));
+DELETE FROM "user_grants"
+ WHERE "kind" = 'company'
+   AND ("target_id" = '' OR "target_id" NOT IN (SELECT "id" FROM "teams"));

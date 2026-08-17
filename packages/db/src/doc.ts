@@ -226,6 +226,17 @@ export interface ProjectedRow extends PlanRow {
   cellsRich?: Record<string, string>;
   /** Source sheet had no time for this row — the grid shows no start for it. */
   untimed?: boolean;
+  /**
+   * A gap before this row that somebody has looked at and called deliberate.
+   *
+   * Stores the SIZE of the accepted gap, not merely a yes. A held minute at the
+   * top of the day is a real feature of the sheet, but the reason it was
+   * accepted was that particular gap — so if a duration above it changes and
+   * the gap becomes a different number, that is a new question and the check
+   * asks it again. A bare boolean would silence the row for good and hide the
+   * next fault behind the last decision.
+   */
+  acceptedGapSec?: number | null;
   /** The sheet's own row number, mirrored into the grid's # column. */
   sourceNumber?: string;
   color?: string;
@@ -345,6 +356,7 @@ export function projectRundownDoc(doc: Y.Doc): {
       spans: (row.get("spans") as boolean | undefined) ?? false,
       skipped: (row.get("skipped") as boolean | undefined) ?? false,
       untimed: (row.get("untimed") as boolean | undefined) ?? false,
+      acceptedGapSec: (row.get("acceptedGapSec") as number | null) ?? null,
       sourceNumber: row.get("sourceNumber") as string | undefined,
       durationHidden: (row.get("durationHidden") as boolean | undefined) ?? false,
       title: cells["title"] ?? "",

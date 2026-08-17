@@ -144,6 +144,49 @@ describe("findTimingGaps", () => {
     expect(gaps[0]!.gapSec).toBe(1200);
   });
 
+  // A day that opens with a hold — doors, a walk-in, a changeover — has a gap
+  // that is nobody's mistake. Saying so has to stick, without signing a blank
+  // cheque for whatever turns up at that row later.
+  describe("deliberate holds", () => {
+    const withAccepted = (accepted: number | null) =>
+      gapsOf([
+        { hardStartSec: at(10, 0), durationSec: 600 },
+        { hardStartSec: at(10, 30), durationSec: 600, acceptedGapSec: accepted } as never,
+      ]);
+
+    it("stops reporting a gap that was accepted at its own size", () => {
+      expect(withAccepted(1200)).toEqual([]);
+    });
+
+    it("still reports it when nothing has been accepted", () => {
+      expect(withAccepted(null)).toHaveLength(1);
+    });
+
+    it("asks again when the gap is no longer the size that was accepted", () => {
+      // Somebody accepted a 5-minute hold; the gap is now 20. That is a new
+      // question, and a bare "ignored" flag would have buried it.
+      const gaps = withAccepted(300);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]!.gapSec).toBe(1200);
+    });
+
+    it("tolerates sub-second drift in the accepted size", () => {
+      expect(withAccepted(1200.4)).toEqual([]);
+    });
+
+    it("does not silence a DIFFERENT row's gap", () => {
+      // Accepting the hold before row 2 must not excuse the disagreement
+      // before row 3 — the flag belongs to one boundary, not to the sheet.
+      const gaps = gapsOf([
+        { hardStartSec: at(10, 0), durationSec: 600 },
+        { hardStartSec: at(10, 30), durationSec: 600, acceptedGapSec: 1200 } as never,
+        { hardStartSec: at(11, 30), durationSec: 600 },
+      ]);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]!.toIndex).toBe(2);
+    });
+  });
+
   it("accepts two rows booked at the same moment", () => {
     // A sheet routinely lists concurrent items: both start at 12:00, and the
     // running order picks up at 12:15 as the first row's duration says.

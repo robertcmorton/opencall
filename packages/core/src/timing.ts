@@ -327,6 +327,9 @@ export interface AnchoredRow {
   outcomeGame?: number;
   /** Alongside the running order rather than in it — see `PlanRow.parallel`. */
   parallel?: boolean;
+  /** A gap of this size before the row has been called deliberate — see the
+   *  filter at the end of `findTimingGaps`. */
+  acceptedGapSec?: number | null;
 }
 
 /** How many rows in a row may sit alongside the running order before we stop looking. */
@@ -522,5 +525,24 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
       expected += advance[i]!;
     }
   });
-  return gaps;
+  /**
+   * Gaps somebody has already ruled deliberate drop out of the report.
+   *
+   * Not every disagreement is a fault. A day often opens with a hold — doors,
+   * a walk-in, a changeover — where the printed times and the printed
+   * durations are BOTH right and simply do not meet. Before this, saying so
+   * lasted as long as the panel stayed open: the acceptance lived in the
+   * screen rather than in the sheet, so it was gone on the next visit, and
+   * gone entirely for everybody else.
+   *
+   * Matched on the SIZE of the gap, within a second. Accepting a two-minute
+   * hold says that two-minute hold is fine; it does not sign a blank cheque
+   * for whatever appears at that row later. Change a duration above it and
+   * the number moves, the stored one no longer matches, and the check asks
+   * again — which is what you want from a check.
+   */
+  return gaps.filter((g) => {
+    const accepted = rows[g.toIndex]?.acceptedGapSec;
+    return accepted == null || Math.abs(accepted - g.gapSec) >= 1;
+  });
 }

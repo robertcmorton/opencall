@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import * as Y from "yjs";
 import { findTimingGaps, formatDuration, formatTimeOfDay, type PlanTiming, type TimingGap } from "@opencall/core";
 
@@ -31,11 +31,47 @@ export function ReconcilePanel({
   /** Reports the rows of the issue on screen so the grid can highlight them. */
   onCurrent?: (focus: { fromId: string; toId: string } | null) => void;
 }) {
-  const [accepted, setAccepted] = useState<ReadonlySet<string>>(new Set());
   const yRows = doc.getMap<Y.Map<unknown>>("rows");
 
-  const open = gaps.filter((g) => !accepted.has(`${rows[g.toIndex]?.id}`));
+  // Ignored gaps are filtered out in `findTimingGaps` itself, so whatever
+  // arrives here is genuinely still open — the panel used to keep a second,
+  // private list of what had been accepted, and the two could disagree with
+  // the warning line counting gaps elsewhere on the page.
+  const open = gaps;
   const current = open[0];
+  // Rows carrying an accepted gap, so a decision can be taken back. Without
+  // this, ignoring is a one-way door: the check stops mentioning the row, and
+  // with it goes the only place that could offer to look again.
+  const ignored = rows.filter((r) => r.acceptedGapSec != null);
+
+  /**
+   * The holds already called deliberate, and the way back from each.
+   *
+   * Shown whether or not anything is still open. It lived only on the
+   * all-clear screen at first, which meant a decision could not be revisited
+   * while any other gap remained — the one moment you are most likely to want
+   * it, since you are already looking at the timings and wondering what you
+   * waved through earlier.
+   */
+  const deliberateHolds =
+    ignored.length === 0 ? null : (
+      <div style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
+          Deliberate holds — check these again if you want them back:
+        </span>
+        {ignored.map((r) => (
+          <div key={r.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "var(--fs-sm)" }}>
+              <span className="mono">{formatDuration(Math.abs(r.acceptedGapSec ?? 0))}</span> before “
+              {(r.title || "untitled").slice(0, 32)}”
+            </span>
+            <button className="btn btn-sm btn-ghost" onClick={() => yRows.get(r.id)?.set("acceptedGapSec", null)}>
+              Check it again
+            </button>
+          </div>
+        ))}
+      </div>
+    );
   const fromId = current ? rows[current.fromIndex]?.id : undefined;
   const toId = current ? rows[current.toIndex]?.id : undefined;
   useEffect(() => {
@@ -44,14 +80,18 @@ export function ReconcilePanel({
 
   if (!current) {
     return (
-      <div className="panel" style={{ margin: "0 0 12px", display: "flex", gap: 12, alignItems: "center" }}>
-        <strong>✓ Timings reconciled</strong>
-        <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1 }}>
-          Every anchored time now agrees with the durations between them.
-        </span>
-        <button className="btn btn-sm" onClick={onClose}>
-          Done
-        </button>
+      <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 8 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <strong>✓ Timings reconciled</strong>
+          <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1 }}>
+            Every anchored time now agrees with the durations between them
+            {ignored.length > 0 && ", apart from the holds you have said are deliberate"}.
+          </span>
+          <button className="btn btn-sm" onClick={onClose}>
+            Done
+          </button>
+        </div>
+        {deliberateHolds}
       </div>
     );
   }
@@ -207,15 +247,28 @@ export function ReconcilePanel({
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-          <button className="btn btn-sm btn-ghost" style={{ flexShrink: 0 }} onClick={() => setAccepted(new Set([...accepted, to.id]))}>
-            Keep both — the gap is deliberate
+          <button
+            className="btn btn-sm btn-ghost"
+            style={{ flexShrink: 0 }}
+            onClick={() => {
+              // Written into the sheet, not into this screen. It used to be
+              // React state, so "the check stops flagging it" lasted until the
+              // panel closed — the promise in the sentence beside this button
+              // was true for about a minute. Now it holds for everyone, and
+              // survives a reload, and one undo takes it back.
+              yRows.get(to.id)?.set("acceptedGapSec", current.gapSec);
+            }}
+          >
+            Ignore — the gap is deliberate
           </button>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
             Both numbers are right — the sheet really does hold for{" "}
             <span className="mono">{formatDuration(Math.abs(current.gapSec))}</span> here (doors, walk-in, a changeover).
-            Nothing changes; the check stops flagging it.
+            Nothing changes and nothing moves. The check stops flagging it, for everybody, until the size of the gap
+            changes — edit a duration above it and it will ask again.
           </span>
         </div>
+        {deliberateHolds}
       </div>
     </div>
   );

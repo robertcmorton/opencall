@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **A timing gap you have said is deliberate stays said.** Days often open with a hold — doors, a walk-in, a changeover — where the printed times and the printed durations are both right and simply do not meet. The timing check has always offered to accept that, but the acceptance lived in the screen rather than in the sheet: it lasted until the panel closed, was gone on the next visit, and never applied to anybody else, despite the wording promising the check would stop flagging it. It is now part of the run sheet — it survives a reload, everyone sees it, and one undo takes it back. The check keeps the SIZE of the hold you accepted rather than simply marking the row settled, so if a duration above it changes and the gap becomes a different length, that is a new question and it asks again. Accepted holds are listed with a way to put each one back under the check, and the list is reachable whether or not anything else is still outstanding.
+
 ### Fixed
 - **Access that names no company is cleared out.** Some accounts carry a record of company access pointing at a company that does not exist — either left by the invitation fault above, or naming a company that has since been deleted. It never granted anything, because access is decided by matching the company and nothing matches. It was not quite harmless: holding one counted as holding company access for the purpose of the check that guards people administration, so its holder could see other people in the same broken state. These are removed when the server next starts. Anyone who was *meant* to have company access will need it granted again, deliberately — the note in the migration says how to list who is affected before updating.
 

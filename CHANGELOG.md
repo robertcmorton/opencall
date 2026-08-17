@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The lists you choose from on Users & access are in an order you can predict.** Companies read A to Z, and events run oldest first, the way a diary does — in the invitation form and in the account form alike, which previously disagreed with each other because both simply showed whatever order the server happened to return. Names sort the way a person reads them: capitals do not jump the queue, and "Studio 2" comes before "Studio 10".
+
 ### Fixed
 - **An invitation can name which company the person may open.** On a server running more than one company, the invite form offered a single "Everything at this company" — which had no company attached to it. An administrator, who can reach every company, had no way to say which one they meant, and the choice was not refused either: inviting somebody with an existing account recorded access to a company that does not exist, and reported success, while inviting a new email address failed outright. The form now lists the companies by name, one option each. Whoever is signed in as a single company still sees the same one-line choice as before, because for them there is nothing to choose. The people list now names the company somebody has access to, rather than saying only that they have a whole one.
 

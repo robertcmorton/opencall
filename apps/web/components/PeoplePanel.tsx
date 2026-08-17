@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type EventSummary } from "../lib/api";
+import { byDate } from "../lib/pickOrder";
 import { MissingFields } from "./ui";
 
 /**
@@ -37,7 +38,7 @@ export function PeoplePanel({
 
   const reload = useCallback(() => {
     api.people().then(setData).catch((e: unknown) => setError(String((e as Error)?.message ?? e)));
-    api.events().then(setEvents).catch(() => setEvents([]));
+    api.events().then((evs) => setEvents(byDate(evs))).catch(() => setEvents([]));
   }, []);
   useEffect(reload, [reload]);
 

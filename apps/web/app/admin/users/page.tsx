@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, type EventSummary } from "../../../lib/api";
+import { byDate, byName } from "../../../lib/pickOrder";
 import { WithSideNav } from "../../../components/SideNav";
 import { AdminNavSection } from "../../../components/AdminNav";
 import { UsersPanel } from "../../../components/UsersPanel";
@@ -22,12 +23,12 @@ export default function AdminUsersPage() {
       .catch(() => setMe({ role: null }));
     api
       .events()
-      .then(setEvents)
+      .then((evs) => setEvents(byDate(evs)))
       .catch((err) => {
         // Not signed in (or not allowed) → the dashboard carries the sign-in gate.
         if (err instanceof ApiError && err.status === 401) router.replace("/admin");
       });
-    api.companies().then(setCompanies).catch(() => setCompanies([]));
+    api.companies().then((cs) => setCompanies(byName(cs))).catch(() => setCompanies([]));
   }, [router]);
   useEffect(reload, [reload]);
 

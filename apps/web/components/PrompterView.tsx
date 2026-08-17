@@ -6,6 +6,7 @@ import {
   absoluteNow,
   clockTargetRow,
   computeTiming,
+  secondsUntilShow,
   followRead,
   formatDuration,
   formatTimeOfDay,
@@ -117,10 +118,24 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
    * them, particularly the one somebody is reading from.
    */
   const mayDrive = channel.role === "caller" || channel.role === "admin";
+  const nowAbsSec = absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing);
   const clockRowId = clockTargetRow(
     rows,
     timing.rows.map((r) => r.startSec),
-    absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing),
+    nowAbsSec,
+  );
+  /**
+   * How long until the show is due, when it has opened ahead of its first item.
+   *
+   * A prompter operator is often at the desk long before anything is called,
+   * and this screen had nothing to tell them: the status bar said STANDING BY
+   * with a dash, which is true and useless. The show page answers this; the
+   * screen somebody is actually sitting in front of should too.
+   */
+  const untilShowSec = secondsUntilShow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+    nowAbsSec,
   );
 
   // Follow the caller.
@@ -402,7 +417,13 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const farOff = !onAirNow && secondsUntilOn != null && secondsUntilOn > FAR_OFF_SEC;
   const followStartSec = followId ? (startById.get(followId) ?? null) : null;
   const nextStartSec = nextRead ? (startById.get(nextRead.id) ?? null) : null;
-  const cueLabel = onAirNow
+  // The wait comes first: before the show is due, "how long have we got" is
+  // the only question on this screen, and STAND BY against a dash is not an
+  // answer to it.
+  const waiting = untilShowSec != null && !onAirNow;
+  const cueLabel = waiting
+    ? "SHOW STARTS IN"
+    : onAirNow
     ? "ON AIR"
     : secondsUntilOn == null
       ? "STANDING BY"
@@ -411,7 +432,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         : farOff && followStartSec != null
           ? "ON AT"
           : "ON IN";
-  const cueValue = onAirNow
+  const cueValue = waiting
+    ? formatDuration(Math.round(untilShowSec!))
+    : onAirNow
     ? live?.remainingInRowSec != null
       ? formatDuration(Math.max(0, Math.round(live.remainingInRowSec)))
       : "—"
@@ -422,7 +445,13 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         : formatDuration(Math.round(secondsUntilOn));
   // Red on air, amber in the last thirty seconds — the same colours the timer
   // and the run sheet use, so they mean one thing across the whole app.
-  const cueColour = onAirNow ? "#f85149" : secondsUntilOn != null && secondsUntilOn <= 30 ? "#d29922" : "#3fb950";
+  const cueColour = waiting
+    ? "#3fb950"
+    : onAirNow
+      ? "#f85149"
+      : secondsUntilOn != null && secondsUntilOn <= 30
+        ? "#d29922"
+        : "#3fb950";
 
   const readTitle = (r: (typeof rows)[number] | null): string => {
     if (!r) return "—";

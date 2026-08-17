@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The prompter says how long until the show starts.** Somebody at the prompter desk before anything is called was told STAND BY against a dash, which is true and no use. While the show is open but its first item is still ahead, the same countdown the show page carries now appears there — the screen the reader is actually sitting in front of answers the question they actually have.
+
 - **The timer shows what you just came off and what is next.** The item on air has the one before it above and the one after below, in the order the sheet runs — so the three read as a strip of the running order rather than three separate readings. "What's after this?" is asked far more often than "what are we in?", and the answer used to mean finding your place in the table. Both are dimmer than the item being called, deliberately: they are context, and the eye should not be pulled off the thing you are calling. Headings and reminders are skipped; only items that can actually be called appear.
 
 ### Fixed

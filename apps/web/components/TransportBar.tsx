@@ -105,9 +105,17 @@ export function ShowStateControls({
   channel,
   orderedRowIds,
   preflight = [],
+  /**
+   * Seconds until the first item is due, when the show has not reached it yet.
+   *
+   * Null means there is nothing to wait for — the first cue's time has come, or
+   * the sheet never gave one. See `secondsUntilShow`.
+   */
+  untilShowSec = null,
 }: {
   channel: ShowChannel;
   orderedRowIds: string[];
+  untilShowSec?: number | null;
   /**
    * Things worth a look before going live, in the words the caller needs.
    *
@@ -173,7 +181,20 @@ export function ShowStateControls({
 
   if (channel.role !== "caller" && channel.role !== "admin") return null;
 
-  const start = () => channel.sendCmd("start", orderedRowIds[0]);
+  /**
+   * Going live is not the same as starting the first item.
+   *
+   * This always cued row one, whatever the clock said. On a sheet whose first
+   * item is at 8pm, opening the show at 11am put that item on air nine hours
+   * early: the big timer counted it, and since it was only ever going to be
+   * ten minutes long, the show read as hours overdue before anyone arrived.
+   *
+   * The session opens with nothing cued instead, and the timer counts down to
+   * the first item. Following the clock picks it up when its time comes; a
+   * showcaller calling it by hand presses Next, which now takes the first item
+   * from a standing start.
+   */
+  const start = () => channel.sendCmd("start", untilShowSec != null ? undefined : orderedRowIds[0]);
 
   return (
     <div className="show-state">
@@ -287,7 +308,14 @@ export function TransportBar({
   const isLive = liveState === "running" || liveState === "paused";
 
   const step = (dir: 1 | -1) => {
-    if (!show?.activeRowId) return;
+    // Nothing cued yet — the show is live but waiting for its first item. Next
+    // takes that item; there is nothing before it to go back to. Without this
+    // the transport was dead on a show that had started early, because the
+    // only way forward was a cue the show did not have.
+    if (!show?.activeRowId) {
+      if (dir === 1 && orderedRowIds[0]) channel.sendCmd("next", orderedRowIds[0]);
+      return;
+    }
     const idx = orderedRowIds.indexOf(show.activeRowId);
     const target = orderedRowIds[idx + dir];
     if (target) channel.sendCmd(dir === 1 ? "next" : "prev", target);

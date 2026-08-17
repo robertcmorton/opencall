@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { computeLiveTiming, computeTiming, type PlanRow, clockTargetRow, followerMayMove } from "../src/index";
+import {
+  computeLiveTiming,
+  computeTiming,
+  type PlanRow,
+  clockTargetRow,
+  firstCueRow,
+  followerMayMove,
+  secondsUntilShow,
+} from "../src/index";
 
 const NINE_AM = 9 * 3600;
 const rows: PlanRow[] = [
@@ -282,5 +290,60 @@ describe("clockTargetRow ignores rows that are not the show", () => {
       expect(clockTargetRow(rows, starts, t)).not.toBe("coinToss");
       expect(clockTargetRow(rows, starts, t)).not.toBe("fullTime");
     }
+  });
+});
+
+/**
+ * Going live before the show is due.
+ *
+ * Pressing Start at 11am on a sheet whose first cue is 8pm used to put that
+ * item on air nine hours early — the big timer counting an item nobody was
+ * running, and reading as overdue all afternoon. The show can begin before the
+ * first item does; these pin the gap between the two.
+ */
+describe("the wait before the first cue", () => {
+  const EIGHT_PM = 20 * 3600;
+  const ELEVEN_SIXTEEN_AM = 11 * 3600 + 16 * 60;
+
+  const sheet: PlanRow[] = [
+    { id: "doors", type: "milestone", durationSec: null, hardStartSec: 19 * 3600 },
+    { id: "opener", type: "cue", durationSec: 600, hardStartSec: EIGHT_PM },
+    { id: "two", type: "cue", durationSec: 600, hardStartSec: null },
+  ];
+  const startsOf = (rs: PlanRow[]) => computeTiming(rs).rows.map((r) => r.startSec);
+  const starts = startsOf(sheet);
+
+  it("names the first item that can actually be called, not the first row", () => {
+    // The 7pm milestone is a deadline to hit, not something to go to air on.
+    expect(firstCueRow(sheet, starts)).toEqual({ id: "opener", index: 1, startSec: EIGHT_PM });
+  });
+
+  it("counts down the hours between going live and the first cue", () => {
+    expect(secondsUntilShow(sheet, starts, ELEVEN_SIXTEEN_AM)).toBe(EIGHT_PM - ELEVEN_SIXTEEN_AM);
+  });
+
+  it("stops waiting once the first cue is due", () => {
+    expect(secondsUntilShow(sheet, starts, EIGHT_PM)).toBeNull();
+    expect(secondsUntilShow(sheet, starts, EIGHT_PM + 1)).toBeNull();
+  });
+
+  it("waits right up to the last second", () => {
+    expect(secondsUntilShow(sheet, starts, EIGHT_PM - 1)).toBe(1);
+  });
+
+  it("has nothing to wait for when no row carries a time", () => {
+    const untimed: PlanRow[] = [{ id: "a", type: "cue", durationSec: 600, hardStartSec: null }];
+    expect(secondsUntilShow(untimed, [null], ELEVEN_SIXTEEN_AM)).toBeNull();
+    expect(firstCueRow(untimed, [null])).toBeNull();
+  });
+
+  it("skips a first row that is skipped, a heading, or a pre-record", () => {
+    const messy: PlanRow[] = [
+      { id: "head", type: "group", durationSec: null, hardStartSec: 19 * 3600 },
+      { id: "vt", type: "cue", durationSec: 300, hardStartSec: 19 * 3600 + 1800, parallel: true },
+      { id: "cut", type: "cue", durationSec: 300, hardStartSec: 19 * 3600 + 2400, skipped: true },
+      { id: "real", type: "cue", durationSec: 600, hardStartSec: EIGHT_PM },
+    ];
+    expect(firstCueRow(messy, startsOf(messy))?.id).toBe("real");
   });
 });

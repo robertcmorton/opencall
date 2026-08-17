@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Going live before the first item is due no longer puts that item on air.** Opening a show at eleven in the morning on a sheet that starts at eight in the evening cued the first item immediately and began timing it — so the biggest readout on the page counted an item nobody had called, and since that item was only ten minutes long, the show read as hours overdue before anyone had arrived. The show can now be open while the first item is still ahead: the timer counts down to it and says which item it is waiting for. Following the clock takes it when its time comes; a showcaller calling by hand takes it with the spacebar, which now steps to the first item from a standing start instead of doing nothing.
+
+### Fixed
 - **An account put in charge of two companies is asked which one it means.** Choosing "everything at this company" sent no company name, because the server filled it in — correct for somebody who has one, a guess for somebody who has several, and the guess was whichever company the database happened to list first. It now asks. Access given to a kind of thing the app does not recognise is refused outright rather than allowed on the strength of naming an event the giver could reach.
 
 ### Changed

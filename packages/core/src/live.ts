@@ -286,6 +286,85 @@ export interface ClockTargetRow {
 }
 
 /**
+ * Could the show ever stand on this row?
+ *
+ * A heading is not an item, a skipped row is not happening, and an untimed row
+ * with no hard start has no moment to arrive at. Two of the exclusions cost
+ * real shows to find:
+ *
+ * A SECOND TRACK is never cued — not by the transport, and not by the clock
+ * either. A pre-record runs and finishes on its own; parking the show on one
+ * would take the running order off air to watch it.
+ *
+ * NEITHER IS A MILESTONE. It is a reminder with a time on it — team sheets
+ * due, comms check, doors — something the showcaller has to GET DONE by then.
+ * It is not an item that goes to air and there is nothing to call, so it has
+ * no business becoming the cue. It did, and the damage was not only the wrong
+ * row highlighted: a milestone carries no duration, so a show parked on one
+ * can only ever read as overrunning. The big timer took its name, counted up
+ * and went red, while the item actually on air kept running below with nothing
+ * pointing at it — three rows signalling at once and none of them the show.
+ * Reported on a real sheet where a deadline listed at 6:30 PM sat between rows
+ * at 7:06 and 7:02: late enough in the sheet, and early enough on the clock,
+ * to beat the second half that was genuinely on air.
+ *
+ * One predicate, because the answer has to be the same everywhere. "Which row
+ * does the clock want" and "which row does the show open on" are the same
+ * question asked at two moments, and two copies of this list would drift the
+ * first time a sixth kind of row appeared.
+ */
+export function cueable(r: ClockTargetRow): boolean {
+  if (r.type === "group" || r.type === "milestone") return false;
+  if (r.skipped || r.parallel) return false;
+  if (r.untimed && r.hardStartSec == null) return false;
+  return true;
+}
+
+/**
+ * The first row the show can open on, and when it is due.
+ *
+ * Needed because "start the show" and "start the first item" are not the same
+ * instruction, and treating them as one is how a sheet whose first cue is at
+ * 8pm ends up counting that item as on air from 11am — nine hours of a timer
+ * that says the show is running late before anybody has arrived.
+ *
+ * Returns null when no row qualifies or none carries a start, which is a sheet
+ * with no scheduled beginning: the show opens whenever somebody says it does,
+ * and there is nothing to count down to.
+ */
+export function firstCueRow(
+  rows: readonly ClockTargetRow[],
+  startSecs: readonly (number | null)[],
+): { id: string; index: number; startSec: number } | null {
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    if (!cueable(r)) continue;
+    const startSec = startSecs[i] ?? null;
+    if (startSec == null) continue;
+    return { id: r.id, index: i, startSec };
+  }
+  return null;
+}
+
+/**
+ * How long until the show is due to begin, or null if it is already due.
+ *
+ * Null means "no reason to wait" — the first cue's time has arrived, or the
+ * sheet never gave one. Both are the same answer to the only question the
+ * caller is asking: is there still something to count down to?
+ */
+export function secondsUntilShow(
+  rows: readonly ClockTargetRow[],
+  startSecs: readonly (number | null)[],
+  nowAbsSec: number,
+): number | null {
+  const first = firstCueRow(rows, startSecs);
+  if (first == null) return null;
+  const wait = first.startSec - nowAbsSec;
+  return wait > 0 ? wait : null;
+}
+
+/**
  * The row the event's clock is standing on: the last one whose planned start
  * has passed.
  *
@@ -319,29 +398,7 @@ export function clockTargetRow(
   let highWater = -Infinity;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
-    if (r.type === "group" || r.skipped) continue;
-    // A second track is never cued — not by the transport, and not by the
-    // clock either. A pre-record runs and finishes on its own; parking the
-    // show on one would take the running order off air to watch it.
-    if (r.parallel) continue;
-    /**
-     * Neither is a milestone. It is a reminder with a time on it — team sheets
-     * due, comms check, doors — something the showcaller has to GET DONE by
-     * then. It is not an item that goes to air and there is nothing to call,
-     * so it has no business becoming the cue.
-     *
-     * It did, and the damage was not only the wrong row highlighted. A
-     * milestone carries no duration, so a show parked on one can only ever
-     * read as overrunning: the big timer took its name, counted up, and went
-     * red, while the item actually on air kept running below with nothing
-     * pointing at it. Three rows signalling at once and none of them the show.
-     *
-     * Reported on a real sheet where a deadline listed at 6:30 PM sat between
-     * rows at 7:06 and 7:02 — late enough in the sheet, and early enough on
-     * the clock, to beat the second half that was genuinely on air.
-     */
-    if (r.type === "milestone") continue;
-    if (r.untimed && r.hardStartSec == null) continue;
+    if (!cueable(r)) continue;
     const start = startSecs[i] ?? null;
     if (start == null) continue;
     if (start < highWater - OUT_OF_ORDER_SEC) continue;

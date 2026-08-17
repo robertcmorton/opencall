@@ -1359,6 +1359,23 @@ kbd {
   font-weight: 700;
   line-height: 1.1;
 }
+/* What we are counting down TO, under the countdown itself.
+   Where the item timer puts the row's name above the number, the wait puts it
+   below: the label there says which item is running, and the label here says
+   what is being waited for, which is a smaller claim and reads better as a
+   footnote than as a title. Same zero-width trick as `.bt-label` — the name of
+   the first item must not decide how wide the header is. */
+.big-timer .bt-sub {
+  font-size: 0.62rem;
+  color: var(--text-3);
+  align-self: stretch;
+  text-align: center;
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .big-timer.under .bt-time {
   color: var(--under);
 }

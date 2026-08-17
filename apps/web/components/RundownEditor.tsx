@@ -17,6 +17,8 @@ import {
   absoluteNow,
   checkStartTimes,
   clockTargetRow,
+  firstCueRow,
+  secondsUntilShow,
   findConcurrentRows,
   rowsOnAt,
   computeTiming,
@@ -363,6 +365,30 @@ function BigTimer({
       <div className="bt-bar">
         <BarFill frac={frac} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The wait, in the same place the item timer lives.
+ *
+ * A show can be live before its first item is due — the doors are open, the
+ * crew are on comms, and the opener is still hours away. The biggest readout
+ * on the page should answer the question actually being asked then, which is
+ * "how long have we got", not "how is the current item going" about an item
+ * nobody has called.
+ *
+ * Deliberately the same shape and position as the item timer rather than a
+ * notice somewhere else: it is the same slot answering the same question at a
+ * different moment, and moving it would make the page rearrange itself at the
+ * exact second the show begins.
+ */
+function ShowCountdown({ waitSec, title }: { waitSec: number; title: string }) {
+  return (
+    <div className="big-timer no-print under">
+      <div className="bt-label">TILL SHOW STARTS</div>
+      <div className="bt-time">{formatDuration(Math.round(waitSec))}</div>
+      <div className="bt-sub">{title}</div>
     </div>
   );
 }
@@ -982,6 +1008,22 @@ export function RundownEditor({
     timing.rows.map((r) => r.startSec),
     nowAbsSec,
   );
+  /**
+   * How long until the first item is due, when the show has opened ahead of it.
+   *
+   * Recomputed each render from the same clock as everything else on this bar,
+   * so it ticks with them rather than on a timer of its own.
+   */
+  const firstCue = firstCueRow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+  );
+  const untilShowSec = secondsUntilShow(
+    rows,
+    timing.rows.map((r) => r.startSec),
+    nowAbsSec,
+  );
+  const firstCueRowRecord = firstCue ? rows.find((r) => r.id === firstCue.id) : undefined;
 
   /**
    * What runs WITH what, and what is on right now.
@@ -2502,6 +2544,18 @@ export function RundownEditor({
         </div>
         </div>
         <div className="topbar-center">
+          {showLive && !activeRow && untilShowSec != null && (
+            <ShowCountdown
+              waitSec={untilShowSec}
+              title={
+                firstCueRowRecord
+                  ? blankTitle(firstCueRowRecord.title)
+                    ? itemStandIn(firstCueRowRecord)
+                    : firstCueRowRecord.title
+                  : ""
+              }
+            />
+          )}
           {live && activeRow && (
             <BigTimer
               live={live}
@@ -2528,6 +2582,7 @@ export function RundownEditor({
                 channel={channel}
                 orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
                 preflight={preflight}
+                untilShowSec={untilShowSec}
               />
               {/* Only once the show is actually running.
                   Walking the sheet before the doors open is planning, not

@@ -6,7 +6,8 @@ import { ShowStateMachine } from "./show";
 
 /**
  * Show-state machines with Postgres write-through: every accepted command
- * upserts `show_sessions` and appends `show_transitions` (the as-run log).
+ * upserts `show_sessions` and appends `show_transitions` (the as-run log) in
+ * one transaction, so the record can never advance without its as-run entry.
  * On first access after a restart, any non-ended session is hydrated back.
  * Writes are chained per rundown so they land in command order.
  */
@@ -97,9 +98,12 @@ export class PersistentShowStore {
 
   private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string): Promise<void> {
     const { db } = this.handle;
-    if (!state.sessionId) return;
+    // Read once into a const: the two statements below run inside a closure,
+    // where TypeScript drops the narrowing on a property access.
+    const sessionId = state.sessionId;
+    if (!sessionId) return;
     const values = {
-      id: state.sessionId,
+      id: sessionId,
       rundownId,
       state: state.state === "idle" ? ("ended" as const) : state.state,
       activeRowId: state.activeRowId,
@@ -111,16 +115,40 @@ export class PersistentShowStore {
       seq: state.seq,
       clockFollow: state.clockFollow,
     };
-    await db
-      .insert(schema.showSessions)
-      .values(values)
-      .onConflictDoUpdate({ target: schema.showSessions.id, set: values });
-    await db.insert(schema.showTransitions).values({
-      id: ulid(),
-      sessionId: state.sessionId,
-      at: new Date(),
-      type: action,
-      rowId: rowId ?? state.activeRowId,
+    /**
+     * One transaction, because the two rows are one fact. The session row says
+     * where the show is; the transition says how it got there, and that as-run
+     * entry is the record of what happened on air. Written separately, anything
+     * that ends the process between the two statements — SIGKILL, an OOM kill,
+     * a throw inside the second insert — leaves a session claiming row 12 with
+     * nothing saying it was ever cued. `flush()` covers the orderly SIGTERM
+     * case only; it cannot do anything about the gap between two statements.
+     *
+     * Nothing else in this repo uses a transaction, so both drivers were
+     * checked: node-postgres takes a dedicated client out of the pool for the
+     * duration, and PGlite (the dev database) runs `transaction()` behind the
+     * same exclusive lock as every other query, so a concurrent write for a
+     * different rundown queues rather than interleaving a second BEGIN on the
+     * one connection.
+     *
+     * The caller's contract is unchanged: drizzle rolls back and rethrows, so
+     * `write` still rejects exactly where it used to and `persist`'s existing
+     * catch logs it. What changes is that a failed transition no longer leaves
+     * the session row advanced — both rows are lost together, and the next
+     * accepted command re-upserts the session row from the live machine.
+     */
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(schema.showSessions)
+        .values(values)
+        .onConflictDoUpdate({ target: schema.showSessions.id, set: values });
+      await tx.insert(schema.showTransitions).values({
+        id: ulid(),
+        sessionId,
+        at: new Date(),
+        type: action,
+        rowId: rowId ?? state.activeRowId,
+      });
     });
   }
 }

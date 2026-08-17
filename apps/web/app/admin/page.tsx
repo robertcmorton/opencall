@@ -642,6 +642,35 @@ function DangerButton({
 type LiveSession = Awaited<ReturnType<typeof api.live>>[number];
 
 /**
+ * How long ago an instant was, short enough to sit in a chip: "42m", "19h", "3d".
+ *
+ * Relative, and that is the whole point. The reader of a stale chip is asking
+ * "is this still going?", not "what o'clock was it?" — and an absolute time
+ * would have to answer whose clock. This used to print
+ * `new Date(lastMoveAt).toLocaleString()`, i.e. the VIEWER's timezone, so a
+ * show called in Perth and checked from Sydney reported an hour nobody on that
+ * show ever saw. An age is the same number in every zone, which is why there is
+ * no host-versus-event-time question to get wrong here.
+ *
+ * Hours run to 48 before switching to days: "30h" says more than "1d" about a
+ * show left running yesterday afternoon, and by three days nobody cares about
+ * the hours.
+ *
+ * Reading the clock while rendering is safe HERE, and it is worth saying why,
+ * because doing it in a render body is exactly what put a hydration mismatch on
+ * this page before. `live` starts empty, so LiveChip renders null on the server
+ * AND on the hydrating client — the chip only exists after the poller's first
+ * answer, which lands after hydration. The same poller (10 s) re-renders the
+ * list, so the age can never be more than 10 s out of date.
+ */
+function ageSince(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  return hours < 48 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+/**
  * How a run sheet's session looks from the dashboard — and whether to believe it.
  *
  * Pressing Stop is the only thing that ends a session, and nothing times one
@@ -658,30 +687,40 @@ type LiveSession = Awaited<ReturnType<typeof api.live>>[number];
  * a long interval earns exactly the same flag. Nothing here ends the session;
  * the reader is handed the evidence and the judgement.
  *
- * The tooltip gives the timestamp rather than naming the threshold — how many
+ * The evidence is an AGE rather than a threshold or a clock time. How many
  * hours count as too long is the server's choice (and its comment), and a
- * number repeated here would be the one that goes stale.
+ * number repeated here would be the one that goes stale; a wall time would
+ * have to answer whose — see `ageSince`.
+ *
+ * A session that is merely paused takes `.live-badge.paused` (amber, dot not
+ * pulsing). Red with a beating dot means on air, and a show sitting in a
+ * changeover is not that.
  */
 function LiveChip({ session }: { session: LiveSession | undefined }) {
   if (!session) return null;
 
-  if (session.stale)
+  if (session.stale) {
+    const age = ageSince(session.lastMoveAt);
     return (
       <span
         className="chip"
         style={{ marginLeft: 10 }}
-        // Touch devices never see a data-tip, so the chip's own words have to
-        // carry the meaning on their own — this only adds the evidence.
-        data-tip={`Still marked as ${session.state}, but nothing has moved since ${new Date(
-          session.lastMoveAt,
-        ).toLocaleString()}. A session ends only when someone presses Stop — if this show is over, open it and stop it.`}
+        // The age is in the chip's own text, not only in here: globals.css
+        // gates [data-tip] behind `@media (hover: hover)`, so on the tablet
+        // this dashboard is read from there is no tooltip at all and two words
+        // were the entire message — "left running", with no way to reach how
+        // long ago that was. Three or four characters after a separator is the
+        // smallest thing that answers "how stale?"; a second line of text beside
+        // every chip would cost more room than the row has to give.
+        data-tip={`Still marked as ${session.state}, but nothing has moved for ${age}. A session ends only when someone presses Stop — if this show is over, open it and stop it.`}
       >
-        {session.state === "paused" ? "left paused" : "left running"}
+        {session.state === "paused" ? "left paused" : "left running"} · {age}
       </span>
     );
+  }
 
   return (
-    <span className="live-badge" style={{ marginLeft: 10 }}>
+    <span className={`live-badge${session.state === "paused" ? " paused" : ""}`} style={{ marginLeft: 10 }}>
       {session.state === "paused" ? "PAUSED" : "LIVE"}
     </span>
   );

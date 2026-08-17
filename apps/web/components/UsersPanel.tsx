@@ -2,30 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type EventSummary } from "../lib/api";
-import { PanelModal } from "./SharePanels";
+import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant } from "./AccessGrants";
 import { Icon } from "./ui";
-
-interface Grant {
-  kind: string;
-  targetId: string;
-}
-
-const KIND_LABEL: Record<string, string> = {
-  admin: "Admin — everything",
-  company: "Company — manage its events & below",
-  event: "Event — manage one event",
-  view: "View only — see one event",
-};
-
-/** The row a grant occupies in the database: (user, kind, target). */
-const grantKey = (g: Grant): string => `${g.kind}:${g.targetId}`;
-
-/** What a grant points at, named wherever the name is to hand. */
-function targetName(g: Grant, companies: { id: string; name: string }[], events: EventSummary[]): string {
-  if (g.kind === "admin") return "everything";
-  if (g.kind === "company") return companies.find((c) => c.id === g.targetId)?.name ?? "unknown company";
-  return events.find((e) => e.id === g.targetId)?.name ?? "unknown event";
-}
 
 /**
  * Users & access (admin only): the user database — who has control of what.
@@ -104,10 +82,14 @@ export function UsersPanel({
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          {/* `allowAdmin`: this panel is admin-only — the page renders it for
+              role "admin" alone — so making another administrator is a choice
+              it may offer. The company-facing people list passes false. */}
           <GrantPicker
             companies={companies}
             events={events}
             held={grants}
+            allowAdmin
             onAdd={(g) => setGrants((all) => [...all, g])}
           />
           {grants.length > 0 && (
@@ -140,7 +122,7 @@ export function UsersPanel({
             <span style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
               {u.grants.map((g) => (
                 <span key={grantKey(g)} className="chip">
-                  {g.kind}: {targetName(g, companies, events)}
+                  {grantLabel(g, companies, events)}
                 </span>
               ))}
               {u.grants.length === 0 && <span className="chip">no access</span>}
@@ -198,12 +180,20 @@ export function UsersPanel({
         )}
       </ul>
 
+      {/* The `note` is deliberately not the warning the company-facing people
+          list carries. That one shows a slice — a freelancer's other companies
+          never leave the server — so it can promise to leave the unseen part
+          alone. GET /users has no such filter: what is listed here IS the whole
+          of somebody's access, so saying "only what you can see" would be true
+          and useless. */}
       {editing && (
-        <UserAccessEditor
+        <AccessEditor
           key={editing.id}
-          user={editing}
+          person={editing}
           companies={companies}
           events={events}
+          note="This is all of it. Anything taken away here is taken away everywhere — their company, their events, and any other company they work for."
+          allowAdmin
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -212,211 +202,5 @@ export function UsersPanel({
         />
       )}
     </section>
-  );
-}
-
-/**
- * Choosing one grant: what kind, and — unless it is admin — which company or
- * event it points at.
- *
- * Shared by the create form and the access editor because it is the same
- * question in both, asked of the same two lists.
- *
- * `held` is what the caller already has, and Add refuses a repeat rather than
- * appending it. user_grants is keyed on (user, kind, target), and POST /users
- * inserts each grant with no on-conflict clause — so choosing the same access
- * twice created the account and then failed the request on the second insert,
- * leaving a user with half their access and an error on screen.
- */
-function GrantPicker({
-  companies,
-  events,
-  held,
-  onAdd,
-}: {
-  companies: { id: string; name: string }[];
-  events: EventSummary[];
-  held: Grant[];
-  onAdd: (g: Grant) => void;
-}) {
-  const [kind, setKind] = useState<string>("view");
-  const [target, setTarget] = useState("");
-
-  const chosen: Grant = { kind, targetId: kind === "admin" ? "" : target };
-  const incomplete = kind !== "admin" && !target;
-  const already = !incomplete && held.some((g) => grantKey(g) === grantKey(chosen));
-
-  const add = () => {
-    if (incomplete || already) return;
-    onAdd(chosen);
-    setTarget("");
-  };
-
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-      {/* Changing the kind clears the target. Companies and events are two
-          different lists of ids: picking an event and then switching to
-          "Company" left the event's id in place, and because the second select
-          has no option matching it the box showed nothing chosen while Add
-          stayed enabled — one click away from a company grant pointing at an
-          event, which the server has no way to recognise as wrong. */}
-      <select
-        className="input"
-        value={kind}
-        onChange={(e) => {
-          setKind(e.target.value);
-          setTarget("");
-        }}
-      >
-        {Object.entries(KIND_LABEL).map(([k, label]) => (
-          <option key={k} value={k}>
-            {label}
-          </option>
-        ))}
-      </select>
-      {kind === "company" && (
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Choose company…</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      )}
-      {(kind === "event" || kind === "view") && (
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Choose event…</option>
-          {events.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button className="btn btn-sm" onClick={add} disabled={incomplete || already}>
-        Add access
-      </button>
-      {/* Said out loud rather than as a tooltip: a disabled button takes no
-          pointer events, so anything hung off hover never appears — the button
-          would simply go dead with no reason given. */}
-      {already && (
-        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>They already have this.</span>
-      )}
-    </div>
-  );
-}
-
-/** The grants on a form, each with a way to take it off again. */
-function GrantChips({
-  grants,
-  companies,
-  events,
-  onRemove,
-}: {
-  grants: Grant[];
-  companies: { id: string; name: string }[];
-  events: EventSummary[];
-  onRemove: (g: Grant) => void;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {grants.map((g) => (
-        <span key={grantKey(g)} className="chip">
-          {g.kind}: {targetName(g, companies, events)}
-          <button
-            className="btn btn-sm btn-ghost"
-            style={{ height: 18, padding: "0 4px" }}
-            data-tip="Take this away"
-            onClick={() => onRemove(g)}
-          >
-            ✕
-          </button>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Changing what one account may open, from the administrator's side.
- *
- * Deliberately not the same warning the company-facing people list carries.
- * That one shows a slice — a freelancer's other companies never leave the
- * server — so it promises to leave the unseen part alone. GET /users has no
- * such filter: what is listed here IS the whole of somebody's access, and
- * taking a chip off takes it away everywhere. Saying "only what you can see"
- * on this screen would be true and useless, because that is all of it.
- *
- * There is no guard against an administrator removing their own admin grant
- * and locking themselves out: this component is not told which account is the
- * signed-in one, and the server does not refuse it either. Deleting yourself
- * with the button two along has always been possible for the same reason.
- */
-function UserAccessEditor({
-  user,
-  companies,
-  events,
-  onClose,
-  onSaved,
-}: {
-  user: { id: string; name: string; grants: Grant[] };
-  companies: { id: string; name: string }[];
-  events: EventSummary[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [grants, setGrants] = useState<Grant[]>(user.grants);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const save = () => {
-    setBusy(true);
-    setError(null);
-    api
-      .patchUserGrants(user.id, grants)
-      .then(onSaved)
-      .catch((e: unknown) => {
-        setError(String((e as Error)?.message ?? e));
-        setBusy(false);
-      });
-  };
-
-  return (
-    <PanelModal onClose={onClose}>
-      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 340, maxWidth: 560 }}>
-        <strong>What {user.name} may open</strong>
-        <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          This is all of it. Anything taken away here is taken away everywhere — their company, their events, and any
-          other company they work for.
-        </span>
-
-        {grants.length === 0 ? (
-          <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-            Nothing — they will not be able to open anything.
-          </span>
-        ) : (
-          <GrantChips
-            grants={grants}
-            companies={companies}
-            events={events}
-            onRemove={(g) => setGrants(grants.filter((x) => grantKey(x) !== grantKey(g)))}
-          />
-        )}
-
-        <GrantPicker companies={companies} events={events} held={grants} onAdd={(g) => setGrants([...grants, g])} />
-
-        {error && <div className="missing-fields" style={{ borderColor: "var(--over)" }}>{error}</div>}
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-primary" disabled={busy} onClick={save}>
-            {busy ? "Saving…" : "Save access"}
-          </button>
-          <button className="btn btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </PanelModal>
   );
 }

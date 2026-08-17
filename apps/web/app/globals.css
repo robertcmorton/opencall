@@ -489,7 +489,18 @@ input.inline-edit {
   justify-content: center;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 8px 10px;
+  /* Padding sideways only. Vertically the border hugs the controls, so the
+     first thing painted in this cell starts level with the sheet's name on the
+     left and the connection lamps on the right — the header aligns its three
+     cells to their tops, and any padding here is 13 pixels the middle one
+     starts lower than its neighbours. The room around the buttons comes from
+     the header's own spacing, not from this box. */
+  padding: 0 10px;
+}
+/* The transport row keeps its own padding everywhere else — inside this group
+   it would stack with the group's border and push Start show down again. */
+.preshow-group .show-state {
+  padding: 0;
 }
 /* Everything in the group is built to one block.
    There were three heights in a row of four controls — Start show at 32, the
@@ -1810,7 +1821,16 @@ kbd {
      which is not a truncation, it is a deletion. 96px keeps enough to
      recognise the sheet you are on, and below that the cue timer gives up some
      of its own width (it has a 300px floor) before anything else is harmed. */
-  grid-template-columns: minmax(96px, 1fr) auto minmax(max-content, 1fr);
+  /* The middle track may shrink below its natural width.
+     It was `auto`, which stops at max-content — fine when the middle held only
+     the cue timer, wrong once it held a row of pre-show controls. At 768px the
+     group asked for 407px, the sheet's name was already pinned at its 96px
+     floor, and the overflow came off the RIGHT: the connection lamps ran 29px
+     past the window with nothing to scroll to reach them, silently, which is
+     the worst way for a status light to fail. `minmax(0, …)` lets the track
+     give, and the group inside already wraps — measured min-content 135px
+     against 407 natural, so there is a great deal of give available. */
+  grid-template-columns: minmax(96px, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   /* Top, not centre: every readout across the bar — the sheet's name, the item
      and show clocks, the projected end, the connection dots, the event time —
      lines up with the top of the cue timer box, so the bar reads as one row of

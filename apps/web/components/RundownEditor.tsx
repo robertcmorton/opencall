@@ -2578,12 +2578,54 @@ export function RundownEditor({
               second shared clock would be a second thing to be wrong about. */}
           {isShow && (
             <div className="show-state-row">
-              <ShowStateControls
-                channel={channel}
-                orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
-                preflight={preflight}
-                untilShowSec={untilShowSec}
-              />
+              {/* Before the doors: rehearsing and going live are the two things
+                  you do here, so they share one box. Walkthrough used to sit in
+                  the sheet's toolbar among Undo, Redo and Add row — editing
+                  controls, which it is not — while the button it leads to was
+                  somewhere else entirely. Stepping the crew through the sheet
+                  and then starting the show is one sequence, and it now reads
+                  as one. The group is gone once the show is live: there is
+                  nothing to rehearse, and the transport keeps the row to
+                  itself. */}
+              <div className={isShow && !showLive && rows.length > 0 ? "preshow-group" : undefined}>
+                <ShowStateControls
+                  channel={channel}
+                  orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
+                  preflight={preflight}
+                  untilShowSec={untilShowSec}
+                />
+                {isShow && !showLive && rows.length > 0 &&
+                  (() => {
+                    const walkable = rows.filter((r) => r.type !== "group" && !r.skipped);
+                    const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
+                    return (
+                      <>
+                        <span className="chip" data-tip="Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees">
+                          Walkthrough{at >= 0 ? ` ${at + 1}/${walkable.length}` : ""}
+                        </span>
+                        <button
+                          className="btn btn-sm"
+                          disabled={at <= 0}
+                          onClick={() => at > 0 && channel.sendCmd("walk", walkable[at - 1]!.id)}
+                        >
+                          {Icon.prev} Prev
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          disabled={at >= walkable.length - 1}
+                          onClick={() => channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id)}
+                        >
+                          Next {Icon.next}
+                        </button>
+                        {walkRowId && (
+                          <button className="btn btn-sm btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
+                            End walkthrough
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+              </div>
               {/* Only once the show is actually running.
                   Walking the sheet before the doors open is planning, not
                   timing: there is nothing happening to measure, and a stopwatch
@@ -2622,42 +2664,6 @@ export function RundownEditor({
             channel={channel}
             orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
           />
-        )}
-        {isShow && !showLive && rows.length > 0 && (
-          <>
-            {/* Pre-show walkthrough: step the shared cursor through the sheet
-                with the crew — every connected screen follows along. */}
-            {(() => {
-              const walkable = rows.filter((r) => r.type !== "group" && !r.skipped);
-              const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
-              return (
-                <>
-                  <span className="chip" data-tip="Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees">
-                    Walkthrough{at >= 0 ? ` ${at + 1}/${walkable.length}` : ""}
-                  </span>
-                  <button
-                    className="btn btn-sm"
-                    disabled={at <= 0}
-                    onClick={() => at > 0 && channel.sendCmd("walk", walkable[at - 1]!.id)}
-                  >
-                    {Icon.prev} Prev
-                  </button>
-                  <button
-                    className="btn btn-sm"
-                    disabled={at >= walkable.length - 1}
-                    onClick={() => channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id)}
-                  >
-                    Next {Icon.next}
-                  </button>
-                  {walkRowId && (
-                    <button className="btn btn-sm btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
-                      End walkthrough
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-          </>
         )}
         {isShow && showLive && (
           <button

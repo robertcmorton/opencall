@@ -474,6 +474,40 @@ input.inline-edit {
   font-weight: 700;
   letter-spacing: 0.12em;
 }
+/* The pre-show group: rehearse, then go live.
+   One box around Start show and the walkthrough controls, because they are one
+   sequence — step the crew through the sheet, then start it — and they used to
+   live on opposite sides of the screen, the walkthrough filed among Undo and
+   Add row as though it were an editing control.
+   `align-items: center` rather than stretch: the chip inside sizes itself, and
+   stretching it would make it taller than the buttons it sits between. */
+.preshow-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+}
+
+/* Beside the transport, it is built to the same block as the buttons.
+   As a pill it was rounder, shorter and on a different vertical rhythm than
+   Pause and Stop, so three controls in a row read as a label with two buttons
+   after it. It IS a label rather than a button and still says so — the red,
+   the pulsing dot, the letter-spaced capitals, no hover — but the box now
+   matches. Height, radius and padding are `.btn.btn-sm`'s and must move with it.
+
+   Scoped to this row on purpose. The same badge marks a running sheet in the
+   dashboard's list, where there is no button to agree with and a 26px box
+   would just make every row taller. */
+.show-state .live-badge {
+  justify-content: center;
+  border-radius: var(--r-sm);
+  height: 26px;
+  padding: 0 9px;
+}
 .live-badge::before {
   content: "";
   width: 7px;

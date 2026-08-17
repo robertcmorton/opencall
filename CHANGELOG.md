@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The pre-show controls are one group, and the LIVE marker is built like the buttons beside it.** Rehearsing the sheet and starting the show are one sequence, but the walkthrough sat in the sheet's toolbar among Undo, Redo and Add row — editing controls, which it is not — while the button it leads to was elsewhere on the screen. They now share a single bordered group, which disappears once the show is live and there is nothing left to rehearse. The LIVE marker was a rounded pill next to two square buttons, shorter than them and on a different line; it keeps its colour, its pulse and its capitals, but the box is now the same shape and height as Pause and Stop.
+
 ### Fixed
 - **Going live before the first item is due no longer puts that item on air.** Opening a show at eleven in the morning on a sheet that starts at eight in the evening cued the first item immediately and began timing it — so the biggest readout on the page counted an item nobody had called, and since that item was only ten minutes long, the show read as hours overdue before anyone had arrived. The show can now be open while the first item is still ahead: the timer counts down to it and says which item it is waiting for. Following the clock takes it when its time comes; a showcaller calling by hand takes it with the spacebar, which now steps to the first item from a standing start instead of doing nothing.
 

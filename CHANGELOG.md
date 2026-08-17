@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 > Maintenance rule (see CLAUDE.md): update this file in the same commit as any meaningful change. Entries are written generically — no references to external vendors or reference material.
 
+## [Unreleased]
+
+### Added
+- **Access can be changed after it is given (server side).** Somebody put on the wrong event, or moved between companies, no longer has to be deleted and re-invited. An administrator may change anyone's; a company may change the access of people it can already see, within the companies and events it holds. An edit only ever touches the part of somebody's access the editor can see — the rest is left alone, so a company correcting a freelancer's events cannot disturb the other companies that person works for, or notice they exist. Whoever holds several companies can also now be shown their own companies by name, without being shown anyone else's or any company's sign-in token. The screens for this come next; this is the part underneath.
+
 ## [0.36.0] — 2026-08-17
 
 ### Fixed

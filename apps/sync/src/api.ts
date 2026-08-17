@@ -8,6 +8,7 @@ import {
   canSeeEvent,
   createSession,
   hashPassword,
+  isOpenAccess,
   resolveBearer,
   resolveJoinCode,
   revokeSession,
@@ -18,7 +19,7 @@ import {
 } from "./auth";
 import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
-import { grantInScope, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
+import { grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
 import { customEventTypeCode, describeLock, heldByMe, mayClaim, type EditLock } from "@opencall/core";
 
@@ -834,6 +835,85 @@ export function createApiHandler(
         return true;
       }
 
+      /**
+       * Change one person's access, within the caller's slice and no further.
+       *
+       * Access used to be set once and never again: PATCH /users/:id was
+       * admin-only and nothing in the app called it, so a company that put
+       * somebody on the wrong event had no way to move them.
+       *
+       * The body says what the CALLER'S SLICE should become — never the whole
+       * of somebody's access, because the caller was only ever shown their own
+       * slice. The removals are worked out here from rows this server read
+       * itself; nothing sent from outside can name a row for deletion. That is
+       * what stops a company saving a freelancer's rota and wiping the
+       * companies it was never allowed to see. See `mergeGrants`.
+       */
+      if (req.method === "PATCH" && /^\/users\/[^/]+\/grants$/.test(pathname)) {
+        // Never on an unlocked server. With no ADMIN_TOKEN set, authContext
+        // answers "admin" to everyone (auth.ts), so this would be an
+        // anonymous admin-maker — and the grants it wrote would outlive the
+        // token being set later.
+        if (isOpenAccess()) {
+          json(res, 403, { error: "set ADMIN_TOKEN before changing anyone's access" });
+          return true;
+        }
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const id = pathname.split("/")[2]!;
+        const existing = await db.query.userGrants.findMany({ where: eq(schema.userGrants.userId, id) });
+        // The id in a URL is not proof of visibility: /people withholds people
+        // out of scope, the path does not. 404 rather than 403, so the route
+        // cannot be used to find out who the administrators are.
+        const theirs = scope.all || existing.some((g) => grantInScope(scope, g));
+        const isAdmin = existing.some((g) => g.kind === "admin");
+        if (!theirs || (!scope.all && isAdmin)) {
+          json(res, 404, { error: "unknown person" });
+          return true;
+        }
+
+        const body = await readJson(req);
+        const asked = Array.isArray(body.grants) ? (body.grants as { kind: unknown; targetId?: unknown }[]) : [];
+        const wanted = resolveGrants(scope, asked);
+        const KINDS = ["admin", "company", "event", "view"];
+        const badKind = wanted.find((g) => !KINDS.includes(g.kind));
+        if (badKind) {
+          json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });
+          return true;
+        }
+        if (wanted.some((g) => g.kind !== "admin" && !g.targetId)) {
+          json(res, 400, { error: "Choose which company or event this person may open" });
+          return true;
+        }
+        if (refusedGrants(scope, wanted).length > 0) {
+          json(res, 403, { error: "That is not yours to give access to" });
+          return true;
+        }
+
+        const { add, remove } = mergeGrants(scope, existing, wanted);
+        // Each delete names the whole primary key. A blanket delete by userId
+        // IS the cross-company wipe this route exists to avoid.
+        for (const g of remove) {
+          await db
+            .delete(schema.userGrants)
+            .where(
+              and(
+                eq(schema.userGrants.userId, id),
+                eq(schema.userGrants.kind, g.kind as never),
+                eq(schema.userGrants.targetId, g.targetId),
+              ),
+            );
+        }
+        for (const g of add) {
+          await db
+            .insert(schema.userGrants)
+            .values({ userId: id, kind: g.kind as never, targetId: g.targetId })
+            .onConflictDoNothing();
+        }
+        json(res, 200, { id, added: add.length, removed: remove.length });
+        return true;
+      }
+
       if (req.method === "PATCH" && /^\/users\/[^/]+$/.test(pathname)) {
         if (!(await requireAdmin())) return true;
         const id = pathname.split("/")[2]!;
@@ -896,6 +976,30 @@ export function createApiHandler(
       }
 
       // ── Event companies (admin only): showcaller credentials per company ──
+      /**
+       * The caller's own companies, by name — and nothing else.
+       *
+       * GET /companies below is admin-only for a reason: every row it returns
+       * carries `companyToken`, a live credential for signing in AS that
+       * company. So a company-scoped person could never be shown the list, and
+       * the invite form had to offer them a single unnamed "this company"
+       * option that the server guessed the id for — which is wrong the moment
+       * an admin puts somebody in charge of two.
+       *
+       * This returns id and name for the companies the caller already holds.
+       * No token, no other company, nothing they could not learn by reading
+       * their own access. An admin gets every company, which is what their
+       * scope means.
+       */
+      if (req.method === "GET" && pathname === "/my-companies") {
+        const scope = await requirePeopleScope();
+        if (!scope) return true;
+        const teams = await db.query.teams.findMany({ columns: { id: true, name: true } });
+        const mine = scope.all ? teams : teams.filter((t) => scope.teamIds.includes(t.id));
+        json(res, 200, mine.map((t) => ({ id: t.id, name: t.name })));
+        return true;
+      }
+
       if (req.method === "GET" && pathname === "/companies") {
         if (!(await requireAdmin())) return true;
         const teams = await db.query.teams.findMany();

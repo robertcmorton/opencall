@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **An account put in charge of two companies is asked which one it means.** Choosing "everything at this company" sent no company name, because the server filled it in — correct for somebody who has one, a guess for somebody who has several, and the guess was whichever company the database happened to list first. It now asks. Access given to a kind of thing the app does not recognise is refused outright rather than allowed on the strength of naming an event the giver could reach.
+
 ### Changed
 - **A timing gap you have said is deliberate stays said.** Days often open with a hold — doors, a walk-in, a changeover — where the printed times and the printed durations are both right and simply do not meet. The timing check has always offered to accept that, but the acceptance lived in the screen rather than in the sheet: it lasted until the panel closed, was gone on the next visit, and never applied to anybody else, despite the wording promising the check would stop flagging it. It is now part of the run sheet — it survives a reload, everyone sees it, and one undo takes it back. The check keeps the SIZE of the hold you accepted rather than simply marking the row settled, so if a duration above it changes and the gap becomes a different length, that is a new question and it asks again. Accepted holds are listed with a way to put each one back under the check, and the list is reachable whether or not anything else is still outstanding.
 

@@ -247,8 +247,12 @@ export function ReconcilePanel({
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+          {/* Boxed, like the two above it. Ignoring is a third answer to the
+              question, not a lesser one — a deliberate hold is as real a
+              resolution as moving a time — and the ghost styling made it read
+              as a way out of the panel rather than one of the choices in it. */}
           <button
-            className="btn btn-sm btn-ghost"
+            className="btn btn-sm"
             style={{ flexShrink: 0 }}
             onClick={() => {
               // Written into the sheet, not into this screen. It used to be

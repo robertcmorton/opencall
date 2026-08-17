@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 > Maintenance rule (see CLAUDE.md): update this file in the same commit as any meaningful change. Entries are written generically — no references to external vendors or reference material.
 
-## [Unreleased]
+## [0.36.0] — 2026-08-17
 
 ### Fixed
 - **The connection lamps could be cut off the right of the screen with no way to reach them.** On a tablet-width window the header's three groups added up to more than the window, and the overflow came off the right-hand end: the two lights that tell you whether the sheet and the show are still connected sat past the edge, with nothing to scroll to reach them. A status light that fails by disappearing is the worst way for one to fail. The middle group is now allowed to give up width and wrap, which it has plenty of room to do. The header's three groups also line up along their tops again — the pre-show box had been sitting thirteen pixels below its neighbours.

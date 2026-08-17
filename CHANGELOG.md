@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **A show that was never stopped is now reported as such.** Nothing ends a session except pressing Stop, so a show closed by shutting a laptop stays "running" indefinitely — this machine has carried four since yesterday morning. Anything asking whether a show is live got a yes that only meant somebody once pressed start. The list of live shows now also says when each was last touched, and marks any untouched for six hours as doubtful. It reports rather than corrects: ending somebody's session on a timer would eventually stop a real show that sat quiet through a long interval.
+
 ### Added
 - **The prompter says how long until the show starts.** Somebody at the prompter desk before anything is called was told STAND BY against a dash, which is true and no use. While the show is open but its first item is still ahead, the same countdown the show page carries now appears there — the screen the reader is actually sitting in front of answers the question they actually have.
 

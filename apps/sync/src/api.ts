@@ -360,7 +360,7 @@ export function createApiHandler(
         }
         let sessions = await db.query.showSessions.findMany({
           where: ne(schema.showSessions.state, "ended"),
-          columns: { rundownId: true, state: true, startedAt: true },
+          columns: { id: true, rundownId: true, state: true, startedAt: true },
         });
         if (ctx.kind !== "admin") {
           const scoped: typeof sessions = [];
@@ -372,7 +372,54 @@ export function createApiHandler(
           }
           sessions = scoped;
         }
-        json(res, 200, sessions.map((s) => ({ ...s, startedAt: s.startedAt.toISOString() })));
+        /**
+         * How long since anybody touched each show, and whether that is long
+         * enough to doubt it.
+         *
+         * `stop` is the only thing that ends a session and nothing times one
+         * out, so a show closed by shutting the laptop stays "running" for
+         * ever. This machine has carried four of them since yesterday morning.
+         * That matters beyond a tidy list: anything asking "is a show live?" —
+         * a deploy gate, an operator glancing at the dashboard — gets a yes
+         * that means "somebody once pressed start".
+         *
+         * Reported, not corrected. Ending somebody's session from a timer is
+         * the kind of helpfulness that stops a real show that happened to sit
+         * quiet through a long interval, so the judgement is handed to the
+         * reader with the evidence attached.
+         *
+         * Six hours is a choice, not a measurement: longer than any interval,
+         * changeover or delay this is meant to survive, and far shorter than
+         * the overnight gap that produces the forgotten ones. `startedAt` is
+         * the fallback for a session that has never moved.
+         */
+        const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+        const ids = sessions.map((s) => s.id);
+        const moves = ids.length
+          ? await db.query.showTransitions.findMany({
+              where: inArray(schema.showTransitions.sessionId, ids),
+              columns: { sessionId: true, at: true },
+            })
+          : [];
+        const lastMove = new Map<string, number>();
+        for (const m of moves) {
+          const at = m.at.getTime();
+          if (at > (lastMove.get(m.sessionId) ?? 0)) lastMove.set(m.sessionId, at);
+        }
+        json(
+          res,
+          200,
+          sessions.map((s) => {
+            const last = lastMove.get(s.id) ?? s.startedAt.getTime();
+            return {
+              rundownId: s.rundownId,
+              state: s.state,
+              startedAt: s.startedAt.toISOString(),
+              lastMoveAt: new Date(last).toISOString(),
+              stale: Date.now() - last > STALE_AFTER_MS,
+            };
+          }),
+        );
         return true;
       }
 

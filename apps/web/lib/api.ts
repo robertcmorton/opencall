@@ -335,7 +335,16 @@ export const api = {
     request<{ role: "caller" | "editor" | "follower"; rundownId: string; columns: Record<string, boolean> | null }>(
       `/codes/${encodeURIComponent(code)}`,
     ),
-  live: () => request<{ rundownId: string; state: string; startedAt: string }[]>("/live"),
+  /**
+   * Shows that have not been stopped — with how long since anybody touched
+   * each one, and whether that is long enough to doubt it is really on.
+   * Nothing ends a session but Stop, so "running" alone can mean "somebody
+   * once pressed start".
+   */
+  live: () =>
+    request<
+      { rundownId: string; state: string; startedAt: string; lastMoveAt: string; stale: boolean }[]
+    >("/live"),
   patchEvent: (id: string, body: { name?: string; location?: string; timezone?: string; startDate?: string; endDate?: string; sport?: string | null; image1?: string | null; image2?: string | null }) =>
     request<{ id: string }>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteEvent: (id: string) => request<{ id: string }>(`/events/${id}`, { method: "DELETE" }),

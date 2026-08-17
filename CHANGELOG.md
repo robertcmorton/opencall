@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Restarting the server no longer risks losing the row that was just cued.** Transport commands are written to the database without waiting, so the sheet moves the instant a button is pressed rather than when a database agrees — which means there is often a write still in flight. Shutdown closed the database out from under it, so a restart could bring the show back pointing at the previous item, with nothing connecting the two events. It now finishes what is in flight first, and gives up after two seconds so that a stuck write turns a clean stop into a slower one rather than a killed process.
+
 ### Added
 - **Access can be changed after it is given.** Somebody put on the wrong event, or moved between companies, no longer has to be deleted and re-invited. An administrator may change anyone's; a company may change the access of people it can already see, within the companies and events it holds. An edit only ever touches the part of somebody's access the editor can see — the rest is left alone, so a company correcting a freelancer's events cannot disturb the other companies that person works for, or notice they exist. Whoever holds several companies can also now be shown their own companies by name, without being shown anyone else's or any company's sign-in token. Each person on Users & access now has a Change access button: it lists what they hold, takes any of it away, and adds a company or an event from a menu.
 

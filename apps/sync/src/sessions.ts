@@ -75,6 +75,26 @@ export class PersistentShowStore {
     this.writeChains.set(rundownId, next);
   }
 
+  /**
+   * Wait for every queued write to land.
+   *
+   * `persist` is deliberately fire-and-forget — a transport command must not
+   * wait on Postgres, because the showcaller pressed a button and the sheet
+   * has to move now. The cost is that at any instant there may be a write in
+   * flight that nobody is awaiting, and on shutdown that write is racing the
+   * database being closed underneath it.
+   *
+   * Which is a real loss, not a tidy-up: the row that was just cued, or the
+   * fact that the show was stopped. A deploy sends SIGTERM, the process exits
+   * in milliseconds, and the sheet comes back pointing at the previous item.
+   *
+   * `allSettled`, not `all`: a chain that has already failed has logged, and
+   * one bad rundown must not stop the others from finishing.
+   */
+  async flush(): Promise<void> {
+    await Promise.allSettled([...this.writeChains.values()]);
+  }
+
   private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string): Promise<void> {
     const { db } = this.handle;
     if (!state.sessionId) return;

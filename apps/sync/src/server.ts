@@ -185,9 +185,31 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     if (closing) return; // a second Ctrl-C should not race the first
     closing = true;
-    console.log(`[sync] ${signal} — closing the database`);
-    void dbHandle
-      .close()
+    console.log(`[sync] ${signal} — finishing writes, then closing the database`);
+    /**
+     * Finish what is in flight BEFORE closing, which is what the comment above
+     * has always claimed and the code did not do.
+     *
+     * `showStore.persist` is fire-and-forget on purpose — a transport command
+     * cannot wait on Postgres while somebody is calling a show — so at any
+     * moment there may be an unawaited write carrying the row that was just
+     * cued. Closing the database out from under it loses exactly that: the
+     * sheet comes back pointing at the previous item, after a deploy nobody
+     * connected to the timing.
+     *
+     * Bounded, because shutdown cannot hang: a platform that sends SIGTERM
+     * sends SIGKILL a few seconds later, and a flush that never settles would
+     * turn a clean stop into a hard kill — the very thing this handler exists
+     * to avoid. Two seconds is far longer than a handful of row writes and far
+     * shorter than any grace period.
+     */
+    const settled = Promise.race([
+      showStore.flush(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2000).unref?.()),
+    ]);
+    void settled
+      .catch((err) => console.error("[sync] flush failed:", err))
+      .then(() => dbHandle.close())
       .catch((err) => console.error("[sync] close failed:", err))
       .finally(() => process.exit(0));
   });

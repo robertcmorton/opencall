@@ -359,61 +359,71 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   );
 }
 
+/**
+ * Version history, floating over the sheet rather than shoving it down.
+ *
+ * This opened inline, above the grid, so asking "what did this look like an
+ * hour ago?" moved every row down the screen — and on a live sheet the row
+ * that moves is the cue the showcaller is reading. Same reasoning, and the
+ * same PanelModal, as the sharing panel above it.
+ */
 export function HistoryPanel({ rundownId, onClose }: { rundownId: string; onClose: () => void }) {
   const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
   const reload = () => void api.snapshots(rundownId).then(setSnapshots);
   useEffect(reload, [rundownId]);
 
   return (
-    <div className="panel" style={panelStyle}>
-      <strong>Version history</strong>
-      <div>
-        <button
-          className="btn btn-sm"
-          onClick={() => {
-            const label = window.prompt("Version label", "Manual save");
-            if (label !== null) void api.createSnapshot(rundownId, label || undefined).then(reload);
-          }}
-        >
-          Save version now
+    <PanelModal onClose={onClose}>
+      <div className="panel" style={panelStyle}>
+        <strong>Version history</strong>
+        <div>
+          <button
+            className="btn btn-sm"
+            onClick={() => {
+              const label = window.prompt("Version label", "Manual save");
+              if (label !== null) void api.createSnapshot(rundownId, label || undefined).then(reload);
+            }}
+          >
+            Save version now
+          </button>
+        </div>
+        <div>
+          <a
+            className="btn btn-sm"
+            style={{ textDecoration: "none" }}
+            href={`${API_URL}/rundowns/${rundownId}/report?format=csv`}
+            download
+          >
+            Download as-run report (CSV)
+          </a>
+        </div>
+        {snapshots.length === 0 && <span style={{ color: "var(--text-3)" }}>No versions yet. One is saved automatically when a show starts.</span>}
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          {snapshots.map((s) => (
+            <li key={s.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+              <span style={{ flex: 1 }}>
+                {s.label ?? "Untitled"}{" "}
+                <span style={{ color: "var(--text-3)" }}>{new Date(s.createdAt).toLocaleString()}</span>
+              </span>
+              <RestoreHereButton snapshotId={s.id} />
+              <button
+                className="btn btn-sm"
+                data-tip="Copy this version into a NEW rundown, leaving the current one untouched"
+                onClick={() =>
+                  void api
+                    .restoreSnapshot(s.id)
+                    .then(({ id }) => (window.location.href = `/show/${id}`))
+                }
+              >
+                Restore as copy
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onClose}>
+          Close
         </button>
       </div>
-      <div>
-        <a
-          className="btn btn-sm"
-          style={{ textDecoration: "none" }}
-          href={`${API_URL}/rundowns/${rundownId}/report?format=csv`}
-          download
-        >
-          Download as-run report (CSV)
-        </a>
-      </div>
-      {snapshots.length === 0 && <span style={{ color: "var(--text-3)" }}>No versions yet. One is saved automatically when a show starts.</span>}
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        {snapshots.map((s) => (
-          <li key={s.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-            <span style={{ flex: 1 }}>
-              {s.label ?? "Untitled"}{" "}
-              <span style={{ color: "var(--text-3)" }}>{new Date(s.createdAt).toLocaleString()}</span>
-            </span>
-            <RestoreHereButton snapshotId={s.id} />
-            <button
-              className="btn btn-sm"
-              data-tip="Copy this version into a NEW rundown, leaving the current one untouched"
-              onClick={() =>
-                void api
-                  .restoreSnapshot(s.id)
-                  .then(({ id }) => (window.location.href = `/show/${id}`))
-              }
-            >
-              Restore as copy
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onClose}>
-        Close
-      </button>
-    </div>
+    </PanelModal>
   );
 }

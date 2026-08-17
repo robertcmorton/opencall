@@ -637,12 +637,64 @@ function DangerButton({
   );
 }
 
+/** One un-stopped session, exactly as `/live` reports it. Derived rather than
+ *  restated so it cannot drift from the endpoint's own answer. */
+type LiveSession = Awaited<ReturnType<typeof api.live>>[number];
+
+/**
+ * How a run sheet's session looks from the dashboard — and whether to believe it.
+ *
+ * Pressing Stop is the only thing that ends a session, and nothing times one
+ * out, so a show closed by shutting a laptop keeps announcing itself as LIVE
+ * indefinitely: four of them piled up on one machine inside a day. A list where
+ * half the red badges are ghosts teaches people to ignore all of them, which
+ * costs the one that is real.
+ *
+ * So a session the server has marked `stale` (nothing moved for hours) drops
+ * out of the red badge and into the same quiet grey chip that carries
+ * "archived" a few pixels to its left, saying what was actually observed —
+ * left running — instead of pronouncing it dead. That wording is deliberate:
+ * `stale` is a doubt, not a verdict, and a genuine show that sat still through
+ * a long interval earns exactly the same flag. Nothing here ends the session;
+ * the reader is handed the evidence and the judgement.
+ *
+ * The tooltip gives the timestamp rather than naming the threshold — how many
+ * hours count as too long is the server's choice (and its comment), and a
+ * number repeated here would be the one that goes stale.
+ */
+function LiveChip({ session }: { session: LiveSession | undefined }) {
+  if (!session) return null;
+
+  if (session.stale)
+    return (
+      <span
+        className="chip"
+        style={{ marginLeft: 10 }}
+        // Touch devices never see a data-tip, so the chip's own words have to
+        // carry the meaning on their own — this only adds the evidence.
+        data-tip={`Still marked as ${session.state}, but nothing has moved since ${new Date(
+          session.lastMoveAt,
+        ).toLocaleString()}. A session ends only when someone presses Stop — if this show is over, open it and stop it.`}
+      >
+        {session.state === "paused" ? "left paused" : "left running"}
+      </span>
+    );
+
+  return (
+    <span className="live-badge" style={{ marginLeft: 10 }}>
+      {session.state === "paused" ? "PAUSED" : "LIVE"}
+    </span>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventSummary[] | null>(null);
   const [locEvent, setLocEvent] = useState<EventSummary | null>(null);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
-  const [live, setLive] = useState<Map<string, string>>(new Map());
+  /** Whole session rows, not just the state string: the dashboard has to tell a
+   *  show that is running from one that was merely never stopped. */
+  const [live, setLive] = useState<Map<string, LiveSession>>(new Map());
   const [error, setError] = useState(false);
   const [locked, setLocked] = useState(false);
   // Import panel target: an event (new rundown), optionally replacing an existing rundown's content.
@@ -695,14 +747,15 @@ export default function AdminPage() {
   }, [showArchived]);
   useEffect(reload, [reload]);
 
-  // Live-now poller: which rundowns have a running/paused session.
+  // Live-now poller: which rundowns have a running/paused session — and, since
+  // nothing but Stop ever ends one, how long each has gone untouched.
   useEffect(() => {
     let stop = false;
     const poll = () =>
       api
         .live()
         .then((rows) => {
-          if (!stop) setLive(new Map(rows.map((r) => [r.rundownId, r.state])));
+          if (!stop) setLive(new Map(rows.map((r) => [r.rundownId, r])));
         })
         .catch(() => undefined);
     poll();
@@ -1074,11 +1127,7 @@ export default function AdminPage() {
                     <span style={{ flex: 1, minWidth: 180 }}>
                       <strong style={{ fontWeight: 600 }}>{r.name}</strong>
                       {r.archivedAt && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}
-                      {live.has(r.id) && (
-                        <span className="live-badge" style={{ marginLeft: 10 }}>
-                          {live.get(r.id) === "paused" ? "PAUSED" : "LIVE"}
-                        </span>
-                      )}
+                      <LiveChip session={live.get(r.id)} />
                       <span style={{ color: "var(--text-3)", marginLeft: 10, fontSize: "var(--fs-sm)" }}>
                         {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
                       </span>

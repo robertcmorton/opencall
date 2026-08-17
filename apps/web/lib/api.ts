@@ -95,10 +95,56 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    /**
+     * The whole of what happened: method, path, status and the raw body.
+     *
+     * `message` is written for the person looking at the screen, so it throws
+     * all of that away. Anything diagnosing a fault wants it back — the error
+     * journal, a console, a bug report — and this is where it survives.
+     *
+     * Defaults to `message` so an ApiError thrown by hand is never empty here.
+     */
+    public detail: string = message,
   ) {
     super(message);
   }
 }
+
+/**
+ * The sentence to put in front of a person, given a failed response.
+ *
+ * The server answers a refusal with `{"error":"a real sentence"}`, and those
+ * sentences are already written for a human — "someone else is editing", "that
+ * email is already in use", "set ADMIN_TOKEN before changing anyone's access".
+ * Screens print `ApiError.message` straight into the page, so that sentence IS
+ * the message. Before, a person read `/users/01ABC…/grants: 403 {"error":"…"}`:
+ * a path, a number and some JSON wrapped around the one part meant for them.
+ *
+ * Bodies of another shape exist and must not leak through. The sync server ends
+ * an unmatched route with the two words "not found" and a caught exception with
+ * "server error"; a proxy or gateway in front of the app answers with an HTML
+ * page. Each of those gets a plain line instead — but only where the shape can
+ * be pointed at, rather than invented copy for a status never seen arriving
+ * bare. The raw body survives on `ApiError.detail` in every case.
+ */
+const humanMessage = (status: number, body: string): string => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (parsed && typeof parsed === "object") {
+      const sentence = (parsed as { error?: unknown }).error;
+      if (typeof sentence === "string" && sentence.trim()) return sentence.trim();
+    }
+  } catch {
+    /* not JSON — a plain-text or HTML body, handled below */
+  }
+  // A 404 carrying JSON says which thing is missing and was handled above; this
+  // is the bare one, where all the server said was "not found".
+  if (status === 404) return "That isn't here — it may have been deleted.";
+  // 5xx is the server's fault, and worth saying so: nothing the person typed
+  // will change it, but trying again in a moment might.
+  if (status >= 500) return "The server had a problem. Try again in a moment.";
+  return "That didn't work. Try again.";
+};
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -108,12 +154,15 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(`${API_URL}${path}`, { headers, ...init });
   if (!res.ok) {
     const detail = await res.text();
+    const method = init?.method ?? "GET";
     // 401s are ordinary auth gating; anything else is journaled server-side.
+    // This keeps the path, the status and the body — the journal is useless
+    // without them, and the message a person reads no longer carries any.
     if (res.status !== 401 && res.status !== 404) {
       const { reportClientError } = await import("./errorReport");
-      reportClientError(`API ${init?.method ?? "GET"} ${path} → ${res.status}: ${detail.slice(0, 300)}`);
+      reportClientError(`API ${method} ${path} → ${res.status}: ${detail.slice(0, 300)}`);
     }
-    throw new ApiError(`${path}: ${res.status} ${detail}`, res.status);
+    throw new ApiError(humanMessage(res.status, detail), res.status, `${method} ${path} → ${res.status}: ${detail}`);
   }
   return (await res.json()) as T;
 };

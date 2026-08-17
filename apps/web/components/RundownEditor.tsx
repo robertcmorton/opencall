@@ -308,6 +308,36 @@ const cueAnchorTop = (viewportH: number, obscuredBottom = 0): number =>
   Math.max(0, (viewportH - obscuredBottom - NOMINAL_ROW_PX) / 2);
 
 /**
+ * A position inside the sheet, held clear of the pinned column headers.
+ *
+ * Things that ride a row — the hover nudge strip — are absolutely positioned
+ * inside `.grid-scroll`, so they are laid out in the sheet's CONTENT
+ * coordinates and travel with the row they point at. `tr.offsetTop` knows
+ * nothing about how far the sheet has been scrolled, so the moment its row
+ * slides up under the pinned header the thing goes with it — and the nudge
+ * strip carries a higher z-index than the header (7 against 5), so it paints
+ * ON TOP of the column titles rather than disappearing behind them. One notch
+ * of the wheel with the pointer parked on a row does it, and so does
+ * clock-follow scrolling the sheet by itself.
+ *
+ * The header's bottom edge is MEASURED, never named: its height is whatever
+ * its cell padding and font come to, and the phone breakpoint changes that
+ * padding. A constant would be right on one screen and wrong on the next.
+ *
+ * Measured against the scroller's PADDING edge — `clientTop` is the top border,
+ * which `getBoundingClientRect` includes and `offsetTop`, `scrollTop` and an
+ * absolute `top` all exclude. `.grid-scroll` carries no border today, so this
+ * term is zero; it is here so that adding one later cannot quietly shift the
+ * strip by the border's width.
+ */
+const clampBelowHeader = (scroller: HTMLElement, rowTop: number): number => {
+  const head = scroller.querySelector("thead");
+  const paddingTop = scroller.getBoundingClientRect().top + scroller.clientTop;
+  const headerBottom = head ? Math.max(0, head.getBoundingClientRect().bottom - paddingTop) : 0;
+  return Math.max(rowTop, scroller.scrollTop + headerBottom);
+};
+
+/**
  * Progress-bar fill that only ever animates forwards. Chrome will start the
  * CSS width transition from the previous fill's value even across a remount,
  * so on a row change the bar visibly receded instead of snapping to zero —
@@ -603,7 +633,9 @@ export function RundownEditor({
     setReconciling(false);
     setGapFocus(null);
   }, [liveNow]);
-  // Row the timing nudges act on when hovering (pointer devices).
+  // Row the timing nudges act on when hovering (pointer devices). `top` is the
+  // row's own offset inside the scroller; where the strip is DRAWN is
+  // `nudgeTop` below, which holds that offset clear of the pinned header.
   const [nudgeRowAt, setNudgeRowAt] = useState<{ id: string; top: number } | null>(null);
   // The selection bar floats just BELOW the last selected row — never on top
   // of the rows being acted on — inside the scroller so it moves with them.
@@ -720,10 +752,39 @@ export function RundownEditor({
     ro.observe(bar);
     return () => ro.disconnect();
   }, [myRoles.length, activeRowId]);
-  // Ticks the event-local clock cursor along the TIME column.
-  const [, setNowTick] = useState(0);
+  /**
+   * The event clock, held as state instead of read during render.
+   *
+   * `channel.serverNow()` is `Date.now()` plus the measured offset to the sync
+   * host. Calling it in the render body means the server's render and the
+   * browser's first render compute different numbers from the same code, and
+   * every readout below that derives from it — the clock cursor in the TIME
+   * column, the countdown to the first cue, the "on now" marks — renders
+   * different text on each side. That is a hydration mismatch (React #418),
+   * and it is only latent because the document is empty when the page is
+   * server-rendered: with no rows, none of those readouts appear. The moment
+   * the sheet arrives with the HTML it would fire on every load.
+   *
+   * So: `null` until mounted, exactly the way the side nav starts closed
+   * before reading localStorage, and everything derived from it treats null as
+   * "not known yet" rather than inventing a time. The interval then keeps it
+   * moving — reading once on mount and stopping would freeze the clock cursor
+   * where the page happened to open, which is worse than the mismatch.
+   *
+   * The 15-second cadence is the one this has always run at, unchanged here.
+   * Once a row is on air `useLiveTiming` re-renders the sheet whenever a
+   * displayed second changes, so this interval only governs the stretches when
+   * nothing is live.
+   */
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  // Read through a ref: `channel` is a fresh object every render, so an
+  // interval that depended on it would be torn down and rebuilt constantly.
+  const serverNowRef = useRef(channel.serverNow);
+  serverNowRef.current = channel.serverNow;
   useEffect(() => {
-    const id = window.setInterval(() => setNowTick((n) => n + 1), 15000);
+    const read = () => setNowMs(serverNowRef.current());
+    read();
+    const id = window.setInterval(read, 15000);
     return () => window.clearInterval(id);
   }, []);
   // Phones show only the essentials (title/start/duration + the role column);
@@ -741,6 +802,33 @@ export function RundownEditor({
     read();
     new ResizeObserver(read).observe(el);
   }, []);
+
+  /**
+   * Where the hover nudge strip is actually drawn (see `clampBelowHeader`).
+   *
+   * This has to be state, not a render-body calculation, because it follows
+   * the SCROLL and a scroll is not a render. Storing the already-clamped
+   * position rather than the scroll offset is what keeps that cheap: while the
+   * row is below the header the clamp is not biting, the value does not
+   * change, and React bails out of the update — so scrolling with the pointer
+   * resting on a row costs no renders at all until the strip reaches the
+   * header. Set on hover as well, in the same event as `nudgeRowAt`, so the
+   * strip is never painted once at the previous row's position first.
+   *
+   * Lives here rather than beside `nudgeRowAt` because it needs `gridEl`,
+   * which is declared just above.
+   */
+  const [nudgeTop, setNudgeTop] = useState(0);
+  useEffect(() => {
+    if (!nudgeRowAt || !gridEl) return;
+    const clamp = () => setNudgeTop(clampBelowHeader(gridEl, nudgeRowAt.top));
+    clamp();
+    gridEl.addEventListener("scroll", clamp, { passive: true });
+    return () => gridEl.removeEventListener("scroll", clamp);
+    // `nudgeRowAt` is replaced only when the hovered ROW changes (the handler
+    // checks the id first), so depending on the object does not re-subscribe
+    // on every render.
+  }, [nudgeRowAt, gridEl]);
 
   /**
    * Render only the rows near the viewport. ON.
@@ -1031,12 +1119,18 @@ export function RundownEditor({
   // were unified when a sheet with an "am" typed for a "pm" parked the show
   // twelve hours out of place; this one was missed, so the grid went on
   // marking the wrong row while the show no longer followed it.
-  const nowAbsSec = absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing);
-  const clockRowId = clockTargetRow(
-    rows,
-    timing.rows.map((r) => r.startSec),
-    nowAbsSec,
-  );
+  //
+  // Null until the browser has told us the time (see `nowMs`): before then
+  // there is no clock, so nothing claims to know where it stands.
+  const nowAbsSec = nowMs == null ? null : absoluteNow(zoneSecondsOfDay(nowMs, channel.timezone), timing);
+  const clockRowId =
+    nowAbsSec == null
+      ? null
+      : clockTargetRow(
+          rows,
+          timing.rows.map((r) => r.startSec),
+          nowAbsSec,
+        );
   /**
    * How long until the first item is due, when the show has opened ahead of it.
    *
@@ -1047,11 +1141,14 @@ export function RundownEditor({
     rows,
     timing.rows.map((r) => r.startSec),
   );
-  const untilShowSec = secondsUntilShow(
-    rows,
-    timing.rows.map((r) => r.startSec),
-    nowAbsSec,
-  );
+  const untilShowSec =
+    nowAbsSec == null
+      ? null
+      : secondsUntilShow(
+          rows,
+          timing.rows.map((r) => r.startSec),
+          nowAbsSec,
+        );
   const firstCueRowRecord = firstCue ? rows.find((r) => r.id === firstCue.id) : undefined;
 
   /**
@@ -1074,7 +1171,7 @@ export function RundownEditor({
       );
     }
   }
-  const onNowIds = new Set(rowsOnAt(rows, timing, nowAbsSec));
+  const onNowIds = new Set(nowAbsSec == null ? [] : rowsOnAt(rows, timing, nowAbsSec));
 
   /**
    * What to look at before going live.
@@ -1109,6 +1206,7 @@ export function RundownEditor({
   })();
   /** How far through a row the clock is — for rows running alongside the cue. */
   const clockFrac = (id: string): number | null => {
+    if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
     const t = i >= 0 ? timing.rows[i] : null;
     if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
@@ -2978,15 +3076,23 @@ export function RundownEditor({
                   const tr = (e.target as HTMLElement).closest?.("tr[data-rowid]") as HTMLElement | null;
                   const id = tr?.dataset.rowid;
                   if (!id) return;
-                  if (nudgeRowAt?.id !== id) setNudgeRowAt({ id, top: tr!.offsetTop });
+                  if (nudgeRowAt?.id !== id) {
+                    const rowTop = tr!.offsetTop;
+                    setNudgeRowAt({ id, top: rowTop });
+                    // Placed in the same event as the row it belongs to, so
+                    // the strip's first paint is already clear of the header
+                    // rather than corrected a frame later.
+                    setNudgeTop(clampBelowHeader(e.currentTarget, rowTop));
+                  }
                 }
               : undefined
           }
           onMouseLeave={canEditContent ? () => setNudgeRowAt(null) : undefined}
         >
-        {/* Hover nudges ride the right edge of the sheet, clear of the text. */}
+        {/* Hover nudges ride the right edge of the sheet, clear of the text —
+            and never above the pinned column headers (see `nudgeTop`). */}
         {canEditContent && nudgeRowAt && (
-          <div className="timing-nudge-hover" style={{ top: nudgeRowAt.top }}>
+          <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
             <TimingNudge onNudge={(d) => nudgeRow(nudgeRowAt.id, d)} onCue={() => cueRow(nudgeRowAt.id)} skips={cueSkipCount(nudgeRowAt.id)} />
           </div>
         )}

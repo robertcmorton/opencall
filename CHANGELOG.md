@@ -9,6 +9,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Access is editable from the account list too.** The admin table's access chips were fixed once a person existed; they now open the same editor as the people list. Adding access somebody already holds is refused with a word rather than failing on save.
+- **The web app has tests.** It had no test runner at all, so pure logic in it was checked only by the type checker.
+
+### Changed
+- **A show nobody stopped now reads as "left running" rather than LIVE.** Nothing ends a session except pressing Stop, so a run sheet closed by shutting a laptop kept claiming to be on air. Where nothing has moved for hours the dashboard says so quietly, in grey rather than red, and the tooltip gives the time it last moved and how to end it. It is a doubt rather than a verdict — a real show that sat quiet through a long interval reads the same way — so nothing is stopped automatically.
+- **Version history opens over the sheet instead of pushing it down**, like the sharing panel. On a live sheet, moving the rows moves the cue somebody is reading.
+
+### Fixed
+- **Error messages say what went wrong.** A refused action showed the address it was refused at, a number and some raw data. It now shows the sentence the server actually sent, while the full detail still reaches the error log, which is what makes the log worth reading.
+- **The nudge strip no longer rides up over the header.** It was positioned without accounting for how far the sheet had been scrolled, so following a row upward carried it onto the show's own header.
+- **Two ways the first render could disagree with itself.** The run sheet read the clock while drawing, and a formatted cell rendered differently before and after reaching the browser. Neither showed while a sheet was empty on arrival, and both would have appeared as soon as one was not.
+
 ### Changed
 - **A show that was never stopped is now reported as such.** Nothing ends a session except pressing Stop, so a show closed by shutting a laptop stays "running" indefinitely — this machine has carried four since yesterday morning. Anything asking whether a show is live got a yes that only meant somebody once pressed start. The list of live shows now also says when each was last touched, and marks any untouched for six hours as doubtful. It reports rather than corrects: ending somebody's session on a timer would eventually stop a real show that sat quiet through a long interval.
 

@@ -289,6 +289,27 @@ export const api = {
       invites: { id: string; email: string; name: string | null; grants: { kind: string; targetId: string }[]; expiresAt: string; url: string }[];
       mailConfigured: boolean;
     }>("/people"),
+  /**
+   * The caller's own companies, by name.
+   *
+   * Not `companies()` — that one is admin-only because every row it returns
+   * carries the company's sign-in token. This carries names and nothing else,
+   * so somebody put in charge of two companies can be asked which they mean.
+   */
+  myCompanies: () => request<{ id: string; name: string }[]>("/my-companies"),
+  /**
+   * Change one person's access.
+   *
+   * The list describes only the part of their access YOU can see; the server
+   * keeps the rest and works out the removals itself. So this cannot disturb
+   * the other companies somebody works for, and does not need to know they are
+   * there.
+   */
+  patchUserGrants: (id: string, grants: { kind: string; targetId: string }[]) =>
+    request<{ id: string; added: number; removed: number }>(`/users/${id}/grants`, {
+      method: "PATCH",
+      body: JSON.stringify({ grants }),
+    }),
   invite: (token: string) =>
     request<{ email: string; name: string | null; company: string | null; access: string }>(`/invites/${encodeURIComponent(token)}`),
   createInvite: (body: { email: string; name?: string; grants: { kind: string; targetId: string }[] }) =>

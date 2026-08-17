@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type EventSummary } from "../lib/api";
 import { byDate } from "../lib/pickOrder";
+import { PanelModal } from "./SharePanels";
 import { MissingFields } from "./ui";
 
 /**
@@ -35,6 +36,7 @@ export function PeoplePanel({
   const [data, setData] = useState<Awaited<ReturnType<typeof api.people>> | null>(null);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; grants: { kind: string; targetId: string }[] } | null>(null);
 
   const reload = useCallback(() => {
     api.people().then(setData).catch((e: unknown) => setError(String((e as Error)?.message ?? e)));
@@ -86,18 +88,32 @@ export function PeoplePanel({
             <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {p.grants.map((g) => (
                 <span key={`${g.kind}:${g.targetId}`} className="chip">
-                  {g.kind === "company"
-                    ? // Named where we can name it. "Whole company" alone is
-                      // ambiguous on a server running several, which is the
-                      // same screen where you are choosing between them.
-                      (companies.find((c) => c.id === g.targetId)?.name ?? "Whole company")
-                    : `${events.find((e) => e.id === g.targetId)?.name ?? "An event"}${g.kind === "view" ? " (view)" : ""}`}
+                  {grantLabel(g, companies, events)}
                 </span>
               ))}
             </span>
+            {/* Access stopped being permanent. Somebody put on the wrong event
+                had to be deleted and invited again, which loses their password
+                and their history for a typo. */}
+            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(p)}>
+              Change access
+            </button>
           </div>
         ))}
       </section>
+
+      {editing && (
+        <AccessEditor
+          person={editing}
+          companies={companies}
+          events={events}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -251,5 +267,146 @@ function InviteForm({
         </div>
       )}
     </form>
+  );
+}
+
+type Grant = { kind: string; targetId: string };
+
+/**
+ * What a grant is called, on screen.
+ *
+ * Named wherever we can name it: "Whole company" alone is ambiguous on a
+ * server running several, which is the same screen where you are choosing
+ * between them. Falls back to the generic word when the name is not ours to
+ * know — a company grant whose company this viewer cannot see.
+ */
+function grantLabel(g: Grant, companies: { id: string; name: string }[], events: EventSummary[]): string {
+  if (g.kind === "admin") return "Everything";
+  if (g.kind === "company") return companies.find((c) => c.id === g.targetId)?.name ?? "Whole company";
+  const name = events.find((e) => e.id === g.targetId)?.name ?? "An event";
+  return g.kind === "view" ? `${name} (view)` : name;
+}
+
+/**
+ * Changing what one person may open.
+ *
+ * Shows only the access this viewer can see, and sends back only that — the
+ * server keeps everything else and works out the removals itself. A company
+ * editing a freelancer therefore cannot disturb the other companies that
+ * person works for, and is not told they exist.
+ */
+function AccessEditor({
+  person,
+  companies,
+  events,
+  onClose,
+  onSaved,
+}: {
+  person: { id: string; name: string; grants: Grant[] };
+  companies: { id: string; name: string }[];
+  events: EventSummary[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [grants, setGrants] = useState<Grant[]>(person.grants);
+  const [add, setAdd] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const key = (g: Grant) => `${g.kind}:${g.targetId}`;
+  const addChosen = () => {
+    if (!add) return;
+    const [kind, targetId] = add.split(":");
+    const g = { kind: kind!, targetId: targetId ?? "" };
+    if (!grants.some((x) => key(x) === key(g))) setGrants([...grants, g]);
+    setAdd("");
+  };
+
+  const save = () => {
+    setBusy(true);
+    setError(null);
+    api
+      .patchUserGrants(person.id, grants)
+      .then(onSaved)
+      .catch((e: unknown) => {
+        setError(String((e as Error)?.message ?? e));
+        setBusy(false);
+      });
+  };
+
+  return (
+    <PanelModal onClose={onClose}>
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 340, maxWidth: 560 }}>
+        <strong>What {person.name} may open</strong>
+        <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+          Only the access you can see is listed, and only that is changed. Anything this person holds elsewhere is left
+          alone.
+        </span>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {grants.length === 0 && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Nothing — they will not be able to open anything.</span>}
+          {grants.map((g) => (
+            <span key={key(g)} className="chip">
+              {grantLabel(g, companies, events)}
+              <button
+                className="btn btn-sm btn-ghost"
+                style={{ marginLeft: 6, padding: "0 4px", height: "auto" }}
+                data-tip="Take this away"
+                onClick={() => setGrants(grants.filter((x) => key(x) !== key(g)))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select className="input" value={add} onChange={(e) => setAdd(e.target.value)} style={{ minWidth: 220 }}>
+            <option value="">Add access…</option>
+            {companies.length > 0 && (
+              <optgroup label="Everything at one company">
+                {companies.map((c) => (
+                  <option key={c.id} value={`company:${c.id}`}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {events.length > 0 && (
+              <optgroup label="One event only">
+                {events.map((e) => (
+                  <option key={e.id} value={`event:${e.id}`}>
+                    {e.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {events.length > 0 && (
+              <optgroup label="One event, view only">
+                {events.map((e) => (
+                  <option key={`v${e.id}`} value={`view:${e.id}`}>
+                    {e.name} (view only)
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          <button className="btn btn-sm" disabled={!add} onClick={addChosen}>
+            Add
+          </button>
+        </div>
+
+        {error && <div className="missing-fields" style={{ borderColor: "var(--over)" }}>{error}</div>}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" disabled={busy} onClick={save}>
+            {busy ? "Saving…" : "Save access"}
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </PanelModal>
   );
 }

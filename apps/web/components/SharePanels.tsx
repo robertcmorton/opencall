@@ -91,7 +91,7 @@ function ColumnChoice({
  * Escape closes as well as the backdrop: this can open mid-show, and a way out
  * that needs aiming is not a way out.
  */
-function PanelModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+export function PanelModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

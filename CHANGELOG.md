@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
-- **Access can be changed after it is given (server side).** Somebody put on the wrong event, or moved between companies, no longer has to be deleted and re-invited. An administrator may change anyone's; a company may change the access of people it can already see, within the companies and events it holds. An edit only ever touches the part of somebody's access the editor can see — the rest is left alone, so a company correcting a freelancer's events cannot disturb the other companies that person works for, or notice they exist. Whoever holds several companies can also now be shown their own companies by name, without being shown anyone else's or any company's sign-in token. The screens for this come next; this is the part underneath.
+- **Access can be changed after it is given.** Somebody put on the wrong event, or moved between companies, no longer has to be deleted and re-invited. An administrator may change anyone's; a company may change the access of people it can already see, within the companies and events it holds. An edit only ever touches the part of somebody's access the editor can see — the rest is left alone, so a company correcting a freelancer's events cannot disturb the other companies that person works for, or notice they exist. Whoever holds several companies can also now be shown their own companies by name, without being shown anyone else's or any company's sign-in token. Each person on Users & access now has a Change access button: it lists what they hold, takes any of it away, and adds a company or an event from a menu.
 
 ## [0.36.0] — 2026-08-17
 

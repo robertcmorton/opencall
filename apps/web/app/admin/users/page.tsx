@@ -28,7 +28,11 @@ export default function AdminUsersPage() {
         // Not signed in (or not allowed) → the dashboard carries the sign-in gate.
         if (err instanceof ApiError && err.status === 401) router.replace("/admin");
       });
-    api.companies().then((cs) => setCompanies(byName(cs))).catch(() => setCompanies([]));
+    // The scoped list: names only, and it works for a company as well as an
+    // admin. `api.companies()` is admin-only because its rows carry each
+    // company's sign-in token, so a company-scoped caller got an empty list
+    // and no way to name the company it was granting.
+    api.myCompanies().then((cs) => setCompanies(byName(cs))).catch(() => setCompanies([]));
   }, [router]);
   useEffect(reload, [reload]);
 

@@ -2604,21 +2604,21 @@ export function RundownEditor({
                           Walkthrough{at >= 0 ? ` ${at + 1}/${walkable.length}` : ""}
                         </span>
                         <button
-                          className="btn btn-sm"
+                          className="btn"
                           disabled={at <= 0}
                           onClick={() => at > 0 && channel.sendCmd("walk", walkable[at - 1]!.id)}
                         >
                           {Icon.prev} Prev
                         </button>
                         <button
-                          className="btn btn-sm"
+                          className="btn"
                           disabled={at >= walkable.length - 1}
                           onClick={() => channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id)}
                         >
                           Next {Icon.next}
                         </button>
                         {walkRowId && (
-                          <button className="btn btn-sm btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
+                          <button className="btn btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
                             End walkthrough
                           </button>
                         )}

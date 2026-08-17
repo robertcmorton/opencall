@@ -491,6 +491,19 @@ input.inline-edit {
   border-radius: var(--r-md);
   padding: 8px 10px;
 }
+/* Everything in the group is built to one block.
+   There were three heights in a row of four controls — Start show at 32, the
+   walkthrough's position chip at 24, Prev and Next at 26 — which is the sort of
+   difference that is invisible to describe and obvious to look at. Prev, Next
+   and End walkthrough drop `btn-sm` in the markup; the chip is not a button and
+   cannot, so it is given the same box here. It stays a chip in every other
+   place chips are used, where 24px beside body text is right. */
+.preshow-group .chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
 
 /* Beside the transport, it is built to the same block as the buttons.
    As a pill it was rounder, shorter and on a different vertical rhythm than

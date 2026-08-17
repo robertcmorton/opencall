@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The timer shows what you just came off and what is next.** The item on air has the one before it above and the one after below, in the order the sheet runs — so the three read as a strip of the running order rather than three separate readings. "What's after this?" is asked far more often than "what are we in?", and the answer used to mean finding your place in the table. Both are dimmer than the item being called, deliberately: they are context, and the eye should not be pulled off the thing you are calling. Headings and reminders are skipped; only items that can actually be called appear.
+
 ### Fixed
 - **Restarting the server no longer risks losing the row that was just cued.** Transport commands are written to the database without waiting, so the sheet moves the instant a button is pressed rather than when a database agrees — which means there is often a write still in flight. Shutdown closed the database out from under it, so a restart could bring the show back pointing at the previous item, with nothing connecting the two events. It now finishes what is in flight first, and gives up after two seconds so that a stuck write turns a clean stop into a slower one rather than a killed process.
 

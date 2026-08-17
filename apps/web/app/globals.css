@@ -1417,6 +1417,33 @@ kbd {
   font-weight: 700;
   line-height: 1.1;
 }
+/* The item before and the item after, either side of the one on air.
+   Quieter than the label between them — they are context, and the eye must
+   stay on the thing being called. Same zero-width trick as `.bt-label`: a long
+   item name must not decide how wide the header is. */
+.big-timer .bt-neighbour {
+  font-size: 0.58rem;
+  color: var(--text-3);
+  opacity: 0.75;
+  align-self: stretch;
+  text-align: center;
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Arrows rather than words: "was" and "then" would be two more things to read
+   on the busiest readout on the page, and the direction is the whole meaning. */
+.big-timer .bt-was::before {
+  content: "↑ ";
+  opacity: 0.7;
+}
+.big-timer .bt-then::before {
+  content: "↓ ";
+  opacity: 0.7;
+}
+
 /* What we are counting down TO, under the countdown itself.
    Where the item timer puts the row's name above the number, the wait puts it
    below: the label there says which item is running, and the label here says

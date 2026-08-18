@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The projected end and the event clock sit side by side.** On a narrower window they stacked, which bought width at the cost of a second row of header — and height is the scarcer of the two here, because every pixel the header takes is a row of the run sheet nobody can read. They are also the pair anybody reads together, so splitting them across two lines separated the comparison being made.
+
 - **The timer shows only what comes next.** The item just finished was there too, above the line, and it earned its space less than it cost — nobody asks what has already happened, and a third line of text on the biggest readout on the page is a third thing to read past.
 
 ### Fixed

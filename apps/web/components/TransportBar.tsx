@@ -54,9 +54,23 @@ export function LiveReadouts({
   use24h,
   activeTitle,
   activePlannedSec,
+  plannedEndSec = null,
 }: {
   live: LiveShowTiming | null;
   use24h: boolean;
+  /**
+   * The time the SHEET says the day ends.
+   *
+   * Shown in preference to the drift-adjusted forecast. Both are true and they
+   * disagree by however late the show is running, which read as a
+   * contradiction rather than a measurement — two numbers a few inches apart,
+   * both calling themselves the end, neither saying which kind it was. One
+   * end time, and it is the one written on the sheet everybody in the room is
+   * holding. (The forecast is still computed; `live.projectedEndSec` has it if
+   * it is ever wanted back, and the drift it comes from is on the clock chip's
+   * hover.)
+   */
+  plannedEndSec?: number | null;
   /** The row the drift is measured on — see the explanation below. */
   activeTitle?: string;
   /** What the sheet says that row starts at. */
@@ -79,7 +93,11 @@ export function LiveReadouts({
       <div className="header-proj">
         <div className="header-label">Proj. end</div>
         <div className="header-clock mono">
-          {live.projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h) : "—"}
+          {plannedEndSec != null
+            ? formatTimeOfDayWithDay(Math.round(plannedEndSec), use24h)
+            : live.projectedEndSec != null
+              ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h)
+              : "—"}
         </div>
       </div>
       {/* No drift readout here any more.

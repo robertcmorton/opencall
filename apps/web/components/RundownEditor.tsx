@@ -2633,10 +2633,16 @@ export function RundownEditor({
         </div>
         {/* The sheet's own shape — when it starts, how long it runs, when it
             ends — belongs UNDER its name, not in the row of live readouts.
-            It is the same three numbers whether or not a show is running, and
-            labelling them "Planned" only invited the question of what the
-            unplanned ones would be. */}
-        <div className="hide-mobile topbar-shape">
+            It is the same three numbers whether or not a show is running.
+
+            NOT WHILE THE SHOW IS ON, though. Setting a sheet up you want its
+            whole shape: where it starts, how long it runs, where it lands.
+            Calling it, you want two numbers — the time now and the time you
+            come off — and the other three are three more things to read past
+            on the screen you can least afford to read past anything. They come
+            back the moment the show stops, which is when they are useful
+            again. */}
+        {!showLive && <div className="hide-mobile topbar-shape">
           <div
             className="header-clock mono"
             style={canEditContent ? { cursor: "pointer" } : undefined}
@@ -2684,7 +2690,7 @@ export function RundownEditor({
               return timing.endSec != null ? formatTimeOfDayWithDay(timing.endSec, meta.use24h) : "—";
             })()}
           </div>
-        </div>
+        </div>}
         </div>
         </div>
         <div className="topbar-center">
@@ -2788,6 +2794,7 @@ export function RundownEditor({
           <LiveReadouts
             live={live}
             use24h={meta.use24h}
+            plannedEndSec={timing.endSec}
             activeTitle={activeRow?.title}
             activePlannedSec={
               activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null

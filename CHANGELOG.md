@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The timer shows only what comes next.** The item just finished was there too, above the line, and it earned its space less than it cost — nobody asks what has already happened, and a third line of text on the biggest readout on the page is a third thing to read past.
+
+### Fixed
+- **The cue stops hopping about when the show moves to the next item.** Only part of a long sheet is really drawn at once, and the space above it is sized from the average height of the rows measured so far. Sliding the sheet to the new cue over half a second meant that average kept changing while it travelled, so it arrived in the wrong place and had to correct itself — visibly, every time. It moves at once now, which leaves no gap for the sheet to shift underneath it.
+
 ### Fixed
 - **The nudge strip no longer covers the column titles.** It is meant to stay below the pinned header, and the check that kept it there measured the header's row rather than the cells that actually stay pinned — so it worked while the sheet sat still and stopped working the instant anybody scrolled, letting the strip paint over the column titles it exists to avoid. Measured on a real sheet: the whole header row was covered.
 

@@ -379,15 +379,13 @@ function BigTimer({
   paused,
   title,
   plannedSec,
-  prevTitle,
   nextTitle,
 }: {
   live: import("@opencall/core").LiveShowTiming;
   paused: boolean;
   title: string;
   plannedSec: number | null;
-  /** What we just came off, and what is coming — see the note by the markup. */
-  prevTitle?: string | null;
+  /** What is coming — see the note by the markup. */
   nextTitle?: string | null;
 }) {
   const remaining = live.remainingInRowSec;
@@ -408,15 +406,15 @@ function BigTimer({
     plannedSec != null && plannedSec > 0 ? Math.min(1, Math.max(0, live.elapsedInRowSec / plannedSec)) : 0;
   return (
     <div className={`big-timer no-print ${stateClass}`}>
-      {/* What came before and what comes next, either side of what is on air.
-          A showcaller is asked "what are we in?" far less often than "what's
-          after this?" — and the answer used to be somewhere in a table they had
-          to find their place in. Above and below the item they are calling, in
-          the order the sheet runs, so the three read as a strip of the running
-          order rather than three separate readings. Dimmer than the item on
-          air, deliberately: they are context, and the eye must not be pulled
-          off the thing being called. */}
-      {prevTitle && <div className="bt-neighbour bt-was">{prevTitle}</div>}
+      {/* What comes next, under what is on air.
+          "What's after this?" is the question a showcaller is actually asked,
+          and the answer used to be somewhere in a table they had to find their
+          place in. The item just FINISHED was here too for a while, above the
+          line, and it earned its space less than it cost: nobody asks what has
+          already happened, and on the biggest readout on the page a third line
+          of text is a third thing to read past. Dimmer than the item on air,
+          deliberately — it is context, and the eye must not be pulled off the
+          thing being called. */}
       <div className="bt-label">
         {paused ? "PAUSED · " : ""}
         {title || "—"}
@@ -968,7 +966,24 @@ export function RundownEditor({
     const row = el.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
     const target = scroller.scrollTop + (row.top - box.top) - cueAnchorTop(box.height, dockBottom);
-    scroller.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+    /**
+     * Instantly, NOT smoothly — because the sheet is windowed.
+     *
+     * Only a slice of the rows is really in the DOM; everything above is a
+     * spacer whose height comes from the AVERAGE of the rows measured so far
+     * (see useRowWindow). A smooth scroll animates towards a pixel offset over
+     * several hundred milliseconds, and during that time new rows enter the
+     * slice, get measured, and move that average — so every offset above the
+     * target shifts while the browser is still travelling to the old one. It
+     * arrives in the wrong place, the follow effect notices and corrects, and
+     * the row appears to hop about on every cue change.
+     *
+     * A jump gives that no window in which to happen: one move, then the slice
+     * settles. There is nothing to soften anyway — the cue changing IS the
+     * event, and a showcaller wants the row where they are already looking
+     * rather than a half-second of travel.
+     */
+    scroller.scrollTo({ top: Math.max(0, target), behavior: "auto" });
   };
 
   // Auto-scroll keeps the active row centered while following. A manual
@@ -1085,20 +1100,6 @@ export function RundownEditor({
     const at = rows.findIndex((r) => r.id === activeRowId);
     if (at < 0) return null;
     return rows.slice(at + 1).find((r) => r.type === "cue")?.id ?? null;
-  })();
-  /**
-   * The item just finished, for the line above the timer.
-   *
-   * Same filter as `nextRowId`: only cues, because a heading or a deadline is
-   * not something that was just called and would be a strange thing to read as
-   * "what we came off". Searches BACKWARDS from the active row, so a sheet
-   * whose first cue is partway down still reads correctly.
-   */
-  const prevRowId = (() => {
-    if (!activeRowId) return null;
-    const at = rows.findIndex((r) => r.id === activeRowId);
-    if (at < 0) return null;
-    return [...rows.slice(0, at)].reverse().find((r) => r.type === "cue")?.id ?? null;
   })();
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
@@ -2708,10 +2709,6 @@ export function RundownEditor({
               // rather than the dash that told the showcaller nothing.
               title={blankTitle(activeRow.title) ? itemStandIn(activeRow) : activeRow.title}
               plannedSec={activeRow.durationSec}
-              prevTitle={(() => {
-                const r = prevRowId ? rows.find((x) => x.id === prevRowId) : null;
-                return r ? (blankTitle(r.title) ? itemStandIn(r) : r.title) : null;
-              })()}
               nextTitle={(() => {
                 const r = nextRowId ? rows.find((x) => x.id === nextRowId) : null;
                 return r ? (blankTitle(r.title) ? itemStandIn(r) : r.title) : null;

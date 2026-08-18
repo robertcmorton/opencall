@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The nudge strip no longer covers the column titles.** It is meant to stay below the pinned header, and the check that kept it there measured the header's row rather than the cells that actually stay pinned — so it worked while the sheet sat still and stopped working the instant anybody scrolled, letting the strip paint over the column titles it exists to avoid. Measured on a real sheet: the whole header row was covered.
+
+### Fixed
 - **The as-run record can no longer fall behind the show.** Every accepted command writes two things — where the show now is, and the entry saying how it got there — and they were written as two separate steps. Anything that ended the process between them (a hard kill, a crash, a failure in the second write) left a sheet claiming to be on an item with nothing recording that it was ever called. They are now one write that either lands or does not.
 - **A paused show reads as paused on the dashboard**, in amber, rather than keeping the red on-air badge and changing only the word.
 - **The evidence for "left running" is readable on a tablet.** It lived in a tooltip, and tooltips do not exist on a touch screen — which is where this dashboard is most often propped. The chip now carries the age itself ("left running · 19h"), which also sidesteps whose clock the time was in.

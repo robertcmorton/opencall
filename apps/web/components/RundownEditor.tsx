@@ -331,9 +331,25 @@ const cueAnchorTop = (viewportH: number, obscuredBottom = 0): number =>
  * strip by the border's width.
  */
 const clampBelowHeader = (scroller: HTMLElement, rowTop: number): number => {
-  const head = scroller.querySelector("thead");
+  /**
+   * The STICKY cell, not the row that contains it.
+   *
+   * This measured `thead`, which looks like the header and is not the thing
+   * that stays put: `position: sticky` is on the `th` cells, and the `thead`
+   * around them is static, so it scrolls away with the rest of the table.
+   * Measured on a real sheet at scrollTop 300: the `thead` box had already
+   * left the viewport (bottom −81) while the pinned cells sat at 218. The
+   * clamp therefore computed a header height of 0 the instant the sheet
+   * moved, went inert, and let the strip ride up over the column titles it
+   * exists to stay clear of — 38px of overlap on a 40px header, painted on
+   * top of it because the strip outranks it (z-index 7 against 5).
+   *
+   * Correct at rest, wrong the moment anybody scrolled: which is why reading
+   * the code convinced two people it worked.
+   */
+  const cell = scroller.querySelector("thead th");
   const paddingTop = scroller.getBoundingClientRect().top + scroller.clientTop;
-  const headerBottom = head ? Math.max(0, head.getBoundingClientRect().bottom - paddingTop) : 0;
+  const headerBottom = cell ? Math.max(0, cell.getBoundingClientRect().bottom - paddingTop) : 0;
   return Math.max(rowTop, scroller.scrollTop + headerBottom);
 };
 

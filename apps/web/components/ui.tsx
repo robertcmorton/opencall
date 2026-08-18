@@ -137,7 +137,12 @@ export function HeaderClock({ use24h, timeZone }: { use24h: boolean; timeZone?: 
   const abbr = timeZone ? zoneAbbreviation(timeZone) : "";
   return (
     <div className="header-clock-block">
-      <div className="header-label">Event time{abbr ? ` · ${abbr}` : ""}</div>
+      {/* "Time of day", not "event time". The clock reads the EVENT's timezone,
+          which is the whole point of it — but "event time" invited the reading
+          "the time the event starts", next to a readout that is the time right
+          now. The zone is still named beside it, so what it is measuring is
+          not in doubt. */}
+      <div className="header-label">Time of day{abbr ? ` · ${abbr}` : ""}</div>
       <div className="header-clock mono">{now != null ? formatTimeOfDay(now, use24h) : "--:--:--"}</div>
     </div>
   );

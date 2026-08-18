@@ -2662,8 +2662,13 @@ export function RundownEditor({
               doc.getMap("meta").set("plannedStartSec", sec);
             }}
           >
-            {timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "—"} · dur{" "}
-            {formatDuration(timing.totalDurationSec)} · end{" "}
+            <span className="shape-head">Planned</span>
+            <span className="shape-key">Start</span>
+            <span className="shape-val">{timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "—"}</span>
+            <span className="shape-key">Dur</span>
+            <span className="shape-val">{formatDuration(timing.totalDurationSec)}</span>
+            <span className="shape-key">End</span>
+            <span className="shape-val">
             {(() => {
               // The last timed item without a duration gets a 30-minute
               // assumption so the show still shows an approximate end.
@@ -2689,6 +2694,7 @@ export function RundownEditor({
               }
               return timing.endSec != null ? formatTimeOfDayWithDay(timing.endSec, meta.use24h) : "—";
             })()}
+            </span>
           </div>
         </div>}
         </div>

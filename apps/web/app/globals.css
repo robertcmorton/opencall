@@ -3560,3 +3560,35 @@ th.col-drop-target {
   overflow: auto;
   animation: menu-in var(--t-fast) var(--ease);
 }
+
+/* The sheet's planned shape, as a small table rather than a sentence.
+   "9:00 AM · dur 61:30 · end 10:01 AM" is three readings run together with
+   separators doing the work of labels, so nothing can be found at a glance —
+   and the one people look for is the end. A heading and two columns lets the
+   eye go straight down the values, and each number says what it is. Sits under
+   the sheet's name, on the left, where setup information belongs. */
+.topbar-shape {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 0.6rem;
+  row-gap: 1px;
+  align-items: baseline;
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+.topbar-shape .shape-head {
+  grid-column: 1 / -1;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.58rem;
+}
+.topbar-shape .shape-key {
+  color: var(--text-3);
+}
+.topbar-shape .shape-val {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}

@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The sheet's planned shape reads as a small table, and the clock says "time of day".** Start, duration and end were one run-on line with separators standing in for labels, so nothing could be found at a glance — least of all the end time, which is the one people look for. They are now a labelled block under the sheet's name, each number saying what it is. The clock beside them was called "event time", which invited the reading "the time the event starts" next to a readout that is the time right now; it says time of day, and still names the zone it is keeping.
+
 - **A live screen carries two timing readouts, not five.** Calling a show, the questions are what time it is and what time you come off; the sheet's start, length and end are setup facts that were sitting on the one screen you can least afford to read past anything. They now appear while the sheet is being set up and walked through, and step aside once it is on air. The end time shown is the sheet's own — there were two ends a few inches apart disagreeing by however late the show was running, both calling themselves the end, and neither saying which kind it was.
 
 - **The projected end and the event clock sit side by side.** On a narrower window they stacked, which bought width at the cost of a second row of header — and height is the scarcer of the two here, because every pixel the header takes is a row of the run sheet nobody can read. They are also the pair anybody reads together, so splitting them across two lines separated the comparison being made.

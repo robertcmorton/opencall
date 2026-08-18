@@ -46,7 +46,21 @@ export function describeShowDrift(
       ? "on time"
       : `${signed(live.showDriftSec)} ${live.showDriftSec > 0 ? "behind" : "ahead"}`;
   const over = live.rowOverSec > 1 ? ` It has also run ${formatDuration(live.rowOverSec)} past its length.` : "";
-  return `The show is ${late}, measured on ${on}.${over}`;
+  /**
+   * And what time that actually puts you off.
+   *
+   * The header shows the end the SHEET plans, which does not move. This is the
+   * other one — the plan shifted by however late the show is running — and it
+   * is the number somebody is really asking for when they ask how we are
+   * doing. Two ends side by side in the header read as a contradiction, so the
+   * forecast lives here, next to the drift that explains it and under a hover
+   * nobody is obliged to read mid-show.
+   */
+  const off =
+    live.projectedEndSec != null
+      ? ` At this rate the show comes off at ${formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h)}.`
+      : "";
+  return `The show is ${late}, measured on ${on}.${over}${off}`;
 }
 
 export function LiveReadouts({

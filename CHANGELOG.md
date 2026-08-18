@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Hovering the clock button says what time the show will actually come off.** The header carries the end the sheet plans, which does not move; this is the other one — the plan shifted by however late the show is running — and it sits beside the drift that explains it, rather than as a second end time in the header contradicting the first.
+
 - **The sheet's planned shape reads as a small table, and the clock says "time of day".** Start, duration and end were one run-on line with separators standing in for labels, so nothing could be found at a glance — least of all the end time, which is the one people look for. They are now a labelled block under the sheet's name, each number saying what it is. The clock beside them was called "event time", which invited the reading "the time the event starts" next to a readout that is the time right now; it says time of day, and still names the zone it is keeping.
 
 - **A live screen carries two timing readouts, not five.** Calling a show, the questions are what time it is and what time you come off; the sheet's start, length and end are setup facts that were sitting on the one screen you can least afford to read past anything. They now appear while the sheet is being set up and walked through, and step aside once it is on air. The end time shown is the sheet's own — there were two ends a few inches apart disagreeing by however late the show was running, both calling themselves the end, and neither saying which kind it was.

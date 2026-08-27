@@ -459,6 +459,12 @@ input.inline-edit {
 .selection-bar .count {
   color: var(--accent-text);
   font-weight: 600;
+  /* "1 selected" is one phrase and reads as nonsense broken in half. It never
+     wrapped while the bar was pinned to the left and simply overflowed to the
+     right; centred, the bar is allowed to shrink instead, and the first thing
+     to give was the count. Nothing here is long enough to need wrapping. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .live-badge {

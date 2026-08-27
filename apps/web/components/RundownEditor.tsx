@@ -3127,7 +3127,16 @@ export function RundownEditor({
         {canEditContent && selected.size > 0 && (
           // Floats just below the last selected row — the actions clearly
           // belong to the rows they act on without covering any of them.
-          <div className="selection-bar" style={{ position: "absolute", top: selBarTop, left: 8, zIndex: 6 }}>
+          //
+          // Centred across the sheet rather than tucked against its left edge.
+          // Pinned left it sat over the row numbers and the time column, which
+          // are the two things you read to check you have selected what you
+          // meant to; centred, it covers the middle of a row where the item's
+          // own name has already been read.
+          <div
+            className="selection-bar"
+            style={{ position: "absolute", top: selBarTop, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
+          >
             <span className="count">{selected.size} selected</span>
             <button className="btn btn-sm" onClick={duplicateSelected}>
               Duplicate

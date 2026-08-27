@@ -2661,7 +2661,10 @@ export function RundownEditor({
               doc.getMap("meta").set("plannedStartSec", sec);
             }}
           >
-            <span className="shape-head">Planned</span>
+            {/* No "Planned" heading. Start, Dur and End each say what they
+                are, and the row of them sits beside a running clock — nothing
+                about it needed a title, which was a fourth line of text on a
+                block whose whole point is being read at a glance. */}
             <span className="shape-key">Start</span>
             <span className="shape-val">{timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "—"}</span>
             <span className="shape-key">Dur</span>

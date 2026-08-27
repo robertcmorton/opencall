@@ -2730,23 +2730,33 @@ th.col-drop-target {
 /* The live cue has fallen behind the clock and nothing is advancing it. */
 .cue-drift {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(16px + var(--rolebar-h, 0px));
+  /* The full width of the screen, sitting on whatever is below it.
+     It was a centred pill floating clear of both edges, which is the shape of
+     a passing notification — and this is not one. It says the show is not
+     being advanced, which stays true until somebody acts on it. A bar that
+     spans the screen reads as a state the page is IN rather than a message
+     that happens to be on top of it, and it stops competing with the sheet
+     for the middle of the screen. */
+  left: 0;
+  right: 0;
+  bottom: var(--rolebar-h, 0px);
   z-index: 94;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
-  max-width: min(620px, calc(100vw - 24px));
   padding: 10px 14px;
-  border-radius: var(--r-md);
+  /* Square, and edged only along the top: a bar that meets both sides has no
+     sides to draw, and rounded corners on a full-bleed element look like a
+     mistake. */
+  border-radius: 0;
   /* Tint over an OPAQUE base. `--warn-soft` is 12% alpha, so on its own the
      rows of the sheet showed straight through the message — which is worst
      for exactly the message that says something is wrong. */
   background: color-mix(in srgb, var(--warn) 14%, var(--overlay));
-  border: 1px solid var(--warn);
+  border: none;
+  border-top: 1px solid var(--warn);
   color: var(--warn);
   font-size: var(--fs-sm);
   box-shadow: var(--shadow-lg);
@@ -3587,13 +3597,6 @@ th.col-drop-target {
   align-items: baseline;
   font-size: var(--fs-xs);
   line-height: 1.35;
-}
-.topbar-shape .shape-head {
-  grid-column: 1 / -1;
-  color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.58rem;
 }
 .topbar-shape .shape-key {
   color: var(--text-3);

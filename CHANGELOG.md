@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The notice about the cue falling behind spans the screen.** It was a pill floating clear of both edges — the shape of a passing message, when what it says stays true until somebody acts on it. A bar that meets both sides reads as a state the page is in, and stops competing with the sheet for the middle of the screen.
+- **The planned figures lost their heading.** Start, duration and end each say what they are, so the word above them was a fourth line on a block whose whole point is being read at a glance.
+
 - **The sheet's planned shape sits beside the cue timer while the show is on.** It was hidden once a show started, on the reasoning that a caller wants two numbers rather than five. That was wrong about what the block is for: the planned start, length and end are what the night is being measured against, so they belong next to the timer rather than out of the way of it — the plan on one side, what is actually happening on the other.
 - **Even space around the next item under the timer.** The progress bar sat directly on the line naming it, so it read as belonging to the bar rather than having room of its own.
 

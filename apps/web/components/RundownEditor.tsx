@@ -3119,7 +3119,16 @@ export function RundownEditor({
         >
         {/* Hover nudges ride the right edge of the sheet, clear of the text —
             and never above the pinned column headers (see `nudgeTop`). */}
-        {canEditContent && nudgeRowAt && (
+        {/* Only while the show is actually running.
+            Every button on this strip is a live correction — take five seconds
+            out, put fifteen back, or CUE this row now — and none of them mean
+            anything to a sheet nobody is calling yet. It was showing whenever
+            the sheet was editable, which includes the walkthrough and the edit
+            view, where it offered to re-cue a show that has not started and
+            put a row's timing out for no reason anybody would later remember.
+            `canEditContent` stays in the test: a viewer who may not change the
+            sheet may not nudge it either. */}
+        {showLive && canEditContent && nudgeRowAt && (
           <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
             <TimingNudge onNudge={(d) => nudgeRow(nudgeRowAt.id, d)} onCue={() => cueRow(nudgeRowAt.id)} skips={cueSkipCount(nudgeRowAt.id)} />
           </div>
@@ -3683,7 +3692,12 @@ export function RundownEditor({
         </div>
       )}
 
-      {canEditContent &&
+      {/* The docked strip follows the same rule as the hovering one: these are
+          live corrections, and CUE is meaningless before anybody has started.
+          Two copies of one tool obeying two different rules would be worse
+          than either rule. */}
+      {showLive &&
+        canEditContent &&
         (() => {
           const targetId = selected.size === 1 ? [...selected][0]! : activeRowId;
           const target = targetId ? rows.find((r) => r.id === targetId) : null;

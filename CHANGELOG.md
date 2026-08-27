@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The timing nudges and CUE appear only once a show is running.** Every button on that strip is a live correction — take five seconds out, put fifteen back, cue this row now — and none of them mean anything to a sheet nobody is calling yet. It was showing whenever the sheet could be edited, which included the walkthrough and the editing view, where it offered to re-cue a show that had not started.
+
 - **The bar of actions for selected rows sits in the middle of the sheet.** Tucked against the left edge it covered the row numbers and the time column — the two things you read to check you have selected what you meant to. In the middle it covers a part of the row whose text has already been read. Its count no longer breaks across two lines either.
 
 - **The import preview uses the whole screen.** It was capped at a fixed share of the window, which sounds generous until you notice the panel opens part-way down a long page — so most of that share landed below the bottom of the screen and you were left checking a 356-row sheet through a gap a row or two high. It now measures from where the preview actually starts down to the bottom of the window, so it always reaches the edge and never overshoots it, and it re-measures when the window changes or anything above it moves.

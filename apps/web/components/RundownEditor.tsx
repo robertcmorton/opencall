@@ -1029,22 +1029,60 @@ export function RundownEditor({
     }, 400);
   };
   const focusRowId = activeRowId ?? walkRowId;
-  useEffect(() => {
+  /**
+   * BEFORE the browser paints, not 150ms after it.
+   *
+   * This was a `useEffect` whose retry ran on a timer, and `rows.length` was
+   * not among its dependencies. So opening a live sheet went: rows commit, the
+   * browser PAINTS them at scroll position zero, and a tenth of a second later
+   * the loop noticed and moved. That painted frame at the top is the "starts at
+   * the top, then syncs, then travels down" — the scroll was never slow, it was
+   * simply too late.
+   *
+   * A layout effect runs after the DOM is committed and before the paint, so
+   * with `rows.length` in the dependencies the position is set in the same
+   * frame the rows appear in. The first thing drawn is the cue, already in
+   * place. The retry underneath is unchanged and still earns its keep for the
+   * case it was written for: the row arriving outside the rendered window.
+   */
+  useLayoutEffect(() => {
     if (!focusRowId || !followScroll) return;
     // Opening a rundown that is ALREADY live: the show state often arrives
     // before the document's rows have rendered, so retry until the live row
     // exists — first thing on screen is the current cue, centred.
     let cancelled = false;
     let settle: number | undefined;
+    let refine: number | undefined;
     const attempt = (left: number) => {
       if (cancelled) return;
       const el = document.querySelector("tr.active-row, tr.walk-row");
       if (el) {
         programmaticScroll.current = true;
         centreInSheet(el);
+        /**
+         * Then again, once the rows have actually been measured.
+         *
+         * Placing before the paint is what stops the sheet being drawn at the
+         * top — but it also means placing while the windowed list is still
+         * using ESTIMATED row heights for everything above the cue. The first
+         * placement is therefore approximately right and can be a long way out
+         * on a sheet of tall rows: measured here at 734px down an 857px
+         * viewport, when the cue belongs near the middle.
+         *
+         * So: place early so nothing is drawn in the wrong place, and refine
+         * once the real heights are in. Both passes are inside the
+         * `programmaticScroll` window, so neither is mistaken for the reader
+         * scrolling and neither disengages the follow.
+         */
+        refine = requestAnimationFrame(() => {
+          const settled = document.querySelector("tr.active-row, tr.walk-row");
+          if (settled) centreInSheet(settled);
+        });
         settle = window.setTimeout(() => {
+          const settledLate = document.querySelector("tr.active-row, tr.walk-row");
+          if (settledLate) centreInSheet(settledLate);
           programmaticScroll.current = false;
-        }, 1000);
+        }, 400);
         return;
       }
       /**
@@ -1074,13 +1112,16 @@ export function RundownEditor({
     return () => {
       cancelled = true;
       window.clearTimeout(settle);
+      if (refine != null) cancelAnimationFrame(refine);
     };
     // `dockBottom` is in here so the cue re-centres the moment "You're on"
     // arrives or leaves. That bar covers the bottom of the sheet without
     // shortening it, so the middle of what you can SEE moves — and a cue that
     // was centred a second ago is suddenly sitting low, at the exact moment
     // the screen is telling somebody they are on.
-  }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom]);
+    // `rows.length` so this re-runs the instant the sheet has rows to scroll
+    // through — without it the only thing that noticed was the timer above.
+  }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom, rows.length]);
   useEffect(() => {
     if (!activeRowId) return;
     const disengage = () => {

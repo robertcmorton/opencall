@@ -3567,7 +3567,11 @@ th.col-drop-target {
    and the one people look for is the end. A heading and two columns lets the
    eye go straight down the values, and each number says what it is. Sits under
    the sheet's name, on the left, where setup information belongs. */
-.topbar-shape {
+/* The grid goes on the element that actually CONTAINS the spans — the
+   clickable clock div inside — not on the wrapper. Put on the wrapper it had
+   exactly one child to lay out, so all six spans collapsed into a single cell
+   and read as one run-on string. */
+.topbar-shape > .header-clock {
   display: grid;
   grid-template-columns: max-content max-content;
   column-gap: 0.6rem;

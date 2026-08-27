@@ -168,11 +168,19 @@ Nothing can start on these until they are answered.
 - [ ] **Should a stale session ever end by itself**, or only be flagged as it is
       now? Flagging was chosen deliberately: ending one on a timer would
       eventually stop a real show that sat quiet through a long delay.
-- [ ] **Should the PLANNED block also show while live?** The instruction was
-      that live carries only the end time and the clock; the reference images
-      show it present at all times.
-- [ ] **Should a whole-minute time drop its trailing `:00`** in the PLANNED
-      block — `9:00 AM` rather than `9:00:00 PM`?
+- [ ] **Should a whole-minute time drop its trailing `:00`** in the planned
+      figures — `9:00 AM` rather than `9:00:00 PM`?
+- [ ] **Rename Skip to Strike, and surface "∥ Alongside"?** Both features exist
+      and do what was asked; the words are the app's, not yours. Alongside is
+      also buried behind a duration, where nothing suggests it means "not part
+      of the show".
+- [ ] **Should the timing nudges be available while EDITING a sheet, without
+      CUE?** They are live-only now. If nudging a selected row is useful while
+      building, the answer is to split the strip — CUE cannot be off-air
+      whatever happens to the arrows.
+- [ ] **Should a refused command look like the behind-the-clock bar?** That one
+      now spans the screen; the refusal notice is still a centred pill, and how
+      loud a refusal should be is a judgement rather than a tidy-up.
 
 ## 8. Housekeeping
 

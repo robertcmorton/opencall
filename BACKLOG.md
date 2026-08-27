@@ -10,24 +10,60 @@ the thing nobody writes down twice.
 
 ---
 
+## 0. Golden point when the sheet does not mention it
+
+Every rugby league game can go to golden point. Showcallers do not always write
+a golden-point block into the run sheet — the RD25 draft has no ending rows at
+all — so the app must not decide whether extra time is possible by looking for
+it on the page.
+
+It does exactly that today. `outcomesFor` in `packages/core/src/eventTypes.ts`
+takes an `extraInSheet` flag and, when the sheet carries no extra period, drops
+"Golden point" from what the showcaller is offered and gives them "Draw"
+instead. The reasoning is written into the file: *"a day with golden point has a
+golden-point block written into it, and a day without one does not."* That is
+the assumption to overturn, and it is worth reading the whole comment first —
+it was defending against offering golden point on a junior or exhibition match,
+which is a real case and must not regress.
+
+Two halves:
+
+- [ ] **What is offered at full time comes from the COMPETITION, not the page.**
+      A level score in a league game must offer golden point whether or not
+      anybody wrote it down. Keep a way for a match that genuinely cannot go to
+      extra time to say so — but the default has to be what the competition
+      allows, because the cost of the two mistakes is not equal: offering an
+      impossible button wastes a moment, and withholding a real one strands the
+      show at the worst point of the night.
+- [ ] **The sheet has no rows to play, so the time has to come from somewhere.**
+      Choosing golden point on a sheet without a golden block means the running
+      order absorbs roughly ten more minutes and everything after full time
+      moves. THIS IS THE SAME MECHANISM AS THE RIPPLE PAUSE in section 3 —
+      build one and the other is nearly free. Same unanswered question, too:
+      what it does to rows carrying a hard start time, which are anchors
+      somebody printed.
+
 ## 1. Look before building — these may already exist
 
 Three of the agreed changes may be half-built already under other names. Each
 is an hour of reading that could save a week of building a second mechanism
 beside the first.
 
-- [ ] **Items that are not part of the show** — a coin toss, a production
-      meeting. They hold a place in the running order but must not shift the
-      timing when cues change around them. `parallel` (runs alongside, takes no
-      time in the order) and `milestone` (a deadline to hit, not an item to
-      call) may already be exactly this. If so, this is a naming and visibility
-      problem, not a new kind of row.
-- [ ] **Strike / unstrike a cue item** — there is already a `skipped` flag that
-      takes a row out of the timing. Decide whether striking IS skipping with a
-      clearer name and a visible treatment, or genuinely a second state.
-- [ ] **"My role" opens outside the margins on mobile** — the popup is
-      positioned without keeping itself on screen. `keepTipsOnScreen` in
-      `apps/web/lib` already solves this for tooltips.
+ANSWERED. Two of the three already existed; the third is fixed.
+
+- [x] **Items that are not part of the show** — ALREADY BUILT. `parallel` is
+      exactly this, and it is offered as "∥ Alongside" in the duration popover:
+      takes no time in the running order, and the transport steps over it.
+      REMAINING QUESTION, for a person not a programmer: it is buried behind a
+      duration and its name does not say "not part of the show". Rename or
+      surface it?
+- [x] **Strike / unstrike a cue item** — ALREADY BUILT as Skip, in the selection
+      bar, already a toggle, and the row already renders struck through.
+      REMAINING QUESTION: the app says "Skip" where you say "strike". Rename?
+- [x] **"My role" opens outside the margins on mobile** — FIXED. It ran 39px off
+      the left at 390px wide. Note for whoever reads the old claim here:
+      `keepTipsOnScreen` could NOT be reused — it positions CSS pseudo-elements
+      through custom properties, not real elements.
 
 ## 2. Coming back to a live show
 

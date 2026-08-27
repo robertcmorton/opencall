@@ -222,21 +222,48 @@ export function RolePicker({
    */
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = menuRef.current;
-    if (!open || !el) return;
-    el.style.right = "0px";
-    const r = el.getBoundingClientRect();
-    // Nothing to clamp against before the page has a width. Measured during a
-    // viewport change the window reports 0, and the arithmetic below then
-    // "corrects" a menu that is perfectly placed by shoving it most of its own
-    // width sideways. Caught exactly that way: a resize mid-test moved it
-    // 181px for no reason.
-    if (window.innerWidth === 0 || r.width === 0) return;
-    const MARGIN = 8;
-    const pastLeft = MARGIN - r.left;
-    const pastRight = r.right - (window.innerWidth - MARGIN);
-    const nudge = pastLeft > 0 ? pastLeft : pastRight > 0 ? -pastRight : 0;
-    if (nudge !== 0) el.style.right = `${Math.round(-nudge)}px`;
+    if (!open) return;
+    const place = () => {
+      const el = menuRef.current;
+      if (!el) return;
+      el.style.right = "0px";
+      const r = el.getBoundingClientRect();
+      // Nothing to clamp against before the page has a width. Measured during a
+      // viewport change the window reports 0, and the arithmetic below then
+      // "corrects" a menu that is perfectly placed by shoving it most of its own
+      // width sideways. Caught exactly that way: a resize mid-test moved it
+      // 181px for no reason.
+      if (window.innerWidth === 0 || r.width === 0) return;
+      const MARGIN = 8;
+      const pastLeft = MARGIN - r.left;
+      const pastRight = r.right - (window.innerWidth - MARGIN);
+      const nudge = pastLeft > 0 ? pastLeft : pastRight > 0 ? -pastRight : 0;
+      if (nudge !== 0) el.style.right = `${Math.round(-nudge)}px`;
+    };
+    place();
+    /**
+     * And AGAIN once it has settled, which the first version did not do.
+     *
+     * Measuring once on open is right only if the menu never changes size after
+     * that, and this one does: the role chips wrap, and how many lines they take
+     * depends on the names and on the reader's font size. A phone with larger
+     * text gets a taller, sometimes wider menu a frame after it opened, and a
+     * clamp calculated before that is stale — which is why this read as fixed
+     * on a desktop at 390px and stayed broken on a real handset.
+     *
+     * Same three triggers the shared Dropdown uses, for the same reasons: the
+     * next frame, any change to the menu's own box, and a window resize with
+     * the menu already open.
+     */
+    const raf = requestAnimationFrame(place);
+    const ro = new ResizeObserver(place);
+    if (menuRef.current) ro.observe(menuRef.current);
+    window.addEventListener("resize", place);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+    };
   }, [open]);
 
   return (

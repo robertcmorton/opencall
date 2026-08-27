@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The import preview uses the whole screen.** It was capped at a fixed share of the window, which sounds generous until you notice the panel opens part-way down a long page — so most of that share landed below the bottom of the screen and you were left checking a 356-row sheet through a gap a row or two high. It now measures from where the preview actually starts down to the bottom of the window, so it always reaches the edge and never overshoots it, and it re-measures when the window changes or anything above it moves.
+
 - **The notice about the cue falling behind spans the screen.** It was a pill floating clear of both edges — the shape of a passing message, when what it says stays true until somebody acts on it. A bar that meets both sides reads as a state the page is in, and stops competing with the sheet for the middle of the screen.
 - **The planned figures lost their heading.** Start, duration and end each say what they are, so the word above them was a fourth line on a block whose whole point is being read at a glance.
 

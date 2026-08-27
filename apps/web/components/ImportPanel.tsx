@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildSheet,
   classifySheet,
@@ -460,6 +460,61 @@ export function ImportPanel({
       });
   };
 
+  /**
+   * The preview fills whatever is left of the window, rather than a fixed share
+   * of it.
+   *
+   * It was `max-height: 62vh`, which sounds generous and is not: this panel
+   * opens inside an event's card, well down a page that may already be long, so
+   * sixty-two percent of the window measured from THERE mostly lands past the
+   * bottom of it. You saw one row of a 356-row sheet and had to scroll the page
+   * to check the import — on the screen whose entire job is checking the
+   * import.
+   *
+   * Measured from where the preview actually starts to the bottom of the
+   * window, so it always reaches the edge and never overshoots it. Recomputed
+   * on resize and whenever the panel's contents move it up or down.
+   */
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewMax, setPreviewMax] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const fit = () => {
+      const el = previewRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      // A floor, so a panel opened at the very bottom of a page still shows
+      // something worth reading rather than a sliver.
+      const room = Math.max(220, window.innerHeight - top - 16);
+      // Only when it actually changes: writing the same value back on every
+      // observation would be a render for nothing, and the observer below sees
+      // this element's own resize.
+      setPreviewMax((prev) => (prev === `${Math.round(room)}px` ? prev : `${Math.round(room)}px`));
+    };
+    fit();
+    const raf = requestAnimationFrame(fit);
+    window.addEventListener("resize", fit);
+    window.addEventListener("scroll", fit, true);
+    /**
+     * And when the page changes height WITHOUT the window changing size.
+     *
+     * The preview's top moves whenever anything above it does — the detected
+     * roles wrapping onto a second line, an error appearing, the header row
+     * being changed — and none of that fires a resize. A height fixed at the
+     * moment the file was read is then wrong by however far the panel shifted.
+     *
+     * The same mistake as the roles menu, which was placed once on open and
+     * stayed where it was put while its own contents settled underneath it.
+     */
+    const ro = new ResizeObserver(fit);
+    ro.observe(document.body);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("scroll", fit, true);
+    };
+  }, [grid]);
+
   return (
     <div className="panel" style={{ margin: "0 16px 14px", display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -639,7 +694,11 @@ export function ImportPanel({
           {/* Vertically only. The preview is wide by nature — a column per
               column in the source — but a sideways scrollbar hides the very
               mapping the screen exists to let you check. */}
-          <div className="import-preview" style={{ overflowX: "hidden", overflowY: "auto", maxHeight: "62vh" }}>
+          <div
+            ref={previewRef}
+            className="import-preview"
+            style={{ overflowX: "hidden", overflowY: "auto", maxHeight: previewMax ?? "62vh" }}
+          >
             <table className="rundown-grid import-grid" style={{ fontSize: "0.78rem" }}>
               <thead>
                 <tr>

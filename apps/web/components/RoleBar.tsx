@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatDuration, zoneSecondsOfDay, type LiveShowTiming, type PlanTiming } from "@opencall/core";
 import type { ProjectedRow, RoleDef } from "@opencall/db/doc";
 import type { ShowChannel } from "../lib/showChannel";
@@ -199,6 +199,46 @@ export function RolePicker({
 
   const isMine = (name: string) => myRoles.some((r) => r.toLowerCase() === name.toLowerCase());
 
+  /**
+   * Keep the menu on the screen.
+   *
+   * It hangs off the RIGHT edge of its button, which is correct on a desktop
+   * where that button sits at the end of a wide toolbar. On a phone the button
+   * is nowhere near the edge: measured at 390px wide, its right edge is at 211
+   * and the menu is 250, so the menu started at −39 — thirty-nine pixels of it
+   * off the side, with no sideways scroll to go and get them.
+   *
+   * Nudged by exactly the overflow, so a menu with room to spare stays where it
+   * was anchored rather than drifting for no reason. Same reasoning as
+   * `keepTipsOnScreen`, which cannot be reused here: that one positions CSS
+   * pseudo-elements through custom properties, and this is a real element.
+   *
+   * The nudge moves the RIGHT offset, which is the only thing that can move it.
+   * This first tried `margin-left`, which did nothing at all and measured as
+   * doing nothing: the menu is absolutely positioned with `right: 0` and no
+   * `left`, so the browser lays it out from its right edge and a left margin
+   * has nothing to push against. Pulling `right` negative slides it back into
+   * view.
+   */
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!open || !el) return;
+    el.style.right = "0px";
+    const r = el.getBoundingClientRect();
+    // Nothing to clamp against before the page has a width. Measured during a
+    // viewport change the window reports 0, and the arithmetic below then
+    // "corrects" a menu that is perfectly placed by shoving it most of its own
+    // width sideways. Caught exactly that way: a resize mid-test moved it
+    // 181px for no reason.
+    if (window.innerWidth === 0 || r.width === 0) return;
+    const MARGIN = 8;
+    const pastLeft = MARGIN - r.left;
+    const pastRight = r.right - (window.innerWidth - MARGIN);
+    const nudge = pastLeft > 0 ? pastLeft : pastRight > 0 ? -pastRight : 0;
+    if (nudge !== 0) el.style.right = `${Math.round(-nudge)}px`;
+  }, [open]);
+
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
       <button
@@ -229,7 +269,7 @@ export function RolePicker({
             : `Roles: ${myRoles[0]} +${myRoles.length - 1}`}
       </button>
       {open && (
-        <div className="menu" style={{ top: "calc(100% + 5px)", right: 0, minWidth: 250, padding: 10 }}>
+        <div ref={menuRef} className="menu" style={{ top: "calc(100% + 5px)", right: 0, minWidth: 250, padding: 10 }}>
           <div className="menu-heading" style={{ padding: "0 0 6px" }}>
             Your assigned roles — pick any number
           </div>

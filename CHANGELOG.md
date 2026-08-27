@@ -23,6 +23,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **The timer shows only what comes next.** The item just finished was there too, above the line, and it earned its space less than it cost — nobody asks what has already happened, and a third line of text on the biggest readout on the page is a third thing to read past.
 
 ### Fixed
+- **The roles menu stays on the screen on a phone.** It hangs off the right edge of its button, which is right on a desktop where that button ends a wide toolbar. On a phone the button is nowhere near the edge, so the menu ran off the side — thirty-nine pixels of it unreachable, with no sideways scroll to go and get them. It now moves by exactly as much as it needs to and not at all when it already fits.
+
 - **The cue stops hopping about when the show moves to the next item.** Only part of a long sheet is really drawn at once, and the space above it is sized from the average height of the rows measured so far. Sliding the sheet to the new cue over half a second meant that average kept changing while it travelled, so it arrived in the wrong place and had to correct itself — visibly, every time. It moves at once now, which leaves no gap for the sheet to shift underneath it.
 
 ### Fixed

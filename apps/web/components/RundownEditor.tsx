@@ -2635,14 +2635,13 @@ export function RundownEditor({
             ends — belongs UNDER its name, not in the row of live readouts.
             It is the same three numbers whether or not a show is running.
 
-            NOT WHILE THE SHOW IS ON, though. Setting a sheet up you want its
-            whole shape: where it starts, how long it runs, where it lands.
-            Calling it, you want two numbers — the time now and the time you
-            come off — and the other three are three more things to read past
-            on the screen you can least afford to read past anything. They come
-            back the moment the show stops, which is when they are useful
-            again. */}
-        {!showLive && <div className="hide-mobile topbar-shape">
+            ON AIR TOO. This was hidden once a show started, on the reasoning
+            that a caller wants two numbers and not five. That was wrong about
+            what the block is for: the planned start, length and end are what
+            the night is being measured AGAINST, and they are most worth having
+            beside the cue timer, not least. It sits to the left of it — the
+            plan on one side, what is actually happening on the other. */}
+        <div className="hide-mobile topbar-shape">
           <div
             className="header-clock mono"
             style={canEditContent ? { cursor: "pointer" } : undefined}
@@ -2696,7 +2695,7 @@ export function RundownEditor({
             })()}
             </span>
           </div>
-        </div>}
+        </div>
         </div>
         </div>
         <div className="topbar-center">

@@ -1422,6 +1422,11 @@ kbd {
    stay on the thing being called. Same zero-width trick as `.bt-label`: a long
    item name must not decide how wide the header is. */
 .big-timer .bt-neighbour {
+  /* Even space around it. The progress bar sat directly on top of this line —
+     measured zero above against seven below, from the box's own bottom padding
+     — so the name of the next item read as belonging to the bar rather than
+     sitting in its own room. Seven matches what is already underneath. */
+  margin-top: 7px;
   font-size: 0.58rem;
   color: var(--text-3);
   opacity: 0.75;
@@ -3573,6 +3578,9 @@ th.col-drop-target {
    and read as one run-on string. */
 .topbar-shape > .header-clock {
   display: grid;
+  /* Level with the top of the cue timer beside it, so the plan and what is
+     actually happening read as one row rather than two things at two heights. */
+  margin-top: 2px;
   grid-template-columns: max-content max-content;
   column-gap: 0.6rem;
   row-gap: 1px;

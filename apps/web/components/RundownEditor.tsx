@@ -1104,6 +1104,26 @@ export function RundownEditor({
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
   /**
+   * Do we actually KNOW what the show is doing yet?
+   *
+   * `channel.show` is null until the server has welcomed us, and `showLive`
+   * quietly reads that as "not live" — so a sheet that IS on air draws its
+   * whole not-on-air face first: Start show, the walkthrough controls, the
+   * timing check. Then the welcome lands and it all changes. Coming back to a
+   * running show on a phone that has been in a pocket, you watch the screen
+   * pass through two states that were never true before it settles on the one
+   * that is.
+   *
+   * The clock counts too. `serverNow()` returns this device's own time until
+   * the first pong measures the difference, so readings drawn before that are
+   * not early, they are WRONG — and they correct themselves in front of
+   * somebody with no way to know which figure to believe.
+   *
+   * So: nothing that depends on the state of the show is drawn until both are
+   * in. It costs a moment on a cold open and it never shows a false one.
+   */
+  const showKnown = channel.show != null && channel.clockReady;
+  /**
    * The timing check belongs to preparation, not to the show.
    *
    * It reports where the sheet's own TIME and DURATION columns disagree — a
@@ -1113,7 +1133,10 @@ export function RundownEditor({
    * counts those as faults is crying wolf at the one person who cannot afford
    * to look away, so the check runs on import and in the walkthrough only.
    */
-  const timingGaps = showLive ? [] : findTimingGaps(rows, timing);
+  // Not before the show's state is known either: this runs only when the show
+  // is NOT live, so an unknown state briefly reported a live sheet's timing as
+  // something to fix.
+  const timingGaps = showLive || !showKnown ? [] : findTimingGaps(rows, timing);
   const roleColorFor = (name: string): string =>
     roles.find((r) => r.name.toLowerCase() === name.toLowerCase())?.color ?? "#2dd4bf";
   // rowId → the colour of MY role this row involves (rows can match different roles).
@@ -2738,7 +2761,7 @@ export function RundownEditor({
               sheet down for a control that is used a few times a night. Local
               to this screen: the cue timer above it is the shared truth, and a
               second shared clock would be a second thing to be wrong about. */}
-          {isShow && (
+          {isShow && showKnown && (
             <div className="show-state-row">
               {/* Before the doors: rehearsing and going live are the two things
                   you do here, so they share one box. Walkthrough used to sit in

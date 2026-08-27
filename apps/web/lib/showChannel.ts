@@ -33,6 +33,12 @@ const CHANNEL_STALE_MS = 40_000;
 
 export interface ShowChannel {
   connected: boolean;
+  /**
+   * True once the server's clock has actually been measured, rather than
+   * assumed to match this device's. Screens that draw times should wait for it:
+   * see the note by `clockReady` below.
+   */
+  clockReady: boolean;
   role: Role | null;
   /** IANA timezone of the event — governs every clock on this surface. */
   timezone: string | null;
@@ -98,6 +104,17 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   /** Set inside the connection effect; see `resync` on the interface. */
   const resyncRef = useRef<() => void>(() => {});
   const offsetRef = useRef(0);
+  /**
+   * Has the clock been compared with the server's yet?
+   *
+   * `offsetRef` starts at zero, which silently means "this device's clock IS
+   * the server's". Until the first pong that is a guess, and every timing drawn
+   * from it is wrong by however far the two disagree — which on a phone that
+   * has been asleep can be seconds. Readouts drawn in that window are not
+   * merely early, they are WRONG, and they correct themselves a moment later in
+   * front of somebody who has no way to know which reading to believe.
+   */
+  const [clockReady, setClockReady] = useState(false);
   const lastSeqRef = useRef(-1);
   // Commands sent while the socket is CONNECTING (or between reconnects) are
   // queued and flushed once the server has welcomed us — never thrown at a
@@ -172,6 +189,12 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             flushPending();
             for (let i = 0; i < OFFSET_SAMPLES; i++)
               setTimeout(() => sock.readyState === WebSocket.OPEN && sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "ping", t0: Date.now() })), i * 200);
+            // A backstop, so nothing waits on the clock for ever. If no pong
+            // comes back the offset stays at zero and the readings are only as
+            // good as this device's own clock — which is worse than knowing,
+            // and far better than a screen that never draws. Two seconds is
+            // long past the samples above on any connection that has one.
+            setTimeout(() => setClockReady(true), 2000);
             break;
           }
           case "pong": {
@@ -180,6 +203,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             if (pings.length >= 1) {
               const sorted = [...pings].sort((a, b) => a - b);
               offsetRef.current = sorted[Math.floor(sorted.length / 2)]!;
+              setClockReady(true);
             }
             break;
           }
@@ -273,6 +297,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
 
   return {
     connected,
+    clockReady,
     role,
     timezone,
     sport,

@@ -105,10 +105,12 @@ export function WithSideNav({
         {title && <div className="sidenav-title">{title}</div>}
         <nav className="sidenav-section">
           <div className="menu-heading">Navigate</div>
-          <Link className="menu-item" href="/" prefetch={false}>
-            <span className="check" />
-            Login
-          </Link>
+          {/* No "Login" item here.
+              It pointed at "/", which is where the wordmark directly above it
+              already goes, and it offered to sign in to somebody who was
+              plainly already signed in — the panel says who they are a few
+              inches below, next to Sign out. Two ways to the same page, one of
+              them named for a thing that had already happened. */}
           <Link className="menu-item" href="/admin" prefetch={false}>
             <span className="check" />
             Dashboard

@@ -52,6 +52,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **The evidence for "left running" is readable on a tablet.** It lived in a tooltip, and tooltips do not exist on a touch screen — which is where this dashboard is most often propped. The chip now carries the age itself ("left running · 19h"), which also sidesteps whose clock the time was in.
 
 ### Added
+- **A kind of show for rugby league that cannot go to extra time.** A junior, trial or exhibition fixture is rugby league and goes on a rugby league sheet, but nobody is playing golden point and a level score is simply a draw. The app used to work that out by looking for a golden-point block on the sheet — the wrong place, because showcallers do not always write one, so a proper game whose sheet omitted it was offered a draw and no route to extra time. It is now a property of the fixture, chosen once by whoever knows which kind of match it is.
+
 - **Access is editable from the account list too.** The admin table's access chips were fixed once a person existed; they now open the same editor as the people list. Adding access somebody already holds is refused with a word rather than failing on save.
 - **The web app has tests.** It had no test runner at all, so pure logic in it was checked only by the type checker.
 

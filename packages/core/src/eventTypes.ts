@@ -108,6 +108,28 @@ export const EVENT_TYPES: EventTypeDef[] = [
     blurb: "A final cannot be drawn: level after golden point is played on until somebody scores.",
   },
   {
+    /**
+     * Rugby league that genuinely cannot go to extra time.
+     *
+     * A junior, trial or exhibition fixture is rugby league and goes on a
+     * rugby league sheet, but nobody is playing golden point — a level score
+     * is simply a draw. Until now the app worked that out by looking for a
+     * golden-point block ON THE SHEET, which is the wrong place to read it
+     * from: showcallers do not always write one, and a proper game whose sheet
+     * omits it would then be offered a draw and no route to extra time, at the
+     * one moment in the night nobody can stop and wonder why.
+     *
+     * It belongs here, where the answer is a property of the FIXTURE and is
+     * chosen once, deliberately, by whoever knows which kind of match it is.
+     */
+    id: "nrl-no-extra",
+    label: "Rugby league — no extra time (junior, trial, exhibition)",
+    group: "Sport",
+    ...drawAtFullTime,
+    resultDueAfter: SECOND_HALF,
+    blurb: "No golden point: level at full time is a draw. For fixtures that do not play extra time.",
+  },
+  {
     id: "afl",
     label: "Australian rules (AFL)",
     group: "Sport",

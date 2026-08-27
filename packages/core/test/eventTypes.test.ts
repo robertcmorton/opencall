@@ -218,6 +218,28 @@ describe("rugby league: regular season vs final", () => {
   });
 });
 
+describe("rugby league that cannot go to extra time", () => {
+  // The fixture decides this, not the sheet. A junior or exhibition match plays
+  // no golden point; a proper game does, whether or not anybody wrote a
+  // golden-point block into the run sheet.
+  it("offers a draw at full time and never golden point", () => {
+    expect(outcomesFor("nrl-no-extra", false)).toEqual(["win", "lose", "draw"]);
+  });
+
+  it("has nothing after full time to reach", () => {
+    // Nothing can put it into an extra period, so asking for one changes
+    // nothing — there is no second list to fall through to.
+    expect(outcomesFor("nrl-no-extra", true)).toEqual(["win", "lose", "draw"]);
+  });
+
+  it("is a different answer from a proper game on the same sheet", () => {
+    // The distinction this type exists to carry: same competition, same shape
+    // of sheet, different fixture.
+    expect(outcomesFor("nrl", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("nrl-no-extra", false)).not.toContain("golden");
+  });
+});
+
 describe("a day with no extra period", () => {
   it("offers Draw at full time when the sheet carries no golden point", () => {
     // An exhibition or junior match: rugby league, on a rugby league sheet,

@@ -12,36 +12,65 @@ the thing nobody writes down twice.
 
 ## 0. Golden point when the sheet does not mention it
 
-Every rugby league game can go to golden point. Showcallers do not always write
-a golden-point block into the run sheet — the RD25 draft has no ending rows at
-all — so the app must not decide whether extra time is possible by looking for
-it on the page.
+Every proper rugby league game can go to golden point, and showcallers do not
+always write a golden-point block into the sheet — the RD25 draft has no ending
+rows at all. So the app must not decide whether extra time is possible by
+looking for it on the page, which is what it does today.
 
-It does exactly that today. `outcomesFor` in `packages/core/src/eventTypes.ts`
-takes an `extraInSheet` flag and, when the sheet carries no extra period, drops
-"Golden point" from what the showcaller is offered and gives them "Draw"
-instead. The reasoning is written into the file: *"a day with golden point has a
-golden-point block written into it, and a day without one does not."* That is
-the assumption to overturn, and it is worth reading the whole comment first —
-it was defending against offering golden point on a junior or exhibition match,
-which is a real case and must not regress.
+THE COMPETITION RULES ARE ALREADY MODELLED, AND CORRECTLY. Checked against
+en.wikipedia.org/wiki/Golden_point: level after 80 minutes plays five minutes,
+teams swap ends, five more — ten minutes, any score wins at once, and in the
+regular season nobody scoring means a draw. A final cannot be drawn and is
+played on. `EVENT_TYPES` already says exactly this: `nrl` offers win/lose/golden
+then win/lose/draw, `nrl-finals` offers win/lose after extra time and no draw.
 
-Two halves:
+SO THE ONLY THING WRONG IS THE OVERRIDE. `outcomesFor` takes `extraInSheet` and,
+when the sheet carries no extra period, strips "Golden point" and offers "Draw".
+Its comment defends a real case — "a junior or exhibition match is rugby league
+and goes on a rugby league sheet, but nobody is playing golden point" — and the
+case is real, but the SHEET is the wrong place to read it from.
 
-- [ ] **What is offered at full time comes from the COMPETITION, not the page.**
-      A level score in a league game must offer golden point whether or not
-      anybody wrote it down. Keep a way for a match that genuinely cannot go to
-      extra time to say so — but the default has to be what the competition
-      allows, because the cost of the two mistakes is not equal: offering an
-      impossible button wastes a moment, and withholding a real one strands the
-      show at the worst point of the night.
-- [ ] **The sheet has no rows to play, so the time has to come from somewhere.**
-      Choosing golden point on a sheet without a golden block means the running
-      order absorbs roughly ten more minutes and everything after full time
-      moves. THIS IS THE SAME MECHANISM AS THE RIPPLE PAUSE in section 3 —
-      build one and the other is nearly free. Same unanswered question, too:
-      what it does to rows carrying a hard start time, which are anchors
-      somebody printed.
+- [ ] **Let the kind of show decide, and delete the sheet-sniffing.** A match
+      that genuinely cannot go to extra time is a different KIND OF SHOW, and
+      kinds of show are already a first-class per-sheet concept with a custom
+      editor behind "Kinds of show". A junior or exhibition fixture should be
+      its own kind that settles at full time — not a proper game whose sheet
+      happened to omit a block.
+- [ ] **A sheet with no golden rows still has to absorb the time.** Roughly ten
+      minutes plus holding, and everything after full time moves. SAME MECHANISM
+      AS THE RIPPLE PAUSE in section 3 — build one and the other is nearly free.
+
+### The shape of a golden-point block
+
+The laws say the teams swap ends with **no break**. The show still needs time
+around it, so a run sheet is not simply two five-minute periods:
+
+    HOLDING          before the first half of golden point
+    Golden point 1   5 min
+    HOLDING          before the second half
+    Golden point 2   5 min
+
+"HOLDING" is the label to use. Anything generated for a sheet that never
+mentioned golden point should be built to this shape.
+
+### Kick-off does not move
+
+Broadcast carries exact times. So changing anything before the game starts must
+NOT move the actual game start — trimming or extending the pre-game can only
+consume its own slack, never push kick-off.
+
+This is the answer to the question the ripple pause was waiting on, at least in
+part: a row can be an anchor that absorbs change rather than passing it on, and
+kick-off is the clearest example. Whatever the ripple does, it stops at kick-off
+when it is coming from above it.
+
+### Needs your answer
+
+- [ ] **NRLW golden point rules.** Could not be verified — nrl.com/nrlw sends
+      the page behind a sign-in, and following an authentication redirect is not
+      something to do automatically. Are the women's rules the same ten minutes
+      in two halves, and can an NRLW regular-season match be drawn? If they
+      differ it wants its own kind of show, as the men's final already has.
 
 ## 1. Look before building — these may already exist
 

@@ -13,64 +13,37 @@ the thing nobody writes down twice.
 ## 0. Golden point when the sheet does not mention it
 
 Every proper rugby league game can go to golden point, and showcallers do not
-always write a golden-point block into the sheet — the RD25 draft has no ending
-rows at all. So the app must not decide whether extra time is possible by
-looking for it on the page, which is what it does today.
+always write a block for it — the RD25 draft has no ending rows at all.
 
-THE COMPETITION RULES ARE ALREADY MODELLED, AND CORRECTLY. Checked against
-en.wikipedia.org/wiki/Golden_point: level after 80 minutes plays five minutes,
-teams swap ends, five more — ten minutes, any score wins at once, and in the
-regular season nobody scoring means a draw. A final cannot be drawn and is
-played on. `EVENT_TYPES` already says exactly this: `nrl` offers win/lose/golden
-then win/lose/draw, `nrl-finals` offers win/lose after extra time and no draw.
+DECIDED, and no longer open:
+ · Whether a fixture can go to extra time is a property of the FIXTURE, not of
+   what somebody typed. A junior, trial or exhibition match is now its own kind
+   of show. DONE.
+ · The block is four rows: HOLDING / first half 5:00 / HOLDING / second half
+   5:00. HOLDING is the word real sheets already use. DONE, tested.
+ · Printed times after it MOVE by the whole length; times already gone to air
+   never move; rows without a printed time are not given one. DONE, tested and
+   mutation-checked.
 
-SO THE ONLY THING WRONG IS THE OVERRIDE. `outcomesFor` takes `extraInSheet` and,
-when the sheet carries no extra period, strips "Golden point" and offers "Draw".
-Its comment defends a real case — "a junior or exhibition match is rugby league
-and goes on a rugby league sheet, but nobody is playing golden point" — and the
-case is real, but the SHEET is the wrong place to read it from.
+WHAT IS LEFT is the wiring, and it is the part that can put a dead button on a
+live screen, so it wants doing carefully:
 
-- [ ] **Let the kind of show decide, and delete the sheet-sniffing.** A match
-      that genuinely cannot go to extra time is a different KIND OF SHOW, and
-      kinds of show are already a first-class per-sheet concept with a custom
-      editor behind "Kinds of show". A junior or exhibition fixture should be
-      its own kind that settles at full time — not a proper game whose sheet
-      happened to omit a block.
-- [ ] **A sheet with no golden rows still has to absorb the time.** Roughly ten
-      minutes plus holding, and everything after full time moves. SAME MECHANISM
-      AS THE RIPPLE PAUSE in section 3 — build one and the other is nearly free.
-
-### The shape of a golden-point block
-
-The laws say the teams swap ends with **no break**. The show still needs time
-around it, so a run sheet is not simply two five-minute periods:
-
-    HOLDING          before the first half of golden point
-    Golden point 1   5 min
-    HOLDING          before the second half
-    Golden point 2   5 min
-
-"HOLDING" is the label to use. Anything generated for a sheet that never
-mentioned golden point should be built to this shape.
-
-### Kick-off does not move
-
-Broadcast carries exact times. So changing anything before the game starts must
-NOT move the actual game start — trimming or extending the pre-game can only
-consume its own slack, never push kick-off.
-
-This is the answer to the question the ripple pause was waiting on, at least in
-part: a row can be an anchor that absorbs change rather than passing it on, and
-kick-off is the clearest example. Whatever the ripple does, it stops at kick-off
-when it is coming from above it.
-
-### Needs your answer
-
-- [ ] **NRLW golden point rules.** Could not be verified — nrl.com/nrlw sends
-      the page behind a sign-in, and following an authentication redirect is not
-      something to do automatically. Are the women's rules the same ten minutes
-      in two halves, and can an NRLW regular-season match be drawn? If they
-      differ it wants its own kind of show, as the men's final already has.
+- [ ] **Offer golden point on a sheet that has no golden rows.** There are TWO
+      gates and only the second matters: `visibleOutcomesOf` filters what is
+      offered by the outcomes actually PRESENT in the sheet, so a sheet with no
+      golden row can never show the button however the competition is modelled.
+      That filter has to relax for the generated case.
+- [ ] **Insert the block when it is chosen**, and apply the shift. The core
+      decides what the block is and what moves; this decides when.
+- [ ] **Only then remove the `extraInSheet` sniffing.** Removing it first is a
+      REGRESSION: on an exhibition sheet carrying win/lose/draw rows it is
+      currently the thing that produces the Draw button, and without it the
+      second gate reduces the offer to win/lose. Fixtures need re-typing to the
+      new kind of show first, which is a migration decision.
+- [ ] **Is two minutes the right hold?** It is a guess in the code and says so.
+- [ ] **NRLW rules** — still unverified; nrl.com sends the page behind a
+      sign-in. Same ten minutes in two halves? Can a regular-season match be
+      drawn? If they differ it wants its own kind of show.
 
 ## 1. Look before building — these may already exist
 
@@ -94,20 +67,14 @@ ANSWERED. Two of the three already existed; the third is fixed.
       `keepTipsOnScreen` could NOT be reused — it positions CSS pseudo-elements
       through custom properties, not real elements.
 
-## 2. Coming back to a live show
+## 2. Coming back to a live show — DONE
 
-Both of these are about what a returning caller sees, and both are worst on the
-device most likely to have been locked in a pocket.
-
-- [ ] **Reopening goes straight to the live row.** It opens at the top, syncs,
-      then travels down — so the first thing shown is the wrong part of the
-      sheet. The windowed list knows a row's offset before that row exists, so
-      the first paint can already be in the right place.
-- [ ] **Mobile flashes through two wrong states.** Returning shows the
-      walkthrough, then the show with the timing wrong, then the correct cue
-      row. The show state and the document arrive separately and every partial
-      combination is being drawn. Nothing should be drawn until there is
-      something true to draw.
+- [x] **Reopening goes straight to the live row.** The position is now decided
+      in the same frame the rows appear, before they are drawn, and refined once
+      the real row heights are known.
+- [x] **Mobile flashes through two wrong states.** Nothing that depends on the
+      state of the show is drawn until the server has said what it is AND the
+      clock has been measured. Proven by holding the answer back and looking.
 
 ## 3. Live-show controls
 

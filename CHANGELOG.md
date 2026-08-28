@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The offline import check looks at the shape of the result, not only at what it could read.** It called a 26-page run sheet clean while that sheet was missing its first ten items, had no durations at all and carried a page footer inside thirty-two of its cues — because every cell it could see parsed, and the damage was in what never became a cell. It now also reports when no column became the title, the time or the duration; when a whole sheet comes out zero seconds long; and when one line of text is sitting inside row after unrelated row, which is what an absorbed running head or footer looks like from the outside. That last test deliberately does not consult the running-header detector, since a check that asks the detector whose blind spot caused the problem can only ever find what it already found. Its thresholds were measured against the sample sheets rather than guessed. Three sheets that had been passing turn out to import with no title column and no lengths.
+
 ### Fixed
 - **A run sheet whose heading is printed part-way down page one keeps the items above it.** Some sheets open with a block of build-up — content check, production meeting, comms, tech check, rehearsals — and only rule in the ITEM/TIME/DURATION heading once the doors are about to open. Everything above that heading was read as title matter and discarded. On one match-day sheet that silently removed its first ten items and moved the show's start from half past eleven to a quarter to three. The heading is now lifted to the top of the block it belongs to, on the test that the numbering runs straight through it: items 1 to 10 above a heading followed by item 11 is a heading printed late, and anything else is left alone.
 

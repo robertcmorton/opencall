@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultViewColumns } from "../src/eventTypes";
-import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
+import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, foldWrappedHeader, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
   it("parses worded durations", () => {
@@ -797,5 +797,93 @@ describe("blank times are never invented, whatever shape the sheet is", () => {
     const timed = built.rows.find((r) => r.sourceNumber === "4");
     expect(timed?.untimed).toBeUndefined();
     expect(timed?.hardStartSec).toBe(18 * 3600 + 25 * 60);
+  });
+});
+
+describe("foldWrappedHeader", () => {
+  // A narrow column headed "TIME OF DAY" prints as two lines, and a PDF hands
+  // them over as two. The header row is then holed exactly where the stacked
+  // headings were, the column arrives unnamed, and the sheet's times are never
+  // read as times.
+  const stacked = [
+    ["", "", "TIME OF", "", "", "", "SIDE", ""],
+    ["ITEM", "FROM ZERO", "", "DURATION", "ACTIVITY", "ON SCREEN", "", "MC"],
+    ["", "", "DAY", "", "", "", "PANEL", ""],
+    ["1", "5:50:00", "10:15:00 AM", "0:15:00", "Crew onsite", "", "", ""],
+  ];
+
+  it("folds the lines above and below into the holes", () => {
+    expect(foldWrappedHeader(stacked, 1)).toEqual({
+      headers: ["ITEM", "FROM ZERO", "TIME OF DAY", "DURATION", "ACTIVITY", "ON SCREEN", "SIDE PANEL", "MC"],
+      folded: [0, 2],
+    });
+  });
+
+  it("folds one side when only one side wraps", () => {
+    const below = [
+      ["ITEM", "", "DURATION"],
+      ["", "TIME", ""],
+      ["1", "10:15:00 AM", "0:15:00"],
+    ];
+    expect(foldWrappedHeader(below, 0)).toEqual({ headers: ["ITEM", "TIME", "DURATION"], folded: [1] });
+  });
+
+  it("leaves a header alone when nothing wraps", () => {
+    const plain = [
+      ["ITEM", "TIME", "DURATION"],
+      ["1", "10:15:00 AM", "0:15:00"],
+    ];
+    expect(foldWrappedHeader(plain, 0)).toEqual({ headers: ["ITEM", "TIME", "DURATION"], folded: [] });
+  });
+
+  // The guard that matters: the line under a header is USUALLY the first row of
+  // the sheet, and eating it would lose a cue and shift every number after it.
+  it("never eats a row of data", () => {
+    const withData = [
+      ["ITEM", "", "DURATION"],
+      ["1", "10:15:00 AM", "0:15:00"],
+    ];
+    expect(foldWrappedHeader(withData, 0).folded).toEqual([]);
+  });
+
+  // The dangerous shape: a SPARSE first row, narrower than the header and
+  // filling only a hole in it, so neither the width nor the collision guard
+  // has anything to say. What refuses it is that a time is a value, not a
+  // heading — without that, this sheet loses its first cue silently.
+  it("never eats a sparse row of data that fits the holes", () => {
+    const sparse = [
+      ["ITEM", "", "DURATION", "ACTIVITY"],
+      ["", "10:15:00 AM", "", ""],
+    ];
+    expect(foldWrappedHeader(sparse, 0).folded).toEqual([]);
+  });
+
+  it("refuses a neighbour that would overwrite a heading", () => {
+    // "ACTIVITY" sits where the header already says "ITEM" — not a wrapped
+    // heading, so nothing is folded even though the rest would fit.
+    // Kept narrower than the header so the width guard cannot be what refuses
+    // it — this has to be refused for colliding, not for being wide.
+    const collides = [
+      ["ITEM", "", "DURATION", "ACTIVITY"],
+      ["TITLE", "TIME", "", ""],
+    ];
+    expect(foldWrappedHeader(collides, 0).folded).toEqual([]);
+  });
+
+  it("refuses a neighbour carrying as many cells as the header", () => {
+    const asWide = [
+      ["ITEM", "", ""],
+      ["", "TIME", "DURATION"],
+    ];
+    expect(foldWrappedHeader(asWide, 0).folded).toEqual([]);
+  });
+
+  it("gives a wrapped time column its start mapping back", () => {
+    const plan = planImport(stacked, { headerIndex: 1 });
+    expect(plan.headers[2]).toBe("TIME OF DAY");
+    expect(plan.mapping[2]).toEqual({ kind: "start" });
+    // The line folded from below is heading, not the sheet's first cue.
+    expect(plan.rows.map((r) => r.title)).not.toContain("DAY");
+    expect(plan.rows.filter((r) => r.title === "Crew onsite")).toHaveLength(1);
   });
 });

@@ -208,6 +208,57 @@ export function detectHeaderRow(grid: string[][]): number {
 }
 
 /**
+ * Folds a heading printed over two or three lines back into one.
+ *
+ * A narrow column headed "TIME OF DAY" is printed as "TIME OF" above "DAY",
+ * and a PDF hands those over as two separate lines. The detector then picks
+ * the middle line — the one carrying most of the headings — and that line has
+ * a HOLE exactly where each stacked heading was. The column comes through
+ * unnamed, so a sheet's times are never recognised as times and almost nothing
+ * gets a fixed start.
+ *
+ * A neighbouring line belongs to the heading when it does nothing but fill
+ * those holes: every word it has sits where the header row has nothing, it
+ * carries fewer cells than the header does, and it holds words rather than
+ * values. A row of data fails all three.
+ *
+ * Returns the merged names and the lines that were consumed, which are part of
+ * the heading and must not be read as the first rows of the sheet.
+ */
+export function foldWrappedHeader(grid: string[][], headerIndex: number): { headers: string[]; folded: number[] } {
+  const header = grid[headerIndex];
+  if (!header) return { headers: [], folded: [] };
+  const filled = header.filter((c) => c.trim()).length;
+  if (filled === 0) return { headers: header, folded: [] };
+
+  // Words, not values: a heading fragment is a short run of letters. Anything
+  // with a digit in it is a time, a duration or a count — that is a data row.
+  const headingWords = (cell: string): boolean => /^[A-Za-z][A-Za-z &/'.-]{0,23}$/.test(cell);
+
+  const parts: { cells: string[]; above: boolean }[] = [];
+  const folded: number[] = [];
+  for (const [index, above] of [
+    [headerIndex - 1, true],
+    [headerIndex + 1, false],
+  ] as const) {
+    const line = grid[index];
+    if (!line) continue;
+    const cells = line.map((c) => c.trim());
+    const count = cells.filter(Boolean).length;
+    if (count === 0 || count >= filled) continue;
+    if (!cells.every((c, i) => !c || (!header[i]?.trim() && headingWords(c)))) continue;
+    parts.push({ cells, above });
+    folded.push(index);
+  }
+  if (parts.length === 0) return { headers: header, folded: [] };
+
+  const before = parts.find((p) => p.above)?.cells;
+  const after = parts.find((p) => !p.above)?.cells;
+  const headers = header.map((cell, i) => [before?.[i] ?? "", cell.trim(), after?.[i] ?? ""].filter(Boolean).join(" "));
+  return { headers, folded };
+}
+
+/**
  * Maps each source column to a rundown target. The title goes to the
  * STRONGEST candidate — "ITEM" is a row-number column on many real sheets, so
  * it only wins when nothing better (ACTION, ACTIVITY, TITLE…) exists; losing
@@ -1396,8 +1447,13 @@ export function planImport(
   // Found on the RAW grid, before wrapped rows are merged: that is the only
   // point where a line still matches its own page and y one-for-one.
   const runningHeaders = opts.lineMeta ? detectRunningHeaders(grid, opts.lineMeta) : [];
-  const headers = grid[headerIndex] ?? [];
-  const dataRows = grid.slice(headerIndex + 1);
+  const { headers, folded } = foldWrappedHeader(grid, headerIndex);
+  // A line folded into the heading is part of it, not the first row of the
+  // sheet. Blanking it in place rather than removing it keeps every later line
+  // at the index `lineMeta` and `rowLines` measured it at.
+  const readGrid =
+    folded.length === 0 ? grid : grid.map((row, i) => (folded.includes(i) ? row.map(() => "") : row));
+  const dataRows = readGrid.slice(headerIndex + 1);
   // A data sample lets untitled columns be identified by their contents.
   // The WHOLE sheet, not a sample: an untitled column is identified by what it
   // contains, and "contains nothing" drops it. A column whose data starts on
@@ -1495,8 +1551,8 @@ export function planImport(
     });
   }
   const finalGrid = opts.mergeWrapped
-    ? mergeWrappedRows(grid, headerIndex, opts.lineMeta, opts.rowLines, mapping)
-    : grid;
+    ? mergeWrappedRows(readGrid, headerIndex, opts.lineMeta, opts.rowLines, mapping)
+    : readGrid;
   const rows = classifySheet(finalGrid, headerIndex, mapping, opts.italicText);
   return {
     grid: finalGrid,

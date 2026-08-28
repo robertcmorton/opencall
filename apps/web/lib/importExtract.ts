@@ -360,9 +360,18 @@ async function extractPdf(buffer: ArrayBuffer, loader?: PdfjsLoader): Promise<Ex
       // AND no ruled column border separates them. A real column boundary has
       // both: a wide gap and a border.
       const GLUE_GAP = 8; // pt — wider than a word space, far narrower than a column gap
+      //
+      // Read the line LEFT TO RIGHT. The grouping sort above is by y (descending)
+      // and only falls through to x when two baselines are bit-identical — which
+      // they are not: columns set at different font sizes sit fractions of a point
+      // apart, so a line arrives in baseline order, not reading order. The glue
+      // test below then measures a NEGATIVE gap when the next run is further left,
+      // and a negative number is less than GLUE_GAP, so an ITEM number two hundred
+      // points away welds itself onto the end of whatever cell came before it.
+      const ordered = [...line].sort((a, b) => a.x - b.x);
       let prevEnd: number | null = null;
       let prevBand = 0;
-      for (const run of line) {
+      for (const run of ordered) {
         const gapStart: number | null = prevEnd;
         const touching: boolean =
           gapStart != null && run.x - gapStart < GLUE_GAP && !columnEdges.some((edge) => edge > gapStart && edge <= run.x);

@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Values from one column no longer arrive welded onto the end of a neighbouring cell.** A PDF hands over its text as separately positioned pieces, and the reader was ordering each line of them by the height they sit at rather than by how far across the page they are. Columns set at different type sizes sit fractions of a point apart, so a line arrived in a jumbled order — and the rule that decides whether two pieces belong to the same cell measures the space between them, which came out *negative* when the next piece was further to the left. A negative space is a small space, so the rule said "same cell" and glued them together. An item number two hundred points away ended up on the end of a time of day, a duration ended up on the end of a title, and a start time on the end of a caption. On one match-day sheet this hit 251 cells: twelve of them were times and durations, which the import screen at least flagged as unreadable, and the rest were text, which it had no way to question — so a run sheet imported at more than twice its true length, with 593 rows where the sheet has 259 and every count and column shifted. Lines are now read left to right, as they are written.
+
+  Across the sample sheets this takes two more of them to a clean import, removes every unreadable cell on the worst one, and drops the timing warnings on nine others. It also surfaces two warnings that were being swallowed rather than invented — where a source sheet's own duration and its next fixed start genuinely disagree, the duration used to disappear into the item's title and take the discrepancy with it.
+
 ### Changed
 - **Each unreadable cell on the import screen sits in its own box, and is named by its own words.** A dozen of them ran together separated by nothing but a line break, when the one thing to do there is take each in turn. They were also labelled "Row 26" on a sheet that carries no row numbers — an index into what the app extracted, naming nothing the reader could point at on their own document. The row's own text comes first now, and a number is shown only when the sheet actually has one.
 

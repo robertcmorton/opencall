@@ -259,6 +259,51 @@ export function foldWrappedHeader(grid: string[][], headerIndex: number): { head
 }
 
 /**
+ * Splits a heading that arrived as one piece of text covering two columns.
+ *
+ * A PDF does not hand over cells, it hands over runs of text, and a narrow
+ * DURATION column butted against ACTIVITY can be emitted as the single run
+ * "DURATION ACTIVITY". It is placed in one column and the other is left with
+ * no heading at all — so on a sheet whose durations are perfectly readable,
+ * nothing is mapped to duration and the whole run sheet imports with no
+ * lengths and a total of zero. The title then falls to whatever is left,
+ * which on that sheet was the item-number column.
+ *
+ * Only split where the sheet is unambiguous: the cell must be exactly two
+ * known headings side by side, and the column that would receive the second
+ * must have no heading of its own to lose.
+ */
+export function splitRunTogetherHeadings(headers: string[]): string[] {
+  const known = (h: string): boolean =>
+    TITLE_HEADERS.includes(h) ||
+    START_HEADERS.includes(h) ||
+    DURATION_HEADERS.includes(h) ||
+    TYPE_HEADERS.includes(h) ||
+    NUMBER_HEADERS.includes(h) ||
+    DEFAULT_TITLE_TO_KEY.has(h) ||
+    DEPARTMENT_DETECTION_HEADERS.includes(h);
+
+  const out = [...headers];
+  for (let i = 0; i < out.length - 1; i++) {
+    if ((out[i + 1] ?? "").trim()) continue; // the neighbour has its own name
+    const words = normalizeHeader(out[i] ?? "").split(" ").filter(Boolean);
+    if (words.length < 2) continue;
+    for (let cut = 1; cut < words.length; cut++) {
+      const left = words.slice(0, cut).join(" ");
+      const right = words.slice(cut).join(" ");
+      if (!known(left) || !known(right)) continue;
+      // Keep the sheet's own spelling, not the normalised one — every titled
+      // column carries its heading through verbatim.
+      const raw = (out[i] ?? "").trim().split(/\s+/);
+      out[i] = raw.slice(0, cut).join(" ");
+      out[i + 1] = raw.slice(cut).join(" ");
+      break;
+    }
+  }
+  return out;
+}
+
+/**
  * Maps each source column to a rundown target. The title goes to the
  * STRONGEST candidate — "ITEM" is a row-number column on many real sheets, so
  * it only wins when nothing better (ACTION, ACTIVITY, TITLE…) exists; losing
@@ -1136,6 +1181,48 @@ export function detectNumberColumn(grid: string[][], headerIndex: number): numbe
   return best;
 }
 
+/**
+ * Where the sheet's own rows really start, when its header is printed part-way
+ * down the first page.
+ *
+ * Some run sheets open with a block of build-up — content check, production
+ * meeting, comms, rehearsals — and only rule in the ITEM/TIME/DURATION heading
+ * once the doors are about to open. The heading then repeats at the top of
+ * every later page, so it is a perfectly good heading; it simply is not the
+ * first line of the table. Everything above it was being discarded as title
+ * matter, which on one sheet silently removed its first ten items and moved
+ * the show's start three hours later.
+ *
+ * The test is that the numbering runs straight through: the numbers above the
+ * heading must ascend, and the first number below it must be the next one
+ * along. Ten items numbered 1…10 above a heading followed by 11 is a heading
+ * printed late. Anything else is a coincidence of digits and is left alone.
+ *
+ * Returns the index the table actually starts at, or `headerIndex` unchanged.
+ */
+export function reclaimRowsAboveHeader(grid: string[][], headerIndex: number, numberCol: number | null): number {
+  if (numberCol == null || headerIndex === 0) return headerIndex;
+  const intAt = (i: number): number | null => {
+    const v = (grid[i]?.[numberCol] ?? "").trim();
+    return ITEM_NUMBER.test(v) && /^\d+$/.test(v) ? Number(v) : null;
+  };
+
+  const above: { index: number; n: number }[] = [];
+  for (let i = 0; i < headerIndex; i++) {
+    const n = intAt(i);
+    if (n != null) above.push({ index: i, n });
+  }
+  // Three is the fewest that can show a run rather than an accident.
+  if (above.length < 3) return headerIndex;
+  for (let i = 1; i < above.length; i++) if (above[i]!.n !== above[i - 1]!.n + 1) return headerIndex;
+
+  let firstBelow: number | null = null;
+  for (let i = headerIndex + 1; i < grid.length && firstBelow == null; i++) firstBelow = intAt(i);
+  if (firstBelow == null || firstBelow !== above[above.length - 1]!.n + 1) return headerIndex;
+
+  return above[0]!.index;
+}
+
 /** Page/vertical position of each extracted grid line (from the PDF extractor). */
 export interface LineMeta {
   page: number;
@@ -1179,22 +1266,68 @@ export function detectRunningHeaders(
   // furniture by definition.
   if (pages.size < minPages) return [];
 
-  const byKey = new Map<string, { text: string; pages: Set<number> }>();
+  // A footer usually carries the PAGE NUMBER, so its text is different on
+  // every page — "… NOT FOR EXTERNAL DISTRIBUTION 1", then 2, then 3. Matched
+  // literally it never repeats, so the one line printed on all twenty-six
+  // pages was the one thing the detector could not see, and it arrived in the
+  // sheet as content: a production company's name inside a cue.
+  //
+  // Numbers are therefore ignored when deciding what repeats — but only for
+  // the decision. Every distinct line in a group that qualifies is returned as
+  // it was actually printed, so the callers still match whole lines and no
+  // real cue is dropped by a near-miss.
+  // Only the PAGE NUMBER is ignored — a number is blanked solely where its
+  // value is the number of the page it is printed on. Ignoring digits in
+  // general is not safe: a team list repeats "Front Row" against jersey 8 on
+  // one page and jersey 10 on another, and blanking those made three pages of
+  // squad look like one line printed three times. That deleted ten live cues
+  // off a run sheet when this was first written the loose way. A jersey number
+  // has nothing to do with the page it lands on; a page number is the page.
+  // Only the FIRST match is blanked: a line carries one page number. "Page 6
+  // of 6" on the sixth page would otherwise have both of its numbers blanked
+  // and stop matching "Page 1 of 6", so the last page's footer — and only the
+  // last page's — would escape.
+  const digitsOut = (text: string, page: number): string => {
+    let done = false;
+    return text.replace(/\d+/g, (n) => {
+      if (done || (Number(n) !== page && Number(n) !== page + 1)) return n;
+      done = true;
+      return "\u0002";
+    });
+  };
+  const byKey = new Map<string, { texts: Set<string>; perPage: Map<number, number> }>();
   grid.forEach((row, i) => {
     const meta = lineMeta[i];
     if (!meta) return;
     const text = row.map((c) => (c ?? "").trim()).filter(Boolean).join(" ").trim();
     if (!text) return;
     const band = Math.round(meta.y / tolerance);
-    const key = `${band}\u0000${text}`;
-    const hit = byKey.get(key) ?? { text, pages: new Set<number>() };
-    hit.pages.add(meta.page);
+    const key = `${band}\u0000${digitsOut(text, meta.page)}`;
+    const hit = byKey.get(key) ?? { texts: new Set<string>(), perPage: new Map<number, number>() };
+    hit.texts.add(text);
+    hit.perPage.set(meta.page, (hit.perPage.get(meta.page) ?? 0) + 1);
     byKey.set(key, hit);
   });
 
   const out: string[] = [];
-  for (const { text, pages: seen } of byKey.values())
-    if (seen.size >= minPages && !out.includes(text)) out.push(text);
+  for (const { texts, perPage } of byKey.values()) {
+    if (perPage.size < minPages) continue;
+    // Where the text is identical on every page this is the original test,
+    // unchanged. A group that only came together because a page number was
+    // ignored has two further conditions, and both are about not handing the
+    // callers a string that matches something else:
+    //   · once per page — a page number is printed once; a squad position is
+    //     printed against every player;
+    //   · something other than the number itself. A footer that is nothing BUT
+    //     the page number returns as "1", "2", "3" … and a caller matching
+    //     whole lines against those will drop any line that is only a number —
+    //     which on a run sheet is a jersey number, and cost ten of them.
+    if (texts.size > 1) {
+      if ([...perPage.values()].some((n) => n > 1)) continue;
+      if (!/[A-Za-z]/.test([...texts][0] ?? "")) continue;
+    }
+    for (const text of texts) if (!out.includes(text)) out.push(text);
+  }
   return out;
 }
 
@@ -1222,6 +1355,8 @@ export function mergeWrappedRows(
   lineMeta?: LineMeta[],
   rowLines?: RowLines[],
   mapping?: ColumnTarget[],
+  /** Lines `detectRunningHeaders` identified as page furniture, printed verbatim. */
+  furniture?: string[],
 ): string[][] {
   const headerRow = grid[headerIndex] ?? [];
   const dataRows = grid.slice(headerIndex + 1);
@@ -1236,6 +1371,20 @@ export function mergeWrappedRows(
   // would otherwise be absorbed as continuation lines of whatever row happens
   // to precede a page break — dragging a page's masthead into a cue title.
   // Identified by repetition: the same text on three or more pages.
+  //
+  // The page NUMBER is part of the footer, so the line reads differently on
+  // every page and matching it literally finds nothing. Numbers are ignored
+  // when deciding what repeats; the guard above — never furniture if the line
+  // is numbered or timed — is what keeps a real cue safe.
+  // Identified by repetition: the same text on three or more pages. Matched
+  // LITERALLY here — this test has no idea where on the page a line sits, so
+  // loosening it is how a team list ("Front Row" against jersey 8 on one page
+  // and 10 on another) starts looking like one line printed three times.
+  //
+  // A footer carrying the page number never repeats literally, so it cannot be
+  // caught here at all. That is what `furniture` is for: `detectRunningHeaders`
+  // knows each line's height on the page and can afford to ignore a page
+  // number, because it also demands the same height every time.
   const pagesOfText = new Map<string, Set<number>>();
   if (lineMeta) {
     for (let i = headerIndex + 1; i < grid.length; i++) {
@@ -1251,7 +1400,17 @@ export function mergeWrappedRows(
       pagesOfText.set(text, seen);
     }
   }
-  const isFurniture = (i: number): boolean => (pagesOfText.get(grid[i]!.join("|").trim())?.size ?? 0) >= 3;
+  const known = new Set(furniture ?? []);
+  const isFurniture = (i: number): boolean => {
+    const row = grid[i]!;
+    if ((pagesOfText.get(row.join("|").trim())?.size ?? 0) >= 3) return true;
+    if (known.size === 0) return false;
+    // `detectRunningHeaders` joins a line's cells with a space; match it the
+    // same way, and never drop a line that carries an item number or a time.
+    if (ITEM_NUMBER.test((row[groupCol] ?? "").trim())) return false;
+    if (row.some((v) => parseTimeLoose(v) != null || parseDurationLoose(v) != null)) return false;
+    return known.has(row.map((c) => (c ?? "").trim()).filter(Boolean).join(" ").trim());
+  };
 
   // Data lines in order, page headers repeated by pagination dropped.
   const lineIdxs: number[] = [];
@@ -1443,16 +1602,38 @@ export function planImport(
   /** Lines the PDF prints on every page — see `detectRunningHeaders`. */
   runningHeaders: string[];
 } {
-  const headerIndex = opts.headerIndex ?? detectHeaderRow(grid);
+  let headerIndex = opts.headerIndex ?? detectHeaderRow(grid);
   // Found on the RAW grid, before wrapped rows are merged: that is the only
   // point where a line still matches its own page and y one-for-one.
   const runningHeaders = opts.lineMeta ? detectRunningHeaders(grid, opts.lineMeta) : [];
-  const { headers, folded } = foldWrappedHeader(grid, headerIndex);
+  const folding = foldWrappedHeader(grid, headerIndex);
+  const folded = folding.folded;
+  const headers = splitRunTogetherHeadings(folding.headers);
   // A line folded into the heading is part of it, not the first row of the
   // sheet. Blanking it in place rather than removing it keeps every later line
   // at the index `lineMeta` and `rowLines` measured it at.
-  const readGrid =
+  let readGrid =
     folded.length === 0 ? grid : grid.map((row, i) => (folded.includes(i) ? row.map(() => "") : row));
+
+  // A heading printed part-way down page one has the sheet's first items ABOVE
+  // it. Lift the heading to the top of that block rather than throwing them
+  // away — a permutation, so `lineMeta` moves with it and every line keeps the
+  // page and y it was measured at.
+  let lineMeta = opts.lineMeta;
+  {
+    const startsAt = reclaimRowsAboveHeader(readGrid, headerIndex, detectNumberColumn(readGrid, headerIndex));
+    if (startsAt < headerIndex) {
+      const lift = <T,>(arr: T[]): T[] => [
+        ...arr.slice(0, startsAt),
+        arr[headerIndex]!,
+        ...arr.slice(startsAt, headerIndex),
+        ...arr.slice(headerIndex + 1),
+      ];
+      readGrid = lift(readGrid);
+      if (lineMeta) lineMeta = lift(lineMeta);
+      headerIndex = startsAt;
+    }
+  }
   const dataRows = readGrid.slice(headerIndex + 1);
   // A data sample lets untitled columns be identified by their contents.
   // The WHOLE sheet, not a sample: an untitled column is identified by what it
@@ -1480,6 +1661,17 @@ export function planImport(
     // target is excluded from the other. Reading order does the rest — the
     // time band always sits nearer the TIME header than the duration band.
     const claimed = new Set<number>();
+    // Rows that open an item. On a sheet where each item spans several printed
+    // lines — a WHO column listing AUDIO, then GFX, then GA — only the first
+    // line of each item carries the activity, so measuring the title column
+    // against EVERY line makes a perfectly good column look two-thirds empty.
+    // It was then "rescued" onto the notes column beside it and the two were
+    // imported as one, so every cue read "GATES OPEN Control Room - TVC's,
+    // graphics. SET DJ on south end bay 5". Judge the title column by the rows
+    // that are actually item rows.
+    const numberCol = detectNumberColumn(readGrid, headerIndex);
+    const itemRows = numberCol == null ? [] : dataRows.filter((r) => ITEM_NUMBER.test((r[numberCol] ?? "").trim()));
+
     const rescue = (
       kind: "title" | "start" | "duration",
       parses: ((v: string) => boolean) | undefined,
@@ -1489,6 +1681,11 @@ export function planImport(
       if (at < 0) return;
       const declared = coverage(at, parses);
       if (declared / dataRows.length >= 0.3) return; // the declared column works
+      // …and it also works when it is filled in on the item rows themselves.
+      if (kind === "title" && itemRows.length >= 10) {
+        const onItems = itemRows.filter((r) => (r[at] ?? "").trim()).length;
+        if (onItems / itemRows.length >= 0.6) return;
+      }
       const penalty = Math.max(1, dataRows.length * 0.08);
       let bestCol = -1;
       let bestScore = -Infinity;
@@ -1551,7 +1748,7 @@ export function planImport(
     });
   }
   const finalGrid = opts.mergeWrapped
-    ? mergeWrappedRows(readGrid, headerIndex, opts.lineMeta, opts.rowLines, mapping)
+    ? mergeWrappedRows(readGrid, headerIndex, lineMeta, opts.rowLines, mapping, runningHeaders)
     : readGrid;
   const rows = classifySheet(finalGrid, headerIndex, mapping, opts.italicText);
   return {

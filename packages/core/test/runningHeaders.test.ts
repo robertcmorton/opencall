@@ -32,13 +32,55 @@ describe("detectRunningHeaders", () => {
     expect(found).toContain("Confidential — not for distribution");
   });
 
-  // Deliberate under-detection. Matching is on exact text, so a footer whose
-  // page number changes escapes. Loosening it to ignore digits would catch
-  // these — and would also start matching rows that differ only by a number,
-  // which on a run sheet is a whole class of real cue. One stray page number
-  // per page is a cheaper mistake than one lost cue.
-  it("lets a numbered footer through rather than risk matching by shape", () => {
-    expect(found.some((t) => t.startsWith("Page "))).toBe(false);
+  // This used to be deliberate under-detection: matching was on exact text, so
+  // a footer carrying its page number never repeated and always escaped. The
+  // reasoning was that ignoring digits would also start matching rows that
+  // differ only by a number, which on a run sheet is a whole class of real cue
+  // — one stray footer per page being cheaper than one lost cue.
+  //
+  // Both halves of that turned out to be true, and the footer half was worse
+  // than it reads: the escaped line is not left sitting on its own, it gets
+  // absorbed into whatever cue precedes the page break, so a production
+  // company's name and "NOT FOR EXTERNAL DISTRIBUTION 12" arrive INSIDE a cue.
+  // It is now matched — but by page number specifically, never by shape. The
+  // three tests below are the ones that keep the old warning true.
+  it("finds a footer that carries its page number", () => {
+    expect(found).toContain("Page 1 of 6");
+    expect(found).toContain("Page 6 of 6");
+  });
+
+  // The failure the old comment predicted, reproduced: a team list prints the
+  // same position against different jersey numbers, and blanking digits made
+  // those look like one line printed over and over. Measured on a real run
+  // sheet, the loose version deleted ten live cues. A page number is printed
+  // once on its page; a squad position is printed against every player, so
+  // more than one on a page is never a page number.
+  it("does NOT mistake a team list for a numbered footer", () => {
+    const grid: string[][] = [];
+    const meta: LineMeta[] = [];
+    for (let page = 0; page < 6; page++) {
+      // Two props on every page — jersey 8 and jersey 10, same position.
+      grid.push([String(page + 1), "Front Row"]);
+      meta.push({ page, y: 300 });
+      grid.push([String(page + 1), "Front Row"]);
+      meta.push({ page, y: 300 });
+    }
+    expect(detectRunningHeaders(grid, meta)).toEqual([]);
+  });
+
+  // A footer that is NOTHING but the page number would come back as the
+  // strings "1", "2", "3"… and a caller matching whole lines against those
+  // drops any line that is only a number — a jersey number, a cue number, a
+  // score. Nothing is returned unless what is left after the page number has
+  // letters in it.
+  it("never returns a bare page number as furniture", () => {
+    const grid: string[][] = [];
+    const meta: LineMeta[] = [];
+    for (let page = 0; page < 6; page++) {
+      grid.push([String(page + 1)]);
+      meta.push({ page, y: 26 });
+    }
+    expect(detectRunningHeaders(grid, meta)).toEqual([]);
   });
 
   // The whole reason this function exists rather than a repetition count.

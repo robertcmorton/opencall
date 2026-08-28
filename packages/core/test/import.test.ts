@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultViewColumns } from "../src/eventTypes";
-import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, foldWrappedHeader, mapColumns, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
+import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, foldWrappedHeader, mapColumns, reclaimRowsAboveHeader, splitRunTogetherHeadings, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
   it("parses worded durations", () => {
@@ -885,5 +885,123 @@ describe("foldWrappedHeader", () => {
     // The line folded from below is heading, not the sheet's first cue.
     expect(plan.rows.map((r) => r.title)).not.toContain("DAY");
     expect(plan.rows.filter((r) => r.title === "Crew onsite")).toHaveLength(1);
+  });
+});
+
+describe("splitRunTogetherHeadings", () => {
+  // A PDF hands over runs of text, not cells. A narrow DURATION column butted
+  // against ACTIVITY comes out as the single run "DURATION ACTIVITY", which
+  // lands in one column and leaves the other unnamed — so nothing maps to
+  // duration and a sheet full of readable lengths imports with none.
+  it("splits two headings that arrived as one run", () => {
+    expect(splitRunTogetherHeadings(["ITEM", "TIME", "DURATION ACTIVITY", "", "WHO"])).toEqual([
+      "ITEM",
+      "TIME",
+      "DURATION",
+      "ACTIVITY",
+      "WHO",
+    ]);
+  });
+
+  it("keeps the sheet's own spelling, not a normalised one", () => {
+    expect(splitRunTogetherHeadings(["Dur Activity", ""])).toEqual(["Dur", "Activity"]);
+  });
+
+  it("will not split when the next column has a heading to lose", () => {
+    const headers = ["DURATION ACTIVITY", "WHO"];
+    expect(splitRunTogetherHeadings(headers)).toEqual(headers);
+  });
+
+  // The guard that matters: most two-word headings are ONE heading. Splitting
+  // "TIME OF DAY" or a sheet's "RUN TIME" would invent a column and unname a
+  // real one, so both halves have to be headings in their own right.
+  it("leaves an ordinary two-word heading alone", () => {
+    expect(splitRunTogetherHeadings(["TIME OF DAY", ""])).toEqual(["TIME OF DAY", ""]);
+    expect(splitRunTogetherHeadings(["RUN TIME", ""])).toEqual(["RUN TIME", ""]);
+    expect(splitRunTogetherHeadings(["LED KEY MOMENTS", ""])).toEqual(["LED KEY MOMENTS", ""]);
+  });
+
+  it("gives the split column its duration mapping back", () => {
+    const grid = [
+      ["ITEM", "TIME", "DURATION ACTIVITY", "", "WHO"],
+      ["1", "11:30:00AM", "90:00", "CONTENT CHECK", "CREW"],
+      ["2", "1:00:00PM", "45:00", "PRODUCTION MEETING", "CREW"],
+      ["3", "1:45:00PM", "15:00", "TECH CHECK", "CREW"],
+    ];
+    const plan = planImport(grid, { headerIndex: 0 });
+    expect(plan.mapping[2]).toEqual({ kind: "duration" });
+    expect(plan.mapping[3]).toEqual({ kind: "title" });
+    expect(plan.rows.map((r) => r.durationSec)).toEqual([5400, 2700, 900]);
+    expect(plan.rows.map((r) => r.title)).toEqual(["CONTENT CHECK", "PRODUCTION MEETING", "TECH CHECK"]);
+  });
+});
+
+describe("reclaimRowsAboveHeader", () => {
+  // Some run sheets open with a block of build-up and only rule in the column
+  // heading once the doors are about to open. Everything above it was being
+  // thrown away as title matter — on a real sheet that silently removed its
+  // first ten items and moved the show's start three hours later.
+  // Six numbered rows below the heading, because the numbering column is only
+  // credible once it has a run of them — a three-row fixture proves nothing a
+  // real sheet would hit.
+  const late = [
+    ["", "", "MATCH DAY RUN SHEET"],
+    ["1", "11:30AM", "CONTENT CHECK"],
+    ["2", "1:00PM", "PRODUCTION MEETING"],
+    ["3", "1:45PM", "TECH CHECK"],
+    ["ITEM", "TIME", "ACTIVITY"],
+    ["4", "2:45PM", "GATES OPEN"],
+    ["5", "2:53PM", "VTR | BURI BURI"],
+    ["6", "2:56PM", "GA - WELCOME"],
+    ["7", "2:57PM", "INTRO COIN TOSS"],
+    ["8", "2:59PM", "INTRO FOOTY TALK"],
+    ["9", "3:02PM", "VTR | 50 GAMES"],
+  ];
+
+  it("finds where the table really starts", () => {
+    expect(reclaimRowsAboveHeader(late, 4, 0)).toBe(1);
+  });
+
+  it("keeps the rows it reclaimed, heading and all", () => {
+    const plan = planImport(late, { headerIndex: 4 });
+    expect(plan.rows.map((r) => r.title).slice(0, 5)).toEqual([
+      "CONTENT CHECK",
+      "PRODUCTION MEETING",
+      "TECH CHECK",
+      "GATES OPEN",
+      "VTR | BURI BURI",
+    ]);
+    expect(plan.rows).toHaveLength(9);
+  });
+
+  // The numbering has to run straight THROUGH the heading. Without that test
+  // any sheet with a few stray numbers above its header would have its title
+  // block dragged in as cues.
+  it("refuses when the numbering does not continue past the heading", () => {
+    const broken = late.map((r) => [...r]);
+    broken[5]![0] = "9"; // the sheet resumes at 9, not 4
+    broken[6]![0] = "10";
+    expect(reclaimRowsAboveHeader(broken, 4, 0)).toBe(4);
+  });
+
+  it("refuses when the numbers above do not ascend", () => {
+    const jumbled = late.map((r) => [...r]);
+    jumbled[2]![0] = "7";
+    expect(reclaimRowsAboveHeader(jumbled, 4, 0)).toBe(4);
+  });
+
+  it("refuses on too few numbered lines to show a run", () => {
+    const two = late.map((r) => [...r]);
+    two[1] = ["", "", ""]; // only two numbered lines left above the heading
+    expect(reclaimRowsAboveHeader(two, 4, 0)).toBe(4);
+  });
+
+  it("does nothing without a numbering column", () => {
+    expect(reclaimRowsAboveHeader(late, 4, null)).toBe(4);
+  });
+
+  it("leaves an ordinary sheet where its heading already is", () => {
+    const normal = [["ITEM", "TIME", "ACTIVITY"], ["1", "1:00PM", "A"], ["2", "2:00PM", "B"], ["3", "3:00PM", "C"]];
+    expect(reclaimRowsAboveHeader(normal, 0, 0)).toBe(0);
   });
 });

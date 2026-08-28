@@ -3613,3 +3613,19 @@ th.col-drop-target {
   color: var(--text-2);
   white-space: nowrap;
 }
+
+/* One unparsed cell, in its own box.
+   A dozen of these ran together separated by nothing but a line break, and the
+   one thing the reader has to do here is take each in turn — so each is given
+   an edge to be taken in turn within. Quiet: the panel around them is already
+   the warning, and twelve loud boxes would be a wall of alarm rather than a
+   list of decisions. */
+.cell-issue {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--raised);
+}

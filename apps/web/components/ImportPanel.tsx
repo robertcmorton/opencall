@@ -93,21 +93,36 @@ interface CellIssue {
 function IssueFixRow({
   issue,
   onApply,
+  sheetIsNumbered,
   onKeep,
 }: {
   issue: CellIssue;
+  /** Does the SOURCE sheet number its own rows? See the note by the title. */
+  sheetIsNumbered: boolean;
   onApply: (issue: CellIssue, value: string) => void;
   onKeep: () => void;
 }) {
   const [value, setValue] = useState(issue.suggestion ?? "");
   const parses = issue.kind === "start" ? parseTimeLoose(value) != null : parseDurationLoose(value) != null;
   return (
-    <div style={{ display: "grid", gap: 3, fontSize: "var(--fs-sm)" }}>
+    /* One box per cell, so twelve of them read as twelve things to decide
+       rather than a wall. They were separated by nothing but a line break and
+       ran together — and the one thing a reader has to do here is take each in
+       turn. */
+    <div className="cell-issue">
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      <span style={{ color: "var(--text-3)", minWidth: 52 }}>Row {issue.rowNumber}</span>
-      <span style={{ minWidth: 120, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {issue.title || "—"}
+      {/* The row's own words first, and its number only if the sheet HAS
+          numbers. This said "Row 26" about a sheet with no numbering in it,
+          which is the app's own index into what it extracted — a number the
+          reader cannot find anywhere on their own document. Where the sheet
+          numbers its rows the number is worth having; where it does not, the
+          title is the only thing that identifies the row to a human. */}
+      <span style={{ fontWeight: 600, minWidth: 120, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {issue.title || (sheetIsNumbered ? `Row ${issue.rowNumber}` : "untitled row")}
       </span>
+      {sheetIsNumbered && issue.title ? (
+        <span style={{ color: "var(--text-3)" }}>row {issue.rowNumber}</span>
+      ) : null}
       <span className="chip">{issue.kind === "start" ? "START" : "DURATION"}</span>
       <code style={{ color: "var(--over)", background: "var(--over-soft)", padding: "2px 6px", borderRadius: 4 }}>{issue.raw}</code>
       <span style={{ color: "var(--text-3)" }}>→</span>
@@ -129,10 +144,10 @@ function IssueFixRow({
         Keep as is
       </button>
     </div>
-    <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", paddingLeft: 52 }}>
+    <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
       {issue.anchorBefore
-        ? `sits after row ${issue.anchorBefore.rowNumber} “${issue.anchorBefore.title.slice(0, 34)}” at ${issue.anchorBefore.time}`
-        : "sits before the first timed row"}
+        ? `after “${issue.anchorBefore.title.slice(0, 34)}” at ${issue.anchorBefore.time}`
+        : "before the first timed row"}
       <details style={{ display: "inline-block", marginLeft: 10 }}>
         <summary style={{ cursor: "pointer", display: "inline" }}>surrounding rows</summary>
         <table style={{ margin: "4px 0 2px", borderCollapse: "collapse" }}>
@@ -475,6 +490,17 @@ export function ImportPanel({
    * window, so it always reaches the edge and never overshoots it. Recomputed
    * on resize and whenever the panel's contents move it up or down.
    */
+  /**
+   * Does the SOURCE sheet number its own rows?
+   *
+   * Only then is "row 26" a thing the reader can find on their own document.
+   * Without it the number is this app's index into what it extracted, which
+   * names nothing they can point at.
+   */
+  const sheetIsNumbered = useMemo(
+    () => headers.some((h) => /^(row|no\.?|#|item)\s*$/i.test((h ?? "").trim())),
+    [headers],
+  );
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewMax, setPreviewMax] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -668,7 +694,13 @@ export function ImportPanel({
               </strong>
               <div style={{ display: "grid", gap: 8, maxHeight: "38vh", overflow: "auto" }}>
                 {issues.map((issue) => (
-                  <IssueFixRow key={issue.key} issue={issue} onApply={applyFix} onKeep={() => setDismissed(new Set([...dismissed, issue.key]))} />
+                  <IssueFixRow
+                    key={issue.key}
+                    issue={issue}
+                    sheetIsNumbered={sheetIsNumbered}
+                    onApply={applyFix}
+                    onKeep={() => setDismissed(new Set([...dismissed, issue.key]))}
+                  />
                 ))}
               </div>
             </div>

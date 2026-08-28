@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Each unreadable cell on the import screen sits in its own box, and is named by its own words.** A dozen of them ran together separated by nothing but a line break, when the one thing to do there is take each in turn. They were also labelled "Row 26" on a sheet that carries no row numbers — an index into what the app extracted, naming nothing the reader could point at on their own document. The row's own text comes first now, and a number is shown only when the sheet actually has one.
+
 - **Rows are struck rather than deleted once a show is on.** Deleting a row mid-show takes its as-run history with it — what was cued, when, and for how long — so afterwards nobody can explain what happened, because the evidence went with the row. Delete is withheld while the show is running and the reason is said where the button was; striking leaves the row on the sheet, visibly struck and out of the timing, which is what dropping an item actually means at a quarter to nine.
 - **Clicking a row during a walkthrough goes there.** Prev and Next were the only way, so reaching a row meant walking past every row before it — fine for stepping through with the crew, useless when somebody asks to go back to the anthem. Only once a walkthrough is running: the highlight is shared with every screen watching it, and selecting rows before the doors open should not drag the crew's place around behind you.
 

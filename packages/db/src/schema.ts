@@ -413,3 +413,45 @@ export const userRundownPrefs = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.rundownId] })],
 );
+
+// ── Notes raised on a row ─────────────────────────────────────────────────────
+
+/**
+ * A hand raised against one row, by whoever is watching the sheet.
+ *
+ * Crew spot things the showcaller cannot: a camera with no shot of the thing
+ * that row describes, a caption spelled wrong, a presenter who has walked off.
+ * Until now they had a radio and nothing else, and a radio call arrives while
+ * the showcaller is calling something else.
+ *
+ * Deliberately NOT comments. A comment thread is read at leisure; this is read
+ * at 8:47 by somebody with one hand free. So it is small and it is a SIGNAL —
+ * who raised it, on which row, and a line if they had time to type one. The
+ * tap alone says most of it: "camera 2 has a problem with this row".
+ *
+ * Kept here rather than in the run sheet's document because the people who most
+ * need to raise one are on view-only links and cannot write to it. The document
+ * is the sheet; this is a message about the sheet, and the two should not be
+ * confused — a note has never changed what goes to air.
+ *
+ * Resolved rather than deleted: the row it was raised against is often the
+ * interesting part of a debrief, and "this was queried at the time" is a thing
+ * worth still knowing tomorrow.
+ */
+export const rowNotes = pgTable("row_notes", {
+  id: id().primaryKey(),
+  rundownId: text("rundown_id")
+    .notNull()
+    .references(() => rundowns.id, { onDelete: "cascade" }),
+  /** The row as the document knows it. Not a foreign key: rows live in the
+   *  CRDT, and a note outliving a deleted row is better than losing both. */
+  rowId: text("row_id").notNull(),
+  at: createdAt(),
+  /** Who raised it, as they told the sheet — the same self-declared name and
+   *  role the viewer list already shows. Neither is a credential. */
+  byName: text("by_name"),
+  byRole: text("by_role"),
+  /** Optional: the tap is the message, the line is the detail. */
+  body: text("body"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});

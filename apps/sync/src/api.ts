@@ -1863,6 +1863,105 @@ export function createApiHandler(
        * updated on return rather than appended, so what a showcaller reads is
        * a list of people rather than a log of page loads.
        */
+      /**
+       * A hand raised against one row, by whoever is watching.
+       *
+       * Authenticated by the JOIN CODE, exactly like the viewer record above,
+       * because the people this exists for are on view-only links: a camera
+       * operator has no account and no business having one. Holding the link
+       * is the permission, which is the same bargain the rest of the link
+       * makes — it lets you see the sheet, and now it lets you say one thing
+       * about a row of it.
+       *
+       * What it CANNOT do is change the sheet. A note is a message about the
+       * running order, never part of it, and nothing here touches the document
+       * that goes to air.
+       */
+      if (req.method === "POST" && /^\/codes\/[^/]+\/notes$/.test(pathname)) {
+        const code = pathname.split("/")[2]!;
+        const resolved = await resolveJoinCode(handle, code);
+        if (!resolved) {
+          json(res, 404, { error: "unknown code" });
+          return true;
+        }
+        const body = await readJson(req);
+        const rowId = typeof body.rowId === "string" ? body.rowId.trim() : "";
+        if (!rowId) {
+          json(res, 400, { error: "rowId is required" });
+          return true;
+        }
+        const trim = (v: unknown, max: number): string | null => {
+          const t = typeof v === "string" ? v.trim() : "";
+          return t ? t.slice(0, max) : null;
+        };
+        const row = {
+          id: ulid(),
+          rundownId: resolved.rundownId,
+          rowId,
+          byName: trim(body.byName, 60),
+          byRole: trim(body.byRole, 40),
+          // Capped hard: this is a line, not a paragraph. Anything longer is
+          // a conversation, and a conversation belongs on the radio.
+          body: trim(body.body, 280),
+        };
+        await db.insert(schema.rowNotes).values(row);
+        json(res, 201, { id: row.id });
+        return true;
+      }
+
+      /** Every note on a sheet, newest first. For whoever is calling it. */
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/notes$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        const ctx = await authContext(handle, req, rundownId);
+        if (!ctx) {
+          json(res, 401, { error: "access required" });
+          return true;
+        }
+        const notes = await db.query.rowNotes.findMany({
+          where: eq(schema.rowNotes.rundownId, rundownId),
+          orderBy: [desc(schema.rowNotes.at)],
+        });
+        json(
+          res,
+          200,
+          notes.map((n) => ({
+            id: n.id,
+            rowId: n.rowId,
+            at: n.at.toISOString(),
+            byName: n.byName,
+            byRole: n.byRole,
+            body: n.body,
+            resolvedAt: n.resolvedAt ? n.resolvedAt.toISOString() : null,
+          })),
+        );
+        return true;
+      }
+
+      /**
+       * Dealt with — resolved, not deleted.
+       *
+       * The row a note was raised against is often the interesting part of a
+       * debrief, and "this was queried at the time, by camera 2" is worth
+       * still knowing tomorrow. Clearing it from the caller's screen and
+       * erasing it are different things.
+       */
+      if (req.method === "POST" && /^\/notes\/[^/]+\/resolve$/.test(pathname)) {
+        const noteId = pathname.split("/")[2]!;
+        const note = await db.query.rowNotes.findFirst({ where: eq(schema.rowNotes.id, noteId) });
+        if (!note) {
+          json(res, 404, { error: "unknown note" });
+          return true;
+        }
+        const ctx = await authContext(handle, req, note.rundownId);
+        if (!ctx) {
+          json(res, 401, { error: "access required" });
+          return true;
+        }
+        await db.update(schema.rowNotes).set({ resolvedAt: new Date() }).where(eq(schema.rowNotes.id, noteId));
+        json(res, 200, { id: noteId });
+        return true;
+      }
+
       if (req.method === "POST" && /^\/codes\/[^/]+\/viewer$/.test(pathname)) {
         const code = pathname.split("/")[2]!;
         const resolved = await resolveJoinCode(handle, code);

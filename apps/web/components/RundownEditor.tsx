@@ -1844,6 +1844,12 @@ export function RundownEditor({
 
   const deleteSelected = (): void => {
     if (selected.size === 0) return;
+    // The rule lives with the ACTION, not only with the button that is
+    // currently the one way to reach it. Twice today a control turned out to
+    // have a second copy somewhere else obeying the old rule; a shortcut added
+    // here later should not be able to delete a row out of a running show
+    // because nobody remembered this.
+    if (showLive) return;
     doc.transact(() => {
       const order = yOrder.toArray();
       // Delete back-to-front so indices stay valid.
@@ -3279,9 +3285,24 @@ export function RundownEditor({
             >
               ✕
             </button>
-            <button className="btn btn-sm btn-danger" onClick={deleteSelected}>
-              Delete
-            </button>
+            {/* Not while the show is on.
+                Deleting a row mid-show takes its as-run history with it: what
+                was cued, when, and for how long. Afterwards nobody can explain
+                what happened, because the evidence went with the row. Striking
+                it leaves the row on the sheet, visibly struck, out of the
+                timing and out of the transport — which is what "we are not
+                doing that any more" actually means at 8:47. That is the Skip
+                button a few inches to the left, and it is why this one is not
+                here. */}
+            {showLive ? (
+              <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", maxWidth: 210, lineHeight: 1.35 }}>
+                Rows are struck rather than deleted once the show is on — use Skip.
+              </span>
+            ) : (
+              <button className="btn btn-sm btn-danger" onClick={deleteSelected}>
+                Delete
+              </button>
+            )}
             <button
               className="btn btn-sm btn-ghost"
               data-tip="Clear selection"
@@ -3471,7 +3492,38 @@ export function RundownEditor({
                     runsWith={runsWith.get(rowRecord.id)}
                     onNow={onNowIds.has(rowRecord.id)}
                     disabled={!canEditContent}
-                    onSelect={(e) => canEditContent && selectRow(rowRecord.id, e)}
+                    onSelect={(e) => {
+                      if (!canEditContent) return;
+                      selectRow(rowRecord.id, e);
+                      /**
+                       * Walking the sheet: click a row to go there.
+                       *
+                       * Prev and Next were the only way, so reaching a row
+                       * meant walking past every row before it — fine for
+                       * stepping through with the crew, useless when somebody
+                       * says "take us back to the anthem".
+                       *
+                       * Only once a walkthrough is ALREADY running. The
+                       * highlight is shared with every screen watching, and a
+                       * producer clicking rows to colour or skip them before
+                       * the doors open should not drag the crew's highlight
+                       * around behind them. Prev or Next starts it; after
+                       * that, clicking moves it.
+                       *
+                       * Groups are headings and skipped rows are not
+                       * happening, so neither is somewhere to stand — the same
+                       * two exclusions Prev and Next already use.
+                       */
+                      if (
+                        isShow &&
+                        !showLive &&
+                        walkRowId != null &&
+                        rowRecord.type !== "group" &&
+                        !rowRecord.skipped
+                      ) {
+                        channel.sendCmd("walk", rowRecord.id);
+                      }
+                    }}
                   >
                     {orderedColumns.map((col) => {
                       if (col.kind === "richtext") return renderRichCell(rowRecord, col);

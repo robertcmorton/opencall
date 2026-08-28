@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Rows are struck rather than deleted once a show is on.** Deleting a row mid-show takes its as-run history with it — what was cued, when, and for how long — so afterwards nobody can explain what happened, because the evidence went with the row. Delete is withheld while the show is running and the reason is said where the button was; striking leaves the row on the sheet, visibly struck and out of the timing, which is what dropping an item actually means at a quarter to nine.
+- **Clicking a row during a walkthrough goes there.** Prev and Next were the only way, so reaching a row meant walking past every row before it — fine for stepping through with the crew, useless when somebody asks to go back to the anthem. Only once a walkthrough is running: the highlight is shared with every screen watching it, and selecting rows before the doors open should not drag the crew's place around behind you.
+
 - **The timing nudges and CUE appear only once a show is running.** Every button on that strip is a live correction — take five seconds out, put fifteen back, cue this row now — and none of them mean anything to a sheet nobody is calling yet. It was showing whenever the sheet could be edited, which included the walkthrough and the editing view, where it offered to re-cue a show that had not started.
 
 - **The bar of actions for selected rows sits in the middle of the sheet.** Tucked against the left edge it covered the row numbers and the time column — the two things you read to check you have selected what you meant to. In the middle it covers a part of the row whose text has already been read. Its count no longer breaks across two lines either.

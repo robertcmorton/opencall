@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GOLDEN_HALF_SEC,
   HOLDING_SEC,
-  goldenPointBlock,
+  findDecisionPoints, goldenPointBlock,
   goldenPointDurationSec,
   shiftAnchorsAfter,
 } from "../src/index";
@@ -75,5 +75,55 @@ describe("what moves below it", () => {
 
   it("moves nothing when the block goes on the end", () => {
     expect(shiftAnchorsAfter(rows, rows.length - 1, goldenPointDurationSec())).toEqual([]);
+  });
+});
+
+describe("findDecisionPoints", () => {
+  const cue = (title: string, hardStartSec: number | null = null) => ({ title, hardStartSec });
+  const banner = (title: string) => ({ title, hardStartSec: null, type: "group" });
+
+  it("finds the siren on a sheet that only names it", () => {
+    const rows = [cue("Second half", 61200), cue("Full Time", 63120), cue("MC | Player IV and Wrap", 63180)];
+    expect(findDecisionPoints(rows)).toEqual([1]);
+  });
+
+  it("finds one per match on a double header", () => {
+    const rows = [
+      cue("NRLW second half", 58200),
+      cue("Full Time", 60720),
+      cue("NRL second half", 70200),
+      cue("Full Time", 73080),
+    ];
+    expect(findDecisionPoints(rows)).toEqual([1, 3]);
+  });
+
+  // Several production houses close a match with a full-width heading and no
+  // time of its own. Its position is the second half's printed start plus its
+  // printed length — the arithmetic the whole sheet is read by, not a guess.
+  it("accepts the banner that closes a match, printed time or not", () => {
+    const rows = [cue("NRL | BULLDOGS v STORM - SECOND HALF", 75600), banner("NRL | BULLDOGS v STORM - FULLTIME")];
+    expect(findDecisionPoints(rows)).toEqual([1]);
+  });
+
+  // The segment AFTER the siren is not the siren. Raising a chooser on it puts
+  // the question up once the moment has gone.
+  it("ignores the wrap that follows full time", () => {
+    const rows = [cue("Full Time Wrap", 63180), cue("READ 20 - Full Time Wrap", 63240), cue("Full time highlights", 63300)];
+    expect(findDecisionPoints(rows)).toEqual([]);
+  });
+
+  // An inferred time is where the app GUESSES a row falls, and a chooser is
+  // not a thing to raise on a guess. Banners are the stated exception.
+  it("ignores an ordinary row with no printed time", () => {
+    expect(findDecisionPoints([cue("Full Time", null)])).toEqual([]);
+  });
+
+  // Two mechanisms answering one question is how a sheet gets two choosers.
+  it("stands aside where the sheet tags its own endings", () => {
+    const rows = [
+      { title: "Fulltime - TIGERS WIN", hardStartSec: 63120, outcome: "win" },
+      { title: "Full Time", hardStartSec: 63120 },
+    ];
+    expect(findDecisionPoints(rows)).toEqual([]);
   });
 });

@@ -28,11 +28,28 @@ DECIDED, and no longer open:
 WHAT IS LEFT is the wiring, and it is the part that can put a dead button on a
 live screen, so it wants doing carefully:
 
-- [ ] **Offer golden point on a sheet that has no golden rows.** There are TWO
-      gates and only the second matters: `visibleOutcomesOf` filters what is
-      offered by the outcomes actually PRESENT in the sheet, so a sheet with no
-      golden row can never show the button however the competition is modelled.
-      That filter has to relax for the generated case.
+- [x] **Find where the result has to be called.** DONE — `findDecisionPoints`
+      in `packages/core/src/goldenPoint.ts`, 6 tests, mutation-verified.
+
+      THE ANALYSIS ABOVE WAS WRONG and it is worth saying why. It named the
+      `present` filter in `visibleOutcomesOf` as the blocker. Measured: **24 of
+      the 27 sample sheets carry no outcome rows at all**, so the chooser never
+      appears and that filter never runs. The binding constraint was that
+      nothing told the app where full time is.
+
+      The sheets do say — 22 of 27 name it in a row title, once per match on a
+      double-header. `findDecisionPoints` reads that: the title must READ as
+      full time (not "Full Time Wrap", not "READ 20 - Full Time Wrap"), and the
+      row must carry a printed time OR be the banner that closes a match, which
+      several production houses use instead. 19 of the 24 untagged sheets get a
+      decision point; the 5 that do not are two documents with no match in them
+      and three test fixtures.
+
+- [ ] **Show the chooser at a decision point.** The core knows WHERE now; the
+      editor still only raises the chooser off rows tagged with an outcome
+      (`outcomeGames`, `activeGame`, `visibleOutcomesOf`). Those need a second
+      source. This is where the `present` filter finally does have to relax,
+      because a generated block is not in the sheet to be found.
 - [ ] **Insert the block when it is chosen**, and apply the shift. The core
       decides what the block is and what moves; this decides when.
 - [ ] **Only then remove the `extraInSheet` sniffing.** Removing it first is a
@@ -140,6 +157,32 @@ an hour on 29 August and only shipped because a later commit happened to touch
       `packages/` did not. Not urgent and not yet hit, but it is the same trap
       with a different path. Decide whether to add them or turn watched paths
       off entirely.
+
+## 4d. Each game has to stand out on the sheet
+
+Asked for 29 August: "we need to make each game visually stand out in the
+runsheet in both walkthrough and live".
+
+A double-header sheet runs two matches through one running order — on the R26
+sheet the NRLW game is items 31-50 and the NRL game 82-102 — and today they
+look the same as the ad breaks between them. A showcaller scanning for where
+the second game starts has only the words to go on.
+
+- [ ] **Give each match its own visible band**, in the sheet and in the
+      walkthrough and live views. Things known that bear on it:
+      · matches already ARRIVE as long anchored rows carrying the whole half
+        (42:00 for a 35-minute women's half, 47:00 for a 40-minute men's), and
+        since 29 Aug the rows printed inside them are marked `contained` — so
+        the extent of a match is already computed, not guessed;
+      · `outcomeGame` already numbers games 1, 2, 3 where a sheet tags its
+        endings, and `findDecisionPoints` now finds full time where it does
+        not. Either could name the bands;
+      · the grid already has banner rows (`group`) and branch lanes with their
+        own styling, so there is a visual language to extend rather than
+        invent.
+      NEEDS A DECISION: colour per game, a labelled rule across the sheet, or
+      an indent — and whether the walkthrough and live views want the same
+      treatment as the editor or a louder one.
 
 ## 5. Fix, unscheduled
 

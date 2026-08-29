@@ -90,3 +90,65 @@ export function shiftAnchorsAfter(
   }
   return moved;
 }
+
+/**
+ * The moment a match ends, on a sheet that never tagged its endings.
+ *
+ * The golden-point chooser hangs off rows tagged with an outcome — "Fulltime -
+ * TIGERS WIN" and its siblings — and 24 of the 27 sample sheets carry no such
+ * row. On those sheets the chooser has never appeared at all, whatever the
+ * competition allows, because there was nothing to hang it on. That is the real
+ * reason a sheet without a golden-point block could not offer golden point; the
+ * filter on what is OFFERED never got the chance to run.
+ *
+ * But the sheets do say where full time is — 22 of 27 name it in a row title,
+ * usually once per match on a double-header. That row is the decision point:
+ * the siren has gone, the score is what it is, and the showcaller either calls
+ * a result or sends the day to extra time.
+ *
+ * Deliberately narrow, because being wrong here puts a chooser on screen in the
+ * middle of a show:
+ *   · the title must READ as full time, not merely mention it. "Full Time Wrap"
+ *     and "READ 20 - Full Time Wrap" are the segment that follows the siren,
+ *     not the siren;
+ *   · the row must carry a PRINTED time, OR be the banner that closes a match.
+ *     An inferred time is usually the app's guess at where a row falls, and a
+ *     chooser is not a thing to raise on a guess — but a banner is not a guess.
+ *     Several production houses end a match with a full-width heading and no
+ *     time at all ("NRL | BULLDOGS v STORM - FULLTIME"), whose position is the
+ *     second half's own printed start plus its own printed length. That is the
+ *     same arithmetic the rest of the sheet is read by. Seven sample sheets
+ *     mark full time this way and no other;
+ *   · a row already tagged with an outcome is left alone. Those sheets have a
+ *     block written into them and `detectOutcomes` already reads it.
+ */
+const FULL_TIME_TITLE = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
+const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
+
+/** The shape this needs from a row. */
+export interface DecidableRow {
+  title: string;
+  hardStartSec?: number | null;
+  outcome?: string | null;
+  /** "group" is a banner — a heading across the sheet rather than a cue. */
+  type?: string;
+}
+
+/**
+ * Indexes of the rows where a result has to be called, earliest first.
+ *
+ * Empty when the sheet tags its own endings — that is `detectOutcomes`' job and
+ * two mechanisms answering one question is how a sheet ends up with two
+ * choosers.
+ */
+export function findDecisionPoints(rows: readonly DecidableRow[]): number[] {
+  if (rows.some((r) => r.outcome)) return [];
+  const out: number[] = [];
+  rows.forEach((row, i) => {
+    if (row.hardStartSec == null && row.type !== "group") return;
+    const first = (row.title ?? "").split("\n")[0]?.trim() ?? "";
+    if (!FULL_TIME_TITLE.test(first) || NOT_THE_SIREN.test(first)) return;
+    out.push(i);
+  });
+  return out;
+}

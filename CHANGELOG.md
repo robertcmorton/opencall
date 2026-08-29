@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The app can find where a result has to be called, on a sheet that never wrote its endings down.** Extra time was only ever offered on a sheet that already carried a golden-point block, which sounds reasonable until you count: of twenty-seven real sheets, twenty-four tag no endings at all. On those the question never came up, whatever the competition allows — and a level score at full time is exactly when a showcaller cannot be looking things up. The sheets do say where full time is, though; twenty-two of the twenty-seven name it in a row title, once per match on a double-header. That row is now found. It has to read as full time rather than merely mention it, so the wrap that follows the siren is not mistaken for the siren, and it has to carry a printed time or be the banner that closes a match — several production houses end a match with a heading and no time, whose position is the second half's own start plus its own length. Nineteen of the twenty-four untagged sheets get a decision point; the five that do not are two documents with no match in them and three test fixtures.
+
+  Nothing changes on screen yet: this is the part that knows WHERE, and the chooser still has to learn to appear there.
+
 ### Fixed
 - **What happens during a match is no longer counted after it.** A rugby league half is 35 minutes for the women's game and 40 for the men's, but the clock stops for injuries and referrals while the afternoon does not — so a sheet allots 42:00 to a 35-minute half, 47:00 to a 40-minute one, and lists against it the things that fill those stoppages: the try, the goal, the video ref, the music under a break in play. Those were being added end to end after the match instead of inside it, which pushed everything later: on one sheet a coin toss printed at 4:30 was computed as 4:59 and the timing check reported twenty-nine minutes of content that would not fit. The same shape turns up wherever something long contains something short — a two-minute bell while the teams run on, comms and a tech check and a team list all called for the same minute.
 

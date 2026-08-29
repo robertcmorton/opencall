@@ -2264,11 +2264,17 @@ select:disabled {
    part of a row that is never text, so nothing has to be read through it, and
    it survives the row colours a showcaller sets for their own reasons.
 
-   Deliberately quiet. The loud marks on this grid mean something is happening
-   NOW — the live cue, the next item, a timing hole. Which game a row belongs
-   to is context, not an alarm, and it is on screen for the whole night. */
+   Quiet, but not invisible — the first attempt was a 3px edge alone, which
+   the computed style confirmed was being applied and the eye could not find:
+   three pixels at the outer margin of a dense sheet is not a band. The cell
+   is tinted as well, so the whole left column reads as one while scanning.
+
+   Still not loud. The loud marks on this grid mean something is happening NOW
+   — the live cue, the next item, a timing hole. Which game a row belongs to is
+   context, not an alarm, and it is on screen for the whole night. */
 .rundown-grid tr.game-band-1 > td.row-number {
   box-shadow: inset 3px 0 0 var(--accent-text);
+  background: var(--accent-soft);
 }
 
 /* Extra time reads as the exception on the strip: the corrections either side

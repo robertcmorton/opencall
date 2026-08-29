@@ -26,6 +26,10 @@ import {
   resolveEventType,
   resultDueNow,
   outcomesFor,
+  findDecisionPoints,
+  goldenPointBlock,
+  goldenPointDurationSec,
+  shiftAnchorsAfter,
   formatDuration,
   formatTimeOfDay,
   formatTimeOfDayWithDay,
@@ -1843,6 +1847,68 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * Rows where a result has to be called on a sheet that never wrote its
+   * endings down — see `findDecisionPoints`. Empty on a sheet that tags its
+   * own, which already has the chooser.
+   */
+  const decisionRowIds = useMemo(() => {
+    const at = findDecisionPoints(rows.map((r) => ({ title: r.title, hardStartSec: r.hardStartSec, outcome: r.outcome, type: r.type })));
+    return new Set(at.map((i) => rows[i]?.id).filter((id): id is string => !!id));
+  }, [rows]);
+
+  /**
+   * Put a golden-point block into a sheet that has none, after full time.
+   *
+   * Every proper rugby league game can go to extra time and plenty of sheets
+   * carry no block for it, so at a level score there is nothing to play. The
+   * block is built rather than found — four rows, or six in a final, where the
+   * last has no length because a final's unlimited period has none.
+   *
+   * Everything printed below moves by however long the block runs. Those times
+   * are rewritten rather than left to be wrong: the sheet is what the room
+   * reads, and one showing a time nobody can reach is worse than one that has
+   * been honestly moved. Rows ABOVE are never touched — that part of the night
+   * has been played, and its times are the record of when things went to air.
+   *
+   * One transaction, so one undo takes the whole thing back out.
+   */
+  const insertGoldenPointAfter = (rowId: string): void => {
+    const at = rows.findIndex((r) => r.id === rowId);
+    if (at < 0 || !titleColumn) return;
+    const label = showType?.extraLabel ?? "Golden point";
+    // A competition that cannot end level plays on past the two periods.
+    const mustSettle = (showType?.afterExtra ?? []).length > 0 && !(showType?.afterExtra ?? []).includes("draw");
+    const block = goldenPointBlock(label, mustSettle);
+    const moved = shiftAnchorsAfter(rows, at, goldenPointDurationSec(label, mustSettle));
+    doc.transact(() => {
+      const order = yOrder.toArray();
+      let insertAt = order.indexOf(rowId) + 1;
+      if (insertAt <= 0) return;
+      for (const seed of block) {
+        const newId = ulid();
+        const yRow = new Y.Map();
+        yRow.set("id", newId);
+        yRow.set("type", seed.type);
+        yRow.set("hardStartSec", null);
+        yRow.set("durationSec", seed.durationSec);
+        const cells = new Y.Map<Y.XmlFragment>();
+        const fragment = new Y.XmlFragment();
+        const paragraph = new Y.XmlElement("paragraph");
+        const text = new Y.XmlText();
+        text.insert(0, seed.title);
+        paragraph.insert(0, [text]);
+        fragment.insert(0, [paragraph]);
+        cells.set(titleColumn.id, fragment);
+        yRow.set("cells", cells);
+        yRows.set(newId, yRow);
+        yOrder.insert(insertAt, [newId]);
+        insertAt += 1;
+      }
+      for (const m of moved) yRows.get(m.id)?.set("hardStartSec", m.to);
+    });
+  };
+
   const deleteSelected = (): void => {
     if (selected.size === 0) return;
     // The rule lives with the ACTION, not only with the button that is
@@ -3252,6 +3318,23 @@ export function RundownEditor({
             >
               Skip
             </button>
+            {/* Only on a full-time row of a sheet that carries no endings, and
+                only where the competition has an extra period to offer. A
+                sheet that already has a golden-point block does not need one
+                built, and a fixture that cannot go to extra time must not be
+                offered one — that is the whole reason the kind of show says so
+                rather than the sheet being read for it. */}
+            {selected.size === 1 &&
+              decisionRowIds.has([...selected][0]!) &&
+              (showType?.fullTime ?? []).includes("golden") && (
+                <button
+                  className="btn btn-sm"
+                  data-tip="Build the extra-time block after this row — holds and periods — and move every printed time below it by however long it runs. One undo takes it back out."
+                  onClick={() => insertGoldenPointAfter([...selected][0]!)}
+                >
+                  ⚡ Add {showType?.extraLabel ?? "golden point"}
+                </button>
+              )}
             <Dropdown label="Win / lose / draw rows…" className="btn btn-sm">
               <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
                 These rows only play for one game result. Pick which one they belong to — at full time you choose the

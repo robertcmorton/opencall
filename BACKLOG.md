@@ -186,8 +186,21 @@ sheet the NRLW game is items 31-50 and the NRL game 82-102 — and today they
 look the same as the ad breaks between them. A showcaller scanning for where
 the second game starts has only the words to go on.
 
-- [ ] **Give each match its own visible band**, in the sheet and in the
-      walkthrough and live views. Things known that bear on it:
+- [x] **Give each match its own visible band** — FIRST CUT SHIPPED 29 Aug.
+      Boundary is full time (`findDecisionPoints`), so it never has to find
+      where a game begins; the band is a tinted edge on the row-number column,
+      alternating, and absent on a single-game sheet. It shows in the editor,
+      the walkthrough and live alike, because it is one row class.
+
+      STILL OPEN, and wants the user's eye on it rather than more guessing:
+      whether an edge is enough or it wants a labelled rule across the sheet;
+      whether live should be louder than the editor; and whether the band
+      should cover the whole run-up to a game (as now) or only the match
+      itself, kick-off to full time. The run-up is included because full time
+      is the only boundary the sheets state — narrowing it means finding the
+      kick-off, which they word far less consistently.
+
+      Original notes, still true:
       · matches already ARRIVE as long anchored rows carrying the whole half
         (42:00 for a 35-minute women's half, 47:00 for a 40-minute men's), and
         since 29 Aug the rows printed inside them are marked `contained` — so

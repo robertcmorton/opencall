@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **On a day that holds two games, the sheet says which one you are looking at.** A double-header runs both matches through one running order, and the second game's build-up looks exactly like the ad break before it — a showcaller scanning for where it starts has only the words to go on. Alternate matches now carry a tinted edge down the row-number column: the one part of a row that is never text, so nothing has to be read through it, and it survives whatever colours somebody has set on their own rows. Quiet on purpose, because the loud marks on that grid mean something is happening *now* and this is context that sits there all night. Nothing at all on a sheet with one game or none, where it would be decoration.
+
+  Full time is the boundary — the one thing the sheets agree on, and already found for the extra-time work. Everything up to and including a full time belongs to that game and what follows belongs to the next, which means it never has to work out where a game *begins*: sheets say that far less clearly than where one ends.
+
 - **At full time, a sheet with no endings written into it now says so.** When the show reaches the row that says full time, the same bar that asks for a result on a tagged sheet appears with one thing on it: build the extra period. Only one, because on this sheet it is the only thing that would do anything — Win, Lose and Draw exist on other sheets to play one block of rows and skip the others, and a sheet with nothing tagged has no rows to skip, so three of those four buttons would be ornaments at the one moment nobody can afford to press an ornament.
 
   It will not offer twice. Once the block is there, the row is read as answered — the hold and the period that follow it are checked by name, both of them, so a sheet that happens to carry its own hold after full time is not mistaken for one that has already been built.

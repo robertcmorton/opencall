@@ -2258,6 +2258,19 @@ select:disabled {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-overlay);
 }
+/* A day that holds two games runs them through one running order, and the
+   second game's build-up otherwise looks exactly like the ad break before it.
+   Alternate matches carry a tinted edge down the row-number column — the one
+   part of a row that is never text, so nothing has to be read through it, and
+   it survives the row colours a showcaller sets for their own reasons.
+
+   Deliberately quiet. The loud marks on this grid mean something is happening
+   NOW — the live cue, the next item, a timing hole. Which game a row belongs
+   to is context, not an alarm, and it is on screen for the whole night. */
+.rundown-grid tr.game-band-1 > td.row-number {
+  box-shadow: inset 3px 0 0 var(--accent-text);
+}
+
 /* Extra time reads as the exception on the strip: the corrections either side
    of it are seconds, this one adds fifteen minutes of football. Amber is what
    golden point already wears on the outcome dock. */

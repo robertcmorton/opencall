@@ -134,6 +134,7 @@ const RESULT_BUFFER_SEC = 30;
 
 function SortableRow({
   row,
+  band,
   branch,
   displayNumber,
   children,
@@ -175,12 +176,14 @@ function SortableRow({
   onNow: boolean;
   disabled: boolean;
   onSelect: (e: React.MouseEvent) => void;
+  /** Which match this row belongs to on a day that holds more than one. */
+  band?: number | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled });
   return (
     <tr
       ref={setNodeRef}
-      className={`${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${runsWith?.length ? "concurrent-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
+      className={`${band != null ? `game-band game-band-${band % 2}` : ""} ${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${runsWith?.length ? "concurrent-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
         branch
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
@@ -1876,6 +1879,34 @@ export function RundownEditor({
     const at = findDecisionPoints(rows.map((r) => ({ title: r.title, hardStartSec: r.hardStartSec, outcome: r.outcome, type: r.type })));
     return new Set(at.map((i) => rows[i]?.id).filter((id): id is string => !!id));
   }, [rows]);
+
+  /**
+   * Which match each row belongs to, on a day that holds more than one.
+   *
+   * A double-header runs two games through one running order and today they
+   * look alike: the second game's build-up is the same shade as the ad break
+   * before it, and a showcaller scanning for where it starts has only the
+   * words to go on.
+   *
+   * Full time is the boundary, because it is the one thing the sheets agree
+   * on — 22 of 27 name it, and it is already found for the extra-time work.
+   * Everything up to and including a full time belongs to that game; what
+   * follows belongs to the next. Numbering counts the full times passed, so it
+   * needs no notion of where a game BEGINS, which the sheets say far less
+   * clearly than where one ends.
+   *
+   * Null on a sheet with one game or none, where banding would be decoration.
+   */
+  const bandOf = useMemo(() => {
+    const ends = rows.map((r, i) => (decisionRowIds.has(r.id) ? i : -1)).filter((i) => i >= 0);
+    if (ends.length < 2) return () => null;
+    return (index: number): number => {
+      const at = ends.findIndex((end) => index <= end);
+      // Past the last full time: the wrap belongs to the game that just ended.
+      return at < 0 ? ends.length - 1 : at;
+    };
+  }, [rows, decisionRowIds]);
+
 
   /**
    * Put a golden-point block into a sheet that has none, after full time.
@@ -3647,6 +3678,7 @@ export function RundownEditor({
                     key={rowRecord.id}
                     row={rowRecord}
                     branch={mark}
+                    band={bandOf(i)}
                     displayNumber={numberOf(i)}
                     selected={selected.has(rowRecord.id)}
                     active={activeRowId === rowRecord.id}

@@ -115,6 +115,34 @@ with no title column and no lengths at all, and had been passing silently:
       before/after sweep of all 27 sheets because it changes what happens on
       every sheet that currently has no header.
 
+## 4c. A fix inside `packages/` never deploys on its own
+
+Found on 29 August, after four import fixes sat undeployed for over an hour
+while production kept serving a build from the day before.
+
+Railway watches PATHS to decide whether a push needs a build. The web service's
+watched paths do not include `packages/`, so a commit touching only
+`packages/core` is answered with:
+
+    "No deployment needed - watched paths not modified"
+
+`apps/web` depends on `@opencall/core`, so this is wrong: a core fix changes the
+web app. It went unnoticed because a later commit that happened to touch
+`apps/web` finally carried all of them out together.
+
+- [ ] **Add `packages/**` to the watched paths of BOTH Railway services**, or
+      turn watched paths off. Needs the user's Railway login — Claude cannot
+      change it.
+      Until then the rule is: a commit that only touches `packages/` is NOT
+      live, whatever the changelog says, and the version badge bottom-right of
+      the dashboard is the only honest answer to "is it deployed".
+
+- [ ] **A public build-identity endpoint.** "Is this deployed?" is currently
+      answerable only by signing in and reading the badge, because there is no
+      unauthenticated route that reports the build. `GET /version` on the sync
+      host returning `{version, sha, builtAt}` would settle it from a script,
+      and would have saved a good deal of guessing on 29 August.
+
 ## 5. Fix, unscheduled
 
 - [ ] **The header at awkward widths.** The sheet's name truncates to a few

@@ -8,7 +8,6 @@ import {
   api,
   ApiError,
   copyViewOnlyLink,
-  getAdminToken,
   setAdminToken,
   type EventSummary,
   type TemplateSummary,
@@ -17,7 +16,7 @@ import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
 import { SideNavSection, WithSideNav } from "../../components/SideNav";
 import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
-import { AdminNavSection } from "../../components/AdminNav";
+import { AdminNavSection, CredentialsNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
 import { isValidTimeZone, EVENT_TYPES, resolveEventType, type EventTypeSpec } from "@opencall/core";
@@ -751,24 +750,8 @@ export default function AdminPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>([]);
   /** Kinds of show this company added for itself, offered beside the built-ins. */
   const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
-  /**
-   * Whether this browser is holding an access token — answered AFTER hydration.
-   *
-   * It used to be read straight out of localStorage while rendering, and the
-   * server has no localStorage to read: it always answered "no". So a signed-in
-   * admin got server HTML saying no sign-in was needed and no Sign out button,
-   * then their own browser rendered the opposite, and React threw a hydration
-   * mismatch on every single load of this page. Starting from the server's
-   * answer and correcting it once the browser is running is the same shape the
-   * side panel already uses for its own stored state.
-   *
-   * Kept in step by `reload`, which runs on mount and again after anything that
-   * can change the token — signing in through the gate, or signing out.
-   */
-  const [hasToken, setHasToken] = useState(false);
 
   const reload = useCallback(() => {
-    setHasToken(getAdminToken() != null);
     api
       .events(showArchived)
       .then((data) => {
@@ -867,62 +850,7 @@ export default function AdminPage() {
         </button>
       </SideNavSection>
       {(me?.role === "admin" || me?.role === "company" || me?.canManage) && <AdminNavSection role={me?.role} />}
-      <SideNavSection heading="Credentials">
-        {/* Who you are, then what you can do about it.
-            It used to be a line of prose, then a menu item, then ANOTHER line
-            of prose — three things at two different indents, the identity
-            wrapping mid-phrase. Now it is one identity block sitting on the
-            same left edge as the items below it, and the "no sign-in needed"
-            note is part of that block rather than an orphan under the
-            actions, because it describes the session and not an action. */}
-        <div className="sidenav-identity">
-          <strong>
-            {me?.role === "admin"
-              ? "Administrator"
-              : me?.role === "company"
-                ? me.teamName
-                : me?.role === "user"
-                  ? me.name
-                  : "Not signed in"}
-          </strong>
-          <span>
-            {me?.role === "admin"
-              ? "Full access"
-              : me?.role === "company"
-                ? "Company access"
-                : me?.role === "user"
-                  ? me.canManage
-                    ? "Manager"
-                    : "View access"
-                  : hasToken
-                    ? "Session not recognised"
-                    : "Dev-open server — no sign-in needed"}
-          </span>
-        </div>
-        <Link className="menu-item" href="/account">
-          <span className="check" />
-          My account
-        </Link>
-        {hasToken && (
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              // Sessions are revoked server-side; plain tokens are just forgotten.
-              const bearer = getAdminToken();
-              const done = () => {
-                setAdminToken(null);
-                reload();
-              };
-              if (bearer?.startsWith("ses_")) void api.logout().catch(() => undefined).then(done);
-              else done();
-            }}
-          >
-            <span className="check" />
-            Sign out
-          </button>
-        )}
-      </SideNavSection>
+      <CredentialsNavSection me={me} onSignedOut={reload} />
     </>
   );
 

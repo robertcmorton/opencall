@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
 import { WithSideNav } from "../../../components/SideNav";
-import { AdminNavSection } from "../../../components/AdminNav";
+import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
 import { ErrorLogPanel } from "../../../components/ErrorLogPanel";
 
 /** The server error journal on its own page (admin only). */
@@ -24,7 +24,7 @@ export default function AdminErrorsPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
-      <WithSideNav title="Error log" settings={<AdminNavSection active="errors" />}>
+      <WithSideNav title="Error log" settings={<><AdminNavSection active="errors" /><CredentialsNavSection me={me} onSignedOut={() => router.replace("/admin")} /></>}>
         <main className="admin-main">
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Error log</h1>

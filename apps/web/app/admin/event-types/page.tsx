@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { EventTypeSpec } from "@opencall/core";
 import { api, ApiError } from "../../../lib/api";
 import { WithSideNav } from "../../../components/SideNav";
-import { AdminNavSection } from "../../../components/AdminNav";
+import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
 import { EventTypesPanel, ImportedSheetsPanel } from "../../../components/EventTypesPanel";
 
 /**
@@ -36,7 +36,7 @@ export default function AdminEventTypesPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
-      <WithSideNav title="Kinds of show" settings={<AdminNavSection active="event-types" role={me?.role} />}>
+      <WithSideNav title="Kinds of show" settings={<><AdminNavSection active="event-types" role={me?.role} /><CredentialsNavSection me={me} onSignedOut={reload} /></>}>
         <main className="admin-main">
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Kinds of show</h1>

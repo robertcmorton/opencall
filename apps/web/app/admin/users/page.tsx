@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, ApiError, type EventSummary } from "../../../lib/api";
 import { byDate, byName } from "../../../lib/pickOrder";
 import { WithSideNav } from "../../../components/SideNav";
-import { AdminNavSection } from "../../../components/AdminNav";
+import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
 import { UsersPanel } from "../../../components/UsersPanel";
 import { PeoplePanel } from "../../../components/PeoplePanel";
 
@@ -38,7 +38,7 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
-      <WithSideNav title="Users & access" settings={<AdminNavSection active="users" role={me?.role} />}>
+      <WithSideNav title="Users & access" settings={<><AdminNavSection active="users" role={me?.role} /><CredentialsNavSection me={me} onSignedOut={reload} /></>}>
         <main className="admin-main">
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>

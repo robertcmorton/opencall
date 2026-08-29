@@ -10,6 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A run sheet whose heading is printed a long way down the page is found.** The search for the column heading looked at the first thirty lines only. One match-day document opens with a title block, a Key Timings list and a whole Match Day Contacts table before its run sheet begins, which puts the heading on line 51 — so it was never seen, and the fallback is the first line of the document. That is the title block, so every column was named after a piece of the title and a 63-item run sheet imported as 242 rows with no title, no time and no lengths. The search now covers a share of the document rather than a fixed count. It stays bounded on purpose: a heading sits at the top of the rows it heads, and searching to the end would let a coincidence far down the page throw away everything above it. That sheet now reads 65 rows from 11:30 to 15:40.
+
+- **A column headed with an abbreviation is recognised.** "DUR." and "ITEM No." are how sheets actually head those columns, and the full stop stopped them matching anything — so a heading line that should have scored four scored two, which is enough to lose to whatever else is in the running.
+
+### Changed
+- **The import check no longer reports a schedule as broken for having no lengths.** A sheet that gives a time for each activity and never a duration is a legitimate shape, not a failed import — one sample event plan is exactly that, and both of the new "no durations" reports were firing on it. Both now ask first whether the sheet had any lengths to lose.
+
 - **A row is called the same thing on every screen.** The walkthrough counted its own position among the rows it can step to, which is a filtered list — banners and skipped rows keep their number on the sheet and are stepped over there. So on an imported sheet it said "1" while the row it was highlighting read 11 in the sheet beside it, and the gap between the two numbers moved as you walked. It now names the row the way the sheet names it, and how far through the rehearsal you are moved to the tooltip, where a progress count belongs. The prompter and the guest view had a quieter version of the same disagreement: where the sheet left a row unnumbered they filled in the row's position instead, so a row showed a number the sheet never gave it — and that number belongs to a different row further down. All four screens now ask one rule.
 
 ### Added

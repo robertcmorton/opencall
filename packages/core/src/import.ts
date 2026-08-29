@@ -166,7 +166,11 @@ const CUE_TYPE_TOKENS = new Set([
 ]);
 
 function normalizeHeader(cell: string): string {
-  return cell.trim().toLowerCase().replace(/\s+/g, " ");
+  // A trailing full stop is an abbreviation's, not part of the word: sheets
+  // head their columns "DUR." and "ITEM No." as often as "DURATION" and "ITEM
+  // No". Without this, one real sheet's heading line scored 2 out of a possible
+  // 4 — enough to be missed entirely once anything else was in the running.
+  return cell.trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
 }
 
 /** Score how header-like a row is (count of recognized header keywords). */
@@ -190,14 +194,29 @@ function headerScore(row: string[]): number {
 }
 
 /**
- * Finds the most header-like row near the top of the grid. Real sheets bury
- * the header under multi-line title blocks, so the scan window is generous
- * (30 rows); the preview also lets the user override the pick.
+ * Finds the most header-like row near the top of the grid.
+ *
+ * Real sheets bury the header, and thirty rows was not nearly deep enough: one
+ * match-day document opens with a title block, a Key Timings list and a whole
+ * Match Day Contacts table before its run sheet begins, putting the heading on
+ * line 51. Missing it is not a small error — the fallback is line 0, which is
+ * the title block, so every column is named after a piece of the title and the
+ * sheet imports with no title, no time and no duration at all.
+ *
+ * The window is a share of the document rather than a fixed count, floored at
+ * the old thirty so nothing that worked before moves. It is still bounded: a
+ * heading is at the TOP of the rows it heads, and letting the scan run to the
+ * end would let some coincidence two-thirds of the way down discard everything
+ * above it. Ties keep the EARLIEST line, so a later coincidence has to score
+ * strictly higher than the real heading to win.
+ *
+ * The preview also lets the user override the pick.
  */
 export function detectHeaderRow(grid: string[][]): number {
+  const window = Math.max(30, Math.floor(grid.length * 0.25));
   let best = 0;
   let bestScore = -1;
-  for (let i = 0; i < Math.min(grid.length, 30); i++) {
+  for (let i = 0; i < Math.min(grid.length, window); i++) {
     const score = headerScore(grid[i]!);
     if (score > bestScore) {
       bestScore = score;

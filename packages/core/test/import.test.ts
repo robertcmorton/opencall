@@ -1005,3 +1005,47 @@ describe("reclaimRowsAboveHeader", () => {
     expect(reclaimRowsAboveHeader(normal, 0, 0)).toBe(0);
   });
 });
+
+describe("detectHeaderRow — how deep it looks", () => {
+  const filler = (n: number): string[][] => Array.from({ length: n }, () => ["", "", ""]);
+
+  // A real match-day document opens with a title block, a Key Timings list and
+  // a whole Match Day Contacts table before its run sheet begins, putting the
+  // heading on line 51. At the old fixed window of 30 it was never seen, and
+  // the fallback is line 0 — the title block — so every column was named after
+  // a piece of the title and the sheet imported with no title, no time and no
+  // duration at all.
+  it("finds a heading buried under other tables", () => {
+    const grid = [...filler(51), ["ITEM No.", "TIME", "DUR."], ...filler(170)];
+    expect(detectHeaderRow(grid)).toBe(51);
+  });
+
+  // Still bounded. A heading sits at the TOP of the rows it heads, and letting
+  // the scan run to the end would let some coincidence far down the document
+  // throw away everything above it.
+  it("will not take a heading-like line from the bottom of the sheet", () => {
+    const grid = [...filler(200), ["ITEM", "TIME", "DURATION"], ...filler(5)];
+    expect(detectHeaderRow(grid)).toBe(0);
+  });
+
+  it("keeps the earliest line when two score the same", () => {
+    const grid = [["ITEM", "TIME"], ...filler(20), ["ITEM", "TIME"], ...filler(20)];
+    expect(detectHeaderRow(grid)).toBe(0);
+  });
+
+  it("still answers 0 when nothing in the sheet reads as a heading", () => {
+    expect(detectHeaderRow([["Event plan"], ["Saturday"], ["Attendance: 26,000"]])).toBe(0);
+  });
+
+  // "DUR." and "ITEM No." are how sheets actually head those columns. Without
+  // the trailing stop coming off, the line above scores 2 of a possible 4 —
+  // enough to lose to anything else in the running.
+  it("reads a heading abbreviated with a full stop", () => {
+    expect(mapColumns(["ITEM No.", "TIME", "DUR.", "ACTIVITY"])).toEqual([
+      { kind: "skip" },
+      { kind: "start" },
+      { kind: "duration" },
+      { kind: "title" },
+    ]);
+  });
+});

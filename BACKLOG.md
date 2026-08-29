@@ -91,29 +91,30 @@ ANSWERED. Two of the three already existed; the third is fixed.
       carry its reason. NEEDS DECISIONS FIRST: per-row or per-cell; whether
       they survive an import that replaces the sheet; who can see them.
 
-## 4b. Sheets whose heading is never recognised
+## 4b. Sheets that import with no title, time or lengths
 
-Found on 29 August by the import check's new shape tests, which report when
-nothing became the title, the time or the duration. Three sample sheets import
-with no title column and no lengths at all, and had been passing silently:
+Found 29 August by the import check's shape tests. Three sheets were reported.
+Two are resolved and one is not a run sheet at all:
 
-    190725 - Bulldogs v Dragons - Event Plan.pdf
-    Event Information Plan - NRL Round 21 - Bulldogs v Sea Eagles.pdf
-    Runsheet Rd 11 v Dragons NRLW.pdf
+- [x] **`Runsheet Rd 11 v Dragons NRLW.pdf`** — FIXED. Its heading is on line 51,
+      behind a title block, a Key Timings list and a Match Day Contacts table,
+      and the search only looked at the first thirty lines. 242 rows with
+      nothing mapped became 65 rows, 11:30 to 15:40, numbered 1-63.
+- [x] **`190725 - Bulldogs v Dragons - Event Plan.pdf`** — NOT A BUG. It maps
+      TIME and ACTIVITY correctly and simply has no duration column, because it
+      is a schedule rather than a rundown. The import check was wrong to call
+      zero seconds a fault; it now asks whether the sheet had lengths to lose.
 
-- [ ] **A sheet whose heading scores nothing falls back to line 0.**
-      `detectHeaderRow` picks the most heading-like line in the first thirty and
-      returns 0 when nothing scores two. On the Dragons NRLW sheet that makes
-      the TITLE BLOCK the header — "2025 NRLW TELSTRA PREMIERSHIP" becomes a
-      column name, all 242 rows import as "Column 1…13", and the sheet has no
-      title, no time and no duration.
-      This is a DIFFERENT fault from the three fixed on 29 August: that heading
-      is not late, not wrapped over two lines, and not run together with its
-      neighbour — it is not recognised at all. The fix is probably a fallback
-      that reads the SHAPE of the data when no line reads as headings (the
-      column that holds times is the time column), and it wants its own
-      before/after sweep of all 27 sheets because it changes what happens on
-      every sheet that currently has no header.
+- [ ] **`Event Information Plan - NRL Round 21 - Bulldogs v Sea Eagles.pdf`** —
+      genuinely has NO table. It is a label-and-value information document
+      (CODE & ROUND, GAME, DATE, then pages of prose); there is no heading-like
+      line anywhere in it. Importing it produces 291 rows of nothing, and the
+      shape check correctly says so.
+      THE QUESTION IS A PRODUCT ONE, not a parsing one: what should the import
+      screen do when handed a document that is not a run sheet? Saying "this
+      does not look like a run sheet, here is what I found" is more useful than
+      importing 291 empty rows and letting the person discover it. Wants
+      deciding before building.
 
 ## 4c. A fix inside `packages/` never deploys on its own
 

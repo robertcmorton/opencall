@@ -182,16 +182,19 @@ async function check(file: string): Promise<Report> {
   // leave the other blank, and the sheet imports with no lengths at all.
   if (!has("title")) faults.push("no column became the title");
   if (!has("start") && built.rows.some((r) => r.hardStartSec != null)) faults.push("no column became the time");
-  if (!has("duration")) {
-    // Only a fault if the sheet HAS durations to lose — a cue sheet that
-    // times its rows and never gives a length is a legitimate shape.
-    const durationish = built.rows.filter((r) => r.durationSec != null).length;
-    const looksTimed = cells.filter((v) => parseDurationLoose(v) != null).length;
-    if (durationish === 0 && looksTimed >= 10) faults.push(`no column became the duration, but ${looksTimed} cells parse as one`);
-  }
+  // Only a fault if the sheet HAS durations to lose — a schedule that gives a
+  // time for each activity and never a length is a legitimate shape, not a
+  // broken import. One sample event plan is exactly that: TIME and ACTIVITY,
+  // both mapped correctly, and nothing else. Both tests below share the guard.
+  const durationish = built.rows.filter((r) => r.durationSec != null).length;
+  const looksTimed = cells.filter((v) => parseDurationLoose(v) != null).length;
+  const losingLengths = durationish === 0 && looksTimed >= 10;
+  if (!has("duration") && losingLengths) faults.push(`no column became the duration, but ${looksTimed} cells parse as one`);
 
-  // A sheet of any size that spends no time at all did not read its lengths.
-  if (built.rows.length >= 20 && timing.totalDurationSec === 0) faults.push("the whole sheet is zero seconds long");
+  // A sheet of any size that spends no time at all did not read its lengths —
+  // unless it never had any to read.
+  if (built.rows.length >= 20 && timing.totalDurationSec === 0 && losingLengths)
+    faults.push("the whole sheet is zero seconds long");
 
   // Page furniture INSIDE a row. An undetected running head or footer is not
   // left on its own — it is absorbed into whatever cue precedes the page

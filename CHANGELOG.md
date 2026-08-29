@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **At full time, a sheet with no endings written into it now says so.** When the show reaches the row that says full time, the same bar that asks for a result on a tagged sheet appears with one thing on it: build the extra period. Only one, because on this sheet it is the only thing that would do anything — Win, Lose and Draw exist on other sheets to play one block of rows and skip the others, and a sheet with nothing tagged has no rows to skip, so three of those four buttons would be ornaments at the one moment nobody can afford to press an ornament.
+
+  It will not offer twice. Once the block is there, the row is read as answered — the hold and the period that follow it are checked by name, both of them, so a sheet that happens to carry its own hold after full time is not mistaken for one that has already been built.
+
 - **Extra time can be built into a sheet that never wrote it down.** Hover the full-time row and the same strip that carries the live corrections offers to add the block: the holds and the periods, and in a competition that cannot end level the further period that has no length, because nobody can say what that one costs until it is over. Every printed time below moves by however long the block runs — those times are rewritten rather than left to be wrong, since the sheet is what the room reads and one showing a time nobody can reach is worse than one that has been honestly moved. Times above are never touched: that part of the night has been played, and they are the record of when things went to air. One undo takes the whole thing back out.
 
   Offered only where it can happen: on a sheet that carries no endings of its own, on the row that says full time, and only when the kind of show has an extra period. A junior, trial or exhibition fixture is rugby league on a rugby league sheet but nobody is playing golden point, and it is not offered one.

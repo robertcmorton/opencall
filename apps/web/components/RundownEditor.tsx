@@ -1941,9 +1941,49 @@ export function RundownEditor({
    */
   const goldenFor = (rowId: string): { label: string; onInsert: () => void } | null => {
     if (!decisionRowIds.has(rowId)) return null;
+    const label = showType?.extraLabel ?? "Golden point";
     if (!(showType?.fullTime ?? []).includes("golden")) return null;
-    return { label: showType?.extraLabel ?? "Golden point", onInsert: () => insertGoldenPointAfter(rowId) };
+    // Already built. Offering it again is how a sheet ends up with twenty
+    // minutes of football in it at the one moment nobody can stop and look.
+    //
+    // Read off the rows themselves rather than a flag, because a flag would
+    // have to survive the projection, an export and a re-import to be worth
+    // anything, and this is two titles in a row: the hold, then the period.
+    // Both must match, so a sheet that happens to have its own "HOLDING" row
+    // after full time is not mistaken for one that has been built. Rename them
+    // and it offers again — which is right, because at that point the sheet no
+    // longer says what was put into it.
+    const at = rows.findIndex((r) => r.id === rowId);
+    const built =
+      (rows[at + 1]?.title ?? "").trim() === "HOLDING" && (rows[at + 2]?.title ?? "").trim().startsWith(label);
+    if (built) return null;
+    return { label, onInsert: () => insertGoldenPointAfter(rowId) };
   };
+
+  /**
+   * Full time, on a sheet that never wrote its endings down.
+   *
+   * The chooser above asks Win / Lose / Draw because those rows exist to be
+   * played or skipped. Here they do not: nothing is tagged, so calling a result
+   * would move nothing and three of the four buttons would be ornaments. The
+   * one thing that DOES something is building the extra period, so that is the
+   * only thing offered.
+   *
+   * It appears on the row being called or the one it hands over to, because
+   * that is when the siren has gone and the scores are level or they are not.
+   */
+  const goldenPrompt = (() => {
+    if (!showLive || !activeRowId) return null;
+    const at = rows.findIndex((r) => r.id === activeRowId);
+    if (at < 0) return null;
+    for (const i of [at, at + 1]) {
+      const row = rows[i];
+      if (!row) continue;
+      const action = goldenFor(row.id);
+      if (action) return action;
+    }
+    return null;
+  })();
 
   const deleteSelected = (): void => {
     if (selected.size === 0) return;
@@ -3934,6 +3974,38 @@ export function RundownEditor({
                 Reset
               </button>
             )}
+          </span>
+        </div>
+      )}
+
+      {/* Full time on a sheet with no endings written into it. Same dock, same
+          place at the foot of the screen — a showcaller at full time is
+          watching the game and the bottom of the sheet, not the toolbar. One
+          action, because on this sheet it is the only one that does anything;
+          see `goldenPrompt`. Never both docks at once: this one exists only
+          where nothing is tagged, and that is exactly when `activeGame` is
+          null. */}
+      {isShow && activeGame == null && goldenPrompt && (
+        <div
+          ref={publishOutcomeHeight}
+          className="outcome-dock no-print pressing"
+          style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}
+        >
+          <span className="od-what">
+            <span className="od-stage od-soon">Full time</span>
+            <span className="od-hint">
+              Level score? This sheet has no extra period written into it — one can be built here, and every printed
+              time below moves by however long it runs. One undo takes it back out.
+            </span>
+          </span>
+          <span className="od-picks">
+            <button
+              className="btn od-pick od-golden"
+              data-tip="Build the holds and the periods after this row, and move every printed time below it"
+              onClick={goldenPrompt.onInsert}
+            >
+              ⚡ Add {goldenPrompt.label}
+            </button>
           </span>
         </div>
       )}

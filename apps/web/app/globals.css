@@ -3540,18 +3540,23 @@ th.col-drop-target {
   color: var(--text-3);
 }
 
-/* The sheet's name gets ONE line on a narrow screen.
-   In the header's wrapping flex it broke at every space, so a long name became
+/* The sheet's name gets ONE line. Always.
+   In the header's wrapping flex it breaks at every space, so a long name became
    a five-line tower down the left of a tablet — taller than the cue timer
    beside it, and it pushed the whole sheet down. One line, ellipsis, and the
-   full name is still in the tooltip. */
-@media (max-width: 1024px) {
-  .topbar-name .sheet-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
+   full name is still in the tooltip.
+
+   This was written for narrow screens and capped at 1024px, which left the
+   band immediately above it doing the same thing: at 1030 the name stacked
+   over THREE lines and pushed the planned figures and the transport down with
+   it. The reason it earns one line — you already know what you opened — does
+   not change with the width of the window, so neither does the rule. Where
+   there is room the ellipsis never appears. */
+.topbar-name .sheet-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* The event clock reads like every other readout in the bar: label above value.

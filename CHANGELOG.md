@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The sheet's name keeps to one line at every width.** It was held to one line only below 1024px, and the band immediately above that is where the header is most cramped: at 1030 a long name stacked over three lines and pushed the planned figures and the transport down with it. The reason it earns one line — you already know what you opened — does not change with the width of the window, so neither does the rule now. Where there is room the ellipsis never appears, and the full name is still in the tooltip.
+
 - **A menu no longer raises scrollbars on a page that fits.** Opening the actions menu on a rundown row put both a horizontal and a vertical scrollbar on the dashboard. The menu is kept on screen by measuring the window — and the window's width counts the strip a scrollbar will occupy, so the menu was placed into space that stopped existing the moment one appeared. Then each bar caused the other: seven pixels of overhang raised the horizontal one, which took fifteen pixels of height, which pushed the page past the bottom and raised the vertical one, which took fifteen pixels of width and pushed the menu further out again. It measures the page's own box now, which is what the menu actually has to fit inside.
 
 - **The prompter button is gone from the walkthrough.** Walking a crew through the sheet is planning — nobody is reading anything out, and the prompter is a full screen that takes whoever presses it away from the sheet they are stepping through. It comes back when the show does.

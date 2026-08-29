@@ -69,16 +69,30 @@ export function Dropdown({
       const mw = el.offsetWidth;
       const mh = el.offsetHeight;
 
+      // The PAGE's box, not the window's.
+      //
+      // `window.innerWidth` counts the gutter a scrollbar will sit in, so
+      // clamping to it puts the menu in space that stops existing the moment
+      // one appears — and then the two axes feed each other. Measured on the
+      // admin dashboard: the menu landed 7px past the content box, which
+      // raised a horizontal scrollbar; that bar took 15px of height, which
+      // pushed the body past the viewport and raised a vertical one; that took
+      // 15px of width, moving the menu further out again. Both bars on a page
+      // that fits, from a menu that was told the window was wider than the
+      // page.
+      const vw = document.documentElement.clientWidth;
+      const vh = document.documentElement.clientHeight;
+
       let x = align === "left" ? w.left : w.right - mw;
-      x = Math.max(pad, Math.min(x, window.innerWidth - pad - mw));
+      x = Math.max(pad, Math.min(x, vw - pad - mw));
 
       let y = w.bottom + 5;
-      if (y + mh > window.innerHeight - pad) {
+      if (y + mh > vh - pad) {
         // Hang it above the button when there is room; otherwise sit it as low
         // as it fits. Never push the top off — losing the first item is no
         // better than losing the last.
         const above = w.top - 5 - mh;
-        y = above > pad ? above : Math.max(pad, window.innerHeight - pad - mh);
+        y = above > pad ? above : Math.max(pad, vh - pad - mh);
       }
 
       el.style.left = `${Math.round(x - w.left)}px`;

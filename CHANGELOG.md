@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A menu no longer raises scrollbars on a page that fits.** Opening the actions menu on a rundown row put both a horizontal and a vertical scrollbar on the dashboard. The menu is kept on screen by measuring the window — and the window's width counts the strip a scrollbar will occupy, so the menu was placed into space that stopped existing the moment one appeared. Then each bar caused the other: seven pixels of overhang raised the horizontal one, which took fifteen pixels of height, which pushed the page past the bottom and raised the vertical one, which took fifteen pixels of width and pushed the menu further out again. It measures the page's own box now, which is what the menu actually has to fit inside.
+
+- **The prompter button is gone from the walkthrough.** Walking a crew through the sheet is planning — nobody is reading anything out, and the prompter is a full screen that takes whoever presses it away from the sheet they are stepping through. It comes back when the show does.
+
 ### Added
 - **On a day that holds two games, the sheet says which one you are looking at.** A double-header runs both matches through one running order, and the second game's build-up looks exactly like the ad break before it — a showcaller scanning for where it starts has only the words to go on. Alternate matches now carry a tinted edge down the row-number column: the one part of a row that is never text, so nothing has to be read through it, and it survives whatever colours somebody has set on their own rows. Quiet on purpose, because the loud marks on that grid mean something is happening *now* and this is context that sits there all night. Nothing at all on a sheet with one game or none, where it would be decoration.
 

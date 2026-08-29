@@ -3248,14 +3248,20 @@ export function RundownEditor({
         {/* Not on a phone: the prompter is its own full screen and a phone that
             opens it has left the sheet entirely, so the button costs a slot in
             the only toolbar row there is. It is one tap away in the menu. */}
-        <Link
-          className="btn btn-sm hide-mobile"
-          style={{ textDecoration: "none" }}
-          href={`/prompter/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
-          data-tip="Open the prompter: the sheet with the words to be read set large, paced to the item they belong to"
-        >
-          ▤ Prompter
-        </Link>
+        {/* And not during the walkthrough. Walking the crew through the sheet
+            is planning: nobody is reading anything out, and the prompter is a
+            full screen that takes whoever presses it away from the sheet they
+            are stepping through. It comes back when the show does. */}
+        {!(isShow && !showLive) && (
+          <Link
+            className="btn btn-sm hide-mobile"
+            style={{ textDecoration: "none" }}
+            href={`/prompter/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
+            data-tip="Open the prompter: the sheet with the words to be read set large, paced to the item they belong to"
+          >
+            ▤ Prompter
+          </Link>
+        )}
         <div className="toolbar-tail">
           <RolePicker
             rows={rows}

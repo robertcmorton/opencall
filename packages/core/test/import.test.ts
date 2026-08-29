@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultViewColumns } from "../src/eventTypes";
-import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, findRoleColumn, foldWrappedHeader, mapColumns, reclaimRowsAboveHeader, splitRunTogetherHeadings, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
+import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, detectBlocks, findRoleColumn, foldWrappedHeader, mapColumns, reclaimRowsAboveHeader, splitRunTogetherHeadings, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
   it("parses worded durations", () => {
@@ -1047,5 +1047,102 @@ describe("detectHeaderRow — how deep it looks", () => {
       { kind: "duration" },
       { kind: "title" },
     ]);
+  });
+});
+
+describe("detectBlocks — a row printed inside another row's window", () => {
+  /** A rugby league half: 35 minutes of match clock, 42:00 of afternoon. */
+  const row = (title: string, startSec: number | null, durationSec: number | null) => ({
+    kind: "cue" as const, title, startSec, startRaw: null, durationSec, durationRaw: null,
+    cells: {}, sourceIndex: 0,
+  });
+  const HH = (h: number, m: number, s = 0) => h * 3600 + m * 60 + s;
+
+  it("marks what runs during a match as contained, not as time to spend", () => {
+    const rows = [
+      row("SECOND HALF", HH(16, 10), 42 * 60),
+      row("IN MATCH CONTENT", null, 7 * 60),
+      row("NRL Coin Toss", HH(16, 30), null),
+      row("Full Time", HH(16, 52), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.map((r) => (r as { contained?: boolean }).contained ?? false)).toEqual([false, true, true, false]);
+  });
+
+  // The proof is the sheet's own arithmetic and it has to be exact. If full
+  // time is printed a minute out, the sheet is not stating that the half ends
+  // where its duration says, and re-timing on a near miss would be a guess.
+  it("refuses when the closing row does not land on the block's end", () => {
+    const rows = [
+      row("SECOND HALF", HH(16, 10), 42 * 60),
+      row("IN MATCH CONTENT", null, 7 * 60),
+      row("NRL Coin Toss", HH(16, 30), null),
+      row("Full Time", HH(16, 53), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.some((r) => (r as { contained?: boolean }).contained)).toBe(false);
+  });
+
+  // Untimed children alone are the OTHER shape — a block whose contents fill
+  // it — and that is handled by the spans rule, not this one.
+  it("leaves an ordinary run of timed rows alone", () => {
+    const rows = [
+      row("TVC Reel", HH(16, 10), 60),
+      row("Welcome", HH(16, 11), 60),
+      row("Coin toss", HH(16, 12), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.some((r) => (r as { contained?: boolean }).contained)).toBe(false);
+  });
+
+  // Three things printed at the same minute cannot be three minutes of show.
+  it("boxes rows that all start at the same printed time", () => {
+    const rows = [
+      row("COLLECT COMMS", HH(13, 45), 15 * 60),
+      row("TECH CHECK", HH(13, 45), 15 * 60),
+      row("Team list in", HH(13, 45), 10 * 60),
+      row("REHEARSALS", HH(14, 0), 30 * 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.map((r) => (r as { contained?: boolean }).contained ?? false)).toEqual([false, true, true, false]);
+  });
+
+  // Narrow on purpose. A block followed only by UNTIMED rows is the other
+  // shape — contents that fill their container — and the spans rule decides
+  // that one. Without this the new rule reaches into those too, muting five
+  // more minutes on a real sheet and giving one question two answers.
+  it("leaves a block whose children have no printed times of their own", () => {
+    const rows = [
+      row("TVC Reel", HH(16, 0), 180),
+      row("Telstra 30", null, 30),
+      row("Allianz 30", null, 30),
+      row("Welcome", HH(16, 3), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.some((r) => (r as { contained?: boolean }).contained)).toBe(false);
+  });
+
+  // Times that go backwards are their own problem; swallowing rows is not the
+  // way to resolve one.
+  it("stops at a row stamped before the block it would sit in", () => {
+    const rows = [
+      row("Photo wall", HH(18, 29), 60),
+      row("Earlier thing", HH(18, 28), 30),
+      row("Chant", HH(18, 29, 30), 30),
+      row("Team entry", HH(18, 30), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.some((r) => (r as { contained?: boolean }).contained)).toBe(false);
+  });
+
+  it("still boxes when the out-of-order row spends no time anyway", () => {
+    const rows = [
+      row("Photo wall", HH(18, 29), 60),
+      { ...row("TWO MINUTE BELL", HH(18, 28), null), parallel: true },
+      row("Chant", HH(18, 29, 30), 30),
+      row("Team entry", HH(18, 30), 60),
+    ];
+    detectBlocks(rows as never);
+    expect((rows[2] as { contained?: boolean }).contained).toBe(true);
   });
 });

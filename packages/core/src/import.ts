@@ -441,6 +441,14 @@ export interface ClassifiedRow {
    */
   durationExtraSec?: number;
   cells: Record<string, string>;
+  /**
+   * This row happens DURING an earlier row, not after it — see `detectBlocks`.
+   *
+   * Its own length is a listing rather than time to be spent, because the row
+   * containing it has already accounted for that time. Set only where the
+   * sheet's own arithmetic proves the containment.
+   */
+  contained?: boolean;
   /** Source row index in the original grid (for the preview). */
   sourceIndex: number;
   /** The sheet's own number for this row (its ITEM/# cell), when it has one. */
@@ -797,6 +805,81 @@ export function detectBlocks(rows: ClassifiedRow[]): void {
     const withoutBlock = Math.abs(start + children - next);
     const withBlock = Math.abs(start + own + children - next);
     if (withoutBlock < 1 && withBlock >= 1) row.spans = true;
+  }
+
+  /**
+   * A row printed INSIDE another row's own window happens during it.
+   *
+   * A match is the clearest case, and the sheets say so in as many words. A
+   * rugby league half is 35 minutes for the women's game and 40 for the men's,
+   * but the clock stops for injuries and video referrals while the afternoon
+   * does not — so a sheet allots 42:00 to a 35-minute half and 47:00 to a
+   * 40-minute one, and writes "35 mins +" beside it. That extra seven minutes
+   * is the stoppages, and the items listed against them — the try process, the
+   * goal, the video ref, the music under a break in play — are what fills
+   * them. They are already paid for by the 42.
+   *
+   * Added end to end instead, they push everything after the match later: on
+   * one sheet the coin toss printed at 4:30 was computed as 4:59, and the
+   * check reported 29 minutes of content that would not fit. The same shape
+   * turns up wherever something long contains something short — a two minute
+   * bell while the teams run on, background music under an announcement,
+   * rehearsals with a coin toss part way through.
+   *
+   * The proof is the sheet's own arithmetic, and it has to be exact: the row
+   * that CLOSES the window must land on the container's end to the second.
+   * Full time printed at 4:52 against a half starting 4:10 and running 42:00
+   * is the sheet stating that the half really does end there, so everything
+   * printed between them ran inside it. Anything less exact is left alone —
+   * a sheet that merely looks overlapping is a sheet to ask about, not to
+   * silently re-time.
+   */
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const own = row.durationSec ?? 0;
+    if (own <= 0 || row.parallel || row.spans || row.startSec == null) continue;
+    const start = startOf[i];
+    if (start == null) continue;
+    const end = start + own;
+
+    const inside: number[] = [];
+    let timedInside = false;
+    let j = i + 1;
+    for (; j < rows.length; j++) {
+      const at = rows[j]!.startSec;
+      if (at == null) {
+        inside.push(j);
+        continue;
+      }
+      // A row printed BEFORE the container starts is not inside it — the
+      // sheet's times have gone backwards here, which is its own kind of
+      // problem and not one to resolve by swallowing rows. Leave the region
+      // alone entirely.
+      if (at < start) {
+        // A row that spends no time cannot be what closes a window, and one
+        // stamped out of order should not end the scan either.
+        if (rows[j]!.parallel) continue;
+        break;
+      }
+      // Within a second of the end counts as closing the window, not inside it.
+      if (at < end - 1) {
+        inside.push(j);
+        timedInside = true;
+        continue;
+      }
+      break;
+    }
+    // Only this shape: a row with its OWN printed time sitting inside the
+    // window. Untimed children alone are the case handled above.
+    if (!timedInside || j >= rows.length) continue;
+    const closes = rows[j]!.startSec;
+    if (closes == null || Math.abs(end - closes) >= 1) continue;
+
+    for (const k of inside) {
+      const child = rows[k]!;
+      if (child.kind === "spacer" || child.parallel) continue;
+      child.contained = true;
+    }
   }
 }
 
@@ -2106,7 +2189,9 @@ export function buildSheet(
      * the sheet actually gives.
      */
     const untimed = r.startSec == null;
-    const muteDuration = sparseTimed && untimed && r.durationSec != null;
+    // A row inside another row's window is paid for by the row containing it,
+    // whatever shape the sheet is — see `detectBlocks`.
+    const muteDuration = r.contained === true || (sparseTimed && untimed && r.durationSec != null);
     // Text in a TIME or DUR column that is not a time or a duration — a sheet
     // that puts "Fullback" or "Interchange" in the duration column of a team
     // list — has nowhere to live in a structural column, and used to simply

@@ -468,11 +468,17 @@ function TimingNudge({
   disabled,
   /** Rows a cue here would drop. 0 = this is the live row, so nothing changes on air. */
   skips = 0,
+  nudges = true,
+  golden,
 }: {
   onNudge: (deltaSec: number) => void;
   onCue: () => void;
   disabled?: boolean;
   skips?: number;
+  /** The live corrections. Off before the show, when none of them mean anything. */
+  nudges?: boolean;
+  /** Offered on the row that says full time — see `insertGoldenPointAfter`. */
+  golden?: { label: string; onInsert: () => void };
 }) {
   // Taking an item early changes what is on air and drops what it passes, so
   // it asks once. Re-timing the live row changes nothing on air and does not.
@@ -484,7 +490,8 @@ function TimingNudge({
   }, [armed]);
   return (
     <div className="timing-nudge" onPointerDown={(e) => e.stopPropagation()}>
-      {[-30, -15, -5].map((d) => (
+      {nudges &&
+        [-30, -15, -5].map((d) => (
         <button
           key={d}
           type="button"
@@ -495,7 +502,8 @@ function TimingNudge({
         >
           {d}
         </button>
-      ))}
+        ))}
+      {nudges && (
       <button
         type="button"
         className={`tn-btn tn-cue ${armed ? "armed" : ""}`}
@@ -516,7 +524,9 @@ function TimingNudge({
       >
         {armed ? `Skip ${skips}?` : "CUE"}
       </button>
-      {[5, 15, 30].map((d) => (
+      )}
+      {nudges &&
+        [5, 15, 30].map((d) => (
         <button
           key={d}
           type="button"
@@ -527,7 +537,17 @@ function TimingNudge({
         >
           +{d}
         </button>
-      ))}
+        ))}
+      {golden && (
+        <button
+          type="button"
+          className="tn-btn tn-golden"
+          data-tip="Build the extra-time block after this row — the holds and the periods — and move every printed time below it by however long it runs. One undo takes it back out."
+          onClick={golden.onInsert}
+        >
+          ⚡ {golden.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -1909,6 +1929,22 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * The extra-time action for a row, or null where it must not be offered.
+   *
+   * Three conditions, and each is doing work: the row has to be where a result
+   * is called; the sheet must carry no endings of its own, or it already has a
+   * block and a chooser; and the KIND OF SHOW must have an extra period. A
+   * junior, trial or exhibition fixture is rugby league on a rugby league sheet
+   * and nobody is playing golden point — offering it there offers something
+   * that cannot happen.
+   */
+  const goldenFor = (rowId: string): { label: string; onInsert: () => void } | null => {
+    if (!decisionRowIds.has(rowId)) return null;
+    if (!(showType?.fullTime ?? []).includes("golden")) return null;
+    return { label: showType?.extraLabel ?? "Golden point", onInsert: () => insertGoldenPointAfter(rowId) };
+  };
+
   const deleteSelected = (): void => {
     if (selected.size === 0) return;
     // The rule lives with the ACTION, not only with the button that is
@@ -3279,9 +3315,22 @@ export function RundownEditor({
             put a row's timing out for no reason anybody would later remember.
             `canEditContent` stays in the test: a viewer who may not change the
             sheet may not nudge it either. */}
-        {showLive && canEditContent && nudgeRowAt && (
+        {/* Extra time rides the same strip. A showcaller looking for it is on
+            the row that says full time, hovering — which is exactly where the
+            live corrections already are, so it is one control in one place
+            rather than a second way of reaching a row. It also brings the
+            strip out before the show, which the nudges deliberately do not do:
+            building the block is preparation, and the block is most often
+            wanted at full time on a night nobody planned for it. */}
+        {canEditContent && nudgeRowAt && (showLive || goldenFor(nudgeRowAt.id) != null) && (
           <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
-            <TimingNudge onNudge={(d) => nudgeRow(nudgeRowAt.id, d)} onCue={() => cueRow(nudgeRowAt.id)} skips={cueSkipCount(nudgeRowAt.id)} />
+            <TimingNudge
+              nudges={showLive}
+              onNudge={(d) => nudgeRow(nudgeRowAt.id, d)}
+              onCue={() => cueRow(nudgeRowAt.id)}
+              skips={cueSkipCount(nudgeRowAt.id)}
+              golden={goldenFor(nudgeRowAt.id) ?? undefined}
+            />
           </div>
         )}
         {canEditContent && selected.size > 0 && (
@@ -3318,23 +3367,6 @@ export function RundownEditor({
             >
               Skip
             </button>
-            {/* Only on a full-time row of a sheet that carries no endings, and
-                only where the competition has an extra period to offer. A
-                sheet that already has a golden-point block does not need one
-                built, and a fixture that cannot go to extra time must not be
-                offered one — that is the whole reason the kind of show says so
-                rather than the sheet being read for it. */}
-            {selected.size === 1 &&
-              decisionRowIds.has([...selected][0]!) &&
-              (showType?.fullTime ?? []).includes("golden") && (
-                <button
-                  className="btn btn-sm"
-                  data-tip="Build the extra-time block after this row — holds and periods — and move every printed time below it by however long it runs. One undo takes it back out."
-                  onClick={() => insertGoldenPointAfter([...selected][0]!)}
-                >
-                  ⚡ Add {showType?.extraLabel ?? "golden point"}
-                </button>
-              )}
             <Dropdown label="Win / lose / draw rows…" className="btn btn-sm">
               <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
                 These rows only play for one game result. Pick which one they belong to — at full time you choose the

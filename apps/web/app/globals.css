@@ -2258,6 +2258,17 @@ select:disabled {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-overlay);
 }
+/* Extra time reads as the exception on the strip: the corrections either side
+   of it are seconds, this one adds fifteen minutes of football. Amber is what
+   golden point already wears on the outcome dock. */
+.timing-nudge .tn-golden {
+  color: var(--warn);
+  border-color: var(--warn);
+  white-space: nowrap;
+}
+.timing-nudge .tn-golden:hover {
+  background: var(--warn-soft);
+}
 .timing-nudge .tn-btn {
   min-width: 34px;
   height: 26px;

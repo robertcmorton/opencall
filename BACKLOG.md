@@ -78,10 +78,6 @@ ANSWERED. Two of the three already existed; the third is fixed.
 
 ## 3. Live-show controls
 
-- [ ] **Strike a row instead of deleting it, while a show is live.** Delete
-      becomes Strike: the row stays, visibly struck, and stops counting. A row
-      deleted at 8:47 takes its history with it; a struck one leaves the as-run
-      record honest about what was dropped and when.
 - [ ] **A pause that delays an item and ripples downward.** When something
       overruns, push it and everything after it by the same amount rather than
       editing times by hand. Distinct from the transport Pause, which holds the
@@ -94,8 +90,30 @@ ANSWERED. Two of the three already existed; the third is fixed.
 - [ ] **Comments on line items.** A note attached to a row so a change can
       carry its reason. NEEDS DECISIONS FIRST: per-row or per-cell; whether
       they survive an import that replaces the sheet; who can see them.
-- [ ] **Click a row during walkthrough to make it the active row.** It steps
-      with Prev and Next only, so reaching a row means walking to it.
+
+## 4b. Sheets whose heading is never recognised
+
+Found on 29 August by the import check's new shape tests, which report when
+nothing became the title, the time or the duration. Three sample sheets import
+with no title column and no lengths at all, and had been passing silently:
+
+    190725 - Bulldogs v Dragons - Event Plan.pdf
+    Event Information Plan - NRL Round 21 - Bulldogs v Sea Eagles.pdf
+    Runsheet Rd 11 v Dragons NRLW.pdf
+
+- [ ] **A sheet whose heading scores nothing falls back to line 0.**
+      `detectHeaderRow` picks the most heading-like line in the first thirty and
+      returns 0 when nothing scores two. On the Dragons NRLW sheet that makes
+      the TITLE BLOCK the header — "2025 NRLW TELSTRA PREMIERSHIP" becomes a
+      column name, all 242 rows import as "Column 1…13", and the sheet has no
+      title, no time and no duration.
+      This is a DIFFERENT fault from the three fixed on 29 August: that heading
+      is not late, not wrapped over two lines, and not run together with its
+      neighbour — it is not recognised at all. The fix is probably a fallback
+      that reads the SHAPE of the data when no line reads as headings (the
+      column that holds times is the time column), and it wants its own
+      before/after sweep of all 27 sheets because it changes what happens on
+      every sheet that currently has no header.
 
 ## 5. Fix, unscheduled
 

@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A row is called the same thing on every screen.** The walkthrough counted its own position among the rows it can step to, which is a filtered list — banners and skipped rows keep their number on the sheet and are stepped over there. So on an imported sheet it said "1" while the row it was highlighting read 11 in the sheet beside it, and the gap between the two numbers moved as you walked. It now names the row the way the sheet names it, and how far through the rehearsal you are moved to the tooltip, where a progress count belongs. The prompter and the guest view had a quieter version of the same disagreement: where the sheet left a row unnumbered they filled in the row's position instead, so a row showed a number the sheet never gave it — and that number belongs to a different row further down. All four screens now ask one rule.
+
 ### Added
 - **The offline import check looks at the shape of the result, not only at what it could read.** It called a 26-page run sheet clean while that sheet was missing its first ten items, had no durations at all and carried a page footer inside thirty-two of its cues — because every cell it could see parsed, and the damage was in what never became a cell. It now also reports when no column became the title, the time or the duration; when a whole sheet comes out zero seconds long; and when one line of text is sitting inside row after unrelated row, which is what an absorbed running head or footer looks like from the outside. That last test deliberately does not consult the running-header detector, since a check that asks the detector whose blind spot caused the problem can only ever find what it already found. Its thresholds were measured against the sample sheets rather than guessed. Three sheets that had been passing turn out to import with no title column and no lengths.
 

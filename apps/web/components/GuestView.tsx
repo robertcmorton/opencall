@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { computeTiming, formatDuration, formatTimeOfDay, type PlanRow } from "@opencall/core";
 import { API_URL } from "../lib/api";
 import { useColWidths } from "../lib/useColWidths";
+import { rowNumbering } from "../lib/rowNumbering";
 
 interface GuestProjection {
   meta: { name: string; use24h: boolean; plannedStartSec: number | null; versionLabel: string | null };
@@ -56,6 +57,8 @@ export function GuestView({ token }: { token: string }) {
 
   const { meta, columns, rows } = data;
   const timing = computeTiming(rows, meta.plannedStartSec);
+  /** One rule for what a row is called — see `rowNumbering`. */
+  const numberOf = rowNumbering(rows as { sourceNumber?: string | null }[]);
   // Columns render in the doc's order, which mirrors the source sheet.
   const orderedColumns = columns.filter(
     (c) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration" || c.kind === "richtext",
@@ -114,7 +117,7 @@ export function GuestView({ token }: { token: string }) {
                 style={{ background: row.type !== "group" && row.color ? row.color : undefined }}
               >
                 <td className="row-number mono" style={{ cursor: "default" }}>
-                  {(row as { sourceNumber?: string }).sourceNumber ?? i + 1}
+                  {numberOf(i)}
                 </td>
                 {orderedColumns.map((c) =>
                   c.kind === "title" ? (

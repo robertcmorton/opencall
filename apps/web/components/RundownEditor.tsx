@@ -74,6 +74,7 @@ import { DocBlockedPanel } from "./DocBlockedPanel";
 import { useShowChannel } from "../lib/showChannel";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { useRundownDoc } from "../lib/useRundownDoc";
+import { rowNumbering } from "../lib/rowNumbering";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -2238,6 +2239,9 @@ export function RundownEditor({
    * floor is taken from the sheet in hand rather than from a number typed
    * here, and a short sheet still gets a narrow column.
    */
+  /** One rule for what a row is called — see `rowNumbering`. */
+  const numberOf = useMemo(() => rowNumbering(rows), [rows]);
+
   const rowNumFloor = useMemo(() => {
     const longest = rows.reduce((n, r) => Math.max(n, (r.sourceNumber ?? "").trim().length), 0);
     const anyParallel = rows.some((r) => r.parallel);
@@ -2830,10 +2834,21 @@ export function RundownEditor({
                   (() => {
                     const walkable = rows.filter((r) => r.type !== "group" && !r.skipped);
                     const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
+                    // Name the row the way the SHEET names it. This counted its
+                    // own position among walkable rows, so on an imported sheet
+                    // opening at item 11 it said 1 while the gutter said 11 —
+                    // and the gap moves, because banners and skipped rows keep
+                    // their number on the sheet and are stepped over here. The
+                    // crew are reading the numbers off paper.
+                    const here = at >= 0 ? rows.indexOf(walkable[at]!) : -1;
+                    const label = here >= 0 ? numberOf(here) : "";
                     return (
                       <>
-                        <span className="chip" data-tip="Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees">
-                          Walkthrough{at >= 0 ? ` ${at + 1}/${walkable.length}` : ""}
+                        <span
+                          className="chip"
+                          data-tip={`Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees${at >= 0 ? ` · ${at + 1} of ${walkable.length} steps` : ""}`}
+                        >
+                          Walkthrough{label ? ` ${label}` : ""}
                         </span>
                         <button
                           className="btn"
@@ -3425,8 +3440,8 @@ export function RundownEditor({
             <tbody ref={tbodyRef}>
               {(() => {
                 // Imported sheets keep THEIR numbering (blank where the sheet
-                // had none); manual rundowns count sequentially.
-                const mirrored = rows.some((r) => r.sourceNumber != null);
+                // had none); manual rundowns count sequentially. The rule lives
+                // in one place so every screen gives a row the same number.
                 /**
                  * Cells for a full-width banner row inside the table.
                  *
@@ -3477,7 +3492,7 @@ export function RundownEditor({
                     key={rowRecord.id}
                     row={rowRecord}
                     branch={mark}
-                    displayNumber={mirrored ? (rowRecord.sourceNumber ?? "") : String(i + 1)}
+                    displayNumber={numberOf(i)}
                     selected={selected.has(rowRecord.id)}
                     active={activeRowId === rowRecord.id}
                     next={nextRowId === rowRecord.id}

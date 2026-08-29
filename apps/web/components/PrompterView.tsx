@@ -17,6 +17,7 @@ import {
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
+import { rowNumbering } from "../lib/rowNumbering";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
 
@@ -42,6 +43,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   useWakeLock();
   const { doc, synced } = useRundownDoc(rundownId);
   const { columns, rows, meta } = projectRundownDoc(doc);
+  /** One rule for what a row is called — see `rowNumbering`. */
+  const numberOf = rowNumbering(rows);
   const channel = useShowChannel(rundownId, "companion", joinCode);
   const show = channel.show;
 
@@ -638,7 +641,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                     {Math.floor(row.durationSec / 60)}:{String(row.durationSec % 60).padStart(2, "0")}
                   </span>
                 )}
-                <span style={{ color: "#444" }}>{row.sourceNumber ? `#${row.sourceNumber}` : `${i + 1}`}</span>
+                <span style={{ color: "#444" }}>{numberOf(i) ? `#${numberOf(i)}` : ""}</span>
                 {isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {activeId === row.id && !isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {nextId === row.id && <span style={{ color: "#d29922", fontWeight: 700 }}>NEXT</span>}

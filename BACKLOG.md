@@ -116,33 +116,30 @@ Two are resolved and one is not a run sheet at all:
       importing 291 empty rows and letting the person discover it. Wants
       deciding before building.
 
-## 4c. A fix inside `packages/` never deploys on its own
+## 4c. Deploy watch paths — DONE 29 August
 
-Found on 29 August, after four import fixes sat undeployed for over an hour
-while production kept serving a build from the day before.
+Railway watches PATHS to decide whether a push needs a build, and neither
+service watched `packages/`. A commit touching only `packages/core` was
+answered "No deployment needed - watched paths not modified" — wrong, because
+both apps depend on those packages. Four import fixes sat undeployed for over
+an hour on 29 August and only shipped because a later commit happened to touch
+`apps/web`.
 
-Railway watches PATHS to decide whether a push needs a build. The web service's
-watched paths do not include `packages/`, so a commit touching only
-`packages/core` is answered with:
+- [x] **`/packages/**` added to the watched paths of BOTH services**, 29 August,
+      via the Railway dashboard:
 
-    "No deployment needed - watched paths not modified"
+          opencall        /apps/web/**    +  /packages/**
+          opencall-sync   /apps/sync/**   +  /packages/**
 
-`apps/web` depends on `@opencall/core`, so this is wrong: a core fix changes the
-web app. It went unnoticed because a later commit that happened to touch
-`apps/web` finally carried all of them out together.
+      Applied and redeployed; the deploy that followed carried the commits that
+      had been stuck. Verified afterwards at `/api/version`: `92050e5`.
 
-- [ ] **Add `packages/**` to the watched paths of BOTH Railway services**, or
-      turn watched paths off. Needs the user's Railway login — Claude cannot
-      change it.
-      Until then the rule is: a commit that only touches `packages/` is NOT
-      live, whatever the changelog says, and the version badge bottom-right of
-      the dashboard is the only honest answer to "is it deployed".
-
-- [ ] **A public build-identity endpoint.** "Is this deployed?" is currently
-      answerable only by signing in and reading the badge, because there is no
-      unauthenticated route that reports the build. `GET /version` on the sync
-      host returning `{version, sha, builtAt}` would settle it from a script,
-      and would have saved a good deal of guessing on 29 August.
+- [ ] **Root-level files are still unwatched** — `package.json`,
+      `pnpm-lock.yaml`, `turbo.json`, `tsconfig`. A dependency bump or a
+      workspace change deploys nothing on its own, for the same reason
+      `packages/` did not. Not urgent and not yet hit, but it is the same trap
+      with a different path. Decide whether to add them or turn watched paths
+      off entirely.
 
 ## 5. Fix, unscheduled
 

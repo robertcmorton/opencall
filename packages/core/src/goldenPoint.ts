@@ -16,7 +16,8 @@
 export interface GoldenPointRow {
   type: "cue";
   title: string;
-  durationSec: number;
+  /** Null where the period has no knowable length — see `goldenPointBlock`. */
+  durationSec: number | null;
 }
 
 /**
@@ -24,8 +25,11 @@ export interface GoldenPointRow {
  *
  * The laws of the game give no break — five minutes, swap ends, five more. The
  * SHOW is not the game: cameras reset, the commentary comes back, the crowd is
- * told what is happening, and none of that takes zero. Two minutes is a choice
- * rather than a measurement, and it is the number to argue with if it is wrong.
+ * told what is happening, and none of that takes zero.
+ *
+ * Two minutes is a PLACEHOLDER, agreed as one rather than measured, and it is
+ * the number to change when somebody times a real one. Confirmed as a
+ * placeholder on 29 August rather than left as an open question.
  *
  * "HOLDING" is deliberately the word real sheets already use for it.
  */
@@ -40,19 +44,44 @@ export const GOLDEN_HALF_SEC = 300;
  * Four rows, not two. A sheet that said only "Golden point 1 / Golden point 2"
  * would be describing the game rather than the broadcast, and the showcaller
  * would be holding two periods together with nothing between them.
+ *
+ * `mustSettle` adds a fifth and sixth row, and that is a competition rule
+ * rather than a preference. In a REGULAR SEASON match the ten minutes are
+ * sudden death — the first score ends it, and nobody scoring means a draw is
+ * declared and the night moves on. In a FINAL the same ten minutes are played
+ * out whatever the score, and if the teams are still level after them the game
+ * goes to a continuous, unlimited golden point that ends only on a score.
+ *
+ * A run sheet cannot put a length on that last period, and should not pretend
+ * to: the row carries no duration, which is how the rest of the sheet already
+ * writes a thing whose end nobody knows. Leaving it off would be worse — the
+ * sheet would run out of rows while a final was still being played.
  */
-export function goldenPointBlock(label = "Golden point"): GoldenPointRow[] {
-  return [
+export function goldenPointBlock(label = "Golden point", mustSettle = false): GoldenPointRow[] {
+  const block: GoldenPointRow[] = [
     { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
     { type: "cue", title: `${label} — first half`, durationSec: GOLDEN_HALF_SEC },
     { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
     { type: "cue", title: `${label} — second half`, durationSec: GOLDEN_HALF_SEC },
   ];
+  if (mustSettle) {
+    block.push(
+      { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
+      { type: "cue", title: `${label} — sudden death`, durationSec: null },
+    );
+  }
+  return block;
 }
 
-/** What the whole block costs the night. */
-export const goldenPointDurationSec = (label?: string): number =>
-  goldenPointBlock(label).reduce((total, r) => total + r.durationSec, 0);
+/**
+ * What the whole block costs the night.
+ *
+ * The unlimited period counts as nothing, because nobody can say what it costs
+ * until it is over. Everything printed after the block moves by this much and
+ * then moves again if that period is ever played.
+ */
+export const goldenPointDurationSec = (label?: string, mustSettle?: boolean): number =>
+  goldenPointBlock(label, mustSettle).reduce((total, r) => total + (r.durationSec ?? 0), 0);
 
 /** The shape this needs from a row: only its printed start, if it has one. */
 export interface Anchoredish {

@@ -57,10 +57,28 @@ live screen, so it wants doing carefully:
       currently the thing that produces the Draw button, and without it the
       second gate reduces the offer to win/lose. Fixtures need re-typing to the
       new kind of show first, which is a migration decision.
-- [ ] **Is two minutes the right hold?** It is a guess in the code and says so.
-- [ ] **NRLW rules** — still unverified; nrl.com sends the page behind a
-      sign-in. Same ten minutes in two halves? Can a regular-season match be
-      drawn? If they differ it wants its own kind of show.
+- [x] **Is two minutes the right hold?** ANSWERED 29 Aug: keep it, as an
+      agreed PLACEHOLDER rather than a measurement. Said so in the code. The
+      number to change when somebody times a real one.
+- [x] **NRLW rules** — ANSWERED 29 Aug, and the answer is that the women's game
+      needs NO kind of show of its own. Endings are identical to the men's:
+      regular season is two five-minute halves of sudden-death golden point and
+      a draw is declared if nobody scores (`nrl`); a final plays the ten minutes
+      out whatever the score and then goes to continuous unlimited golden point
+      (`nrl-finals`). Recorded in `eventTypes.ts` beside the types themselves.
+
+      The competitions DO differ — an NRLW match is 70 minutes to the NRL's 80,
+      two 35-minute halves against two of 40 — but that is not modelled here and
+      does not need to be: a half's length comes from the sheet, which allots
+      the wall clock for it (42:00 and 47:00, the extra seven minutes being the
+      stoppages).
+
+      ONE REAL GAP CAME OUT OF IT, now closed: a final that is still level after
+      the ten minutes goes to an unlimited period, and the generated block ended
+      at the second half. It would have run out of rows with a final still being
+      played. `goldenPointBlock(label, mustSettle)` now adds a HOLDING and a
+      sudden-death row carrying NO length, because nobody can say what that
+      period costs until it is over.
 
 ## 1. Look before building — these may already exist
 

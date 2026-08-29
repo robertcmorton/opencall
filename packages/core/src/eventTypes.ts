@@ -91,6 +91,28 @@ const FINAL_QUARTER = /\b(final|fourth|4th)\s+(quarter|term)\b/i;
 const SECOND_INNINGS = /\b(second|2nd)\s+innings\b/i;
 
 export const EVENT_TYPES: EventTypeDef[] = [
+  /*
+   * Rugby league, and the women's game plays the same endings.
+   *
+   * Checked against the NRLW rules on 29 August rather than assumed, because
+   * the two competitions DO differ elsewhere and it would have been reasonable
+   * to expect a difference here too: an NRLW match is 70 minutes to the NRL's
+   * 80, two 35-minute halves against two of 40. That difference is real but it
+   * is not modelled here — a half's length comes from the sheet, which allots
+   * the wall clock for it (42:00 against a 35-minute half, 47:00 against a
+   * 40-minute one, the extra seven minutes being the stoppages).
+   *
+   * The ENDINGS are identical, so the women's game needs no kind of show of its
+   * own:
+   *   REGULAR SEASON  level at full time goes to two five-minute halves of
+   *                   golden point, sudden death — the first score wins, and
+   *                   if nobody scores a draw is declared. That is `nrl`.
+   *   FINALS & GF     the same ten minutes, but played out whatever the score;
+   *                   still level after them and it goes to a continuous,
+   *                   unlimited golden point that ends only on a score. That
+   *                   is `nrl-finals`, and the unlimited period is why the
+   *                   generated block grows a last row with no length on it.
+   */
   {
     id: "nrl",
     label: "Rugby league (NRL) — regular season",

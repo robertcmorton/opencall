@@ -127,3 +127,33 @@ describe("findDecisionPoints", () => {
     expect(findDecisionPoints(rows)).toEqual([]);
   });
 });
+
+describe("goldenPointBlock — a final cannot end level", () => {
+  // Regular season: the ten minutes are sudden death and nobody scoring is a
+  // draw, so the block ends where the second half does.
+  it("stops after the second half in a regular-season match", () => {
+    const block = goldenPointBlock("Golden point");
+    expect(block).toHaveLength(4);
+    expect(block.at(-1)?.title).toBe("Golden point — second half");
+  });
+
+  // A final plays the ten minutes out and then goes on until somebody scores.
+  // Without this the sheet runs out of rows while a final is still being
+  // played.
+  it("carries on into sudden death in a final", () => {
+    const block = goldenPointBlock("Golden point", true);
+    expect(block).toHaveLength(6);
+    expect(block.at(-1)?.title).toBe("Golden point — sudden death");
+  });
+
+  // Nobody can say how long it runs, and a run sheet should not pretend to.
+  it("puts no length on the unlimited period", () => {
+    expect(goldenPointBlock("Golden point", true).at(-1)?.durationSec).toBeNull();
+  });
+
+  it("counts only the periods whose length is known", () => {
+    expect(goldenPointDurationSec("Golden point")).toBe(2 * HOLDING_SEC + 2 * GOLDEN_HALF_SEC);
+    // The extra HOLDING is real time; the period after it is not knowable.
+    expect(goldenPointDurationSec("Golden point", true)).toBe(3 * HOLDING_SEC + 2 * GOLDEN_HALF_SEC);
+  });
+});

@@ -2172,16 +2172,16 @@ kbd {
 .col-resize {
   position: absolute;
   top: 0;
-  /* Inside the cell, not straddling its edge. Hanging 5px past the last
-     column made the table wider than its container at every size — six
-     pixels of overflow is still overflow, and it is what a horizontal
-     scrollbar is made of. */
-  right: 0;
-  /* 9px was a target you had to go looking for: the divider reads as a
-     hairline, so the pointer arrives ON the line and the resize cursor only
-     appeared once you had hunted a few pixels to the left of it. Widened so
-     the cursor changes when the pointer is over the divider, which is where
-     anybody would expect to grab it. Still inside the cell — see above. */
+  /* CENTRED on the column boundary, half either side of it.
+     It used to sit wholly inside the cell (`right: 0`), so all sixteen pixels
+     of grab area were to the LEFT of the line: the resize cursor appeared well
+     before you reached the divider and never once you had passed it, and the
+     whole target read as offset from the column it belongs to.
+     Inside-the-cell was to stop the last column's handle hanging past the
+     table and making it wider than its container. That cannot happen now —
+     `handle()` returns nothing when there is no next column, so the last
+     column has no handle to hang. */
+  right: -8px;
   width: 16px;
   height: 100%;
   cursor: col-resize;
@@ -2192,17 +2192,15 @@ kbd {
 .col-resize::after {
   content: "";
   position: absolute;
-  /* Anchored to the COLUMN BOUNDARY, not to the grab handle.
-     It was `left: 4px` inside the handle, so the visible divider sat at
-     (cell right − handle width + 4) and MOVED whenever the handle was
-     resized — widening the grab area from 9px to 16px for the resize cursor
-     silently slid every header divider 7px left of the body's, which is how
-     the header and the sheet stopped lining up.
-     The body draws its divider as `td + td { border-left }`, occupying the
-     first pixel of the next cell. `right: -1px` puts this on exactly that
-     pixel, so the two are the same line. The grab area can now be any width
-     without touching what is drawn. */
-  right: -1px;
+  /* Drawn down the MIDDLE of the handle, and the handle is centred on the
+     boundary — so this lands on the line whatever the grab width becomes.
+     Expressed as a proportion on purpose: the previous two attempts both
+     pinned it to an edge with a fixed offset, and both drifted the moment the
+     grab area was resized. The body draws its divider as
+     `td + td { border-left }`, occupying the first pixel of the next cell;
+     `left: 50%` of a handle spanning [edge−8, edge+8] is exactly that pixel. */
+  left: 50%;
+  right: auto;
   top: 22%;
   height: 56%;
   width: 1px;
@@ -2216,7 +2214,12 @@ kbd {
 .col-resize:hover::after {
   background: var(--accent);
   width: 3px;
-  left: 3px;
+  /* Grows evenly either side of the line rather than moving. `left: 3px` here
+     was the bug the user reported: setting `left` AND `width` on an absolutely
+     positioned element makes the `right` above it inert, so on hover the bar
+     jumped from the boundary to thirteen pixels left of it — the blue bar and
+     the column it belonged to were visibly out of line. */
+  margin-left: -1px;
 }
 /* A dropdown opens on click, so it points like everything else that does.
    Browsers give <select> an arrow by default, and next to buttons that all say

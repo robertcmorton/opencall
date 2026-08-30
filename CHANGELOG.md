@@ -9,7 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
-### Added
+### Fixed
+- **The column grab handle sits on the column edge, not to the left of it.** The resize cursor appeared well before you reached a divider and stopped once you had passed it, and the blue bar that shows where the edge will land was drawn thirteen pixels left of the edge itself. Two separate causes with the same symptom: the grab area sat wholly inside the cell, so all sixteen pixels of it were on one side of the line; and the hover rule set a left offset beside a width, which quietly overrides the right-anchoring above it and moved the bar rather than widening it. The handle is now centred on the boundary, half either side, and the bar is drawn down its middle — so it stays on the line whatever the grab area is resized to, which is the third time that particular drift has had to be fixed and the first time it has been expressed as a proportion rather than an offset from an edge.
+
 - **HOLD keeps an item on air past its end, and spends what it cost.** Something overruns and the answer used to be arithmetic: work out how long it went, then press +30 four times. HOLD sits beside CUE — the other thing you do to the item that is on air, since CUE says the next one starts now and HOLD says this one is not finished — and starts a stopwatch on it. Pressing GO spends whatever it reads: the item takes that long, and every printed time below moves by the same amount. That is exactly what the nudges either side of it already do, because a hold is a nudge whose length nobody knew in advance, and one undo takes the whole thing back.
 
   The stopwatch belongs to the screen holding it; what is shared is the result once it is let go. A half-finished hold is not a fact about the show, it is somebody with a thumb on a button. Cueing anything else settles it first, so the time lands on the item that was actually held rather than following the button to the next row. On a phone it docks at the foot with the other corrections, because a touch screen cannot hover — not because it needs less.

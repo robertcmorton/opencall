@@ -241,11 +241,18 @@ Recorded so nobody rediscovers them as bugs.
 - [ ] A write holds a pooled client across two statements since the transaction
       went in. It cannot deadlock, but many simultaneous live shows would
       serialise more than before. Not measured, and no pool size is configured.
-- [ ] The transaction is proven on the embedded database only. The production
-      driver's path was read, not run — production is the first place it
-      executes.
-- [ ] No test harness in `apps/sync` to host the rollback proof; it lives in a
-      scratch script that ports over almost directly.
+- [x] The transaction is proven on the embedded database only. CLOSED 30 Aug.
+      Ran the whole thing against a real Postgres 16: all 15 migrations applied
+      and built 21 tables (that path had never executed either), the session row
+      and its as-run entry committed together, and a failure in the second
+      statement left NEITHER — no orphaned session claiming a row nothing says
+      was cued. Production is no longer the first place any of it runs.
+- [x] No test harness in `apps/sync` to host the rollback proof. CLOSED 30 Aug —
+      `apps/sync/test/transaction.test.ts`, 3 tests. It SKIPS unless
+      `DATABASE_URL` is set, because the point of the embedded database is that
+      `pnpm dev` and `pnpm test` need no infrastructure; the file carries the
+      two commands for running it against a container. The scratch script is
+      deleted rather than left to rot beside it.
 - [ ] The scope rules are proven from the browser for a caller signed in with a
       company token. The equivalent path for an ACCOUNT holding a company grant
       is three lines away in the same function and was never clicked.

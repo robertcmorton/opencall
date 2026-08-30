@@ -2277,6 +2277,19 @@ select:disabled {
   background: var(--accent-soft);
 }
 
+/* HOLD is the one button on the strip that starts something rather than
+   applying it. Amber while it runs, because an item being held past its end is
+   a state the room is in — not an alarm, but not nothing either. */
+.timing-nudge .tn-hold {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+.timing-nudge .tn-hold.is-on {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
 /* Extra time reads as the exception on the strip: the corrections either side
    of it are seconds, this one adds fifteen minutes of football. Amber is what
    golden point already wears on the outcome dock. */

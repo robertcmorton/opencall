@@ -113,7 +113,13 @@ ANSWERED. Two of the three already existed; the third is fixed.
 
 ## 3. Live-show controls
 
-- [ ] **A pause that delays an item and ripples downward.** When something
+- [x] **A pause that delays an item and ripples downward.** DONE 29 Aug as HOLD,
+      beside CUE. The decision it was blocked on answered itself: `shiftFixedTimes`
+      ALREADY moves printed times below on every nudge and every cue, so a hold
+      rippling the same way follows the app's existing behaviour rather than
+      inventing a rule for hard starts. Reuses `nudgeRow` outright — a hold is a
+      nudge whose length nobody knew in advance.
+- [ ] ~~A pause that delays an item and ripples downward.~~ When something
       overruns, push it and everything after it by the same amount rather than
       editing times by hand. Distinct from the transport Pause, which holds the
       clock — this moves the plan. NEEDS A DECISION FIRST: what it does to rows

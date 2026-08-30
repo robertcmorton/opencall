@@ -473,6 +473,7 @@ function TimingNudge({
   skips = 0,
   nudges = true,
   golden,
+  hold,
 }: {
   onNudge: (deltaSec: number) => void;
   onCue: () => void;
@@ -482,6 +483,11 @@ function TimingNudge({
   nudges?: boolean;
   /** Offered on the row that says full time — see `insertGoldenPointAfter`. */
   golden?: { label: string; onInsert: () => void };
+  /**
+   * Holding this item past its end. `heldSec` is null when nothing is being
+   * held, and counts up once it is.
+   */
+  hold?: { heldSec: number | null; onToggle: () => void };
 }) {
   // Taking an item early changes what is on air and drops what it passes, so
   // it asks once. Re-timing the live row changes nothing on air and does not.
@@ -527,6 +533,29 @@ function TimingNudge({
       >
         {armed ? `Skip ${skips}?` : "CUE"}
       </button>
+      )}
+      {/* Right of CUE, because it is the other thing you do to the item that is
+          on air: CUE says the next one starts now, HOLD says this one is not
+          finished. Pressing it starts a stopwatch; pressing GO spends whatever
+          it read on this item and moves everything printed below by the same,
+          which is what the nudges either side already do — a hold is a nudge
+          whose length nobody knew in advance. */}
+      {hold && nudges && (
+        <button
+          type="button"
+          className={`tn-btn tn-hold ${hold.heldSec != null ? "is-on" : ""}`}
+          disabled={disabled}
+          data-tip={
+            hold.heldSec != null
+              ? "Let it go — this item takes the time it has been held, and everything below moves by the same"
+              : "Hold this item past its end — the show stays on it and the clock keeps counting until you let it go"
+          }
+          onClick={hold.onToggle}
+        >
+          {hold.heldSec != null
+            ? `GO ${Math.floor(hold.heldSec / 60)}:${String(hold.heldSec % 60).padStart(2, "0")}`
+            : "HOLD"}
+        </button>
       )}
       {nudges &&
         [5, 15, 30].map((d) => (
@@ -1717,6 +1746,50 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * Holding an item past its end.
+   *
+   * Something overruns and the sheet's answer used to be arithmetic: work out
+   * how long it went, then press +30 four times. HOLD starts a stopwatch on
+   * the item instead, and GO spends whatever it reads — the item takes that
+   * long and every printed time below moves by the same amount, which is
+   * exactly what the nudges either side of it already do. A hold is a nudge
+   * whose length nobody knew in advance.
+   *
+   * The stopwatch is this screen's, not the document's. What is SHARED is the
+   * result, once it is let go — a half-finished hold is not a fact about the
+   * show, it is a showcaller with a thumb on a button, and writing it to every
+   * screen would mean deciding what happens to it when that screen closes.
+   */
+  const [holding, setHolding] = useState<{ id: string; at: number } | null>(null);
+  const [heldSec, setHeldSec] = useState(0);
+  useEffect(() => {
+    if (!holding) {
+      setHeldSec(0);
+      return;
+    }
+    const tick = () => setHeldSec(Math.max(0, Math.round((Date.now() - holding.at) / 1000)));
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+  }, [holding]);
+
+  /**
+   * Let go of whatever is being held, and spend it.
+   *
+   * Also called when the show moves on by any other route: cueing another row
+   * while a hold is running would otherwise leave the stopwatch attached to an
+   * item nobody is on, and its time would land on that row whenever the button
+   * was next pressed.
+   */
+  const settleHold = (): void => {
+    if (!holding) return;
+    const sec = Math.max(0, Math.round((Date.now() - holding.at) / 1000));
+    const id = holding.id;
+    setHolding(null);
+    if (sec > 0) nudgeRow(id, sec);
+  };
+
   /** "This is happening now": pin the row to the clock, ripple the rest down. */
   /**
    * How many rows a CUE on this one would drop. Zero when it is the live row
@@ -1744,6 +1817,9 @@ export function RundownEditor({
    * times would falsify the record of the show.
    */
   const cueRow = (rowId: string): void => {
+    // The show is moving on, so whatever was being held has finished. Settled
+    // BEFORE the cue so the time lands on the item that was actually held.
+    settleHold();
     const idx = rows.findIndex((r) => r.id === rowId);
     if (idx < 0) return;
     // A pre-record or a bell runs alongside the show and is never called, so
@@ -3407,6 +3483,11 @@ export function RundownEditor({
               onCue={() => cueRow(nudgeRowAt.id)}
               skips={cueSkipCount(nudgeRowAt.id)}
               golden={goldenFor(nudgeRowAt.id) ?? undefined}
+              hold={{
+                heldSec: holding?.id === nudgeRowAt.id ? heldSec : null,
+                onToggle: () =>
+                  holding?.id === nudgeRowAt.id ? settleHold() : setHolding({ id: nudgeRowAt.id, at: Date.now() }),
+              }}
             />
           </div>
         )}
@@ -4063,7 +4144,20 @@ export function RundownEditor({
               <span className="tn-target" data-tip={target.title || "untitled"}>
                 {selected.size === 1 ? "Selected" : "Live"}: {target.title || "untitled"}
               </span>
-              <TimingNudge onNudge={(d) => nudgeRow(target.id, d)} onCue={() => cueRow(target.id)} skips={cueSkipCount(target.id)} />
+              {/* Same tool, same rules — a phone gets HOLD too. Two copies of
+                  one control obeying two different rules is worse than either
+                  rule, and this dock exists because a touch screen cannot
+                  hover, not because it needs less. */}
+              <TimingNudge
+                onNudge={(d) => nudgeRow(target.id, d)}
+                onCue={() => cueRow(target.id)}
+                skips={cueSkipCount(target.id)}
+                hold={{
+                  heldSec: holding?.id === target.id ? heldSec : null,
+                  onToggle: () =>
+                    holding?.id === target.id ? settleHold() : setHolding({ id: target.id, at: Date.now() }),
+                }}
+              />
             </div>
           );
         })()}

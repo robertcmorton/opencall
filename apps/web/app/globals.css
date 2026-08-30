@@ -117,6 +117,14 @@ body {
 }
 
 body {
+  /* `viewport-fit: cover` lets the background reach under the notch, which is
+     what it is for — but nothing was pulling the CONTENT back out, and in
+     LANDSCAPE the notch is down the side. On a phone turned sideways the row
+     numbers and the Notes button sat underneath it. Padding on the body moves
+     the content and leaves the background full-bleed, which is the whole
+     point of covering in the first place. Zero on every device without one. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -2277,8 +2285,11 @@ select:disabled {
    Still not loud. The loud marks on this grid mean something is happening NOW
    — the live cue, the next item, a timing hole. Which game a row belongs to is
    context, not an alarm, and it is on screen for the whole night. */
-.rundown-grid tr.game-band-1 > td.row-number {
-  box-shadow: inset 3px 0 0 var(--accent-text);
+/* The rows that ARE the game, as opposed to the afternoon around it. One
+   style, not an alternating pair: the band covers only the periods of play
+   now, so two games can never sit against each other — the second one's
+   build-up is always in between. */
+.rundown-grid tr.game-band > td.row-number {
   background: var(--accent-soft);
 }
 
@@ -2289,7 +2300,7 @@ select:disabled {
    was the other direction — somebody saying "this one" while the show runs. */
 .notes-panel {
   position: fixed;
-  right: 12px;
+  right: calc(12px + env(safe-area-inset-right));
   bottom: calc(12px + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
   width: min(360px, calc(100vw - 24px));
   max-height: min(60vh, 520px);
@@ -2754,7 +2765,8 @@ th.col-drop-target {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  padding: 8px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+    calc(12px + env(safe-area-inset-left));
   background: #1a1206;
   border-top: 1px solid var(--warn);
   font-family: var(--font-mono);
@@ -2778,12 +2790,19 @@ th.col-drop-target {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
+  /* A fixed box given `left` and no `right` shrink-to-fits inside what is left
+     of the screen — from 50% to the right edge, i.e. HALF of it. Measured on a
+     375px phone: the bar came out 188px wide and the sentence inside it 87px,
+     five lines of one word each, and the `max-width` below never came into it
+     because the box could never get that big. `max-content` asks for the whole
+     sentence on one line and lets max-width bring it back. */
+  width: max-content;
   bottom: calc(16px + var(--rolebar-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: min(560px, calc(100vw - 24px));
+  max-width: min(560px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
   padding: 9px 12px;
   border-radius: var(--r-md);
   /* Opaque base — see .cue-drift. A refusal has to be readable over the
@@ -2797,6 +2816,17 @@ th.col-drop-target {
 .cmd-error strong {
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+/* Takes the room the Dismiss button does not want, and wraps like a sentence.
+   `min-width: 0` is the load-bearing half: a flex item will not shrink below
+   its min-content width without it, and min-content for a sentence is its
+   longest word. */
+.cmd-error-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cmd-error .btn {
+  flex: 0 0 auto;
 }
 
 /* The armed Stop pulses so a glance away still reads as "waiting on you". */
@@ -2930,7 +2960,8 @@ th.col-drop-target {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
-  padding: 10px 14px;
+  /* Fixed to the viewport, so the body's safe-area padding does not reach it. */
+  padding: 10px calc(14px + env(safe-area-inset-right)) 10px calc(14px + env(safe-area-inset-left));
   /* Square, and edged only along the top: a bar that meets both sides has no
      sides to draw, and rounded corners on a full-bleed element look like a
      mistake. */

@@ -189,7 +189,7 @@ function SortableRow({
   return (
     <tr
       ref={setNodeRef}
-      className={`${band != null ? `game-band game-band-${band % 2}` : ""} ${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${runsWith?.length ? "concurrent-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
+      className={`${band != null ? "game-band" : ""} ${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${runsWith?.length ? "concurrent-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
         branch
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
@@ -1379,6 +1379,18 @@ export function RundownEditor({
   // every screen.
   const clockFollow = channel.show?.clockFollow ?? false;
   /**
+   * May this device drive the show at all?
+   *
+   * The server decides from identity and refuses anything below caller. The
+   * transport bar has always asked; nothing else on this page did, so a
+   * follower on a phone was shown "Follow clock" — twice, once in the toolbar
+   * and once in the drift warning — and pressing it came back "clock_on
+   * didn't go through, caller role required". A control that cannot work is
+   * worse than no control, and worst of all on the screen somebody is reading
+   * the show from. Same rule the prompter already applies.
+   */
+  const mayDrive = channel.role === "caller" || channel.role === "admin";
+  /**
    * How far the live cue has fallen behind the clock, in rows.
    *
    * A show driven by hand advances only when someone presses Next. Left alone
@@ -1980,31 +1992,12 @@ export function RundownEditor({
   }, [rows]);
 
   /**
-   * Which match each row belongs to, on a day that holds more than one.
-   *
-   * A double-header runs two games through one running order and today they
-   * look alike: the second game's build-up is the same shade as the ad break
-   * before it, and a showcaller scanning for where it starts has only the
-   * words to go on.
-   *
-   * Full time is the boundary, because it is the one thing the sheets agree
-   * on — 22 of 27 name it, and it is already found for the extra-time work.
-   * Everything up to and including a full time belongs to that game; what
-   * follows belongs to the next. Numbering counts the full times passed, so it
-   * needs no notion of where a game BEGINS, which the sheets say far less
-   * clearly than where one ends.
-   *
-   * Null on a sheet with one game or none, where banding would be decoration.
-   */
-  /**
    * Where each game on the day finishes.
    *
    * Full time is the boundary wherever a sheet names one. A sheet that wrote
    * its OWN endings has no full-time row to find — `findDecisionPoints`
    * deliberately returns nothing for those, since there is no result left to
-   * ask for — so the last row of each game's ending block stands in. Both the
-   * game bands and the period rail read this, because a day cannot have two
-   * different answers about where a game ended.
+   * ask for — so the last row of each game's ending block stands in.
    */
   const gameEnds = useMemo(() => {
     const ft = rows.map((r, i) => (decisionRowIds.has(r.id) ? i : -1)).filter((i) => i >= 0);
@@ -2016,16 +2009,6 @@ export function RundownEditor({
     return ends.filter((i) => i != null);
   }, [rows, decisionRowIds]);
 
-  const bandOf = useMemo(() => {
-    const ends = gameEnds;
-    if (ends.length < 2) return () => null;
-    return (index: number): number => {
-      const at = ends.findIndex((end) => index <= end);
-      // Past the last full time: the wrap belongs to the game that just ended.
-      return at < 0 ? ends.length - 1 : at;
-    };
-  }, [gameEnds]);
-
   /**
    * The periods of play, named down the edge of the sheet. See `findPhases`.
    *
@@ -2036,6 +2019,41 @@ export function RundownEditor({
    */
   const phases = useMemo(() => findPhases(rows, gameEnds), [rows, gameEnds]);
   const railW = phases.length > 0 ? RAIL_W : 0;
+
+  /**
+   * Which match's PLAY a row belongs to — not which match's afternoon.
+   *
+   * This used to band everything up to full time, so on a day with two games
+   * the tint ran from the moment the first sheet opened: three hours of
+   * rehearsals, comms checks and gates-open carried the same blue as the
+   * football. The band was answering "which game does this row belong to",
+   * which is true of the build-up too and not what anybody is looking for.
+   * It answers "is this the game" now, and the build-up is left plain.
+   *
+   * Taken from the periods themselves, so it agrees with the rail beside it by
+   * construction rather than by two rules being kept in step: a game's band
+   * runs from the start of its first period to the end of its last. Silent on
+   * a sheet whose periods could not be read — an unbanded sheet says nothing,
+   * where a band over the whole day says something false.
+   *
+   * No alternation any more, and none is needed: two games can never touch,
+   * because the second one's build-up always sits between them.
+   */
+  const bandOf = useMemo(() => {
+    if (phases.length === 0) return () => null;
+    const spans = new Map<number, { from: number; to: number }>();
+    for (const p of phases) {
+      const had = spans.get(p.game);
+      spans.set(p.game, had ? { from: Math.min(had.from, p.from), to: Math.max(had.to, p.to) } : { from: p.from, to: p.to });
+    }
+    const list = [...spans.entries()].sort((a, b) => a[1].from - b[1].from);
+    return (index: number): number | null => {
+      for (const [game, span] of list) if (index >= span.from && index <= span.to) return game;
+      return null;
+    };
+  }, [phases]);
+
+
 
   /**
    * Where each band starts and ends, in the sheet's content coordinates.
@@ -3198,7 +3216,7 @@ export function RundownEditor({
                   preflight={preflight}
                   untilShowSec={untilShowSec}
                 />
-                {isShow && !showLive && rows.length > 0 &&
+                {isShow && !showLive && mayDrive && rows.length > 0 &&
                   (() => {
                     const walkable = rows.filter((r) => r.type !== "group" && !r.skipped);
                     const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
@@ -3281,7 +3299,7 @@ export function RundownEditor({
             orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
           />
         )}
-        {isShow && showLive && (
+        {isShow && showLive && mayDrive && (
           <button
             className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
             style={
@@ -3947,21 +3965,37 @@ export function RundownEditor({
                        * stepping through with the crew, useless when somebody
                        * says "take us back to the anthem".
                        *
-                       * Only once a walkthrough is ALREADY running. The
-                       * highlight is shared with every screen watching, and a
-                       * producer clicking rows to colour or skip them before
-                       * the doors open should not drag the crew's highlight
-                       * around behind them. Prev or Next starts it; after
-                       * that, clicking moves it.
+                       * This used to require a walkthrough to be RUNNING
+                       * already, so that a producer clicking rows to colour or
+                       * skip them before the doors open did not drag the
+                       * crew's highlight around behind them. The cost of that
+                       * caution was that the first click did nothing at all:
+                       * you had to press Next once to start the walkthrough
+                       * before clicking would work, which reads as the click
+                       * being broken. Clicking a row is what somebody means by
+                       * "take us here", first time or fiftieth, so it now
+                       * starts the walkthrough as well as moving it.
+                       *
+                       * The producer's case is answered by the gesture instead
+                       * of by the state: a click that is BUILDING A SELECTION
+                       * — shift for a range, cmd/ctrl for a scatter — is
+                       * unambiguously about picking rows out, and moves
+                       * nobody's highlight. A plain click drives the show.
+                       *
+                       * Only for somebody who may drive it. A follower's press
+                       * would be refused by the server, and answering "take us
+                       * here" with a red banner is worse than not offering it.
                        *
                        * Groups are headings and skipped rows are not
                        * happening, so neither is somewhere to stand — the same
                        * two exclusions Prev and Next already use.
                        */
+                      const buildingSelection = e.shiftKey || e.metaKey || e.ctrlKey;
                       if (
                         isShow &&
                         !showLive &&
-                        walkRowId != null &&
+                        mayDrive &&
+                        !buildingSelection &&
                         rowRecord.type !== "group" &&
                         !rowRecord.skipped
                       ) {
@@ -4451,14 +4485,19 @@ export function RundownEditor({
             {cueDriftSec > 60 ? ` (${Math.round(cueDriftSec / 60)} min)` : ""} behind the clock — nothing is advancing
             it.
           </span>
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            data-tip="Hand the show to the clock: it jumps to the row the sheet says should be on air, and the server advances it from there"
-            onClick={() => channel.sendCmd("clock_on")}
-          >
-            Follow clock
-          </button>
+          {/* The warning is for everybody — "the sheet you are reading is
+              five rows behind" is worth knowing wherever you are sitting. The
+              remedy is not: only a caller can hand the show to the clock. */}
+          {mayDrive && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              data-tip="Hand the show to the clock: it jumps to the row the sheet says should be on air, and the server advances it from there"
+              onClick={() => channel.sendCmd("clock_on")}
+            >
+              Follow clock
+            </button>
+          )}
         </div>
       )}
 
@@ -4466,7 +4505,13 @@ export function RundownEditor({
           looking. Live, "nothing happened" is the worst possible feedback. */}
       {channel.lastCmdError && (
         <div className="cmd-error no-print" role="alert">
-          <strong>{channel.lastCmdError.action}</strong> didn&rsquo;t go through — {channel.lastCmdError.msg}
+          {/* The sentence is ONE flex item. As bare text between two elements
+              it became an anonymous one, which shrinks to its own min-content
+              — the longest word — and on a phone that is a column of single
+              words down the middle of the sheet. */}
+          <span className="cmd-error-msg">
+            <strong>{channel.lastCmdError.action}</strong> didn&rsquo;t go through — {channel.lastCmdError.msg}
+          </span>
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => channel.clearCmdError()}>
             Dismiss
           </button>

@@ -9,6 +9,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Clicking a row during the walkthrough works the first time.** Stepping the crew through the sheet, clicking a row did nothing until you had pressed Next at least once — a guard meant to stop a producer selecting rows pre-show from dragging everyone's highlight around. The cost was that the click looked broken. A plain click now takes the walkthrough there and every following screen with it, first time. Building a selection — shift for a range, cmd or ctrl for a scatter — still moves nobody's highlight, which is the case the guard was really for.
+
+- **The show page stops offering controls to people who cannot use them.** A follower on a phone was shown "Follow clock" twice — once in the toolbar, once in the warning that the sheet has fallen behind — and pressing it came back "didn't go through, caller role required". The transport bar had always checked; nothing else on the page did. The warning still appears for everyone, because "the sheet you are reading is behind" is worth knowing wherever you are sitting; the remedy is now shown only to whoever can apply it. Same for the walkthrough's Prev and Next.
+
+- **A refused command is readable on a phone.** The notice is fixed to the middle of the screen, and a fixed box given a left edge and no right one shrinks to fit whatever is left — half the screen. On a 375px phone that made a 188px bar holding an 87px sentence: five lines of one word each, over the sheet. It now takes the width it is allowed and wraps like a sentence.
+
+- **The sheet clears the notch when a phone is turned sideways.** Full-bleed backgrounds are meant to run under it; the content was going under it too, and in landscape the notch is down the side — so the row numbers and the Notes button sat behind it. Content is inset now and the background still bleeds.
+
+### Changed
+- **The band down the left marks the game, not the day.** It ran from the first row of the sheet to full time, so three hours of rehearsals, comms checks and gates-open were tinted the same as the football. It now covers the periods of play only, taken from the same reading the period rail uses, so the two cannot disagree.
+
 ### Changed
 - **Test fixtures no longer quote real run sheets.** The sample sheets this was built against belong to the productions that made them, and their wording had been used verbatim in fixtures and comments — sponsor names, segment names, track titles, club-versus-club row names. Replaced with invented equivalents that keep the shape each test actually depends on. No behaviour change; the same 422 tests pass on the same assertions.
 

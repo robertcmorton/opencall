@@ -45,13 +45,20 @@ live screen, so it wants doing carefully:
       decision point; the 5 that do not are two documents with no match in them
       and three test fixtures.
 
-- [ ] **Show the chooser at a decision point.** The core knows WHERE now; the
-      editor still only raises the chooser off rows tagged with an outcome
-      (`outcomeGames`, `activeGame`, `visibleOutcomesOf`). Those need a second
-      source. This is where the `present` filter finally does have to relax,
-      because a generated block is not in the sheet to be found.
-- [ ] **Insert the block when it is chosen**, and apply the shift. The core
-      decides what the block is and what moves; this decides when.
+- [x] **Ask at a decision point.** DONE 29 Aug, and it needed no new state,
+      which is why it shrank. On a TAGGED sheet the chooser's Win/Lose/Draw
+      play one block of rows and skip the others — the skipping IS the stored
+      result. On an untagged sheet there are no rows to skip, so three of those
+      four buttons would move nothing. The dock therefore offers the ONE thing
+      that does something: build the extra period.
+      NOT VERIFIED: the dock needs the show live AND a row active, and
+      `activeRowId` stays null while a show counts down to its first item. Could
+      not be exercised on the only production sheet. The hover strip beside CUE
+      was verified live; the guard against building the block twice was verified
+      with a full round trip.
+- [x] **Insert the block when it is chosen**, and apply the shift. DONE 29 Aug —
+      `insertGoldenPointAfter`, verified on production: four rows in, everything
+      below +14:00, header end +14:00, one undo taking all of it back.
 - [ ] **Only then remove the `extraInSheet` sniffing.** Removing it first is a
       REGRESSION: on an exhibition sheet carrying win/lose/draw rows it is
       currently the thing that produces the Draw button, and without it the
@@ -217,13 +224,15 @@ the second game starts has only the words to go on.
 
 ## 5. Fix, unscheduled
 
-- [ ] **The header at awkward widths.** The sheet's name truncates to a few
-      characters over three lines and the transport wraps so Stop drops below
-      Pause. The left and middle cells, at the widths where the header goes
-      vertical.
-- [ ] **Sign out exists only on the dashboard.** The Credentials block is
-      supplied by that page; every other admin screen passes a nav section
-      without it. So there is one page with a way out and several without.
+- [x] **The header at awkward widths.** HALF FIXED, half did not exist.
+      The name really did stack over three lines — the one-line rule was capped
+      at `max-width: 1024px` and 1025-1150 is exactly where the header is most
+      cramped. Now unconditional.
+      "Stop drops below Pause" DOES NOT REPRODUCE: measured live at 880, 1000,
+      1030, 1120 and 1180, the transport keeps one row throughout.
+- [x] **Sign out exists only on the dashboard.** FIXED 29 Aug — the Credentials
+      block is a component the four admin pages share, so it cannot drift
+      between them.
 
 ## 6. Known limits, accepted for now
 

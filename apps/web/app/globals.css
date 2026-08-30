@@ -3898,6 +3898,18 @@ th.col-drop-target {
   box-shadow: inset -2px 0 0 var(--accent);
   border-radius: 2px 0 0 2px;
 }
+/* Extra time is the loudest thing on the rail, and should be: a sheet that has
+   reached golden point is a sheet where nothing below is going to happen when
+   it says it will. It is also the one band that appears mid-show rather than
+   being there from the start. */
+.phase-band.phase-extra-time {
+  background: var(--over-soft);
+  box-shadow: inset -2px 0 0 var(--over);
+}
+.phase-band.phase-extra-time .phase-label {
+  color: var(--over);
+}
+
 .phase-label {
   /* Rides down the sheet with the reader. A half-time band runs to 3,500px on
      a real sheet, and a name centred in it is only ever seen by somebody who

@@ -171,6 +171,93 @@ describe("findPhases", () => {
     expect(found.map((p) => p.label)).toEqual(["1st half", "Half time", "2nd half"]);
   });
 
+  it("bands extra time, and stops the last period where it starts", () => {
+    // A sheet with no full-time row gives the second half the rest of the
+    // stretch for want of anywhere better to end it — on a real cue sheet
+    // that swallowed forty rows of golden point.
+    const rows = [
+      row("NRL Kick off: HARBOUR v RIVERS", 2580),
+      row("NRL: Halftime"),
+      row("NRL Kick off: HARBOUR v RIVERS", 2580),
+      row("Golden Point Rules"),
+      row("GOLDEN POINT Kick off: HARBOUR v RIVERS", 300),
+      row("NRL: Golden Point Half Time"),
+    ];
+    const found = findPhases(rows, []);
+    expect(found.find((p) => p.kind === "second-half")).toMatchObject({ from: 2, to: 2 });
+    expect(found.find((p) => p.kind === "extra-time")).toMatchObject({ from: 3, to: 5, label: "Golden point" });
+  });
+
+  it("does not read the block it inserts as a first half of its own", () => {
+    // `goldenPointBlock` names its periods "<label> — first half" and
+    // "— second half", which the halves rule matches exactly. The block sits
+    // straight after full time, so on a double-header that put a spurious
+    // first half at the top of the second game.
+    const rows = [
+      row("NRL | HARBOUR v RIVERS - FIRST HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v RIVERS - SECOND HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - FULLTIME"),
+      row("HOLDING", 120),
+      row("Golden point — first half", 300),
+      row("HOLDING", 120),
+      row("Golden point — second half", 300),
+    ];
+    const found = findPhases(rows, [3]);
+    expect(found.filter((p) => p.kind === "first-half").map((p) => p.from)).toEqual([0]);
+    expect(found.find((p) => p.kind === "extra-time")).toMatchObject({ from: 5, to: 7 });
+  });
+
+  it("finds the SECOND game's halves past the first game's golden point", () => {
+    // The case that makes the period scan's blindness to extra time earn its
+    // keep. Game one goes to golden point, whose rows are named "— first half"
+    // and "— second half"; game two's stretch begins with them. Read them and
+    // game two's first half lands on game one's extra time, its second half
+    // lands ABOVE its half time, and the whole game is banded from the wrong
+    // row — a mess that trimming the overlap afterwards cannot repair, because
+    // the bands start inside the block rather than merely running into it.
+    const rows = [
+      row("NRL | HARBOUR v RIVERS - FIRST HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v RIVERS - SECOND HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - FULLTIME"),
+      row("Golden point — first half", 300),
+      row("Golden point — second half", 300),
+      row("NRL | HARBOUR v COAST - FIRST HALF", 2700),
+      row("NRL | HARBOUR v COAST - HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v COAST - SECOND HALF", 2700),
+      row("NRL | HARBOUR v COAST - FULLTIME"),
+    ];
+    const g2 = findPhases(rows, [3, 9]).filter((p) => p.game === 2);
+    expect(g2.map((p) => [p.kind, p.from, p.to])).toEqual([
+      ["first-half", 6, 6],
+      ["half-time", 7, 7],
+      ["second-half", 8, 9],
+    ]);
+  });
+
+  it("ignores a slot held in case extra time is needed, and a sheet that rules it out", () => {
+    for (const title of ["Extra Time Buffer", "Extra Time Estimate", "30 MIN GAME CLOCK - NO EXTRA TIME"]) {
+      const rows = [row("NRL - FIRST HALF", 2700), row(title, 360), row("NRL - SECOND HALF", 2700), row("FULL TIME")];
+      expect(findPhases(rows, [3]).some((p) => p.kind === "extra-time"), title).toBe(false);
+    }
+  });
+
+  it("keeps two games' golden points apart when play begins between them", () => {
+    const rows = [
+      row("KICK OFF — GAME ONE"),
+      row("First half", 2700),
+      row("Second half", 2700),
+      row("Golden point period", 1200),
+      row("KICK OFF — GAME TWO"),
+      row("First half", 2700),
+      row("Second half", 2700),
+      row("Golden point period", 1200),
+    ];
+    const extra = findPhases(rows, []).filter((p) => p.kind === "extra-time");
+    expect(extra.map((p) => p.from)).toEqual([3, 7]);
+  });
+
   it("says nothing about a sheet with no game in it", () => {
     expect(findPhases([row("Doors open"), row("Speeches"), row("Carriages")], [])).toEqual([]);
   });

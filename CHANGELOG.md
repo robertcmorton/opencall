@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Extra time gets its own band, and it is the loudest one on the rail.** A sheet that has reached golden point is a sheet where nothing printed below it will happen when it says it will, so it is marked in the overrun colour rather than the ordinary one. It reads both the block this app inserts at full time and the one a sheet already carries.
+
+  Three things it deliberately does not band, all found by sweeping the sample sheets rather than imagined: **"Extra Time Buffer"**, which five sheets print *before* full time as a slot held in case it is needed; **"Extra Time Estimate"**, the same idea by another name; and **"NO EXTRA TIME"**, which is a shortened exhibition game's rule and the opposite of a game playing it. A row saying "Holding" means nothing on its own either — one sheet has nine of them across the afternoon.
+
+  It also fixes a band that was wrong before: on a sheet with no full-time row, the second half was given every remaining row for want of anywhere better to stop, which on one cue sheet meant swallowing forty rows of golden point. The last period now stops where extra time starts.
+
 ### Changed
 - **The rail names the periods of play and nothing else.** The breaks between them had bands of their own — half time, and the five minutes at quarter time — which made the strip busier without saying anything the rows did not already say. They are left as a gap now, which reads as the break by itself. The tint down the row numbers still runs unbroken through it, because half time is part of the game even though it is not a period of it.
 

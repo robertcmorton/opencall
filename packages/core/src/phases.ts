@@ -44,7 +44,7 @@ export interface PhaseRow {
   durationSec?: number | null;
 }
 
-export type PhaseKind = "first-half" | "half-time" | "second-half" | "quarter" | "break";
+export type PhaseKind = "first-half" | "half-time" | "second-half" | "quarter" | "break" | "extra-time";
 
 export interface Phase {
   /** First row index, inclusive. */
@@ -120,6 +120,38 @@ const KICK_OFF = /\bkick[-\s]?off\b/i;
 const ORDINALS = ["1st|first", "2nd|second", "3rd|third", "4th|fourth"] as const;
 const QUARTER = ORDINALS.map((o) => period(String.raw`(?:${o})\s+(?:quarter|qtr)(?:\s+commences)?`));
 /** The five minutes between two quarters. Half time is matched separately. */
+/**
+ * Extra time — golden point, and whatever a competition calls its equivalent.
+ *
+ * Three decoys, all of them found by reading the sheets rather than guessed:
+ *
+ *  · "Extra Time Buffer" (300-360s) is on five NRL sheets and is NOT extra
+ *    time. It sits BEFORE full time and holds a slot in the schedule in case
+ *    the game needs one — banding it would put an extra-time stripe on every
+ *    game that finished on time.
+ *  · "Holding" is not a marker of anything. One sheet has nine of them, spread
+ *    across the whole afternoon, as ordinary standby cues — even though the
+ *    block this app INSERTS uses HOLDING for its own gaps.
+ *  · the block this app inserts names its periods "<label> — first half" and
+ *    "<label> — second half", which the halves rule above matches exactly. On
+ *    a double-header that put a spurious "1st half" band on the second game,
+ *    because the block sits immediately after the first game's full time and
+ *    therefore at the top of the second game's stretch. Extra time is found
+ *    FIRST for that reason, and the period scans skip anything inside it.
+ */
+const EXTRA_TIME = /\b(?:golden\s?(?:point|goal|try)|extra\s?time|sudden death|drop[-\s]?off)\b/i;
+/**
+ * A slot held in case it is needed is not the thing happening, and a sheet
+ * saying there will be NONE is the opposite of one.
+ *
+ * All three found by sweeping the corpus, not by imagining them:
+ * "Extra Time Buffer" (5 sheets), "Extra Time Estimate" (2), and
+ * "30 MIN GAME CLOCK - NO EXTRA TIME", which is a rule for a shortened
+ * exhibition game and would otherwise have been banded as extra time being
+ * played.
+ */
+const NOT_EXTRA_TIME = /\b(?:buffer|estimate|allowance)\b|\bno\s+(?:extra\s?time|golden)/i;
+
 const QUARTER_BREAK = /(?:1st|first|2nd|second|3rd|third)\s+(?:quarter|qtr)\s+break\b/i;
 
 export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[]): Phase[] {
@@ -130,11 +162,61 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
     for (let i = Math.max(0, from); i <= Math.min(to, rows.length - 1); i++) if (re.test(titleAt(i))) hits.push(i);
     return hits;
   };
+  /** As above, but blind to extra time — see the note where `extras` is built. */
+  const playMatches = (re: RegExp, from: number, to: number): number[] => matches(re, from, to).filter((i) => !insideExtra(i));
 
   // Full time closes a game. With none named, the whole sheet is one game;
   // with several, each stretch between them is its own, and each gets its own
   // set of halves — a double-header has two second halves and they must not
   // be run together into one long one.
+  /**
+   * Extra time, worked out before anything else and then kept out of the way.
+   *
+   * Each stretch of extra time is one run of rows naming it. Runs are split
+   * where a NEW PIECE OF PLAY begins between two of them — a kick-off, a
+   * quarter, a full time — rather than by counting rows apart, because that
+   * is what actually distinguishes "one long golden-point section" from "two
+   * games that each went to golden point". On the four-game test sheet the
+   * blocks are 28 rows apart and separated by "KICK OFF — GAME TWO"; on a
+   * cue sheet with one golden-point section the rows in it are up to 21 apart
+   * with nothing between them. A row count would have to sit between 21 and
+   * 27 to tell those two cases apart, which is not a rule, it is a fit.
+   *
+   * A splitter that is ITSELF extra time does not split: "GOLDEN POINT Kick
+   * off" is both a kick-off and part of the golden point it opens.
+   */
+  const extraHits: number[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const t = titleAt(i);
+    if (EXTRA_TIME.test(t) && !NOT_EXTRA_TIME.test(t)) extraHits.push(i);
+  }
+  const extras: { from: number; to: number; label: string; game: number }[] = [];
+  if (extraHits.length > 0) {
+    const splitters = new Set<number>(gameEnds);
+    for (const re of [KICK_OFF, ...QUARTER, FIRST_HALF, SECOND_HALF])
+      for (const i of matches(re, 0, rows.length - 1)) splitters.add(i);
+    for (const i of extraHits) splitters.delete(i);
+
+    let run: number[] = [extraHits[0]!];
+    const close = () => {
+      const from = run[0]!;
+      const to = run[run.length - 1]!;
+      const golden = run.some((i) => /golden/i.test(titleAt(i)));
+      extras.push({ from, to, label: golden ? "Golden point" : "Extra time", game: Math.max(1, gameEnds.filter((e) => e <= from).length) });
+    };
+    for (let k = 1; k < extraHits.length; k++) {
+      const prev = run[run.length - 1]!;
+      const here = extraHits[k]!;
+      const broken = [...splitters].some((sp) => sp > prev && sp < here);
+      if (broken) {
+        close();
+        run = [here];
+      } else run.push(here);
+    }
+    close();
+  }
+  const insideExtra = (i: number) => extras.some((x) => i >= x.from && i <= x.to);
+
   const ends = gameEnds.length > 0 ? [...gameEnds] : [rows.length - 1];
   let start = 0;
   for (let game = 0; game < ends.length; game++) {
@@ -155,7 +237,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
      * present one, and equal lengths go to whichever comes first.
      */
     const breakAt = (from: number, to: number): number | null => {
-      const hits = matches(HALF_TIME, from, to);
+      const hits = playMatches(HALF_TIME, from, to);
       if (hits.length === 0) return null;
       return hits.reduce((best, i) => ((rows[i]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? i : best));
     };
@@ -171,7 +253,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
      * quarters' worth of evidence, and "Quarter Update" appears on sheets that
      * have nothing to do with them.
      */
-    const quarters = QUARTER.map((re) => matches(re, start, end)[0] ?? null);
+    const quarters = QUARTER.map((re) => playMatches(re, start, end)[0] ?? null);
     if (quarters.filter((q) => q != null).length >= 2) {
       const known = quarters.map((q, i) => ({ q, i })).filter((x): x is { q: number; i: number } => x.q != null);
       for (let k = 0; k < known.length; k++) {
@@ -179,7 +261,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
         const nextStart = known[k + 1]?.q ?? end + 1;
         // The break between two quarters: a named quarter break, or half time
         // at the halfway line. Longest wins, for the reason given below.
-        const gap = matches(QUARTER_BREAK, q + 1, nextStart - 1).concat(matches(HALF_TIME, q + 1, nextStart - 1));
+        const gap = playMatches(QUARTER_BREAK, q + 1, nextStart - 1).concat(playMatches(HALF_TIME, q + 1, nextStart - 1));
         const brk = gap.length === 0 ? null : gap.reduce((best, j) => ((rows[j]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? j : best));
         out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, kind: "quarter", game: n });
         if (brk != null && k + 1 < known.length)
@@ -199,14 +281,14 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
     // The sheets that spell out FIRST HALF are the ones that also give the
     // period its full length, so preferring them keeps the band on the
     // container rather than on the countdown cue in front of it.
-    const named = matches(FIRST_HALF, start, end)[0] ?? null;
+    const named = playMatches(FIRST_HALF, start, end)[0] ?? null;
     const half = breakAt((named ?? start) + 1, end);
-    const kickoffs = matches(KICK_OFF, start, half ?? end);
+    const kickoffs = playMatches(KICK_OFF, start, half ?? end);
     const first = named ?? (kickoffs.length > 0 ? kickoffs[kickoffs.length - 1]! : null);
 
-    const namedSecond = first == null ? null : matches(SECOND_HALF, first + 1, end)[0] ?? null;
+    const namedSecond = first == null ? null : playMatches(SECOND_HALF, first + 1, end)[0] ?? null;
     const second =
-      namedSecond ?? (half == null ? null : matches(KICK_OFF, half + 1, end)[0] ?? null);
+      namedSecond ?? (half == null ? null : playMatches(KICK_OFF, half + 1, end)[0] ?? null);
 
     /**
      * Nothing is painted over rows whose period is not known.
@@ -224,6 +306,24 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
 
     start = end + 1;
   }
+  /**
+   * Extra time last, and it wins where it overlaps.
+   *
+   * A period whose band would run INTO extra time is cut back to stop where it
+   * starts. That happens on a sheet with no full-time row at all: the second
+   * half is given the rest of the stretch for want of anywhere better to end,
+   * and on one cue sheet that stretch includes forty rows of golden point.
+   * Extra time is the more specific claim, so it takes the rows.
+   */
+  for (const x of extras) {
+    for (const p of out) {
+      if (p.from >= x.from && p.to <= x.to) p.to = p.from - 1; // wholly inside: drop
+      else if (p.to >= x.from && p.from < x.from) p.to = x.from - 1;
+    }
+    out.push({ from: x.from, to: x.to, label: x.label, kind: "extra-time", game: x.game });
+  }
+  out.sort((a, b) => a.from - b.from);
+
   // A phase that ran backwards would paint a rail of negative height.
   return out.filter((p) => p.to >= p.from);
 }

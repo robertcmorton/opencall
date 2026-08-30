@@ -276,10 +276,13 @@ Nothing can start on these until they are answered.
       now spans the screen; the refusal notice is still a centred pill, and how
       loud a refusal should be is a judgement rather than a tidy-up.
 
-## 8. Housekeeping
+## 8. Housekeeping — CLEAR
 
-- [ ] **Check who lost company access.** A migration deleted grants that named
-      no company. Anyone who was meant to have that access needs it granted
-      again, deliberately.
-- [ ] **Delete the damaged dev databases.** `.pglite.damaged-*` and
-      `.pglite.corrupt-*` are 93 MB of wreckage from 5 and 9 August.
+- [x] **Who lost company access.** NOBODY. The install is still a test one, so
+      the grants that migration deleted were test data. Confirmed by the user
+      29 Aug; nothing to grant back.
+- [x] **The damaged dev databases.** Deleted 29 Aug — `.pglite.corrupt-20260805`
+      (29M), `.pglite.damaged-20260809-1205` (37M) and `.pglite.damaged-1315`
+      (27M), 93M in all. The live one, `.pglite`, is untouched: the sync server
+      resolves it from `PGLITE_DIR` or the repo root, and the three removed were
+      dated copies of failed runs from 5 and 9 August.

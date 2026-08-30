@@ -44,7 +44,7 @@ export interface PhaseRow {
   durationSec?: number | null;
 }
 
-export type PhaseKind = "first-half" | "half-time" | "second-half";
+export type PhaseKind = "first-half" | "half-time" | "second-half" | "quarter" | "break";
 
 export interface Phase {
   /** First row index, inclusive. */
@@ -91,6 +91,37 @@ const HALF_TIME = period(String.raw`half\s?-?\s?time`);
  */
 const KICK_OFF = /\bkick[-\s]?off\b/i;
 
+/**
+ * Quarters, for the sports played in four of them — netball, Australian rules,
+ * basketball.
+ *
+ * The sample netball sheets are the most regular documents in the whole corpus.
+ * All three print the same seven things in the same order:
+ *     "1st Quarter (15 Mins)"            900s   ← the quarter
+ *     "1st Quarter Break (5:00mins)"     300s   ← the break after it
+ *     "2nd Quarter Commences (15mins)"   900s
+ *     "Half Time (15mins)"               900s
+ *     "3rd Quarter Commences (15mins)"   900s
+ *     "3rd Quarter Break (5:00mins)"     300s
+ *     "4th Quarter Commences (15mins)"   900s
+ * and close on "Full Time".
+ *
+ * The trap is that the quarter and the break after it are named almost
+ * identically — "1st Quarter" against "1st Quarter Break" — and the same tail
+ * rule that separates the halves from the things inside them separates these
+ * too, because "Break" is a bare word where the quarter has only a bracketed
+ * length. "Commences" has to be allowed through explicitly; it is the one word
+ * these sheets put between the name and the bracket.
+ *
+ * The decoys are the usual crowd — "READ 12 - 1st QTR Wrap", "Wrap Scores &
+ * Quarter Update", "Cameras & MC on standby throughout quarter for…" — and
+ * none of them survive having to end at the phrase.
+ */
+const ORDINALS = ["1st|first", "2nd|second", "3rd|third", "4th|fourth"] as const;
+const QUARTER = ORDINALS.map((o) => period(String.raw`(?:${o})\s+(?:quarter|qtr)(?:\s+commences)?`));
+/** The five minutes between two quarters. Half time is matched separately. */
+const QUARTER_BREAK = /(?:1st|first|2nd|second|3rd|third)\s+(?:quarter|qtr)\s+break\b/i;
+
 export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[]): Phase[] {
   const out: Phase[] = [];
   const titleAt = (i: number) => (rows[i]?.title ?? "").split("\n")[0]?.trim() ?? "";
@@ -128,6 +159,41 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
       if (hits.length === 0) return null;
       return hits.reduce((best, i) => ((rows[i]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? i : best));
     };
+
+    /**
+     * Quarters first, where the sheet plays in them.
+     *
+     * Asked before the halves because the two vocabularies overlap: a netball
+     * sheet names Half Time at the end of its second quarter, and reading that
+     * as the middle of a game played in halves would band the first two
+     * quarters as one long first half and the last two as one long second.
+     * Two quarters are required, not one — a single match is not four
+     * quarters' worth of evidence, and "Quarter Update" appears on sheets that
+     * have nothing to do with them.
+     */
+    const quarters = QUARTER.map((re) => matches(re, start, end)[0] ?? null);
+    if (quarters.filter((q) => q != null).length >= 2) {
+      const known = quarters.map((q, i) => ({ q, i })).filter((x): x is { q: number; i: number } => x.q != null);
+      for (let k = 0; k < known.length; k++) {
+        const { q, i } = known[k]!;
+        const nextStart = known[k + 1]?.q ?? end + 1;
+        // The break between two quarters: a named quarter break, or half time
+        // at the halfway line. Longest wins, for the reason given below.
+        const gap = matches(QUARTER_BREAK, q + 1, nextStart - 1).concat(matches(HALF_TIME, q + 1, nextStart - 1));
+        const brk = gap.length === 0 ? null : gap.reduce((best, j) => ((rows[j]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? j : best));
+        out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, kind: "quarter", game: n });
+        if (brk != null && k + 1 < known.length)
+          out.push({
+            from: brk,
+            to: nextStart - 1,
+            label: HALF_TIME.test((rows[brk]?.title ?? "").split("\n")[0]?.trim() ?? "") ? "Half time" : "Break",
+            kind: "break",
+            game: n,
+          });
+      }
+      start = end + 1;
+      continue;
+    }
 
     // Named halves first; kick-off only where the sheet does not name them.
     // The sheets that spell out FIRST HALF are the ones that also give the

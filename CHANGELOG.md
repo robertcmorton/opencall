@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Games played in quarters are banded too.** Netball, Australian rules and basketball run four quarters rather than two halves, and the rail now names them — 1ST QTR, BREAK, 2ND QTR, HALF TIME, 3RD QTR, BREAK, 4TH QTR. Read the same way as everything else, off the sheet's own words: all three netball sheets held for testing read completely, every quarter and every break, and the sample corpus goes from 18 sheets banded to 21.
+
+  Quarters are looked for before halves, because the two vocabularies overlap — a netball sheet names Half Time at the end of its second quarter, and read as a game of halves that would make the first two quarters one long first half. Two quarters are required before believing in them, since "Quarter Update" turns up on sheets with no quarters in them at all.
+
+### Fixed
+- **The period name no longer hides behind the column headers.** It comes to rest just below them, and how far down that is is now measured rather than assumed — a sheet whose headings wrap onto two lines made the header taller than the guess, and the name of whichever period you had scrolled into disappeared underneath it. The one below still showed, which is what made it look arbitrary.
+
 ### Fixed
 - **Clicking a row during the walkthrough works the first time.** Stepping the crew through the sheet, clicking a row did nothing until you had pressed Next at least once — a guard meant to stop a producer selecting rows pre-show from dragging everyone's highlight around. The cost was that the click looked broken. A plain click now takes the walkthrough there and every following screen with it, first time. Building a selection — shift for a range, cmd or ctrl for a scatter — still moves nobody's highlight, which is the case the guard was really for.
 

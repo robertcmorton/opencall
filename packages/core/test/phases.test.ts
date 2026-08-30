@@ -99,6 +99,78 @@ describe("findPhases", () => {
     expect(findPhases(rows, [3])).toEqual([{ from: 0, to: 0, label: "1st half", kind: "first-half", game: 1 }]);
   });
 
+  it("reads a game played in quarters, and the breaks between them", () => {
+    // Copied from the netball sheets, which are the most regular documents in
+    // the corpus: all three print exactly this, in this order.
+    const rows = [
+      row("1st Quarter (15 Mins)", 900),
+      row("Super Shot Sting"),
+      row("1st Quarter Break (5:00mins)", 300),
+      row("READ 11 - 1st Quarter Wrap", 60),
+      row("2nd Quarter Commences (15mins)", 900),
+      row("Half Time (15mins)", 900),
+      row("READ 14 - Half time Countdown", 10),
+      row("3rd Quarter Commences (15mins)", 900),
+      row("3rd Quarter Break (5:00mins)", 300),
+      row("4th Quarter Commences (15mins)", 900),
+      row("Full Time"),
+    ];
+    expect(findPhases(rows, [10]).map((p) => [p.from, p.to, p.label])).toEqual([
+      [0, 1, "1st qtr"],
+      [2, 3, "Break"],
+      [4, 4, "2nd qtr"],
+      [5, 6, "Half time"],
+      [7, 7, "3rd qtr"],
+      [8, 8, "Break"],
+      [9, 10, "4th qtr"],
+    ]);
+  });
+
+  it("does not read a quarter sheet's half time as the middle of a game of halves", () => {
+    // The vocabularies overlap: netball names Half Time at the end of its
+    // second quarter. Read as halves, quarters 1-2 become one long first half.
+    const rows = [
+      row("1st Quarter (15 Mins)", 900),
+      row("2nd Quarter Commences (15mins)", 900),
+      row("Half Time (15mins)", 900),
+      row("3rd Quarter Commences (15mins)", 900),
+      row("Full Time"),
+    ];
+    expect(findPhases(rows, [4]).every((p) => p.kind === "quarter" || p.kind === "break")).toBe(true);
+  });
+
+  it("keeps a quarter apart from the break named after it", () => {
+    // "1st Quarter" and "1st Quarter Break" are one word apart. The first
+    // quarter is deliberately ABSENT here: with both rows present, document
+    // order alone would pick the right one and prove nothing.
+    const rows = [
+      row("1st Quarter Break (5:00mins)", 300),
+      row("2nd Quarter Commences (15mins)", 900),
+      row("Half Time (15mins)", 900),
+      row("3rd Quarter Commences (15mins)", 900),
+      row("Full Time"),
+    ];
+    const found = findPhases(rows, [4]);
+    // The break is a break wherever it falls; it is never the period.
+    expect(found.find((p) => p.from === 0)?.kind).not.toBe("quarter");
+    expect(found.filter((p) => p.kind === "quarter").map((p) => p.from)).toEqual([1, 3]);
+  });
+
+  it("wants more than one quarter before believing in them", () => {
+    // One quarter-shaped name on a sheet played in halves is not four
+    // quarters' worth of evidence — reading it as one would band the game
+    // from that row instead of from its kick-off.
+    const rows = [
+      row("NRL | HARBOUR v RIVERS - FIRST HALF", 2700),
+      row("Celebrity 1st Quarter (sponsor)", 900),
+      row("NRL | HARBOUR v RIVERS - HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v RIVERS - SECOND HALF", 2700),
+    ];
+    const found = findPhases(rows, [3]);
+    expect(found.every((p) => p.kind !== "quarter")).toBe(true);
+    expect(found.map((p) => p.label)).toEqual(["1st half", "Half time", "2nd half"]);
+  });
+
   it("says nothing about a sheet with no game in it", () => {
     expect(findPhases([row("Doors open"), row("Speeches"), row("Carriages")], [])).toEqual([]);
   });

@@ -2074,6 +2074,19 @@ export function RundownEditor({
    * The band's visible edges are always the measured ones.
    */
   const [bandBoxes, setBandBoxes] = useState<{ key: string; kind: string; label: string; top: number; height: number }[]>([]);
+  /**
+   * How tall the pinned column headers are, so the sticky period label can
+   * come to rest just under them instead of behind them.
+   *
+   * MEASURED, NEVER NAMED — the same rule `clampBelowHeader` states above, and
+   * for the same reason. A named 50px was right until a sheet whose headings
+   * wrap onto two lines made the header 64px: the second half's label was
+   * still in its natural position and showed, the first half's had scrolled up
+   * into the sticky offset and disappeared under the header, which outranks
+   * the rail (z-index 5 against 3). "I can see 2nd half but I can't see 1st
+   * half" is what a named constant looks like from the outside.
+   */
+  const [railHeaderH, setRailHeaderH] = useState(40);
   useLayoutEffect(() => {
     const tb = tbodyRef.current;
     const scroller = gridEl;
@@ -2090,6 +2103,7 @@ export function RundownEditor({
       return (bottom ? box.bottom : box.top) - base;
     };
     const headerH = tb.offsetTop;
+    setRailHeaderH((prev) => (Math.abs(prev - headerH) < 0.5 ? prev : headerH));
     const next = phases.map((p) => {
       const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
       const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
@@ -3763,7 +3777,11 @@ export function RundownEditor({
             from `offsetOf`, which knows where a row sits whether or not that
             row is currently rendered. */}
         {phases.length > 0 && (
-          <div className="phase-rail" aria-hidden style={{ width: RAIL_W }}>
+          <div
+            className="phase-rail"
+            aria-hidden
+            style={{ width: RAIL_W, ["--phase-label-top" as string]: `${railHeaderH + 6}px` }}
+          >
             {bandBoxes.map((b) => (
               <div key={b.key} className={`phase-band phase-${b.kind}`} style={{ top: b.top, height: b.height }}>
                 {/* A band too short to hold its own name shows none rather

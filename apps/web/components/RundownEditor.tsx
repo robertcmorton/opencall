@@ -2131,11 +2131,23 @@ export function RundownEditor({
     };
     const headerH = tb.offsetTop;
     setRailHeaderH((prev) => (Math.abs(prev - headerH) < 0.5 ? prev : headerH));
-    const next = phases.map((p) => {
-      const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
-      const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
-      return { key: `${p.game}-${p.kind}`, kind: p.kind, label: p.label, top, height: Math.max(0, bottom - top) };
-    });
+    /**
+     * Only the periods of PLAY get a band.
+     *
+     * `findPhases` describes the whole game, breaks included, and the breaks
+     * are what bound the halves either side of them — but naming them on the
+     * rail earns nothing. Half time is obvious from the sheet, and a third
+     * band between the two that matter made the strip busier without saying
+     * anything the rows do not already say. The gap left behind reads as the
+     * break on its own.
+     */
+    const next = phases
+      .filter((p) => p.kind !== "half-time" && p.kind !== "break")
+      .map((p) => {
+        const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
+        const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
+        return { key: `${p.game}-${p.kind}-${p.from}`, kind: p.kind, label: p.label, top, height: Math.max(0, bottom - top) };
+      });
     setBandBoxes((prev) =>
       prev.length === next.length &&
       prev.every((b, i) => b.key === next[i]!.key && Math.abs(b.top - next[i]!.top) < 0.5 && Math.abs(b.height - next[i]!.height) < 0.5)

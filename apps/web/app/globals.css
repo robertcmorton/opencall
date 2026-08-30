@@ -3898,15 +3898,6 @@ th.col-drop-target {
   box-shadow: inset -2px 0 0 var(--accent);
   border-radius: 2px 0 0 2px;
 }
-/* A break is the gap between two periods, not one of them — half time, or the
-   five minutes at quarter time. Present, so the sheet is banded end to end
-   through the game and there is no unexplained hole; quieter, so the periods
-   of play are what the eye lands on. */
-.phase-band.phase-half-time,
-.phase-band.phase-break {
-  background: color-mix(in srgb, var(--text-3) 12%, transparent);
-  box-shadow: inset -2px 0 0 var(--line);
-}
 .phase-label {
   /* Rides down the sheet with the reader. A half-time band runs to 3,500px on
      a real sheet, and a name centred in it is only ever seen by somebody who
@@ -3931,12 +3922,6 @@ th.col-drop-target {
   color: var(--accent-text);
   white-space: nowrap;
   user-select: none;
-}
-.phase-band.phase-half-time .phase-label,
-.phase-band.phase-break .phase-label {
-  color: var(--text-3);
-  font-weight: 600;
-  letter-spacing: 0.06em;
 }
 /* The row numbers move over to clear the rail. */
 .rundown-grid.has-rail td.row-number,

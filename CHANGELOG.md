@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The rail names the periods of play and nothing else.** The breaks between them had bands of their own — half time, and the five minutes at quarter time — which made the strip busier without saying anything the rows did not already say. They are left as a gap now, which reads as the break by itself. The tint down the row numbers still runs unbroken through it, because half time is part of the game even though it is not a period of it.
+
 ### Added
 - **Anybody watching a walkthrough can read the sheet at their own pace.** Scrolling away used to be a losing argument: the highlight dragged you straight back to the showcaller's row, over and over, so there was no way to look ahead at the item you were about to be asked about. Scrolling now hands the sheet to whoever is holding it.
 
@@ -18,7 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **Opening a menu no longer flashes a scrollbar.** The menu was drawn where the stylesheet put it and only then measured and pulled back inside the window, so for one frame the page contained something hanging off the bottom of it and grew a scrollbar to reach — which vanished again as the correction landed. It is placed before anything is drawn now, so the first frame anybody sees is the right one. Most obvious on the import screen, where the menu sits low in a tall panel.
 
 ### Added
-- **Games played in quarters are banded too.** Netball, Australian rules and basketball run four quarters rather than two halves, and the rail now names them — 1ST QTR, BREAK, 2ND QTR, HALF TIME, 3RD QTR, BREAK, 4TH QTR. Read the same way as everything else, off the sheet's own words: all three netball sheets held for testing read completely, every quarter and every break, and the sample corpus goes from 18 sheets banded to 21.
+- **Games played in quarters are banded too.** Netball, Australian rules and basketball run four quarters rather than two halves, and the rail now names them — 1ST QTR through 4TH QTR. Read the same way as everything else, off the sheet's own words: all three netball sheets held for testing read completely, every quarter and every break, and the sample corpus goes from 18 sheets banded to 21.
 
   Quarters are looked for before halves, because the two vocabularies overlap — a netball sheet names Half Time at the end of its second quarter, and read as a game of halves that would make the first two quarters one long first half. Two quarters are required before believing in them, since "Quarter Update" turns up on sheets with no quarters in them at all.
 

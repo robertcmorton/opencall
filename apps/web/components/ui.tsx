@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { formatTimeOfDay, zoneAbbreviation, zoneSecondsOfDay } from "@opencall/core";
 
 /** Close on outside pointerdown or Escape. */
@@ -52,8 +52,17 @@ export function Dropdown({
    * Measured after opening and nudged back by however much it overhangs, which
    * needs no flipping rules and cannot pick the wrong side. Re-measured on
    * resize because a menu can be open across one.
+   *
+   * BEFORE THE PAINT, not after it. As a passive effect this ran once the
+   * browser had already drawn the menu where the CSS put it — below the button
+   * and unclamped — so for one frame the page contained something hanging off
+   * the bottom of it, and the page grew a scrollbar to reach it. The clamp
+   * landed a frame later and the scrollbar went away again: a flicker on every
+   * single menu opening, worst on the import screen where the ⋯ sits low in a
+   * tall panel. A layout effect runs after the DOM is updated and before
+   * anything is drawn, so the first frame anybody sees is the placed one.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const el = menuRef.current;

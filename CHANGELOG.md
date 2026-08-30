@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Opening a menu no longer flashes a scrollbar.** The menu was drawn where the stylesheet put it and only then measured and pulled back inside the window, so for one frame the page contained something hanging off the bottom of it and grew a scrollbar to reach — which vanished again as the correction landed. It is placed before anything is drawn now, so the first frame anybody sees is the right one. Most obvious on the import screen, where the menu sits low in a tall panel.
+
 ### Added
 - **Games played in quarters are banded too.** Netball, Australian rules and basketball run four quarters rather than two halves, and the rail now names them — 1ST QTR, BREAK, 2ND QTR, HALF TIME, 3RD QTR, BREAK, 4TH QTR. Read the same way as everything else, off the sheet's own words: all three netball sheets held for testing read completely, every quarter and every break, and the sample corpus goes from 18 sheets banded to 21.
 

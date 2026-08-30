@@ -305,6 +305,22 @@ export const api = {
     ),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   templates: () => request<TemplateSummary[]>("/templates"),
+  /**
+   * A note raised against one row, by somebody holding a view-only link.
+   *
+   * The join code is the authority: whoever can read the sheet can flag a line
+   * on it. Name and role are what the viewer told the sheet, not credentials —
+   * the same self-declared pair the viewer list already shows.
+   */
+  raiseNote: (code: string, body: { rowId: string; byName?: string | null; byRole?: string | null; body?: string | null }) =>
+    request<{ id: string }>(`/codes/${encodeURIComponent(code)}/notes`, { method: "POST", body: JSON.stringify(body) }),
+  /** Every note on a sheet, newest first — for whoever is calling it. */
+  notes: (rundownId: string) =>
+    request<
+      { id: string; rowId: string; at: string; byName: string | null; byRole: string | null; body: string | null; resolvedAt: string | null }[]
+    >(`/rundowns/${encodeURIComponent(rundownId)}/notes`),
+  /** Dealt with. Resolved, not deleted — see the note on the endpoint. */
+  resolveNote: (noteId: string) => request<{ id: string }>(`/notes/${encodeURIComponent(noteId)}/resolve`, { method: "POST" }),
   /** "This is me, on this device" — sent once a view-only link has a name. */
   recordViewer: (
     code: string,

@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The crew can flag a line, and whoever is calling the show sees which one.** A sheet's comments column is written before the day starts and read by nobody after it. This is the other direction: somebody holding a view-only link taps the row they mean, adds a line if they want one, and it appears against that row on the caller's sheet with a count beside the row number. The panel lists what is outstanding — the row's own number and title, who raised it, how long ago — jumps to the row, and clears it when it has been dealt with.
+
+  Resolved rather than deleted, because "this was queried at the time, by camera 2" is worth having at the debrief. Anyone who can read the sheet can raise one, since the person looking at it is the person who can see the problem; the name and role attached are the ones they already told the sheet and are not pretending to be credentials. And it is polled rather than carried on the show channel, which exists for transport and must not queue behind messages between people.
+
+### Added
 - **The production database's code path is no longer taken on trust.** Development runs on an embedded database so the app needs no Docker and no install to start; production runs Postgres. The two share a schema, the queries and the migrations, and differ in one fifteen-line branch — but the single transaction in the codebase, the one that writes a show's session row and its as-run entry together, had only ever been *read* for Postgres. Production would have been the first place it ran. It has now been run: all fifteen migrations applied against Postgres 16 and built the schema, both rows committed together, and a failure in the second write left neither behind — no session claiming a row with nothing to say it was ever cued. That last part is the entire reason the transaction exists, and it had never been demonstrated on the driver that matters.
 
   It is a test now rather than something somebody did once. It sits out of the way unless a database is pointed at it, so the ordinary test run still needs nothing installed.

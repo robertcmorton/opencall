@@ -79,6 +79,8 @@ import { useShowChannel } from "../lib/showChannel";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { useRundownDoc } from "../lib/useRundownDoc";
 import { rowNumbering } from "../lib/rowNumbering";
+import { useRowNotes } from "../lib/useRowNotes";
+import { NotesPanel } from "./NotesPanel";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -135,6 +137,7 @@ const RESULT_BUFFER_SEC = 30;
 function SortableRow({
   row,
   band,
+  openNotes,
   branch,
   displayNumber,
   children,
@@ -178,6 +181,8 @@ function SortableRow({
   onSelect: (e: React.MouseEvent) => void;
   /** Which match this row belongs to on a day that holds more than one. */
   band?: number | null;
+  /** Unresolved notes the crew have raised against this row. */
+  openNotes?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled });
   return (
@@ -221,6 +226,14 @@ function SortableRow({
         aria-label={`Select or drag ${displayNumber ? `row ${displayNumber}` : row.title ? `row: ${row.title}` : "this row"}`}
       >
         <span className="rn-num">{displayNumber}</span>
+        {/* Somebody has queried this line. It rides the row number because that
+            is the one part of a row that is never text, and a note is about
+            the row rather than about anything written in it. */}
+        {openNotes ? (
+          <span className="note-badge" data-tip={`${openNotes} note${openNotes === 1 ? "" : "s"} from the crew`}>
+            {openNotes}
+          </span>
+        ) : null}
         {active && <span className="cue-badge">CUE</span>}
         {!active && row.outcome && (branch?.opens ?? true) && (
           <span
@@ -2496,6 +2509,19 @@ export function RundownEditor({
   /** One rule for what a row is called — see `rowNumbering`. */
   const numberOf = useMemo(() => rowNumbering(rows), [rows]);
 
+  /**
+   * Notes the crew have raised against rows.
+   *
+   * Read by whoever is calling the show; RAISED by anybody holding a view-only
+   * link, which is the point — the person who can see the sheet is the person
+   * who can see the problem. A viewer does not poll for the list: the endpoint
+   * answers only to a caller with access, and a screen that asks every fifteen
+   * seconds for a refusal is just noise on the wire.
+   */
+  const [notesOpen, setNotesOpen] = useState(false);
+  const rowNotes = useRowNotes(rundownId, { canRead: mode !== "view", joinCode });
+  const noteTargetId = lastSelected ?? walkRowId ?? activeRowId ?? null;
+
   const rowNumFloor = useMemo(() => {
     const longest = rows.reduce((n, r) => Math.max(n, (r.sourceNumber ?? "").trim().length), 0);
     const anyParallel = rows.some((r) => r.parallel);
@@ -3329,6 +3355,21 @@ export function RundownEditor({
         {/* Not on a phone: the prompter is its own full screen and a phone that
             opens it has left the sheet entirely, so the button costs a slot in
             the only toolbar row there is. It is one tap away in the menu. */}
+        {/* Notes sit in the toolbar rather than behind a menu: an unanswered
+            one is a person waiting, and the count is the whole point of it
+            being on screen. Shown to anybody who can RAISE one as well as
+            anybody who can read them, so a viewer has a way to reach the
+            composer. */}
+        {(mode !== "view" || joinCode) && (
+          <button
+            type="button"
+            className={`btn btn-sm ${rowNotes.openCount > 0 ? "has-notes" : ""}`}
+            onClick={() => setNotesOpen((v) => !v)}
+            data-tip="Notes the crew have raised against rows"
+          >
+            ✎ Notes{rowNotes.openCount > 0 ? ` ${rowNotes.openCount}` : ""}
+          </button>
+        )}
         {/* And not during the walkthrough. Walking the crew through the sheet
             is planning: nobody is reading anything out, and the prompter is a
             full screen that takes whoever presses it away from the sheet they
@@ -3771,6 +3812,7 @@ export function RundownEditor({
                     row={rowRecord}
                     branch={mark}
                     band={bandOf(i)}
+                    openNotes={rowNotes.openByRow.get(rowRecord.id)?.length ?? 0}
                     displayNumber={numberOf(i)}
                     selected={selected.has(rowRecord.id)}
                     active={activeRowId === rowRecord.id}
@@ -4132,6 +4174,44 @@ export function RundownEditor({
             </button>
           </span>
         </div>
+      )}
+
+      {notesOpen && (
+        <NotesPanel
+          notes={rowNotes.notes}
+          titleOf={(rowId) => rows.find((r) => r.id === rowId)?.title || null}
+          numberOf={(rowId) => {
+            const i = rows.findIndex((r) => r.id === rowId);
+            return i >= 0 ? numberOf(i) : "";
+          }}
+          onResolve={(id) => void rowNotes.resolve(id)}
+          onGoToRow={(rowId) => {
+            const el = gridEl?.querySelector(`tr[data-rowid="${rowId}"]`);
+            el?.scrollIntoView({ block: "center", behavior: "smooth" });
+            setSelected(new Set([rowId]));
+            setLastSelected(rowId);
+          }}
+          onClose={() => setNotesOpen(false)}
+          compose={
+            joinCode
+              ? {
+                  rowId: noteTargetId,
+                  rowLabel: noteTargetId
+                    ? rows.find((r) => r.id === noteTargetId)?.title ||
+                      `row ${numberOf(rows.findIndex((r) => r.id === noteTargetId))}`
+                    : null,
+                  onSend: async (body) => {
+                    if (!noteTargetId) return;
+                    await rowNotes.raise(noteTargetId, {
+                      byName: viewerName(),
+                      byRole: myRoles[0] ?? null,
+                      body: body || null,
+                    });
+                  },
+                }
+              : undefined
+          }
+        />
       )}
 
       {/* The docked strip follows the same rule as the hovering one: these are

@@ -129,9 +129,13 @@ ANSWERED. Two of the three already existed; the third is fixed.
 
 ## 4. Editing
 
-- [ ] **Comments on line items.** A note attached to a row so a change can
-      carry its reason. NEEDS DECISIONS FIRST: per-row or per-cell; whether
-      they survive an import that replaces the sheet; who can see them.
+- [x] **Comments on line items.** DONE 30 Aug as crew notes. The decisions it
+      was waiting on, answered: PER ROW, not per cell — the crew say "this
+      one", and a cell is a level of precision nobody uses on a headset.
+      They survive an import: `row_notes.row_id` is deliberately NOT a foreign
+      key, so a note outlives the row it was raised against rather than both
+      being lost. Who can see them: anybody who can READ the sheet can raise
+      one, and whoever is calling it can read and resolve.
 
 ## 4b. Sheets that import with no title, time or lengths
 

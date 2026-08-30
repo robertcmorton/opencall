@@ -13,7 +13,7 @@ const row = (p: Partial<ClassifiedRow>): ClassifiedRow => ({
   ...p,
 });
 
-const HEADER = "2025 NRLW TELSTRA PREMIERSHIP ROUND 11";
+const HEADER = "2025 NRLW NATIONAL PREMIERSHIP ROUND 11";
 
 describe("splitShowInfo", () => {
   const sheet = [

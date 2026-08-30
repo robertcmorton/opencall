@@ -231,9 +231,9 @@ describe("detectBlocks: a row whose length covers what follows", () => {
     const rows = [
       at("HALF TIME (15 mins)", 20 * 3600 + 47 * 60, 900),
       at("Wrap the scores", null, 60),
-      at("Reynolds Review", null, 60),
+      at("Player Review", null, 60),
       at("TVC Reel 7", null, 640),
-      at("Bulldogs Beats HALF TIME", 20 * 3600 + 59 * 60 + 40, 70),
+      at("Stadium Beats HALF TIME", 20 * 3600 + 59 * 60 + 40, 70),
     ];
     detectBlocks(rows);
     expect(rows.map((r) => r.spans)).toEqual([true, undefined, undefined, undefined, undefined]);

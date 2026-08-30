@@ -1383,7 +1383,7 @@ kbd {
 /* The cue timer is a fixed object.
    Its width used to be whatever its widest line needed, and the widest line is
    the name of the row on air — so it measured 232px on "HOLD" and 362px on
-   "Reynolds Review thanks to Azora", a 130px swing. It sits centred, so every
+   "Player Review thanks to Northbank", a 130px swing. It sits centred, so every
    cue change shoved the controls either side of it and the number itself moved
    under the eye that was reading it. A clock that jumps when the show does is
    the one thing it must not do. Fixed width; the name truncates instead. */

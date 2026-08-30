@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Test fixtures no longer quote real run sheets.** The sample sheets this was built against belong to the productions that made them, and their wording had been used verbatim in fixtures and comments — sponsor names, segment names, track titles, club-versus-club row names. Replaced with invented equivalents that keep the shape each test actually depends on. No behaviour change; the same 422 tests pass on the same assertions.
+
 ### Added
 - **The period of play is written down the far left of the sheet.** A run sheet is one unbroken list, and the halves of football inside it look exactly like the ad break before them — a showcaller scanning for "are we in the second half or half time" has only the words to go on, in a column of two hundred other words. There is now a strip down the left edge naming it: 1ST HALF, HALF TIME, 2ND HALF, one set per game, so a double-header has two of each. The name rides the top of the view for as long as its stretch is on screen, rather than sitting once in the middle of it, so it always names the period actually being looked at.
 
@@ -421,7 +424,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 
 ### Changed
-- **The cue timer is a fixed object.** Its width used to be whatever its widest line needed, and the widest line is the name of the row on air — 232px on "HOLD", 362px on "Reynolds Review thanks to Azora", a 130px swing. It sits centred, so every cue change shoved the controls either side of it and moved the number under the eye that was reading it. A clock that jumps when the show does is the one thing it must not do. It is now a fixed width and the name truncates instead.
+- **The cue timer is a fixed object.** Its width used to be whatever its widest line needed, and the widest line is the name of the row on air — 232px on "HOLD", 362px on "Player Review thanks to Northbank", a 130px swing. It sits centred, so every cue change shoved the controls either side of it and moved the number under the eye that was reading it. A clock that jumps when the show does is the one thing it must not do. It is now a fixed width and the name truncates instead.
 - **The stopwatch is one instrument, next to the show's controls.** It was three loose buttons strung along the toolbar, reading as unrelated controls that happened to sit near each other — and near the cue timer, which is a different clock entirely and must never be confused with it. It is now a single bordered box sitting on the end of the LIVE · Pause · Stop line, under the cue timer where the clocks belong.
 - **Lap is gone from the stopwatch — start, stop, reset, nothing else.** Splits are something you read back afterwards, and a live sheet is not where anyone reads anything back. Every control on that screen is one more thing to hit by mistake during a show. A measurement already running survives the change.
 - **A row with no name announces itself on the cue timer too.** The biggest readout on the page was showing a bare dash for rows the sheet never named, while the sheet beneath it had already worked out what they were. It now borrows the same stand-in. The blank test also runs *before* the formatting branch, because a dash can be a formatted dash — and those rows were slipping past the stand-in and back to the bare "—".

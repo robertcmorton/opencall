@@ -11,8 +11,8 @@
  * FOUND FROM THE SHEET'S OWN WORDS, and the words are remarkably consistent:
  * of the sample sheets that cover a game, every one prints the halves as the
  * TAIL of a row's name —
- *     "NRL | BULLDOGS v STORM - FIRST HALF"
- *     "NRLW RD4 | Canterbury-Bankstown Bulldogs v Dragons- SECOND HALF"
+ *     "NRL | HARBOUR v RIVERS - FIRST HALF"
+ *     "NRLW RD4 | Harbour City Kings v Rivers- SECOND HALF"
  *     "Second Half: NRL"
  * — and those rows carry the period's whole length (2700s for an NRL half,
  * 2100s for an NRLW one), because they are the containers the rest of the
@@ -21,13 +21,13 @@
  * HALF TIME IS THE HARD ONE, and the reason the rule is not just a word match.
  * The break itself is printed the same way as a dozen things that merely
  * happen during it:
- *     "NRL | BULLDOGS v COWBOYS - HALF TIME (15 mins)"   ← the break, 900s
+ *     "NRL | HARBOUR v RANGERS - HALF TIME (15 mins)"   ← the break, 900s
  *     "STANDBY FOR HALF TIME"                            ← no length at all
- *     "Be the DJ - Bulldogs Beats HALF TIME"             ← 110s
- *     "G Class Half time recap"                          ← 45s
+ *     "Crowd DJ - Stadium Beats HALF TIME"             ← 110s
+ *     "Partner Half time recap"                          ← 45s
  *     "Half Time Show - Back Announce"                   ← a cue in the break
- *     "Geely Half Time Car Giveaway"
- *     "Read 10 - Half Time Heroes"
+ *     "Sponsor Half Time Car Giveaway"
+ *     "Read 10 - Half Time Champions"
  * Two things separate them, and both are needed. The break's name ENDS at the
  * phrase (or carries only a bracketed length after it), which rejects the
  * shows and the giveaways; and the break is LONG, which rejects the standby
@@ -78,8 +78,8 @@ const HALF_TIME = period(String.raw`half\s?-?\s?time`);
  * Kick-off, matched anywhere in the name rather than at the end of it.
  *
  * It has to be loose, because every sheet wraps it differently — "Kick Off",
- * "Build to Kick Off", "NRL - RABBITOHS v WARRIORS - Kick off", "KICK OFF —
- * GAME TWO", "Kick Off: NRLW - Bulldogs v Dragons". A tail rule like the one
+ * "Build to Kick Off", "NRL - COAST v RANGERS - Kick off", "KICK OFF —
+ * GAME TWO", "Kick Off: NRLW - Harbour v Rivers". A tail rule like the one
  * above would throw away most of those.
  *
  * Being loose, it also catches the run-up: "TEAMS WARM UP AND PREP FOR KICK
@@ -115,7 +115,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
      * The break, chosen by length among the candidates rather than by
      * position, because position cannot tell them apart. Between the halves
      * of one sample game sit "STANDBY FOR HALF TIME" (no length at all),
-     * "HALF TIME (15 mins)" (900s) and "Be the DJ - Bulldogs Beats HALF TIME"
+     * "HALF TIME (15 mins)" (900s) and "Crowd DJ - Stadium Beats HALF TIME"
      * (110s) — first would take the standby, last would take the music.
      *
      * A length of zero is not a tie-breaker against nothing: on another sheet

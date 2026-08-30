@@ -202,7 +202,7 @@ describe("adoptCaptionTitles", () => {
     // Not a banner: it has its own screen and audio, so it is a row of the show.
     const rows: ClassifiedRow[] = [
       timed({ durationSec: 60 }),
-      { ...cue("Telstra"), cells: { type: "VTR", "big-screen": "Telstra TVC" } },
+      { ...cue("Advertiser"), cells: { type: "VTR", "big-screen": "Advertiser TVC" } },
     ];
     adoptCaptionTitles(rows);
     expect(rows).toHaveLength(2);

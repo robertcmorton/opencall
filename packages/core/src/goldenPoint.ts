@@ -124,7 +124,7 @@ export function shiftAnchorsAfter(
  * The moment a match ends, on a sheet that never tagged its endings.
  *
  * The golden-point chooser hangs off rows tagged with an outcome — "Fulltime -
- * TIGERS WIN" and its siblings — and 24 of the 27 sample sheets carry no such
+ * RANGERS WIN" and its siblings — and 24 of the 27 sample sheets carry no such
  * row. On those sheets the chooser has never appeared at all, whatever the
  * competition allows, because there was nothing to hang it on. That is the real
  * reason a sheet without a golden-point block could not offer golden point; the

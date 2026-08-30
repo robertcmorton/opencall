@@ -11,14 +11,14 @@ const row = (title: string, durationSec: number | null = null) => ({ title, dura
 describe("findPhases", () => {
   it("reads the halves a sheet names outright", () => {
     const rows = [
-      row("Bulldogs Beats pre-game", 180),
-      row("NRL | BULLDOGS v STORM - FIRST HALF", 2700),
+      row("Stadium Beats pre-game", 180),
+      row("NRL | HARBOUR v RIVERS - FIRST HALF", 2700),
       row("STANDBY FOR HALF TIME"),
-      row("NRL | BULLDOGS v STORM- HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v RIVERS- HALF TIME (15 mins)", 900),
       row("Half Time Show", 600),
-      row("Be the DJ - Bulldogs Beats HALF TIME", 110),
-      row("NRL | BULLDOGS v STORM - SECOND HALF", 2700),
-      row("NRL | BULLDOGS v STORM - FULLTIME"),
+      row("Crowd DJ - Stadium Beats HALF TIME", 110),
+      row("NRL | HARBOUR v RIVERS - SECOND HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - FULLTIME"),
     ];
     expect(findPhases(rows, [7])).toEqual([
       { from: 1, to: 2, label: "1st half", kind: "first-half", game: 1 },
@@ -31,10 +31,10 @@ describe("findPhases", () => {
     // "STANDBY FOR HALF TIME" comes first and has no length; the break is the
     // 900-second one behind it.
     const rows = [
-      row("NRL | BULLDOGS v STORM - FIRST HALF", 2700),
+      row("NRL | HARBOUR v RIVERS - FIRST HALF", 2700),
       row("STANDBY FOR HALF TIME"),
-      row("NRL | BULLDOGS v STORM- HALF TIME (15 mins)", 900),
-      row("NRL | BULLDOGS v STORM - SECOND HALF", 2700),
+      row("NRL | HARBOUR v RIVERS- HALF TIME (15 mins)", 900),
+      row("NRL | HARBOUR v RIVERS - SECOND HALF", 2700),
     ];
     expect(findPhases(rows, [3])[1]).toMatchObject({ from: 2, label: "Half time" });
   });
@@ -54,9 +54,9 @@ describe("findPhases", () => {
   it("ignores things that merely happen during half time", () => {
     for (const title of [
       "Half Time Show - Back Announce",
-      "Geely Half Time Car Giveaway",
-      "Read 10 - Half Time Heroes",
-      "G Class Half time recap",
+      "Sponsor Half Time Car Giveaway",
+      "Read 10 - Half Time Champions",
+      "Partner Half time recap",
       "Wrap the scores (half time 13 minutes)",
       "Rehearsals - Half time movements",
     ]) {
@@ -68,9 +68,9 @@ describe("findPhases", () => {
   it("takes the last kick-off before the break, not the warm-up before it", () => {
     const rows = [
       row("TEAMS WARM UP AND PREP FOR KICK OFF", 60),
-      row("NRL - RABBITOHS v EELS - Kick off", 2400),
+      row("NRL - COAST v RANGERS - Kick off", 2400),
       row("NRL HALF TIME - 15min"),
-      row("NRL - RABBITOHS v EELS - 2nd Half", 2400),
+      row("NRL - COAST v RANGERS - 2nd Half", 2400),
     ];
     expect(findPhases(rows, [3])[0]).toMatchObject({ from: 1, label: "1st half" });
   });

@@ -951,7 +951,7 @@ describe("reclaimRowsAboveHeader", () => {
     ["3", "1:45PM", "TECH CHECK"],
     ["ITEM", "TIME", "ACTIVITY"],
     ["4", "2:45PM", "GATES OPEN"],
-    ["5", "2:53PM", "VTR | BURI BURI"],
+    ["5", "2:53PM", "VTR | WALK ON TRACK"],
     ["6", "2:56PM", "GA - WELCOME"],
     ["7", "2:57PM", "INTRO COIN TOSS"],
     ["8", "2:59PM", "INTRO FOOTY TALK"],
@@ -969,7 +969,7 @@ describe("reclaimRowsAboveHeader", () => {
       "PRODUCTION MEETING",
       "TECH CHECK",
       "GATES OPEN",
-      "VTR | BURI BURI",
+      "VTR | WALK ON TRACK",
     ]);
     expect(plan.rows).toHaveLength(9);
   });
@@ -1114,8 +1114,8 @@ describe("detectBlocks — a row printed inside another row's window", () => {
   it("leaves a block whose children have no printed times of their own", () => {
     const rows = [
       row("TVC Reel", HH(16, 0), 180),
-      row("Telstra 30", null, 30),
-      row("Allianz 30", null, 30),
+      row("Sponsor A 30", null, 30),
+      row("Sponsor B 30", null, 30),
       row("Welcome", HH(16, 3), 60),
     ];
     detectBlocks(rows as never);

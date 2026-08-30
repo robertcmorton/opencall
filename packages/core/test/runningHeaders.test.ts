@@ -11,7 +11,7 @@ const build = () => {
     meta.push({ page, y });
   };
   for (let page = 0; page < 6; page++) {
-    add(["2025 NRLW TELSTRA PREMIERSHIP ROUND 11"], page, 780.4 + (page % 2) * 0.3); // printed header, sub-point drift
+    add(["2025 NRLW NATIONAL PREMIERSHIP ROUND 11"], page, 780.4 + (page % 2) * 0.3); // printed header, sub-point drift
     add(["Confidential — not for distribution"], page, 40);                           // footer, same height
     add(["Page " + (page + 1) + " of 6"], page, 26);                                  // numbered footer: text differs
     add(["1:00pm", "Gates Open"], page, 700 - page * 3);                              // ordinary cues
@@ -25,7 +25,7 @@ describe("detectRunningHeaders", () => {
   const found = detectRunningHeaders(grid, meta);
 
   it("finds the header printed at the same height on every page", () => {
-    expect(found).toContain("2025 NRLW TELSTRA PREMIERSHIP ROUND 11");
+    expect(found).toContain("2025 NRLW NATIONAL PREMIERSHIP ROUND 11");
   });
 
   it("finds a fixed footer too", () => {

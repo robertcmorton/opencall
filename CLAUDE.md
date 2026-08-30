@@ -14,6 +14,25 @@ All vendor-identifying material lives ONLY in local-only files, which are listed
 
 Before every commit and push, verify nothing staged references the vendor (`git diff --cached | grep -i` against the terms listed in `CLAUDE.local.md`). When in doubt, leave it out of the repo.
 
+## Client material — HARD RULE
+
+The sample run sheets are real, and they belong to the productions that made
+them. **No text lifted from them may reach GitHub** — not in fixtures, not in
+comments, not in the changelog. That means sponsor names, staff and talent
+names, segment names, track titles, and the club-vs-club wording of a row.
+
+Invent equivalents instead, keeping whatever the test actually depends on —
+the shape of the phrase, its length, its punctuation. Fictional teams
+(HARBOUR, RIVERS, COAST, RANGERS) and fictional sponsors (Sponsor A,
+Advertiser, Northbank) are already used across the fixtures; follow them.
+
+The *sport* is not client material: NRL, NRLW, "half time", "golden point" and
+the competition rules are the domain this app is built for and belong in the
+open. A fixture between two named clubs, printed on somebody's run sheet, is
+not.
+
+Grep for it before every commit, alongside the vendor blocklist.
+
 ## Source of truth
 
 - **[BUILD_PROMPT.md](BUILD_PROMPT.md)** — the product spec and kickoff prompt. Update it when the product direction changes.

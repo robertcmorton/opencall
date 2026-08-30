@@ -19,7 +19,7 @@ import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
 import { AdminNavSection, CredentialsNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
-import { isValidTimeZone, EVENT_TYPES, resolveEventType, type EventTypeSpec } from "@opencall/core";
+import { isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
 function ImageSlot({ value, hint, onChange }: { value: string | null; hint: string; onChange: (img: string | null) => void }) {
@@ -122,7 +122,7 @@ function EventTypeSelect({
           <optgroup key={g} label={g}>
             {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
               <option key={t.id} value={t.id}>
-                {t.label}
+                {eventTypeLabel(t)}
               </option>
             ))}
           </optgroup>

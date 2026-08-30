@@ -5,6 +5,7 @@ import {
   buildSheet,
   classifySheet,
   EVENT_TYPES,
+  eventTypeLabel,
   looksLikeBotchedValue,
   detectRoles,
   findCueTypeColumn,
@@ -688,7 +689,7 @@ export function ImportPanel({
                   <optgroup key={g} label={g}>
                     {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.label}
+                        {eventTypeLabel(t)}
                       </option>
                     ))}
                   </optgroup>

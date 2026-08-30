@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Kinds of show we have not proven yet say so.** Australian rules, football, cricket and netball are marked **(coming soon)** in the picker. Every rule the app holds about rugby league was checked against a corpus of run sheets from real broadcasts — which is how it knows a half-time row can be a thirty-second sting, and that "Extra Time Buffer" is not extra time. For the other sports there are the laws of the game and nothing else, and the laws are not the part that goes wrong: what goes wrong is how a particular production writes them down.
+
+  They are marked rather than hidden, and still work — somebody who knows their own sheet may well be right to pick one. Only the lists say it; a sheet already set to one reads "Netball", not "Netball (coming soon)", because the choice has been made and repeating our uncertainty at them helps nobody.
+
 ### Added
 - **Extra time gets its own band, and it is the loudest one on the rail.** A sheet that has reached golden point is a sheet where nothing printed below it will happen when it says it will, so it is marked in the overrun colour rather than the ordinary one. It reads both the block this app inserts at full time and the one a sheet already carries.
 

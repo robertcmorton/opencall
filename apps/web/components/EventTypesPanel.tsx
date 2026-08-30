@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { EVENT_TYPES, resolveEventType, type EventTypeSpec } from "@opencall/core";
+import { EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
 import { api, API_URL, type CustomEventType, type ImportedSheet } from "../lib/api";
 import { MissingFields } from "./ui";
 
@@ -34,7 +34,7 @@ export function EventTypesPanel() {
           <strong>Yours</strong>
           {custom.map((t) => (
             <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
-              <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
+              <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{eventTypeLabel(t)}</strong>
               <span style={{ color: "var(--text-2)" }}>{describeEndings(t)}</span>
               {(t.resultDuePhrases?.length ?? 0) > 0 && (
                 <span className="chip" data-tip="No result is asked for before the show reaches a row worded like this">

@@ -27,6 +27,21 @@ export interface EventTypeDef {
   label: string;
   /** Grouped in the picker: a cricket match and a product launch are not neighbours. */
   group: "Sport" | "Production" | "Yours";
+  /**
+   * Written from the rule book, never yet checked against a real run sheet.
+   *
+   * Every rule in here about rugby league was tested against a corpus of
+   * sheets from actual broadcasts — which is how we know a half-time row can
+   * be a 30-second sting, and that "Extra Time Buffer" is not extra time.
+   * For the other sports we have the laws of the game and nothing else, and
+   * the laws are not the thing that goes wrong: what goes wrong is how a
+   * particular production writes them down.
+   *
+   * So these are marked in the picker rather than hidden. They still work,
+   * and somebody who knows their own sheet may well be right to pick one —
+   * but they should know it has not been proven on paper yet.
+   */
+  provisional?: boolean;
   /** Endings offered at full time, in the order shown. Empty = no endings. */
   fullTime: OutcomeKey[];
   /**
@@ -154,6 +169,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "afl",
     label: "Australian rules (AFL)",
+    provisional: true,
     group: "Sport",
     ...drawAtFullTime,
     resultDueAfter: FINAL_QUARTER,
@@ -162,6 +178,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "afl-finals",
     label: "Australian rules (AFL) — final",
+    provisional: true,
     group: "Sport",
     ...extraMustSettle("Extra time"),
     resultDueAfter: FINAL_QUARTER,
@@ -172,6 +189,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
     // already exist, and league is the format most of them will be.
     id: "soccer",
     label: "Football (soccer) — league",
+    provisional: true,
     group: "Sport",
     ...drawAtFullTime,
     resultDueAfter: SECOND_HALF,
@@ -180,6 +198,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "soccer-knockout",
     label: "Football (soccer) — knockout",
+    provisional: true,
     group: "Sport",
     ...extraMustSettle("Extra time"),
     resultDueAfter: SECOND_HALF,
@@ -191,6 +210,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
     // format's, so those events keep the flow they were set up with.
     id: "cricket",
     label: "Cricket — Test match",
+    provisional: true,
     group: "Sport",
     ...drawAtFullTime,
     blurb: "Five days, and time can run out: a draw is an ordinary result, not a level score.",
@@ -198,6 +218,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
   {
     id: "cricket-t20",
     label: "Cricket — T20",
+    provisional: true,
     group: "Sport",
     ...extraMustSettle("Super over"),
     resultDueAfter: SECOND_INNINGS,
@@ -208,6 +229,7 @@ export const EVENT_TYPES: EventTypeDef[] = [
     // "Extra Time" and mark the fourth period "4th Quarter Commences".
     id: "netball",
     label: "Netball",
+    provisional: true,
     group: "Sport",
     ...extraMustSettle("Extra time"),
     resultDueAfter: FINAL_QUARTER,
@@ -295,6 +317,20 @@ export function phrasesToPattern(phrases: string[]): RegExp | undefined {
   if (parts.length === 0) return undefined;
   return new RegExp(`(?:${parts.join("|")})`, "i");
 }
+
+/**
+ * How a kind of show is named in a picker.
+ *
+ * One function because there are three pickers — the dashboard, the import
+ * screen and the list of built-ins — and a suffix maintained in three places
+ * is a suffix that ends up in two.
+ *
+ * Only in LISTS. A sheet already set to one of these says "Netball", not
+ * "Netball (coming soon)": the choice has been made, and re-announcing our
+ * own uncertainty every time the sheet is opened helps nobody.
+ */
+export const eventTypeLabel = (t: { label: string; provisional?: boolean }): string =>
+  t.provisional ? `${t.label} (coming soon)` : t.label;
 
 /** Turns a stored or transmitted type into one the app can use. */
 export function specToEventType(spec: EventTypeSpec): EventTypeDef {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_TYPES,
+  eventTypeLabel,
   customEventTypeCode,
   eventType,
   hasOutcomes,
@@ -256,5 +257,28 @@ describe("a day with no extra period", () => {
   it("does not invent a draw where the competition has none", () => {
     // Netball settles; with no extra period on the sheet it is still win/lose.
     expect(outcomesFor("netball", false, [], { extraInSheet: false })).toEqual(["win", "lose"]);
+  });
+});
+
+describe("eventTypeLabel", () => {
+  it("marks the sports no run sheet has ever been read for", () => {
+    const marked = EVENT_TYPES.filter((t) => t.provisional).map((t) => t.id).sort();
+    expect(marked).toEqual(["afl", "afl-finals", "cricket", "cricket-t20", "netball", "soccer", "soccer-knockout"]);
+    expect(eventTypeLabel(EVENT_TYPES.find((t) => t.id === "netball")!)).toBe("Netball (coming soon)");
+  });
+
+  it("leaves the ones that were checked against real sheets alone", () => {
+    // Rugby league is the sport the corpus is made of; its rules were tested
+    // against sheets from actual broadcasts, so it makes no apology.
+    for (const id of ["nrl", "nrl-finals", "nrl-no-extra"]) {
+      const t = EVENT_TYPES.find((x) => x.id === id)!;
+      expect(t.provisional, id).toBeUndefined();
+      expect(eventTypeLabel(t)).toBe(t.label);
+    }
+  });
+
+  it("never marks a type a company added itself", () => {
+    // "Provisional" is a statement about OUR homework, not theirs.
+    expect(eventTypeLabel({ label: "Beach volleyball" })).toBe("Beach volleyball");
   });
 });

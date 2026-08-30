@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The production database's code path is no longer taken on trust.** Development runs on an embedded database so the app needs no Docker and no install to start; production runs Postgres. The two share a schema, the queries and the migrations, and differ in one fifteen-line branch — but the single transaction in the codebase, the one that writes a show's session row and its as-run entry together, had only ever been *read* for Postgres. Production would have been the first place it ran. It has now been run: all fifteen migrations applied against Postgres 16 and built the schema, both rows committed together, and a failure in the second write left neither behind — no session claiming a row with nothing to say it was ever cued. That last part is the entire reason the transaction exists, and it had never been demonstrated on the driver that matters.
+
+  It is a test now rather than something somebody did once. It sits out of the way unless a database is pointed at it, so the ordinary test run still needs nothing installed.
+
 ### Fixed
 - **The column grab handle sits on the column edge, half either side of it.** The resize cursor appeared well before you reached a divider and stopped once you had passed it, and the blue bar that shows where the edge will land was drawn thirteen pixels left of the edge itself. Three causes, one symptom. The hover rule set a left offset beside a width, which quietly overrides the right-anchoring above it and moved the bar instead of widening it. The grab area sat wholly inside the left-hand cell, so all sixteen pixels of it were on one side of the line. And once it was widened to straddle, half of it vanished: every header cell is sticky with the same stacking order, so each covers whatever the cell before it overflowed, and the half that reached across the line was buried under the neighbour — measured, the pointer found the handle from eight pixels left of the edge to one pixel left, and nothing at all beyond it.
 

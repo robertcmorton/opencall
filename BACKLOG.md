@@ -151,7 +151,19 @@ Two are resolved and one is not a run sheet at all:
       is a schedule rather than a rundown. The import check was wrong to call
       zero seconds a fault; it now asks whether the sheet had lengths to lose.
 
-- [ ] **`Event Information Plan - NRL Round 21 - Bulldogs v Sea Eagles.pdf`** —
+- [x] **`Event Information Plan - NRL Round 21 - Bulldogs v Sea Eagles.pdf`** —
+      DONE 30 Aug. Answered: warn clearly, never block. The shape checks moved
+      out of `scripts/import-check.mts` into `packages/core/src/sheetFaults.ts`
+      so the screen and the offline sweep cannot drift, and they now render
+      above the Import button — "No column became the item name", "No column
+      became the duration, but 30 cells read as one", "The whole sheet is zero
+      seconds long". The button drops out of primary but stays live: these are
+      judgements about a document and the person holding it knows better.
+      Verified in a browser on this very file, all three faults verbatim.
+
+      Original note follows.
+
+      **`Event Information Plan`** —
       genuinely has NO table. It is a label-and-value information document
       (CODE & ROUND, GAME, DATE, then pages of prose); there is no heading-like
       line anywhere in it. Importing it produces 291 rows of nothing, and the
@@ -203,7 +215,25 @@ the second game starts has only the words to go on.
       alternating, and absent on a single-game sheet. It shows in the editor,
       the walkthrough and live alike, because it is one row class.
 
-      STILL OPEN, and wants the user's eye on it rather than more guessing:
+      DECIDED AND SHIPPED 30 Aug, and the answer to all three questions came
+      from the user looking at it:
+      · an edge was NOT enough — there is now a labelled rail down the far
+        left naming the period of play, written vertically, sticky so it names
+        whichever period is on screen;
+      · live is NOT louder. Loud means "happening now";
+      · the band covers the GAME, not the run-up. It used to run from the top
+        of the sheet to full time, which tinted three hours of rehearsals;
+        it now spans the periods of play, derived from the same reading the
+        rail uses so the two cannot disagree.
+      Breaks are deliberately unnamed — half time and the quarter breaks are a
+      gap in the rail, which reads as the break by itself, while the row-number
+      tint runs unbroken through them because half time is part of the game.
+      Quarters (netball, AFL, basketball) are read too: the corpus goes from 12
+      sheets banded, to 18 with kick-off as a fallback, to 21 with quarters.
+
+      Superseded notes follow.
+
+      OLD, no longer open:
       whether an edge is enough or it wants a labelled rule across the sheet;
       whether live should be louder than the editor; and whether the band
       should cover the whole run-up to a game (as now) or only the match
@@ -266,6 +296,37 @@ Recorded so nobody rediscovers them as bugs.
       is not deciding who gets into the company that owns it, and the two were
       one character apart in the filter.
 
+## 6b. Opened 30 August, not yet done
+
+- [ ] **Extra time has no band.** Asked for. `goldenPointBlock` inserts rows
+      after full time and they fall outside every period, so the rail says
+      nothing over them. Wants a band of its own — and a label, which on a
+      sheet that went to golden point is the most important thing on it.
+- [ ] **The misplaced tooltip.** Reported with a screenshot: the Skip tooltip
+      appeared far below its button. NOT REPRODUCED — measured locally and the
+      bubble's `--tip-left`/`--tip-top` are computed correctly, and the whole
+      hovered chain is one element. Hypothesis only: `place()` writes those as
+      INLINE custom properties, React owns `style` on that button, and custom
+      properties INHERIT — so a re-render that drops the inline values would
+      leave the bubble using an ancestor's. Unproven. Do not "fix" it blind.
+- [ ] **The prompter has its own follow**, and did not get the walkthrough
+      browse-and-rejoin behaviour. The user said "any viewer", and a prompter
+      operator is one. Not touched, not tested.
+- [ ] **The half-time choice reads a LIVE number.** It takes the longest
+      half-time-named row between the halves by `durationSec`, and durations
+      change during a show (HOLD, nudges, add-time). Margin on the sample
+      sheets is 900s against 110s so it will not flip in practice — but if a
+      band ever jumps mid-show, this is why.
+- [ ] **Landscape safe-area NOT VERIFIED ON HARDWARE.** `env(safe-area-inset-*)`
+      is 0 in an emulator, so what was tested is that the change is a no-op
+      without a notch. Needs the user's phone, turned sideways.
+- [ ] **Extra-time rules for the quarter sports.** The netball sheets prove
+      4 x 15-minute quarters and that extra time is played in the REGULAR
+      season, not only finals — both sample rounds carry the graphics. The
+      format itself (period lengths, and whether it settles by margin or next
+      goal) is not in the sheets and will not be guessed. Same for AFL and
+      basketball. Needed before any of them can join `eventTypes.ts`.
+
 ## 7. Waiting on a decision
 
 Nothing can start on these until they are answered.
@@ -288,7 +349,11 @@ Nothing can start on these until they are answered.
       CUE?** They are live-only now. If nudging a selected row is useful while
       building, the answer is to split the strip — CUE cannot be off-air
       whatever happens to the arrows.
-- [ ] **Should a refused command look like the behind-the-clock bar?** That one
+- [ ] **Should a refused command look like the behind-the-clock bar?** Its
+      LAYOUT was fixed 30 Aug — it was 188px wide holding an 87px sentence on a
+      phone, five lines of one word each, because a fixed box with `left` and
+      no `right` shrinks to half the screen. Whether it should also adopt the
+      drift bar's full-width treatment is still the open question. That one
       now spans the screen; the refusal notice is still a centred pill, and how
       loud a refusal should be is a judgement rather than a tidy-up.
 

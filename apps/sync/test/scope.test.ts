@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "../src/scope";
+import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "../src/scope";
 
 const ALPHA = "team_alpha";
 const BETA = "team_beta";
@@ -219,5 +219,74 @@ describe("kinds nobody has defined", () => {
 
   it("does not narrow what an admin may do", () => {
     expect(grantInScope(admin, { kind: "owner", targetId: "" })).toBe(true);
+  });
+});
+
+describe("which companies a caller administers people for", () => {
+  // The branch this whole exercise was about. A person granted access to a
+  // company administers that company's people; until now that derivation lived
+  // inline in the request handler and had never been run.
+  it("gives an account the companies it was granted", () => {
+    expect(
+      companiesAdministeredBy({ kind: "user", grants: [{ kind: "company", targetId: "t1" }] }),
+    ).toEqual(["t1"]);
+  });
+
+  it("gives an account holding two companies both of them", () => {
+    expect(
+      companiesAdministeredBy({
+        kind: "user",
+        grants: [
+          { kind: "company", targetId: "t1" },
+          { kind: "company", targetId: "t2" },
+        ],
+      }),
+    ).toEqual(["t1", "t2"]);
+  });
+
+  // Running one show is not the same as deciding who gets into the company
+  // that owns it, and the two were one character apart in the old filter.
+  it("gives an event grant no company at all", () => {
+    expect(
+      companiesAdministeredBy({ kind: "user", grants: [{ kind: "event", targetId: "e1" }] }),
+    ).toEqual([]);
+  });
+
+  it("takes only the company grants when a person holds both kinds", () => {
+    expect(
+      companiesAdministeredBy({
+        kind: "user",
+        grants: [
+          { kind: "event", targetId: "e1" },
+          { kind: "company", targetId: "t1" },
+        ],
+      }),
+    ).toEqual(["t1"]);
+  });
+
+  // Treated as a wildcard this would hand somebody every team on the install.
+  it("reaches nothing on a company grant that names no company", () => {
+    expect(companiesAdministeredBy({ kind: "user", grants: [{ kind: "company", targetId: "" }] })).toEqual([]);
+  });
+
+  it("does not repeat a company granted twice", () => {
+    expect(
+      companiesAdministeredBy({
+        kind: "user",
+        grants: [
+          { kind: "company", targetId: "t1" },
+          { kind: "company", targetId: "t1" },
+        ],
+      }),
+    ).toEqual(["t1"]);
+  });
+
+  it("gives a company token its own company — the path that was already proven", () => {
+    expect(companiesAdministeredBy({ kind: "company", teamId: "t9" })).toEqual(["t9"]);
+  });
+
+  it("gives a join code nothing, and nobody nothing", () => {
+    expect(companiesAdministeredBy({ kind: "code" })).toEqual([]);
+    expect(companiesAdministeredBy(null)).toEqual([]);
   });
 });

@@ -257,9 +257,14 @@ Recorded so nobody rediscovers them as bugs.
       `pnpm dev` and `pnpm test` need no infrastructure; the file carries the
       two commands for running it against a container. The scratch script is
       deleted rather than left to rot beside it.
-- [ ] The scope rules are proven from the browser for a caller signed in with a
-      company token. The equivalent path for an ACCOUNT holding a company grant
-      is three lines away in the same function and was never clicked.
+- [x] The scope rules are proven from the browser for a caller signed in with a
+      company token; the ACCOUNT-holding-a-company-grant path was never clicked.
+      CLOSED 30 Aug. The derivation was inline in the request handler, where it
+      could not be reached without a server — moved to `scope.ts` as
+      `companiesAdministeredBy` and given 8 tests, all mutation-verified.
+      The one that matters: an EVENT grant reaches no company. Running one show
+      is not deciding who gets into the company that owns it, and the two were
+      one character apart in the filter.
 
 ## 7. Waiting on a decision
 

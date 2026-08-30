@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Who may administer a company's people is now checked, not assumed.** There are three ways to reach that: the administrator, a company signing in with its own token, and a person who has been granted access to a company. The first two were verified from a browser months ago; the third sat inline in the request handler where nothing could reach it without a running server, and had never once been exercised. It now lives beside the other access rules, which exist precisely so they can be checked without one, and carries tests for the distinction that matters — being given one show to run is not the same as being given the company that owns it, and those two were a single word apart. Also held down: a grant naming no company reaches nothing rather than everything.
+
 ### Added
 - **The crew can flag a line, and whoever is calling the show sees which one.** A sheet's comments column is written before the day starts and read by nobody after it. This is the other direction: somebody holding a view-only link taps the row they mean, adds a line if they want one, and it appears against that row on the caller's sheet with a count beside the row number. The panel lists what is outstanding — the row's own number and title, who raised it, how long ago — jumps to the row, and clears it when it has been dealt with.
 

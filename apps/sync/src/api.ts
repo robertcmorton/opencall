@@ -19,7 +19,7 @@ import {
 } from "./auth";
 import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
-import { grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
+import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
 import { customEventTypeCode, describeLock, heldByMe, mayClaim, type EditLock } from "@opencall/core";
 
@@ -213,12 +213,7 @@ export function createApiHandler(
       // A company token, or an account holding a company grant, administers
       // people inside that company. An event-level grant does not: running one
       // show is not the same as managing who gets into the company.
-      const teamIds =
-        ctx?.kind === "company"
-          ? [ctx.teamId]
-          : ctx?.kind === "user"
-            ? ctx.grants.filter((g) => g.kind === "company").map((g) => g.targetId)
-            : [];
+      const teamIds = companiesAdministeredBy(ctx);
       if (teamIds.length === 0) return null;
       const events = await db.query.events.findMany({
         where: inArray(schema.events.teamId, teamIds),

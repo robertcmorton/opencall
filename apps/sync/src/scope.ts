@@ -30,6 +30,38 @@ export interface Grant {
  * cannot revoke, or hand out access it cannot see, is a rule with a seam in
  * it, and seams are where this sort of thing goes wrong.
  */
+/**
+ * Which companies a caller administers PEOPLE for.
+ *
+ * Three ways to reach a company, and they are not the same thing:
+ *   · the ADMIN_TOKEN or an account holding an admin grant — every company,
+ *     answered by the caller rather than here;
+ *   · a company's own sign-in token — that one company;
+ *   · an ACCOUNT holding a company grant — the companies it was granted.
+ *
+ * An EVENT grant reaches none of them. Running one show is not the same as
+ * deciding who gets into the company that owns it, and the two were one
+ * character apart in the filter below.
+ *
+ * Pure and here rather than inline in the request handler, because the third
+ * branch is the one nobody had ever exercised: the rules live in this file
+ * precisely so they can be checked without a server, and that branch was the
+ * exception.
+ */
+export function companiesAdministeredBy(
+  ctx: { kind: string; teamId?: string; grants?: { kind: string; targetId: string }[] } | null,
+): string[] {
+  if (!ctx) return [];
+  if (ctx.kind === "company") return ctx.teamId ? [ctx.teamId] : [];
+  if (ctx.kind === "user") {
+    const ids = (ctx.grants ?? []).filter((g) => g.kind === "company").map((g) => g.targetId);
+    // A grant naming no company reaches no company. Treated as a wildcard it
+    // would hand somebody every team on the install.
+    return [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+  }
+  return [];
+}
+
 export function grantInScope(scope: PeopleScope, g: Grant): boolean {
   if (scope.all) return true;
   // Only an admin makes admins. A company handing out `admin` would be a

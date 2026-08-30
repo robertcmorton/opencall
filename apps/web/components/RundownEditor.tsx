@@ -1089,18 +1089,21 @@ export function RundownEditor({
    * Still this screen only. A button that pushed one laptop's idea of the cue
    * to everybody would let a confused laptop move a live show.
    */
+  /** Whichever row this screen is meant to be looking at — the cue, or, before
+   *  the show is live, the row the showcaller is walking the crew through. */
+  const focusRowId = activeRowId ?? walkRowId;
   const syncToCue = () => {
     channel.resync();
     setFollowScroll(true);
     programmaticScroll.current = true;
     window.setTimeout(() => {
-      const live = document.querySelector("tr.active-row");
+      const live = document.querySelector("tr.active-row, tr.walk-row");
       if (live) {
         centreInSheet(live);
       } else {
         // Same as the follow: under a window the live row may not be drawn, so
         // go to where it will be and let the follow effect centre it.
-        const i = rows.findIndex((r) => r.id === activeRowId);
+        const i = rows.findIndex((r) => r.id === focusRowId);
         const win = rowWindowRef.current;
         if (i >= 0 && gridEl)
           gridEl.scrollTo({ top: Math.max(0, win.offsetOf(i) - cueAnchorTop(gridEl.clientHeight, dockBottom)) });
@@ -1108,7 +1111,6 @@ export function RundownEditor({
       programmaticScroll.current = false;
     }, 400);
   };
-  const focusRowId = activeRowId ?? walkRowId;
   /**
    * BEFORE the browser paints, not 150ms after it.
    *
@@ -1202,8 +1204,17 @@ export function RundownEditor({
     // `rows.length` so this re-runs the instant the sheet has rows to scroll
     // through — without it the only thing that noticed was the timer above.
   }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom, rows.length]);
+  /**
+   * Scrolling away hands the sheet back to whoever is holding the mouse.
+   *
+   * This only listened while a show was LIVE, so during a walkthrough the
+   * follow won every argument: a viewer scrolling down to read ahead was
+   * dragged back to the showcaller's row, over and over, and there was no way
+   * to look at anything else. Anybody watching a walkthrough should be able to
+   * read the sheet at their own pace — they are being walked THROUGH it.
+   */
   useEffect(() => {
-    if (!activeRowId) return;
+    if (!focusRowId) return;
     const disengage = () => {
       if (!programmaticScroll.current) setFollowScroll(false);
     };
@@ -1213,7 +1224,23 @@ export function RundownEditor({
       window.removeEventListener("wheel", disengage);
       window.removeEventListener("touchmove", disengage);
     };
-  }, [activeRowId]);
+  }, [focusRowId]);
+
+  /**
+   * Which walkthrough row this screen has actually been shown.
+   *
+   * While the sheet is following, that is whatever the showcaller last moved
+   * to. The moment somebody scrolls away it stops being updated — so a later
+   * move by the showcaller makes the two differ, and THAT is being out of
+   * sync. Scrolling away on its own is not: the highlight is still where you
+   * last saw it, nothing has happened behind your back, and a notice saying
+   * otherwise would be crying wolf every time anybody read ahead.
+   */
+  const [seenWalkRowId, setSeenWalkRowId] = useState<string | null>(null);
+  useEffect(() => {
+    if (followScroll) setSeenWalkRowId(walkRowId);
+  }, [followScroll, walkRowId]);
+  const walkOutOfSync = !!walkRowId && !activeRowId && !followScroll && seenWalkRowId !== walkRowId;
 
   // Next cue after the active row gets a subtle tint on every surface.
   const nextRowId = (() => {
@@ -3592,13 +3619,20 @@ export function RundownEditor({
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="grid-wrap">
-        {activeRowId && !followScroll && (
+        {/* One control, two things to be out of step with: the live cue, and
+            the row the showcaller is walking the crew through. It moves this
+            screen and nobody else's, so it is offered to every role. */}
+        {(activeRowId ? !followScroll : walkOutOfSync) && (
           <button
-            className="btn btn-primary sync-cue"
-            data-tip="Ask the server what the cue is, jump to it, and follow along again"
+            className={`btn btn-primary sync-cue ${activeRowId ? "" : "sync-walk"}`}
+            data-tip={
+              activeRowId
+                ? "Ask the server what the cue is, jump to it, and follow along again"
+                : "The showcaller has moved on while you were reading — jump to where they are and follow again"
+            }
             onClick={syncToCue}
           >
-            ⇣ Sync Cue
+            {activeRowId ? "⇣ Sync Cue" : "⇣ Out of sync — rejoin"}
           </button>
         )}
         <div

@@ -1607,6 +1607,19 @@ kbd {
 }
 /* Deliberately large: it is pressed mid-show, often on a phone, often in a
    hurry, and it is the way back to the live cue after any scroll. */
+/* The walkthrough's version of the same control. Warn-toned rather than
+   primary, because this is not a transport action — it is the sheet saying
+   "the showcaller has moved on and you are still reading page four", which is
+   the same kind of statement `.cue-drift` makes further down. */
+.sync-cue.sync-walk {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.sync-cue.sync-walk:hover {
+  background: color-mix(in srgb, var(--warn) 24%, transparent);
+}
+
 .sync-cue {
   position: absolute;
   top: 42px;

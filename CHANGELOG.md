@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Anybody watching a walkthrough can read the sheet at their own pace.** Scrolling away used to be a losing argument: the highlight dragged you straight back to the showcaller's row, over and over, so there was no way to look ahead at the item you were about to be asked about. Scrolling now hands the sheet to whoever is holding it.
+
+  And if the showcaller moves on while you are reading, **Out of sync — rejoin** appears; one press takes you to where they are and follows along again. It appears only once they have actually moved: scrolling away on its own is not being out of sync, because the highlight is still where you last saw it and nothing has happened behind your back. The button moves your screen and nobody else's, so everyone gets it whatever their role.
+
 ### Fixed
 - **Opening a menu no longer flashes a scrollbar.** The menu was drawn where the stylesheet put it and only then measured and pulled back inside the window, so for one frame the page contained something hanging off the bottom of it and grew a scrollbar to reach — which vanished again as the correction landed. It is placed before anything is drawn now, so the first frame anybody sees is the right one. Most obvious on the import screen, where the menu sits low in a tall panel.
 

@@ -8,3 +8,5 @@ export * from "./csv";
 export * from "./import";
 export * from "./tz";
 export * from "./eventTypes";
+export * from "./sheetFaults";
+export * from "./phases";

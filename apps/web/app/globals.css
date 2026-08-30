@@ -3812,3 +3812,85 @@ th.col-drop-target {
   border-radius: var(--r-md);
   background: var(--raised);
 }
+
+/* Structural faults in an imported document — "no column became the item
+   name", "the same line sits inside 26 rows". Warns, never blocks: the Import
+   button stays live beside it, only demoted out of primary. */
+.import-faults {
+  display: grid;
+  gap: 8px;
+  border-color: var(--warn);
+}
+.import-faults li {
+  font-size: var(--fs-sm);
+}
+
+/* ── The period of play, named down the far left ──────────────────────────
+   1ST HALF · HALF TIME · 2ND HALF, so the game can be found in a list of two
+   hundred rows without reading any of them.
+
+   Absolutely positioned inside `.grid-scroll`, which means it is laid out in
+   the sheet's CONTENT coordinates and scrolls with the rows it points at —
+   the same frame the hover nudge strip uses. Its room comes out of the
+   row-number column (RAIL_W), so nothing else has to move. */
+.phase-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 3; /* under the pinned column headers (5) and the nudge strip (7) */
+  pointer-events: none;
+}
+.phase-band {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--accent-soft);
+  /* A hard edge on the inside, so the strip reads as a bracket around the
+     rows rather than a stripe floating beside them. */
+  box-shadow: inset -2px 0 0 var(--accent);
+  border-radius: 2px 0 0 2px;
+}
+/* Half time is the gap between the halves, not one of them. Present, so the
+   sheet is banded end to end through the game and there is no unexplained
+   hole; quieter, so the two halves are what the eye lands on. */
+.phase-band.phase-half-time {
+  background: color-mix(in srgb, var(--text-3) 12%, transparent);
+  box-shadow: inset -2px 0 0 var(--line);
+}
+.phase-label {
+  /* Rides down the sheet with the reader. A half-time band runs to 3,500px on
+     a real sheet, and a name centred in it is only ever seen by somebody who
+     happens to scroll through the middle. Sticky keeps it against the top of
+     the view for as long as any part of its own band is on screen, and stops
+     of its own accord at the band's bottom edge — so the name is always the
+     name of the period actually being looked at. The offset clears the pinned
+     column headers. */
+  position: sticky;
+  top: 50px;
+  writing-mode: vertical-rl;
+  /* Reading bottom-to-top, the way a book spine is set everywhere except
+     continental Europe. `vertical-rl` on its own would stand the letters on
+     their heads relative to that. */
+  transform: rotate(180deg);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+  white-space: nowrap;
+  user-select: none;
+}
+.phase-band.phase-half-time .phase-label {
+  color: var(--text-3);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+/* The row numbers move over to clear the rail. */
+.rundown-grid.has-rail td.row-number,
+.rundown-grid.has-rail th[data-colkey="rownum"] {
+  padding-left: 30px;
+}

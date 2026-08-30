@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The period of play is written down the far left of the sheet.** A run sheet is one unbroken list, and the halves of football inside it look exactly like the ad break before them — a showcaller scanning for "are we in the second half or half time" has only the words to go on, in a column of two hundred other words. There is now a strip down the left edge naming it: 1ST HALF, HALF TIME, 2ND HALF, one set per game, so a double-header has two of each. The name rides the top of the view for as long as its stretch is on screen, rather than sitting once in the middle of it, so it always names the period actually being looked at.
+
+  Read off the sheet's own words, so nothing has to be marked up: it works out where a game starts from kick-off or from a row named for the half, where the break is, and where play resumes, and it takes full time as the end. Of the sample run sheets held for testing, 18 of 27 say enough to be banded — the rest either have no game in them or play in quarters. Where a sheet marks the break but never the restart, the rows after it are left plain rather than labelled with a guess: half of them would be football.
+
+- **The import screen says when a document has not come in as a run sheet.** Handed something that is not one — or one whose columns were misread — it used to show 291 rows of nothing and leave you to notice. It now says which structural thing is wrong, in plain terms: nothing became the item name, no column became the duration although thirty cells read as one, the whole sheet is zero seconds long, the same line is sitting inside twenty-six different rows (which is a page footer that has been read as part of a cue). The Import button stays live beside it, only demoted out of primary — the checks are judgements about a document, and the person holding it knows better than they do.
+
+  These are the same checks the offline sweep runs over the sample sheets, moved into shared code so the screen and the sweep cannot drift apart and start saying different things about the same file.
+
+
 ### Fixed
 - **Who may administer a company's people is now checked, not assumed.** There are three ways to reach that: the administrator, a company signing in with its own token, and a person who has been granted access to a company. The first two were verified from a browser months ago; the third sat inline in the request handler where nothing could reach it without a running server, and had never once been exercised. It now lives beside the other access rules, which exist precisely so they can be checked without one, and carries tests for the distinction that matters — being given one show to run is not the same as being given the company that owns it, and those two were a single word apart. Also held down: a grant naming no company reaches nothing rather than everything.
 

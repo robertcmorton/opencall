@@ -27,6 +27,7 @@ import {
   resultDueNow,
   outcomesFor,
   findDecisionPoints,
+  findPhases,
   goldenPointBlock,
   goldenPointDurationSec,
   shiftAnchorsAfter,
@@ -288,6 +289,15 @@ const COL_WIDTHS_KEY = (rundownId: string) => `oc:colwidths:${rundownId}`;
  */
 const COL_W_WIDE = { rownum: 46, time: 120, dur: 78, extra: 118 } as const;
 const COL_W_NARROW = { rownum: 26, time: 88, dur: 58, extra: 96 } as const;
+/**
+ * The strip down the far left that names the period of play.
+ *
+ * Taken out of the row-number column rather than added beside the table, so
+ * every width already derived from that column — the folded-column sum, the
+ * percentage shares — accounts for it without being told. Zero on a sheet with
+ * no game in it, where the strip does not exist.
+ */
+const RAIL_W = 26;
 /** Below this the sheet is on a phone, whichever way up it is held. */
 const NARROW_GRID = 560;
 
@@ -1986,16 +1996,94 @@ export function RundownEditor({
    *
    * Null on a sheet with one game or none, where banding would be decoration.
    */
+  /**
+   * Where each game on the day finishes.
+   *
+   * Full time is the boundary wherever a sheet names one. A sheet that wrote
+   * its OWN endings has no full-time row to find — `findDecisionPoints`
+   * deliberately returns nothing for those, since there is no result left to
+   * ask for — so the last row of each game's ending block stands in. Both the
+   * game bands and the period rail read this, because a day cannot have two
+   * different answers about where a game ended.
+   */
+  const gameEnds = useMemo(() => {
+    const ft = rows.map((r, i) => (decisionRowIds.has(r.id) ? i : -1)).filter((i) => i >= 0);
+    if (ft.length > 0) return ft;
+    const ends: number[] = [];
+    rows.forEach((r, i) => {
+      if (r.outcome) ends[(r.outcomeGame ?? 1) - 1] = i;
+    });
+    return ends.filter((i) => i != null);
+  }, [rows, decisionRowIds]);
+
   const bandOf = useMemo(() => {
-    const ends = rows.map((r, i) => (decisionRowIds.has(r.id) ? i : -1)).filter((i) => i >= 0);
+    const ends = gameEnds;
     if (ends.length < 2) return () => null;
     return (index: number): number => {
       const at = ends.findIndex((end) => index <= end);
       // Past the last full time: the wrap belongs to the game that just ended.
       return at < 0 ? ends.length - 1 : at;
     };
-  }, [rows, decisionRowIds]);
+  }, [gameEnds]);
 
+  /**
+   * The periods of play, named down the edge of the sheet. See `findPhases`.
+   *
+   * Read straight off the rows' own names, so it costs nothing to keep and
+   * needs nobody to mark the sheet up: 18 of the 27 sample sheets say enough
+   * about kick-off, half time and the restart to be banded, and the nine that
+   * do not are the ones with no game in them or a game played in quarters.
+   */
+  const phases = useMemo(() => findPhases(rows, gameEnds), [rows, gameEnds]);
+  const railW = phases.length > 0 ? RAIL_W : 0;
+
+  /**
+   * Where each band starts and ends, in the sheet's content coordinates.
+   *
+   * MEASURED FROM THE ROWS THEMSELVES wherever they are rendered, and only
+   * estimated where they are not. `offsetOf` looks like the obvious source —
+   * it answers for every row, window or no window — but its answer for a row
+   * nobody has scrolled past is the average height of the ones they have.
+   * With the row window switched off (printing, or the find-key escape hatch)
+   * NO row ever reports its height, so every offset falls back to the 34px
+   * starting guess and a rail built on it lands a third of the way up a sheet
+   * whose rows really run to 150px. Measured on this sheet: the last band
+   * placed at 4,528px against a real 21,039px of scroll.
+   *
+   * So the rendered row is asked directly, and `offsetOf` is kept only for
+   * boundaries outside the window — which by construction are more than the
+   * 600px of overscan away, i.e. off screen, where being wrong cannot be seen.
+   * The band's visible edges are always the measured ones.
+   */
+  const [bandBoxes, setBandBoxes] = useState<{ key: string; kind: string; label: string; top: number; height: number }[]>([]);
+  useLayoutEffect(() => {
+    const tb = tbodyRef.current;
+    const scroller = gridEl;
+    if (!tb || !scroller || phases.length === 0) {
+      setBandBoxes((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    const base = scroller.getBoundingClientRect().top - scroller.scrollTop;
+    const edge = (index: number, bottom: boolean): number | null => {
+      const id = rows[index]?.id;
+      const el = id ? tb.querySelector<HTMLElement>(`tr[data-rowid="${id}"]`) : null;
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return (bottom ? box.bottom : box.top) - base;
+    };
+    const headerH = tb.offsetTop;
+    const next = phases.map((p) => {
+      const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
+      const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
+      return { key: `${p.game}-${p.kind}`, kind: p.kind, label: p.label, top, height: Math.max(0, bottom - top) };
+    });
+    setBandBoxes((prev) =>
+      prev.length === next.length &&
+      prev.every((b, i) => b.key === next[i]!.key && Math.abs(b.top - next[i]!.top) < 0.5 && Math.abs(b.height - next[i]!.height) < 0.5)
+        ? prev
+        : next,
+    );
+  });
 
   /**
    * Put a golden-point block into a sheet that has none, after full time.
@@ -2429,7 +2517,7 @@ export function RundownEditor({
     const extras = shown.filter((c) => c.kind === "richtext");
     if (gridWidth == null || extras.length === 0) return new Set<string>();
     const structural =
-      COL_W.rownum + (shown.some((c) => c.kind === "startTime") ? COL_W.time : 0) + (shown.some((c) => c.kind === "duration") ? COL_W.dur : 0);
+      COL_W.rownum + railW + (shown.some((c) => c.kind === "startTime") ? COL_W.time : 0) + (shown.some((c) => c.kind === "duration") ? COL_W.dur : 0);
     const room = gridWidth - structural - MIN_TITLE;
     const keep = Math.max(0, Math.floor(room / MIN_EXTRA));
     return new Set(extras.slice(keep).map((c) => c.key));
@@ -2451,7 +2539,7 @@ export function RundownEditor({
         sum +
         (colWidths[c.key] ??
           (c.kind === "startTime" ? COL_W.time : c.kind === "duration" ? COL_W.dur : c.kind === "richtext" ? (c.width ?? COL_W.extra) : 0)),
-      colWidths["rownum"] ?? COL_W.rownum,
+      (colWidths["rownum"] ?? COL_W.rownum) + railW,
     );
     return Math.max(MIN_TITLE, gridWidth - others - 2);
   })();
@@ -3649,10 +3737,30 @@ export function RundownEditor({
             </button>
           </div>
         )}
-        <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""}`} style={fixedStyle}>
+        {/* ── The period of play, down the far left ────────────────────────
+            A run sheet is one unbroken list, and the halves of football in it
+            look exactly like the ad break before them. Written sideways so it
+            costs no column width worth having, and painted rather than
+            printed per row so it survives the row window: the bands are placed
+            from `offsetOf`, which knows where a row sits whether or not that
+            row is currently rendered. */}
+        {phases.length > 0 && (
+          <div className="phase-rail" aria-hidden style={{ width: RAIL_W }}>
+            {bandBoxes.map((b) => (
+              <div key={b.key} className={`phase-band phase-${b.kind}`} style={{ top: b.top, height: b.height }}>
+                {/* A band too short to hold its own name shows none rather
+                    than a fragment of one; the tint still marks the stretch.
+                    A one-row first half is common — on most sheets the whole
+                    forty minutes is a single container row. */}
+                {b.height >= 58 && <span className="phase-label">{b.label}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""} ${railW ? "has-rail" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: share("rownum", colWidths["rownum"] ?? COL_W.rownum) }}>
+              <th data-colkey="rownum" style={{ width: share("rownum", (colWidths["rownum"] ?? COL_W.rownum) + railW) }}>
                 {resizeHandle(prevColKey("rownum"), "rownum")}
               </th>
               {orderedColumns.map((c) => {

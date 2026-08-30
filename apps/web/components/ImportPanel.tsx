@@ -14,11 +14,14 @@ import {
   parseDurationLoose,
   parseTimeLoose,
   planImport,
+  computeTiming,
+  sheetFaults,
   suggestDurationFix,
   suggestTimeFix,
   type ClassifiedRow,
   type ColumnTarget,
   type EventTypeSpec,
+  type PlanRow,
 } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { api, fetchRundownSource } from "../lib/api";
@@ -421,6 +424,41 @@ export function ImportPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replaceRundown?.id]);
 
+  /**
+   * Structural faults in what this document BECAME — not "a cell did not
+   * read" but "this is missing a whole column", or "this is not a run sheet".
+   *
+   * Built by running the real conversion, not by inspecting the grid: the
+   * question is about the rundown that is one button-press away, and the grid
+   * cannot answer it. Shared with the offline checker so the screen and the
+   * script say the same thing about the same file.
+   *
+   * Deliberately does NOT block the Import button. The checks are heuristics
+   * measured against a corpus of 27 sheets, and a sheet with an unusual shape
+   * is still the user's sheet — refusing it would make a wrong guess final.
+   */
+  const faults = useMemo(() => {
+    if (!grid || importable.length === 0) return [];
+    try {
+      const built = buildSheet({ headers, mapping, rows, runningHeaders }, { widths, roleColumnKey: roleKey, roles });
+      const planRows: PlanRow[] = built.rows.map((r, i) => ({
+        id: String(i),
+        type: r.type,
+        durationSec: r.durationSec ?? null,
+        durationMuted: r.durationMuted ?? false,
+        parallel: r.parallel ?? false,
+        spans: r.spans ?? false,
+        hardStartSec: r.hardStartSec ?? null,
+        outcome: r.outcome ?? null,
+        outcomeGame: r.outcomeGame,
+      }));
+      return sheetFaults(built, mapping, computeTiming(planRows, null).totalDurationSec);
+    } catch {
+      // A build that throws is its own, louder signal — doImport reports it.
+      return [];
+    }
+  }, [grid, importable.length, headers, mapping, rows, runningHeaders, widths, roleKey, roles]);
+
   /** Everything this import still needs. Named, so nobody hunts the form. */
   const missing = [
     !replaceRundown && !name.trim() && "A name for this run sheet",
@@ -608,6 +646,21 @@ export function ImportPanel({
 
       {grid && (
         <>
+          {faults.length > 0 && (
+            <div className="panel import-faults">
+              <strong style={{ fontSize: "var(--fs-sm)" }}>
+                This does not look like a run sheet has been read correctly
+              </strong>
+              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+                {faults.map((f) => (
+                  <li key={f.kind}>{f.message}</li>
+                ))}
+              </ul>
+              <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+                Check the header row and the column mapping below. You can import it anyway.
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
             {!replaceRundown && (
               <div>
@@ -681,7 +734,10 @@ export function ImportPanel({
               <button className="btn btn-ghost" onClick={() => setGrid(null)}>
                 Different file
               </button>
-              <button className="btn btn-primary" disabled={busy} onClick={doImport}>
+              {/* Demoted, not disabled, when the sheet looks wrong: the faults
+                  above are heuristics, and the person holding the PDF knows
+                  better than they do. Losing the blue is the whole nudge. */}
+              <button className={faults.length > 0 ? "btn" : "btn btn-primary"} disabled={busy} onClick={doImport}>
                 {busy ? "Importing…" : `${replaceRundown ? "Update with" : "Import"} ${importable.length} rows`}
               </button>
             </div>

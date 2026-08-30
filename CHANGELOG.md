@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A tooltip appears next to the thing it explains.** On the bar that appears when rows are selected, the explanations were landing hundreds of pixels away — most visibly Skip's, which turned up halfway down the sheet against an unrelated row. The bar was centred with a transform, and a transformed element quietly becomes the frame of reference for anything positioned against the window inside it. The tooltips are positioned against the window deliberately, so that no scrolling container can clip them; the two features cancelled each other out. The bar is centred with margins now, the way the sheet's other floating control already was. Menus lost a four-pixel rise on opening for the same reason and now simply fade.
+
 ### Changed
 - **Kinds of show we have not proven yet say so.** Australian rules, football, cricket and netball are marked **(coming soon)** in the picker. Every rule the app holds about rugby league was checked against a corpus of run sheets from real broadcasts — which is how it knows a half-time row can be a thirty-second sting, and that "Extra Time Buffer" is not extra time. For the other sports there are the laws of the game and nothing else, and the laws are not the part that goes wrong: what goes wrong is how a particular production writes them down.
 

@@ -3714,7 +3714,25 @@ export function RundownEditor({
           // own name has already been read.
           <div
             className="selection-bar"
-            style={{ position: "absolute", top: selBarTop, left: "50%", transform: "translateX(-50%)", zIndex: 6 }}
+            /**
+             * Centred WITHOUT a transform, which is not a style preference.
+             *
+             * A transformed element becomes the containing block for every
+             * `position: fixed` descendant — and the tooltips are fixed, on
+             * purpose, so they cannot be clipped by an ancestor's overflow.
+             * So `translateX(-50%)` quietly re-based every tooltip on every
+             * button in this bar against the bar itself: the viewport
+             * coordinates `keepTipsOnScreen` had carefully worked out were
+             * then measured from the bar's own top-left, and the bubble landed
+             * hundreds of pixels away from the button it belonged to.
+             * Measured: a `position: fixed; top: 0; left: 0` probe inside this
+             * bar resolved to (593, 355) instead of (0, 0).
+             *
+             * `left/right: 0` with `margin: 0 auto` centres the same way and
+             * creates no containing block. It is what `.sync-cue` already
+             * does, three hundred lines up.
+             */
+            style={{ position: "absolute", top: selBarTop, left: 0, right: 0, margin: "0 auto", width: "fit-content", zIndex: 6 }}
           >
             <span className="count">{selected.size} selected</span>
             <button className="btn btn-sm" onClick={duplicateSelected}>

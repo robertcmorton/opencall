@@ -378,14 +378,19 @@ input.inline-edit {
   padding: 5px;
   animation: menu-in var(--t-fast) var(--ease);
 }
+/* Fades, and does NOT move.
+   A transform — even one animating to `none` — makes the element a containing
+   block for `position: fixed` descendants while it runs, and the tooltips are
+   fixed so that no ancestor's overflow can clip them. The 4px rise was worth
+   less than every tooltip inside a menu landing on its own button during the
+   150ms it took. Nothing else changes: the fade is what reads as "this just
+   opened". */
 @keyframes menu-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 .menu-item {

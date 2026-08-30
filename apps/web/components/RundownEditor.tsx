@@ -2452,6 +2452,11 @@ export function RundownEditor({
     const i = orderedColKeys.indexOf(key);
     return i >= 0 && i < orderedColKeys.length - 1 ? orderedColKeys[i + 1]! : null;
   };
+  /** The column to the LEFT — a resize handle belongs to the one on the right. */
+  const prevColKey = (key: string): string | null => {
+    const i = orderedColKeys.indexOf(key);
+    return i > 0 ? orderedColKeys[i - 1]! : null;
+  };
   const fixedStyle = tableStyle(orderedColKeys);
   /**
    * Stored column widths, as a share of their own total rather than in pixels.
@@ -3607,7 +3612,7 @@ export function RundownEditor({
           <thead>
             <tr>
               <th data-colkey="rownum" style={{ width: share("rownum", colWidths["rownum"] ?? COL_W.rownum) }}>
-                {resizeHandle("rownum", nextColKey("rownum"))}
+                {resizeHandle(prevColKey("rownum"), "rownum")}
               </th>
               {orderedColumns.map((c) => {
                 /**
@@ -3693,7 +3698,7 @@ export function RundownEditor({
                         {c.title}
                       </span>
                     )}
-                    {resizeHandle(c.key, nextColKey(c.key))}
+                    {resizeHandle(prevColKey(c.key), c.key)}
                   </th>
                 );
                 if (c.kind === "duration" && showZero)
@@ -3701,7 +3706,7 @@ export function RundownEditor({
                     <Fragment key={c.id}>
                       {th}
                       <th data-colkey="zero" style={{ width: share("zero", colWidths["zero"]) }} data-tip="Countdown to the next anchored time">
-                        Zero{resizeHandle("zero", nextColKey("zero"))}
+                        Zero{resizeHandle(prevColKey("zero"), "zero")}
                       </th>
                     </Fragment>
                   );

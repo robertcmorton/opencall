@@ -2172,16 +2172,18 @@ kbd {
 .col-resize {
   position: absolute;
   top: 0;
-  /* CENTRED on the column boundary, half either side of it.
-     It used to sit wholly inside the cell (`right: 0`), so all sixteen pixels
-     of grab area were to the LEFT of the line: the resize cursor appeared well
-     before you reached the divider and never once you had passed it, and the
-     whole target read as offset from the column it belongs to.
-     Inside-the-cell was to stop the last column's handle hanging past the
-     table and making it wider than its container. That cannot happen now —
-     `handle()` returns nothing when there is no next column, so the last
-     column has no handle to hang. */
-  right: -8px;
+  /* CENTRED on the column boundary, half either side of it — and owned by the
+     cell to the RIGHT of that boundary, which is why this anchors left.
+     It first sat wholly inside the left-hand cell (`right: 0`), so all sixteen
+     pixels of grab area were on one side of the line. Moving it to straddle
+     from the left-hand cell did not work either: header cells are sticky with
+     one z-index, so each covers what the previous one overflowed, and the
+     right half was buried under the neighbour. From the right-hand cell it
+     reaches back over the line with nothing on top of it.
+     Nothing hangs off the end of the table: the FIRST column has no handle,
+     because there is no boundary to its left. */
+  left: -8px;
+  right: auto;
   width: 16px;
   height: 100%;
   cursor: col-resize;

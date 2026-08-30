@@ -86,22 +86,23 @@ export function GuestView({ token }: { token: string }) {
 
       {(() => {
         const orderedKeys = ["rownum", ...orderedColumns.map((c) => c.key)];
-        const nextOf = (key: string): string | null => {
+        /** A resize handle belongs to the column on the RIGHT of the boundary. */
+        const prevOf = (key: string): string | null => {
           const i = orderedKeys.indexOf(key);
-          return i >= 0 && i < orderedKeys.length - 1 ? orderedKeys[i + 1]! : null;
+          return i > 0 ? orderedKeys[i - 1]! : null;
         };
         const fixedStyle = tableStyle(orderedKeys);
         return (
       <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""}`} style={fixedStyle}>
         <thead>
           <tr>
-            <th data-colkey="rownum" style={{ width: widths["rownum"] }}>#{handle("rownum", nextOf("rownum"))}</th>
+            <th data-colkey="rownum" style={{ width: widths["rownum"] }}>#{handle(prevOf("rownum"), "rownum")}</th>
             {orderedColumns.map((c) => {
               const w = widths[c.key] ?? (c as { width?: number }).width;
               return (
                 <th key={c.id} data-colkey={c.key} style={w ? { width: w } : undefined}>
                   {c.title}
-                  {handle(c.key, nextOf(c.key))}
+                  {handle(prevOf(c.key), c.key)}
                 </th>
               );
             })}

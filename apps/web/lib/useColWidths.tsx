@@ -17,7 +17,8 @@ const MIN_COL = 56;
 export function useColWidths(storageKey: string): {
   widths: Record<string, number>;
   /** Handle between `key` and `nextKey`; the last column (no neighbour) gets none. */
-  handle: (key: string, nextKey: string | null) => ReactElement | null;
+  /** Handle for the boundary LEFT of this column — see the note on `handle`. */
+  handle: (leftKey: string | null, rightKey: string) => ReactElement | null;
   /** Fixed-layout style once every rendered column has a width; else undefined (natural layout). */
   tableStyle: (renderedKeys: string[]) => CSSProperties | undefined;
 } {
@@ -76,12 +77,26 @@ export function useColWidths(storageKey: string): {
     localStorage.removeItem(storageKey);
   };
 
-  const handle = (key: string, nextKey: string | null): ReactElement | null =>
-    nextKey == null ? null : (
+  /**
+   * The grab handle for the boundary between two columns.
+   *
+   * Rendered by the column on the RIGHT of that boundary, and reaching back
+   * over it. Every header cell is `position: sticky` with the same z-index, so
+   * painting order is DOM order and each cell covers whatever the one before it
+   * overflowed — a handle owned by the LEFT column had its right half buried
+   * under its neighbour, so the resize cursor appeared up to eight pixels early
+   * and never once you had crossed the line.
+   *
+   * Owning it from the right is also what the body already does: it draws each
+   * divider as `td + td { border-left }`, which is to say the boundary belongs
+   * to the later cell.
+   */
+  const handle = (leftKey: string | null, rightKey: string): ReactElement | null =>
+    leftKey == null ? null : (
       <span
         className="col-resize no-print"
         title="Drag to resize — double-click to reset all columns"
-        onPointerDown={(e) => startResize(e, key, nextKey)}
+        onPointerDown={(e) => startResize(e, leftKey, rightKey)}
         onDoubleClick={(e) => {
           e.stopPropagation(); // the th's own double-click renames the column
           resetAll();

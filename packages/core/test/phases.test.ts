@@ -21,9 +21,9 @@ describe("findPhases", () => {
       row("NRL | HARBOUR v RIVERS - FULLTIME"),
     ];
     expect(findPhases(rows, [7])).toEqual([
-      { from: 1, to: 2, label: "1st half", kind: "first-half", game: 1 },
-      { from: 3, to: 5, label: "Half time", kind: "half-time", game: 1 },
-      { from: 6, to: 7, label: "2nd half", kind: "second-half", game: 1 },
+      { from: 1, to: 2, label: "1st half", short: "1H", kind: "first-half", game: 1 },
+      { from: 3, to: 5, label: "Half time", short: "HT", kind: "half-time", game: 1 },
+      { from: 6, to: 7, label: "2nd half", short: "2H", kind: "second-half", game: 1 },
     ]);
   });
 
@@ -96,7 +96,7 @@ describe("findPhases", () => {
     // Half time is named; the restart never is. Labelling the rest "Half time"
     // would be writing it over forty minutes of football.
     const rows = [row("Kick Off", 0), row("NRLW - HALF TIME - 13 MINUTES", 780), row("cue"), row("NRLW - FULL TIME")];
-    expect(findPhases(rows, [3])).toEqual([{ from: 0, to: 0, label: "1st half", kind: "first-half", game: 1 }]);
+    expect(findPhases(rows, [3])).toEqual([{ from: 0, to: 0, label: "1st half", short: "1H", kind: "first-half", game: 1 }]);
   });
 
   it("reads a game played in quarters, and the breaks between them", () => {
@@ -256,6 +256,17 @@ describe("findPhases", () => {
     ];
     const extra = findPhases(rows, []).filter((p) => p.kind === "extra-time");
     expect(extra.map((p) => p.from)).toEqual([3, 7]);
+  });
+
+  it("carries a short form for a band with no room to spell itself", () => {
+    // A first half is very often ONE row — the whole forty minutes as a single
+    // container — and vertical text cannot spell "1st half" in 30px.
+    const rows = [row("Kick Off", 0), row("Half Time - 13 Minutes", 30), row("Build to Kick Off", 0), row("Full Time", 60)];
+    expect(findPhases(rows, [3]).map((p) => [p.label, p.short])).toEqual([
+      ["1st half", "1H"],
+      ["Half time", "HT"],
+      ["2nd half", "2H"],
+    ]);
   });
 
   it("says nothing about a sheet with no game in it", () => {

@@ -2100,7 +2100,7 @@ export function RundownEditor({
    * 600px of overscan away, i.e. off screen, where being wrong cannot be seen.
    * The band's visible edges are always the measured ones.
    */
-  const [bandBoxes, setBandBoxes] = useState<{ key: string; kind: string; label: string; top: number; height: number }[]>([]);
+  const [bandBoxes, setBandBoxes] = useState<{ key: string; kind: string; label: string; short: string; top: number; height: number }[]>([]);
   /**
    * How tall the pinned column headers are, so the sticky period label can
    * come to rest just under them instead of behind them.
@@ -2146,7 +2146,7 @@ export function RundownEditor({
       .map((p) => {
         const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
         const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
-        return { key: `${p.game}-${p.kind}-${p.from}`, kind: p.kind, label: p.label, top, height: Math.max(0, bottom - top) };
+        return { key: `${p.game}-${p.kind}-${p.from}`, kind: p.kind, label: p.label, short: p.short, top, height: Math.max(0, bottom - top) };
       });
     setBandBoxes((prev) =>
       prev.length === next.length &&

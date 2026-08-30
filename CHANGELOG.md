@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A period too short to spell its name now shows a short one.** A first half is very often a single row — the whole forty minutes arrives as one item — and sideways text cannot spell "1st half" in the height of one row. The band was drawn and left blank, next to a second half that read perfectly, which is what "I can see 2nd half but I can't see 1st half" looks like from the outside. Bands that cannot fit the full name now show **1H**, **2H**, **Q1**, **HT** or **GP**; only a band with no room for even that stays bare.
+
+### Fixed
 - **A tooltip appears next to the thing it explains.** On the bar that appears when rows are selected, the explanations were landing hundreds of pixels away — most visibly Skip's, which turned up halfway down the sheet against an unrelated row. The bar was centred with a transform, and a transformed element quietly becomes the frame of reference for anything positioned against the window inside it. The tooltips are positioned against the window deliberately, so that no scrolling container can clip them; the two features cancelled each other out. The bar is centred with margins now, the way the sheet's other floating control already was. Menus lost a four-pixel rise on opening for the same reason and now simply fade.
 
 ### Changed

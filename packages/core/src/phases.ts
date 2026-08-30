@@ -53,6 +53,18 @@ export interface Phase {
   to: number;
   /** What to write down the edge. */
   label: string;
+  /**
+   * The same thing in two or three characters, for a band with no room.
+   *
+   * Vertical text needs about 55px of height to spell "1st half", and a first
+   * half is very often a SINGLE ROW — the whole forty minutes arrives as one
+   * container. On one sample sheet that row is 30px tall, so the band was
+   * there and its name was not, while the second half below it (eight rows,
+   * 240px) read perfectly. "I can see 2nd half but I can't see 1st half" is
+   * what that looks like from the outside, and it is not the same bug as the
+   * one where the name hid behind the column headings — it just looks it.
+   */
+  short: string;
   kind: PhaseKind;
   /** Which game on the day, counting from 1 — a double-header has two of each. */
   game: number;
@@ -263,12 +275,13 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
         // at the halfway line. Longest wins, for the reason given below.
         const gap = playMatches(QUARTER_BREAK, q + 1, nextStart - 1).concat(playMatches(HALF_TIME, q + 1, nextStart - 1));
         const brk = gap.length === 0 ? null : gap.reduce((best, j) => ((rows[j]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? j : best));
-        out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, kind: "quarter", game: n });
+        out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, short: `Q${i + 1}`, kind: "quarter", game: n });
         if (brk != null && k + 1 < known.length)
           out.push({
             from: brk,
             to: nextStart - 1,
             label: HALF_TIME.test((rows[brk]?.title ?? "").split("\n")[0]?.trim() ?? "") ? "Half time" : "Break",
+            short: "HT",
             kind: "break",
             game: n,
           });
@@ -300,9 +313,9 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
      * Better to say less: the first half is labelled, and the rest is left
      * as plain as the sheet left it.
      */
-    if (first != null) out.push({ from: first, to: (half ?? second ?? end + 1) - 1, label: "1st half", kind: "first-half", game: n });
-    if (half != null && second != null) out.push({ from: half, to: second - 1, label: "Half time", kind: "half-time", game: n });
-    if (second != null) out.push({ from: second, to: end, label: "2nd half", kind: "second-half", game: n });
+    if (first != null) out.push({ from: first, to: (half ?? second ?? end + 1) - 1, label: "1st half", short: "1H", kind: "first-half", game: n });
+    if (half != null && second != null) out.push({ from: half, to: second - 1, label: "Half time", short: "HT", kind: "half-time", game: n });
+    if (second != null) out.push({ from: second, to: end, label: "2nd half", short: "2H", kind: "second-half", game: n });
 
     start = end + 1;
   }
@@ -320,7 +333,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
       if (p.from >= x.from && p.to <= x.to) p.to = p.from - 1; // wholly inside: drop
       else if (p.to >= x.from && p.from < x.from) p.to = x.from - 1;
     }
-    out.push({ from: x.from, to: x.to, label: x.label, kind: "extra-time", game: x.game });
+    out.push({ from: x.from, to: x.to, label: x.label, short: x.label === "Golden point" ? "GP" : "ET", kind: "extra-time", game: x.game });
   }
   out.sort((a, b) => a.from - b.from);
 

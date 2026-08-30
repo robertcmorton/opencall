@@ -3911,6 +3911,13 @@ th.col-drop-target {
   background: var(--over-soft);
   box-shadow: inset -2px 0 0 var(--over);
 }
+/* The two-character form, for a band one row tall. Tighter tracking, because
+   "1H" spaced like a heading looks like two separate letters. */
+.phase-label-short {
+  letter-spacing: 0.02em;
+  font-size: 0.6rem;
+}
+
 .phase-band.phase-extra-time .phase-label {
   color: var(--over);
 }

@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **HOLD keeps an item on air past its end, and spends what it cost.** Something overruns and the answer used to be arithmetic: work out how long it went, then press +30 four times. HOLD sits beside CUE — the other thing you do to the item that is on air, since CUE says the next one starts now and HOLD says this one is not finished — and starts a stopwatch on it. Pressing GO spends whatever it reads: the item takes that long, and every printed time below moves by the same amount. That is exactly what the nudges either side of it already do, because a hold is a nudge whose length nobody knew in advance, and one undo takes the whole thing back.
+
+  The stopwatch belongs to the screen holding it; what is shared is the result once it is let go. A half-finished hold is not a fact about the show, it is somebody with a thumb on a button. Cueing anything else settles it first, so the time lands on the item that was actually held rather than following the button to the next row. On a phone it docks at the foot with the other corrections, because a touch screen cannot hover — not because it needs less.
+
 ### Fixed
 - **The sheet's name keeps to one line at every width.** It was held to one line only below 1024px, and the band immediately above that is where the header is most cramped: at 1030 a long name stacked over three lines and pushed the planned figures and the transport down with it. The reason it earns one line — you already know what you opened — does not change with the width of the window, so neither does the rule now. Where there is room the ellipsis never appears, and the full name is still in the tooltip.
 

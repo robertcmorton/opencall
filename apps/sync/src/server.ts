@@ -19,13 +19,13 @@ import {
 } from "@opencall/core";
 import { createDb, decodeDoc, ensureSchema, projectRundownDoc, schema } from "@opencall/db";
 import type { ProjectedRow } from "@opencall/db/doc";
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
 import { createDocServer } from "./doc-server";
 import { createApiHandler, logServerError } from "./api";
 import { customEventTypeSpec } from "./eventTypes";
-import { PersistentShowStore } from "./sessions";
+import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions";
 import * as authMod from "./auth";
 
 // One public port for everything: HTTP API, the show channel (default ws
@@ -697,6 +697,79 @@ async function clockTick(): Promise<void> {
     clockTicking = false;
   }
 }
+/**
+ * A show nobody ever stopped.
+ *
+ * The dashboard has flagged these since the beginning — six hours without a
+ * command and a session gets a "stale" chip — and deliberately did no more
+ * than flag them, on the reasoning that ending somebody's show from a timer
+ * is the kind of helpfulness that stops a real one sitting quiet through a
+ * long interval.
+ *
+ * That reasoning holds at six hours and stops holding at twenty-four. Nothing
+ * this app is for runs for a day: the longest sheet in the sample corpus is a
+ * twenty-four-hour festival test, and even that moves constantly. A session
+ * with no command in it for a full day was abandoned — the tab was closed, the
+ * laptop went home — and leaving it open costs something real, because
+ * `one_live_session_per_rundown` means the forgotten one BLOCKS the next
+ * genuine show on that sheet until somebody finds and stops it.
+ *
+ * So: flagged at six hours for a person to judge, ended at twenty-four when
+ * there is no longer a judgement to make. The four-times gap is the margin.
+ *
+ * Ended through the state machine rather than by writing `ended` into the
+ * table, so the as-run record gets its closing entry, the in-memory machine
+ * agrees with the row, and anybody still watching sees the show stop.
+ */
+let sweeping = false;
+async function abandonedSessionSweep(): Promise<void> {
+  if (sweeping) return;
+  sweeping = true;
+  try {
+    const open = await dbHandle.db.query.showSessions.findMany({
+      where: ne(schema.showSessions.state, "ended"),
+      columns: { id: true, rundownId: true, startedAt: true },
+    });
+    if (open.length === 0) return;
+    const moves = await dbHandle.db.query.showTransitions.findMany({
+      where: inArray(schema.showTransitions.sessionId, open.map((s) => s.id)),
+      columns: { sessionId: true, at: true },
+    });
+    // Last sign of life: the newest command, or the start for one that never
+    // moved at all — the same measure the dashboard's chip uses.
+    const lastMove = new Map<string, number>();
+    for (const m of moves) {
+      const at = m.at.getTime();
+      if (at > (lastMove.get(m.sessionId) ?? 0)) lastMove.set(m.sessionId, at);
+    }
+    const now = Date.now();
+    const gone = abandonedSessions(
+      open.map((s) => ({ ...s, lastMoveAt: lastMove.get(s.id) ?? s.startedAt.getTime() })),
+      now,
+      ABANDON_AFTER_MS,
+    );
+    for (const session of gone) {
+      const last = session.lastMoveAt;
+      const machine = await showStore.get(session.rundownId);
+      const result = machine.apply("stop", undefined, now);
+      if (typeof result === "string") continue; // already not live
+      broadcast(session.rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
+      showStore.persist(session.rundownId, result, "stop");
+      const hours = Math.round((now - last) / 3_600_000);
+      console.warn(`[sessions] ended abandoned session on ${session.rundownId} — no command for ${hours}h`);
+    }
+  } catch (err) {
+    console.error("[sync] abandoned-session sweep failed:", err);
+  } finally {
+    sweeping = false;
+  }
+}
+// Hourly. The threshold is a day, so the sweep's own resolution is irrelevant
+// to when a session ends; it only decides how long after the day is up.
+const abandonLoop = setInterval(() => void abandonedSessionSweep(), 60 * 60 * 1000);
+abandonLoop.unref();
+void abandonedSessionSweep();
+
 const clockLoop = setInterval(() => void clockTick(), 1000);
 clockLoop.unref();
 

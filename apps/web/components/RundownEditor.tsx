@@ -495,6 +495,7 @@ function TimingNudge({
   /** Rows a cue here would drop. 0 = this is the live row, so nothing changes on air. */
   skips = 0,
   nudges = true,
+  live = true,
   golden,
   hold,
 }: {
@@ -502,8 +503,21 @@ function TimingNudge({
   onCue: () => void;
   disabled?: boolean;
   skips?: number;
-  /** The live corrections. Off before the show, when none of them mean anything. */
+  /**
+   * The ± buttons. On whether or not a show is running: re-timing an item is
+   * how a sheet gets built as well as how it gets corrected, and doing it
+   * here beats opening the duration cell and doing the arithmetic. Off air
+   * they lengthen the item and push everything printed below it later, which
+   * is what `nudgeRow` already does when there is no live cue to work away
+   * from.
+   */
   nudges?: boolean;
+  /**
+   * CUE and HOLD. These two are claims about what is happening NOW — "this
+   * item starts at this moment", "this item is not finished" — and neither
+   * means anything on a sheet being built the day before. They stay live-only.
+   */
+  live?: boolean;
   /** Offered on the row that says full time — see `insertGoldenPointAfter`. */
   golden?: { label: string; onInsert: () => void };
   /**
@@ -535,7 +549,7 @@ function TimingNudge({
           {d}
         </button>
         ))}
-      {nudges && (
+      {live && (
       <button
         type="button"
         className={`tn-btn tn-cue ${armed ? "armed" : ""}`}
@@ -563,7 +577,7 @@ function TimingNudge({
           it read on this item and moves everything printed below by the same,
           which is what the nudges either side already do — a hold is a nudge
           whose length nobody knew in advance. */}
-      {hold && nudges && (
+      {hold && live && (
         <button
           type="button"
           className={`tn-btn tn-hold ${hold.heldSec != null ? "is-on" : ""}`}
@@ -3687,10 +3701,13 @@ export function RundownEditor({
             strip out before the show, which the nudges deliberately do not do:
             building the block is preparation, and the block is most often
             wanted at full time on a night nobody planned for it. */}
-        {canEditContent && nudgeRowAt && (showLive || goldenFor(nudgeRowAt.id) != null) && (
+        {/* Off air it needs `mayDrive`: these buttons EDIT the sheet, and a
+            view-only phone should not be handed them just because the show has
+            not started. Live is unchanged. */}
+        {canEditContent && nudgeRowAt && (showLive || mayDrive) && (
           <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
             <TimingNudge
-              nudges={showLive}
+              live={showLive}
               onNudge={(d) => nudgeRow(nudgeRowAt.id, d)}
               onCue={() => cueRow(nudgeRowAt.id)}
               skips={cueSkipCount(nudgeRowAt.id)}

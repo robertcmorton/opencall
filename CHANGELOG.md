@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The timing nudges work while a sheet is being built, not only while it is on air.** Giving an item thirty more seconds is how a sheet gets written as well as how it gets corrected, and doing it on the row beats opening the duration cell and working it out. Off air they lengthen the item and push everything printed below it later. **CUE** and **HOLD** stay live-only: both are claims about what is happening this second, and neither means anything on a sheet for tomorrow.
+
+### Changed
+- **A show nobody stopped now ends itself after a day.** Sessions have been flagged after six hours of silence and left alone, on the reasoning that ending one from a timer would stop a real show sitting through a long interval — true at six hours, not true at twenty-four. Nothing runs for a full day without a single command, and a forgotten session is not harmless: only one show can be live per run sheet, so the abandoned one blocks the next real one until somebody finds it. It is still flagged at six hours for a person to judge; it is ended at twenty-four, when there is no judgement left to make. Ending it writes the closing entry in the as-run record, the same as pressing Stop.
+
 ### Fixed
 - **A period too short to spell its name now shows a short one.** A first half is very often a single row — the whole forty minutes arrives as one item — and sideways text cannot spell "1st half" in the height of one row. The band was drawn and left blank, next to a second half that read perfectly, which is what "I can see 2nd half but I can't see 1st half" looks like from the outside. Bands that cannot fit the full name now show **1H**, **2H**, **Q1**, **HT** or **GP**; only a band with no room for even that stays bare.
 

@@ -152,3 +152,36 @@ export class PersistentShowStore {
     });
   }
 }
+
+/**
+ * How long a session may go without a command before it is treated as
+ * abandoned rather than quiet.
+ *
+ * The dashboard flags a session "stale" at SIX hours and deliberately stops
+ * there, because ending somebody's show from a timer would stop a real one
+ * sitting through a long interval. That reasoning holds at six hours and stops
+ * holding at twenty-four: nothing this app is for runs for a day without a
+ * single command, and a forgotten session is not free — one live session is
+ * allowed per rundown, so it BLOCKS the next real show on that sheet.
+ */
+export const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Which open sessions have been abandoned, given when each last moved.
+ *
+ * Separated from the sweep that acts on it so the rule can be checked without
+ * a database, a server or a clock — the same reason the access rules live in
+ * `scope.ts`. The sweep's job is then only to fetch, call this, and stop what
+ * it names.
+ *
+ * `lastMoveAt` is the newest command in the as-run log, or the session's start
+ * for one that never moved at all. That is the same measure the dashboard's
+ * stale chip uses, so the two can never disagree about which session is quiet.
+ */
+export function abandonedSessions<T extends { id: string; lastMoveAt: number }>(
+  open: readonly T[],
+  nowMs: number,
+  afterMs: number = ABANDON_AFTER_MS,
+): T[] {
+  return open.filter((s) => nowMs - s.lastMoveAt >= afterMs);
+}

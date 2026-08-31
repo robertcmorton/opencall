@@ -59,7 +59,12 @@ live screen, so it wants doing carefully:
 - [x] **Insert the block when it is chosen**, and apply the shift. DONE 29 Aug —
       `insertGoldenPointAfter`, verified on production: four rows in, everything
       below +14:00, header end +14:00, one undo taking all of it back.
-- [ ] **Only then remove the `extraInSheet` sniffing.** Removing it first is a
+- [ ] **Remove the `extraInSheet` sniffing — NOW UNBLOCKED.** The user gave
+      the rule on 30 Aug: *junior and exhibition matches have no golden point;
+      all other professional NRL and NRLW do.* So the fixtures can be typed
+      (`nrl-no-extra` for junior/trial/exhibition, `nrl` or `nrl-finals`
+      otherwise) and the guess deleted after. Original note:
+- [ ] ~~Only then remove the `extraInSheet` sniffing.~~ Removing it first is a
       REGRESSION: on an exhibition sheet carrying win/lose/draw rows it is
       currently the thing that produces the Draw button, and without it the
       second gate reduces the offer to win/lose. Fixtures need re-typing to the
@@ -192,7 +197,11 @@ an hour on 29 August and only shipped because a later commit happened to touch
       Applied and redeployed; the deploy that followed carried the commits that
       had been stuck. Verified afterwards at `/api/version`: `92050e5`.
 
-- [ ] **Root-level files are still unwatched** — `package.json`,
+- [x] **Root-level files are now watched** — DONE 30 Aug, on BOTH services
+      (`opencall-sync` and `opencall`): `/package.json`, `/pnpm-lock.yaml`,
+      `/turbo.json` added beside the existing paths and applied.
+      Original note:
+- [ ] ~~Root-level files are still unwatched~~ — `package.json`,
       `pnpm-lock.yaml`, `turbo.json`, `tsconfig`. A dependency bump or a
       workspace change deploys nothing on its own, for the same reason
       `packages/` did not. Not urgent and not yet hit, but it is the same trap
@@ -298,18 +307,33 @@ Recorded so nobody rediscovers them as bugs.
 
 ## 6b. Opened 30 August, not yet done
 
-- [ ] **Extra time has no band.** Asked for. `goldenPointBlock` inserts rows
+- [x] **Extra time has a band** — DONE 30 Aug (52dae66), in the overrun red,
+      reading both the inserted block and one a sheet already carries. Rejects
+      "Extra Time Buffer", "Extra Time Estimate" and "NO EXTRA TIME".
+      Original note:
+- [ ] ~~Extra time has no band.~~ Asked for. `goldenPointBlock` inserts rows
       after full time and they fall outside every period, so the rail says
       nothing over them. Wants a band of its own — and a label, which on a
       sheet that went to golden point is the most important thing on it.
-- [ ] **The misplaced tooltip.** Reported with a screenshot: the Skip tooltip
+- [x] **The misplaced tooltip** — FOUND AND FIXED 30 Aug (2891bd0). The
+      selection bar was centred with `translateX(-50%)`, and a transformed
+      element becomes the containing block for `position: fixed` descendants —
+      which the tooltips are, deliberately. Proven with a probe: a fixed box
+      inside the bar resolved to (593,355) before and (0,0) after. My earlier
+      hypothesis (React wiping inline custom properties) was WRONG.
+      Original note:
+- [ ] ~~The misplaced tooltip.~~ Reported with a screenshot: the Skip tooltip
       appeared far below its button. NOT REPRODUCED — measured locally and the
       bubble's `--tip-left`/`--tip-top` are computed correctly, and the whole
       hovered chain is one element. Hypothesis only: `place()` writes those as
       INLINE custom properties, React owns `style` on that button, and custom
       properties INHERIT — so a re-render that drops the inline values would
       leave the bubble using an ancestor's. Unproven. Do not "fix" it blind.
-- [ ] **The prompter has its own follow**, and did not get the walkthrough
+- [x] **The prompter follows the walkthrough** — DONE 30 Aug (5daf8e7),
+      with the same browse-and-rejoin. Its read caret still keys off the live
+      cue only, deliberately.
+      Original note:
+- [ ] ~~The prompter has its own follow~~, and did not get the walkthrough
       browse-and-rejoin behaviour. The user said "any viewer", and a prompter
       operator is one. Not touched, not tested.
 - [ ] **The half-time choice reads a LIVE number.** It takes the longest
@@ -317,17 +341,42 @@ Recorded so nobody rediscovers them as bugs.
       change during a show (HOLD, nudges, add-time). Margin on the sample
       sheets is 900s against 110s so it will not flip in practice — but if a
       band ever jumps mid-show, this is why.
-- [ ] **Landscape safe-area NOT VERIFIED ON HARDWARE.** `env(safe-area-inset-*)`
+- [x] **Landscape safe-area** — CONFIRMED BY THE USER 30 Aug ("resolved").
+      Original note:
+- [ ] ~~Landscape safe-area NOT VERIFIED ON HARDWARE.~~ `env(safe-area-inset-*)`
       is 0 in an emulator, so what was tested is that the change is a no-op
       without a notch. Needs the user's phone, turned sideways.
-- [ ] **Extra-time rules for the quarter sports.** The netball sheets prove
+- [x] **Extra-time rules for the quarter sports** — ANSWERED 30 Aug by not
+      answering: there are not enough run sheets, so netball, AFL, football
+      and cricket are marked "(coming soon)" in the picker instead of having
+      rules guessed for them. Revisit when sheets turn up.
+      Original note:
+- [ ] ~~Extra-time rules for the quarter sports.~~ The netball sheets prove
       4 x 15-minute quarters and that extra time is played in the REGULAR
       season, not only finals — both sample rounds carry the graphics. The
       format itself (period lengths, and whether it settles by margin or next
       goal) is not in the sheets and will not be guessed. Same for AFL and
       basketball. Needed before any of them can join `eventTypes.ts`.
 
-## 6c. The row window undershoots the bottom — OPEN, two failed fixes
+## 6c. The row window undershoots the bottom — STILL OPEN, but much smaller
+
+UPDATE 30 Aug, later: two SEPARATE faults that looked like this one were
+found and fixed, and between them they account for most of what was being
+seen. Neither was the estimate.
+  · **the rail invented scroll** (69f2a5b) — bands are absolutely positioned,
+    so one placed past the end of the table extended the scrollable area.
+    Measured: 394px of empty scroll. Now clamped to the table's real bottom.
+  · **hidden rows kept a phantom height** (1e6f563) — rows the collapsed
+    ending layout hides render nothing and were never measured, so they held
+    the average. Eighteen of them was 1,300px of sheet that did not exist, and
+    it pushed every row after full time out of reach. Now reported as zero.
+    Latent for a while; exposed by making the collapsed layout the default.
+  · and **the follow was fighting the scrollbar** (4845952), which is what
+    "jumpy" actually was — see below.
+What remains is the original estimate problem only: rows nobody has visited
+are drawn at the average of the ones they have. Smaller now, still real.
+
+### Original entry — two failed fixes
 
 Reported 30 Aug: *"data is missing at the bottom of the runsheet and scrolling
 is jumpy"*, on desktop.
@@ -386,16 +435,33 @@ Nothing can start on these until they are answered.
       and set as an environment variable. A token is a credential; it has to
       come from you.
 - [ ] **The grey concurrency bars** — keep, change or drop.
-- [ ] **Should a stale session ever end by itself**, or only be flagged as it is
+- [x] **Stale sessions end after 24h** — DECIDED AND DONE 30 Aug (aa7cd80).
+      Still flagged at 6h for a person to judge; ended at 24h, when there is no
+      judgement left. Ended through the state machine so the as-run record gets
+      its closing entry.
+      Original note:
+- [ ] ~~Should a stale session ever end by itself~~, or only be flagged as it is
       now? Flagging was chosen deliberately: ending one on a timer would
       eventually stop a real show that sat quiet through a long delay.
-- [ ] **Should a whole-minute time drop its trailing `:00`** in the planned
+- [x] **Trailing `:00` stays** — DECIDED 30 Aug by the user: keep it. No
+      change made.
+      Original note:
+- [ ] ~~Should a whole-minute time drop its trailing `:00`~~ in the planned
       figures — `9:00 AM` rather than `9:00:00 PM`?
-- [ ] **Rename Skip to Strike, and surface "∥ Alongside"?** Both features exist
+- [x] **Skip is Strike, and a rolling pre-record is a tally light** — DONE
+      30 Aug (0bc3907). The text marker was rejected in favour of a red bar;
+      it uses a distinct `--rec` red, NOT the overrun red, so a showcaller
+      scanning for trouble does not keep finding pre-records.
+      Original note:
+- [ ] ~~Rename Skip to Strike, and surface "∥ Alongside"?~~ Both features exist
       and do what was asked; the words are the app's, not yours. Alongside is
       also buried behind a duration, where nothing suggests it means "not part
       of the show".
-- [ ] **Should the timing nudges be available while EDITING a sheet, without
+- [x] **Nudges work while editing** — DONE 30 Aug (aa7cd80). The ± buttons
+      are on off air; CUE and HOLD stay live-only, since both are claims about
+      what is happening this second. Off air the strip requires a caller.
+      Original note:
+- [ ] ~~Should the timing nudges be available while EDITING a sheet, without
       CUE?** They are live-only now. If nudging a selected row is useful while
       building, the answer is to split the strip — CUE cannot be off-air
       whatever happens to the arrows.

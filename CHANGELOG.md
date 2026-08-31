@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Starting a show hands it to the clock and lands on the right row.** Going live used to leave the sheet wherever the start put it — the first item, or nothing — and following the clock was a second, separate press. So a show started at eight in the evening on a sheet whose current item is number forty sat on item one until somebody noticed. Start now does both: the sheet lands on the row the printed times say should be on air, or waits with nothing cued if the day has not begun, and never on the first row by default. It stays a toggle — anybody calling the show by hand switches it off, and that sticks for the session.
+
+### Changed
 - **Whether a game can go to golden point is decided by the kind of show, not by guessing from the sheet.** The app used to look for a golden-point block in the running order and, finding none, quietly decide the day ended at full time — offering Draw instead. But a run sheet writes down what is *planned*, and nobody plans extra time: twenty-four of the twenty-seven sample sheets carry no such block, professional fixtures included. So the guess was telling most real matches they could not go to golden point, which is the opposite of true, and it did so silently. The fixture already answers the question — junior, trial and exhibition matches take "Rugby league — no extra time" and everything else does not — and the app can build the block on the night, which is what the offer is for.
 
 ### Changed

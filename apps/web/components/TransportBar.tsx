@@ -226,7 +226,31 @@ export function ShowStateControls({
    * showcaller calling it by hand presses Next, which now takes the first item
    * from a standing start.
    */
-  const start = () => channel.sendCmd("start", untilShowSec != null ? undefined : orderedRowIds[0]);
+  const start = () => {
+    channel.sendCmd("start", untilShowSec != null ? undefined : orderedRowIds[0]);
+    /**
+     * …and hand it straight to the clock.
+     *
+     * Starting used to leave the show wherever `start` put it — row one, or
+     * nothing — and following the clock was a second, separate press. Which
+     * meant the common case took two actions and the sheet spent the gap
+     * between them saying something untrue: a show started at 8pm on a sheet
+     * whose current item is number forty sat on item one until somebody
+     * noticed.
+     *
+     * Sent as a second command rather than folded into `start`, because
+     * `clock_on` is refused unless the show is already live — that ordering is
+     * deliberate on the server, and it carries the correction that matters
+     * here: if the clock has not reached the sheet's first item yet it clears
+     * the cue rather than pretending something is on air. So the sheet either
+     * lands on the row the times say, or waits with nothing cued, and never
+     * on row one by default.
+     *
+     * Still a toggle: anybody calling the show by hand presses it off, and
+     * that choice sticks for the session.
+     */
+    channel.sendCmd("clock_on");
+  };
 
   return (
     <div className="show-state">

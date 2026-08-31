@@ -157,6 +157,25 @@ const QUARTER = ORDINALS.map((o) => period(String.raw`(?:${o})\s+(?:quarter|qtr)
  *    therefore at the top of the second game's stretch. Extra time is found
  *    FIRST for that reason, and the period scans skip anything inside it.
  */
+/**
+ * A row that says full time — where PLAY stops.
+ *
+ * `findDecisionPoints` knows these rows too, and deliberately returns nothing
+ * for a sheet that writes its own endings out: there is no result left to ask
+ * for, so there is no decision point. But the row still says full time and the
+ * football still stopped there, so the periods still need it.
+ *
+ * Without it the last period ran to the end of the game's whole STRETCH, which
+ * on such a sheet includes every win, lose and draw branch and the build-up to
+ * the next match. Measured on a four-game sheet: a second half band sitting
+ * over gates-open, the walk-in and the anthem of the following game.
+ *
+ * Same two patterns as `findDecisionPoints`, including its exclusions — a full
+ * time WRAP or a highlights read is about the game, not the end of it.
+ */
+const FULL_TIME_ROW = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
+const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
+
 const EXTRA_TIME = /\b(?:golden\s?(?:point|goal|try)|extra\s?time|sudden death|drop[-\s]?off)\b/i;
 /**
  * A slot held in case it is needed is not the thing happening, and a sheet
@@ -182,6 +201,18 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
   };
   /** As above, but blind to extra time — see the note where `extras` is built. */
   const playMatches = (re: RegExp, from: number, to: number): number[] => matches(re, from, to).filter((i) => !insideExtra(i));
+  /**
+   * Where the football stops, for a period that would otherwise run to the end
+   * of the game's whole stretch. The full-time row itself belongs to the
+   * period it closes.
+   */
+  const stopsAt = (from: number, to: number): number => {
+    for (let i = Math.max(0, from); i <= Math.min(to, rows.length - 1); i++) {
+      const t = titleAt(i);
+      if (FULL_TIME_ROW.test(t) && !NOT_THE_SIREN.test(t)) return i;
+    }
+    return to;
+  };
 
   // Full time closes a game. With none named, the whole sheet is one game;
   // with several, each stretch between them is its own, and each gets its own
@@ -276,7 +307,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
       const known = quarters.map((q, i) => ({ q, i })).filter((x): x is { q: number; i: number } => x.q != null);
       for (let k = 0; k < known.length; k++) {
         const { q, i } = known[k]!;
-        const nextStart = known[k + 1]?.q ?? end + 1;
+        const nextStart = known[k + 1]?.q ?? stopsAt(q, end) + 1;
         // The break between two quarters: a named quarter break, or half time
         // at the halfway line. Longest wins, for the reason given below.
         const gap = playMatches(QUARTER_BREAK, q + 1, nextStart - 1).concat(playMatches(HALF_TIME, q + 1, nextStart - 1));
@@ -321,7 +352,8 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
      */
     if (first != null) out.push({ from: first, to: (half ?? second ?? end + 1) - 1, label: "1st half", short: "1H", kind: "first-half", game: n });
     if (half != null && second != null) out.push({ from: half, to: second - 1, label: "Half time", short: "HT", kind: "half-time", game: n });
-    if (second != null) out.push({ from: second, to: end, label: "2nd half", short: "2H", kind: "second-half", game: n });
+    if (second != null)
+      out.push({ from: second, to: stopsAt(second, end), label: "2nd half", short: "2H", kind: "second-half", game: n });
 
     start = end + 1;
   }

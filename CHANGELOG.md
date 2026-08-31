@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A period of play ends at full time.** The last period of a game was running to the end of the game's whole stretch, which on a sheet that writes its own endings into the running order means every win, lose and draw branch and the build-up to the next match — so a "2H" mark could sit over gates-open, the walk-in and the anthem of the following game. It now stops at the siren. A full-time *wrap* or a highlights read is not the siren and does not stop it.
+
+### Fixed
 - **The blue tint marks the game again, not the whole day.** On a sheet that writes its own endings into the running order, the tint had spread into one unbroken stretch across every match, interval, venue reset and build-up on the sheet — the very thing it had been narrowed to avoid. A game's end was being taken from the *last* row of its ending block, but an ending block **begins** at full time, so the second half was handed every win, lose and draw branch that followed it. Two of them ran to the last row of the day. It now ends where play does.
 
 ### Removed

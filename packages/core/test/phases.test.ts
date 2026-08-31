@@ -269,6 +269,35 @@ describe("findPhases", () => {
     ]);
   });
 
+  it("stops the second half at full time, not at the end of the endings", () => {
+    // A sheet that writes its own endings has no decision point to find, so
+    // the game's stretch runs past full time and through every branch. The
+    // period must not: the football stopped at the siren.
+    const rows = [
+      row("NRL - FIRST HALF", 2700),
+      row("NRL - HALF TIME (15 mins)", 900),
+      row("NRL - SECOND HALF", 2700),
+      row("FULL TIME — HOME WIN"),
+      row("Winning song"),
+      row("Player of the match"),
+      row("FULL TIME — HOME LOSS"),
+      row("Away captain interview"),
+    ];
+    expect(findPhases(rows, [7]).find((p) => p.kind === "second-half")).toMatchObject({ from: 2, to: 3 });
+  });
+
+  it("does not mistake a full-time WRAP for the siren", () => {
+    const rows = [
+      row("NRL - FIRST HALF", 2700),
+      row("NRL - HALF TIME (15 mins)", 900),
+      row("NRL - SECOND HALF", 2700),
+      row("READ 20 - Full Time Wrap", 60),
+      row("FULL TIME — HOME WIN"),
+    ];
+    // The wrap is talked over the game; the siren is the row after it.
+    expect(findPhases(rows, [4]).find((p) => p.kind === "second-half")).toMatchObject({ to: 4 });
+  });
+
   it("says nothing about a sheet with no game in it", () => {
     expect(findPhases([row("Doors open"), row("Speeches"), row("Carriages")], [])).toEqual([]);
   });

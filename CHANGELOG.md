@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The golden-point rehearsal sheet is written the way the game is played.** Extra time is two halves with a hold before each — a re-set after full time, and a change of ends between them — not a single period behind one break. The sheet had the shorter shape, which the app itself never produces, so the sheet disagreed with the thing it exists to test. It now also carries a show between the games — a walk-in, a sponsor read marked to be read aloud, a pre-record running alongside the order, and a different item each cycle — because that is where a real sheet spends most of its rows. A match every fifteen minutes, and every printed time in it lands: the sheet reports no timing faults and no shape faults at all, so anything reported against it is worth investigating.
+
 ### Fixed
 - **Alternate endings are timed from full time, and their durations count.** On a sheet carrying enough of them, every ending was being timed from the START of the last half rather than from the hooter that decides which one is called — minutes early — and the durations of the endings themselves were being discarded, so a golden-point period counted for nothing and the day never budgeted for the one thing it cannot predict. Two readings caused it, both the same mistake: an ending has no printed time because nobody knows whether it will happen, not because the sheet lists the contents of a block. A row is no longer read as covering the endings that follow it, and endings no longer count towards the judgement of what kind of sheet this is. The sheet that showed it reported no timing faults at all while being wholly wrong — with every ending duration discarded there was nothing left to disagree with the times printed on the paper, so the sheet was silently self-consistent. 840 discarded durations on that sheet, now none, and no other sheet changes.
 

@@ -22,11 +22,14 @@
  * gaps reported. That is the correct answer, not a fault in the sheet.
  *
  * ── 2. "Golden Point Test" ───────────────────────────────────────────────
- * A complete match every twelve minutes: kick-off, two short halves either
- * side of a half time, then full time with all four endings written out —
- * win, loss, the golden-point block, and drawn after it. Roughly 120 matches
- * a day, so the result chooser, the extra-time band and the golden-point
- * insert are always a couple of minutes from being testable.
+ * A complete match every fifteen minutes: a show between the games, then
+ * kick-off, two short halves either side of a half time, then full time with
+ * all four endings written out — win, loss, the golden-point block, and drawn
+ * after it. 96 matches a day, so the result chooser, the extra-time band and
+ * the golden-point insert are always a couple of minutes from being testable.
+ *
+ * The golden-point block is written the way the game is actually played and
+ * the way core builds it: a hold, a half, a hold to change ends, a half.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -122,45 +125,101 @@ for (let t = 0, seg = 1; t + CYCLE <= DAY; t += CYCLE, seg += 1) {
 
 // ── 2. Golden point ──────────────────────────────────────────────────────────
 const gp = new Sheet();
-const MATCH = 12 * 60;
+/**
+ * Fifteen minutes a match, and the fifteen is arithmetic rather than taste.
+ *
+ * The match itself costs 600s (kick-off, two halves, a half time) and the show
+ * between games costs 120s, so 180s is left between full time and the next
+ * kick-off. The LONGEST way through the endings has to fit in exactly that, or
+ * the sheet contradicts its own printed times: the clock after an endings block
+ * resumes at the longest branch, and a row placed by arithmetic that assumes a
+ * different figure disagrees with it.
+ *
+ *     a win, or a loss      90 + 90    = 180s   = exactly the room
+ *     golden point   12 + 30 + 12 + 30 =  84s
+ *     a draw after it             60   =  60s
+ *
+ * The running order resumes after the LONGEST BRANCH, and the longest is the
+ * 180s one, so every printed time lands and this sheet reports no timing
+ * faults at all. That is the point of it: a gap reported here is a bug in the
+ * app, not a quirk of the sheet.
+ *
+ * What deliberately does NOT fit is golden point and then a result — 84 + 180
+ * — because that is the shape a real sheet habitually under-budgets, and it is
+ * the case worth having in a test bed. It shows up in the day's planned
+ * length rather than as a gap.
+ */
+const MATCH = 15 * 60;
 const TEAMS: [string, string][] = [
   ["HARBOUR KINGS", "RIVERS UNITED"],
   ["COAST RAIDERS", "RANGERS ATHLETIC"],
   ["NORTHBANK CITY", "STONEWELL ROVERS"],
 ];
-// The day IS the matches, and nothing is added after the last one.
-// Two attempts at a closing row both left a timing check behind: the clock
-// after an endings block resumes at the longest branch, and a row placed by
-// arithmetic that assumes a different figure disagrees with it. A sheet whose
-// job is to be clean apart from the thing it tests should not carry a
-// permanent complaint about its own last minute.
+/**
+ * The show between the games — the part a run sheet spends most of its rows on.
+ *
+ * Varied per cycle on purpose. A sheet that repeats one line 96 times is read
+ * as furniture (a header printed on every page) and folded away, so the
+ * between-games show would have vanished from the very sheet meant to test it.
+ */
+const SHOWS = [
+  "Junior curtain-raiser presentation",
+  "Local band — two songs",
+  "Cheer squad routine",
+  "Fan competition on the big screen",
+  "Community club cheque presentation",
+  "Mascot race",
+  "Legends lap of honour",
+  "School choir",
+];
+const SPONSORS = ["Northbank", "Sponsor A", "Advertiser", "Harbour Freight", "Coast Mutual", "Riverline"];
+
 for (let t = 0, m = 1; t + MATCH <= DAY; t += MATCH, m += 1) {
   const [home, away] = TEAMS[(m - 1) % TEAMS.length]!;
+  const show = SHOWS[(m - 1) % SHOWS.length]!;
+  const sponsor = SPONSORS[(m - 1) % SPONSORS.length]!;
   gp.banner(t, `MATCH ${m} — ${home} v ${away}`, "SC");
-  gp.add(t, 60, `KICK OFF — MATCH ${m}`, "SC", "", "Starts this match's endings");
-  gp.add(t + 60, 240, "First half", "SC", "", "Four minutes standing in for forty");
-  gp.add(t + 300, 60, "HALF TIME — sponsor activation", "MC", "GA");
-  gp.add(t + 360, 240, "Second half", "SC");
+
+  // The show between the games. Includes one row marked to be read aloud, so
+  // the prompter always has something on it, and one pre-record running
+  // alongside the order rather than in it.
+  gp.add(t, 30, "Walk-in music and crowd welcome", "MC", "", `Doors open for match ${m}`);
+  gp.add(t + 30, 45, `SPONSOR READ — ${sponsor}`, "MC", "prompter", `Read live, match ${m}`);
+  gp.add(t + 30, 45, `PRE-RECORD — ${show} package`, "CAM", "VTR", `Shot during the walk-in, match ${m}`);
+  gp.add(t + 75, 45, show, "MC", "", `Between games, match ${m}`);
+
+  gp.add(t + 120, 60, `KICK OFF — MATCH ${m}`, "SC", "", "Starts this match's endings");
+  gp.add(t + 180, 240, "First half", "SC", "", "Four minutes standing in for forty");
+  gp.add(t + 420, 60, `HALF TIME — ${sponsor} activation`, "MC", "GA");
+  gp.add(t + 480, 240, "Second half", "SC");
+
   /**
    * All four endings — lengths but no times, because they are alternatives.
    *
-   * The clock resumes after the LONGEST of them (the golden-point block at
-   * 120s), which is what makes the next match's kick-off land exactly on
-   * t + 720 and the whole day add up.
+   * THE GOLDEN-POINT BLOCK IS FOUR ROWS, not two, because that is what the
+   * game is: a hold while the teams re-set and the cameras find them, five
+   * minutes, a hold to change ends, five more. This sheet had it as a single
+   * period behind one break, which is not a shape the product ever produces —
+   * `goldenPointBlock` in core builds the real one, and a test sheet that
+   * disagrees with the thing it is meant to test is worth very little.
+   *
+   * Scaled like the rest of the sheet, which runs a 40-minute half in 4:00:
+   * the two-minute holds become 12s and the five-minute halves 30s.
    */
   gp.branchHead(`FULL TIME — ${home} WIN`, "SC");
-  gp.branch(45, "Winning song and lap of the ground", "AUD");
-  gp.branch(45, "Player of the match presentation", "MC");
+  gp.branch(90, "Winning song and lap of the ground", "AUD");
+  gp.branch(90, "Player of the match presentation", "MC");
   gp.branchHead(`FULL TIME — ${home} LOSS`, "SC");
-  gp.branch(45, "Music bed only — no winning song", "AUD", "Do not play the anthem");
-  gp.branch(45, "Away captain interview", "CAM");
+  gp.branch(90, "Music bed only — no winning song", "AUD", "Do not play the anthem");
+  gp.branch(90, "Away captain interview", "CAM");
   gp.branchHead("FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME", "SC");
-  gp.branch(30, "Golden point break and re-set", "SC");
-  gp.branch(90, "Golden point period", "SC", "First score ends it — be ready to cut at any moment");
+  gp.branch(12, "HOLDING — golden point re-set", "SC", "Teams take a breather, cameras find them");
+  gp.branch(30, "Golden point — first half", "SC", "First score ends it — be ready to cut at any moment");
+  gp.branch(12, "HOLDING — change of ends", "SC", "Swap ends, hold the crowd");
+  gp.branch(30, "Golden point — second half", "SC", "Still sudden death — a score ends it here too");
   gp.branchHead("GOLDEN POINT — NO SCORE, MATCH DRAWN", "SC");
   gp.branch(60, "Drawn match wrap and thank you", "MC");
 }
-
 
 // ── Render ───────────────────────────────────────────────────────────────────
 const HEAD = ["#", "TIME", "DUR", "SCR", "ITEM / ACTION", "WHO", "NOTES"];
@@ -206,7 +265,7 @@ render(
 );
 render(
   gp,
-  "Golden Point Test - a match every 12 minutes.pdf",
-  "GOLDEN POINT TEST — A MATCH EVERY TWELVE MINUTES",
-  "120 complete matches a day, each with all four endings · every team and person invented",
+  "Golden Point Test - a match every 15 minutes.pdf",
+  "GOLDEN POINT TEST — A MATCH EVERY FIFTEEN MINUTES",
+  "96 matches a day · all four endings, golden point in two halves, and a show between games · every team, sponsor and person invented",
 );

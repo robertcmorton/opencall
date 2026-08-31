@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
-- **The server can see what Railway has deployed.** An administrator-only reading of the recent builds — which commit, when, and whether it succeeded. Read only: nothing here can change what is running. It is the groundwork for a button that can put a previous build back, and it exists first on its own so the credential and the connection are proven before anything is allowed to act on production.
+- **The server can see what has been deployed.** An administrator-only reading of the recent builds — which commit, when, whether it succeeded, and which half of the app it belongs to. The app runs as two services that deploy separately, so "what is deployed?" has two answers; a reading that showed only one of them would say all was well on exactly the day one half was a day behind. Read only: nothing here can change what is running. It is the groundwork for a button that can put a previous build back, and it exists first on its own so the connection is proven before anything is allowed to act on production.
 
 ### Added
 - **Two rehearsal sheets, for things that are otherwise hard to sit and wait for.** Both run a full day on a short repeating cycle, so whatever time it is, the thing they are for is a minute or two away rather than an evening away.

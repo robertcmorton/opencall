@@ -26,13 +26,23 @@ export interface RailwayDeployment {
   /** The commit this build came from, when Railway knows it. */
   commit: string | null;
   message: string | null;
+  /** Which half of the app this build is — the app is two services. */
+  serviceId: string | null;
+  serviceName: string | null;
 }
 
 export interface RailwayView {
   configured: boolean;
   /** Why it cannot answer, in words. Null when it can. */
   problem: string | null;
+  /** This server's own service — the one answering the request. */
   service: string | null;
+  /**
+   * Whether the list covers the whole environment or only this service.
+   * The app is two services and a person asking "what is deployed?" means
+   * both, so this being "service" is a degraded answer, not a normal one.
+   */
+  scope: "environment" | "service";
   deployments: RailwayDeployment[];
 }
 
@@ -40,6 +50,7 @@ const NOT_CONFIGURED: RailwayView = {
   configured: false,
   problem: "No RAILWAY_API_TOKEN is set on this server, so it cannot ask Railway anything.",
   service: null,
+  scope: "service",
   deployments: [],
 };
 
@@ -57,62 +68,119 @@ async function graphql<T>(token: string, query: string, variables: Record<string
 }
 
 /**
- * The deployments of one service, newest first.
+ * What has been deployed, newest first.
  *
- * `serviceId` and `environmentId` are not secrets — they are in the address bar
- * of the dashboard — but they are still read from the environment rather than
- * written down here, so a second deployment of this app does not quietly act on
- * the first one's production.
+ * ACROSS THE WHOLE ENVIRONMENT, not just this server. The app is two services
+ * — the web app people look at and this sync server — and they deploy
+ * separately, so "what is deployed?" has two answers and a reader who is only
+ * shown one of them will draw the wrong conclusion. On 29 August exactly that
+ * happened: the web app was a day behind while everything else was current,
+ * and a badge reading only its own service would have said all was well.
+ *
+ * `serviceId`, `environmentId` and `projectId` are not secrets — they are in
+ * the address bar of the dashboard — and Railway injects all three into every
+ * deployment of its own accord, so in practice nothing has to be configured
+ * beyond the token. They are still read from the environment rather than
+ * written down here, so a second deployment of this app cannot quietly report
+ * on the first one's production.
  */
 export async function recentDeployments(limit = 10): Promise<RailwayView> {
   const token = process.env.RAILWAY_API_TOKEN;
   if (!token) return NOT_CONFIGURED;
-  const serviceId = process.env.RAILWAY_SERVICE_ID;
+  const serviceId = process.env.RAILWAY_SERVICE_ID ?? null;
   const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
-  if (!serviceId || !environmentId) {
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  if (!environmentId || (!projectId && !serviceId)) {
     return {
       configured: true,
       problem:
-        "RAILWAY_API_TOKEN is set, but RAILWAY_SERVICE_ID and RAILWAY_ENVIRONMENT_ID are not — " +
-        "both are in the dashboard's address bar and neither is a secret.",
-      service: null,
+        "RAILWAY_API_TOKEN is set, but RAILWAY_ENVIRONMENT_ID and RAILWAY_PROJECT_ID are not. " +
+        "Railway normally injects both into every deployment, so this server is probably not " +
+        "running on Railway at all.",
+      service: serviceId,
+      scope: "service",
       deployments: [],
     };
   }
+  const first = Math.min(50, Math.max(1, limit));
+
+  // Whole environment when we can, this service alone when we cannot. The
+  // fallback is not decoration: it is the difference between a degraded
+  // answer and no answer, and it says which one you got.
+  if (projectId) {
+    try {
+      return {
+        configured: true,
+        problem: null,
+        service: serviceId,
+        scope: "environment",
+        deployments: await query(token, { projectId, environmentId }, first),
+      };
+    } catch (err) {
+      if (!serviceId) return failed(err, serviceId, "environment");
+    }
+  }
   try {
-    const data = await graphql<{
-      deployments: { edges: { node: { id: string; status: string; createdAt: string; meta: Record<string, unknown> | null } }[] };
-    }>(
-      token,
-      `query recent($serviceId: String!, $environmentId: String!, $first: Int!) {
-         deployments(first: $first, input: { serviceId: $serviceId, environmentId: $environmentId }) {
-           edges { node { id status createdAt meta } }
-         }
-       }`,
-      { serviceId, environmentId, first: Math.min(50, Math.max(1, limit)) },
-    );
     return {
       configured: true,
       problem: null,
       service: serviceId,
-      deployments: data.deployments.edges.map(({ node }) => {
-        const meta = (node.meta ?? {}) as { commitHash?: string; commitMessage?: string };
-        return {
-          id: node.id,
-          status: node.status,
-          createdAt: node.createdAt,
-          commit: meta.commitHash ? meta.commitHash.slice(0, 7) : null,
-          message: meta.commitMessage ? meta.commitMessage.split("\n")[0]! : null,
-        };
-      }),
+      scope: "service",
+      deployments: await query(token, { serviceId: serviceId!, environmentId }, first),
     };
   } catch (err) {
-    // The reason, not a stack: whoever reads this is looking at a dashboard.
-    return {
-      configured: true,
-      problem: err instanceof Error ? err.message : String(err),
-      service: serviceId,
-      deployments: [],
-    };
+    return failed(err, serviceId, "service");
   }
+}
+
+async function query(
+  token: string,
+  input: Record<string, string>,
+  first: number,
+): Promise<RailwayDeployment[]> {
+  const data = await graphql<{
+    deployments: {
+      edges: {
+        node: {
+          id: string;
+          status: string;
+          createdAt: string;
+          serviceId?: string | null;
+          service?: { name?: string | null } | null;
+          meta: Record<string, unknown> | null;
+        };
+      }[];
+    };
+  }>(
+    token,
+    `query recent($input: DeploymentListInput!, $first: Int!) {
+       deployments(first: $first, input: $input) {
+         edges { node { id status createdAt serviceId service { name } meta } }
+       }
+     }`,
+    { input, first },
+  );
+  return data.deployments.edges.map(({ node }) => {
+    const meta = (node.meta ?? {}) as { commitHash?: string; commitMessage?: string };
+    return {
+      id: node.id,
+      status: node.status,
+      createdAt: node.createdAt,
+      commit: meta.commitHash ? meta.commitHash.slice(0, 7) : null,
+      message: meta.commitMessage ? meta.commitMessage.split("\n")[0]! : null,
+      serviceId: node.serviceId ?? null,
+      serviceName: node.service?.name ?? null,
+    };
+  });
+}
+
+// The reason, not a stack: whoever reads this is looking at a dashboard.
+function failed(err: unknown, service: string | null, scope: "environment" | "service"): RailwayView {
+  return {
+    configured: true,
+    problem: err instanceof Error ? err.message : String(err),
+    service,
+    scope,
+    deployments: [],
+  };
 }

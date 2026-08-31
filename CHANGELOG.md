@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The timing buttons appear in the middle of the row.** The strip a showcaller reaches for — the seconds either side of CUE and HOLD — sat at the far right edge of the sheet, away from the row it acts on. It is now centred on the row across as well as down.
+
 ### Fixed
 - **What is on next follows the running order, not the next line down.** Two kinds of row were being named as next without being next: a struck one, which is not going to happen — so a showcaller who had just called golden point was told the next item was the win ending, a branch the app had already ruled out — and a pre-record, which runs alongside the show rather than in it. Both are now passed over, the same way the transport already passes over them.
 

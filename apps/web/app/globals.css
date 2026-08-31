@@ -2545,11 +2545,22 @@ select:disabled {
    the cue text. Appears immediately — no fade-in to wait through. */
 .timing-nudge-hover {
   position: absolute;
-  right: 10px;
+  /* CENTRED on the row, across as well as down.
+     Down is arithmetic — see `nudgeH`. Across is auto margins between a left
+     and a right of zero, which needs `width: max-content` so the box is only
+     as wide as the buttons and has room to centre in.
+     NOT `translateX(-50%)`. A transformed element becomes the containing block
+     for `position: fixed` descendants, and the tooltips inside this strip are
+     fixed on purpose — that is exactly how they once ended up rendering
+     hundreds of pixels from the button they belonged to.
+     It sat at `right: 10px` until now, which put a strip the showcaller is
+     reaching for at the far edge of a wide sheet, away from the row it acts
+     on. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: max-content;
   z-index: 7;
-  /* Placed on the row's centre by arithmetic — see `nudgeH`. No margin nudge
-     and no transform: the latter would make this the containing block for the
-     tooltips inside it, which are fixed on purpose. */
   animation: none;
 }
 @media (hover: none) {

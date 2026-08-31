@@ -1367,11 +1367,26 @@ export function RundownEditor({
   const walkOutOfSync = !!walkRowId && !activeRowId && !followScroll && seenWalkRowId !== walkRowId;
 
   // Next cue after the active row gets a subtle tint on every surface.
+  /**
+   * What is on after this — in the RUNNING ORDER, which is not the same as the
+   * next row down.
+   *
+   * Two kinds of row are printed next without being next. A skipped one is not
+   * going to happen: once a result is called the other endings are skipped, so
+   * a showcaller who had just called golden point was told the next thing was
+   * "FULL TIME — HOME WIN", a branch the app itself had already ruled out. And
+   * a pre-record runs ALONGSIDE the order rather than in it — that is the whole
+   * distinction `parallel` exists to make — so naming it as what happens next
+   * says the show is about to go to something that is being shot in the tunnel.
+   *
+   * The same filter is already used to decide what the transport may step
+   * through; this used a different rule and disagreed with it.
+   */
   const nextRowId = (() => {
     if (!activeRowId) return null;
     const at = rows.findIndex((r) => r.id === activeRowId);
     if (at < 0) return null;
-    return rows.slice(at + 1).find((r) => r.type === "cue")?.id ?? null;
+    return rows.slice(at + 1).find((r) => r.type === "cue" && !r.skipped && !r.parallel)?.id ?? null;
   })();
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";

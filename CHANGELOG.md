@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **What is on next follows the running order, not the next line down.** Two kinds of row were being named as next without being next: a struck one, which is not going to happen — so a showcaller who had just called golden point was told the next item was the win ending, a branch the app had already ruled out — and a pre-record, which runs alongside the show rather than in it. Both are now passed over, the same way the transport already passes over them.
+
+### Fixed
 - **The dashboard stops claiming the server is unreachable once it is reachable again.** The warning was set on a failed request and never cleared, so a single dropped call — the sync server restarting, a moment of flakiness — pinned it for as long as the page stayed open, on top of data that had since loaded perfectly well. It now clears when a request succeeds, and the page keeps trying on its own instead of waiting for somebody to reload it by hand. The advice to start a local server is shown only when the server it cannot reach is a local one; an administrator on a hosted site was being told to run commands that mean nothing there.
 
 ### Changed

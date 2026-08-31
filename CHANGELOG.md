@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The blue tint marks the game again, not the whole day.** On a sheet that writes its own endings into the running order, the tint had spread into one unbroken stretch across every match, interval, venue reset and build-up on the sheet — the very thing it had been narrowed to avoid. A game's end was being taken from the *last* row of its ending block, but an ending block **begins** at full time, so the second half was handed every win, lose and draw branch that followed it. Two of them ran to the last row of the day. It now ends where play does.
+
 ### Removed
 - **The grey mark on rows scheduled at the same time.** It shared the edge of the number column with the blue mark for "running right now", so two different things — a plan and a state — sat in the same place and were told apart only by colour. The plan was the one worth losing: that several rows share a time is already visible in the TIME column. Hovering such a row still says which others it runs with; the blue mark now has the edge to itself.
 

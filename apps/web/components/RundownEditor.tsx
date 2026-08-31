@@ -2140,9 +2140,23 @@ export function RundownEditor({
   const gameEnds = useMemo(() => {
     const ft = rows.map((r, i) => (decisionRowIds.has(r.id) ? i : -1)).filter((i) => i >= 0);
     if (ft.length > 0) return ft;
+    /**
+     * The FIRST ending row of each game, not the last.
+     *
+     * An ending block BEGINS at full time — "full time, they win" is the first
+     * of its alternatives — so the first of those rows is where play stopped.
+     * Taking the last one instead put the boundary after every branch the
+     * sheet carries, and the second half was then given all of them: measured
+     * on a four-game sheet, second halves of 17-34, 46-76, 79-133 and 108-133,
+     * two of them running to the last row of the day. The bands tiled into one
+     * unbroken stretch from row 15 to row 109, so the tint covered every
+     * interval, reset and build-up between the matches — the exact thing it
+     * had just been narrowed to avoid.
+     */
     const ends: number[] = [];
     rows.forEach((r, i) => {
-      if (r.outcome) ends[(r.outcomeGame ?? 1) - 1] = i;
+      const g = (r.outcomeGame ?? 1) - 1;
+      if (r.outcome && ends[g] == null) ends[g] = i;
     });
     return ends.filter((i) => i != null);
   }, [rows, decisionRowIds]);

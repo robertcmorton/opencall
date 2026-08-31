@@ -1760,11 +1760,15 @@ kbd {
    rows are not mistakes and must not read like the next thing to call, so the
    mark is quiet: a hairline down the right of the row number, saying only
    "this shares its moment with something else". The tooltip names what. */
-.rundown-grid tr.concurrent-row td:first-child {
-  box-shadow: inset -2px 0 0 var(--text-3);
-}
 /* Running RIGHT NOW alongside the cue. The cue itself keeps the strong
-   treatment; this is the second track, so it is stated rather than shouted. */
+   treatment; this is the second track, so it is stated rather than shouted.
+
+   This edge used to have a neighbour: rows merely SCHEDULED for the same time
+   wore a grey version of it. Two marks in one place, one a plan and one a
+   state, told apart only by colour — and the plan meant nothing to anybody
+   reading the sheet, because the shared time is already sitting in the TIME
+   column. The grey one is gone; this blue one says something that is happening
+   and keeps the channel to itself. */
 .rundown-grid tr.on-now td:first-child {
   box-shadow: inset -2px 0 0 var(--accent-2, #58a6ff);
 }

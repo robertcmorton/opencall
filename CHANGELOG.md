@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Removed
+- **The grey mark on rows scheduled at the same time.** It shared the edge of the number column with the blue mark for "running right now", so two different things — a plan and a state — sat in the same place and were told apart only by colour. The plan was the one worth losing: that several rows share a time is already visible in the TIME column. Hovering such a row still says which others it runs with; the blue mark now has the edge to itself.
+
 ### Changed
 - **The kinds of show we have not proven cannot be picked.** Australian rules, football, cricket and netball were marked "(coming soon)" and still selectable; they are now greyed and unselectable. Choosing one today would mean its endings and its extra period came from a rule book rather than from a real run sheet, and rugby league is the only sport the sample corpus is made of. A sheet already set to one keeps it — nothing is taken away, only new choices are.
 

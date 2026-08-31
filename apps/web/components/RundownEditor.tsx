@@ -2292,8 +2292,33 @@ export function RundownEditor({
     // The table's own bottom edge, in the same content coordinates. Nothing
     // the rail draws may go past this.
     const sheetBottom = tb.getBoundingClientRect().bottom - base;
+    /**
+     * Extra time is marked once it is BEING PLAYED, not because the rows exist.
+     *
+     * Sheets carry a golden-point block in case it is needed — "full time,
+     * scores level, golden point extra time", a break, a period — on every
+     * game, whether or not anybody ever plays it. Marking those rows as a
+     * period of play put a permanent GP down the edge of a sheet where extra
+     * time never happened, which says something untrue about every game on it.
+     *
+     * Read off the BLOCK'S OWN ROWS rather than the phase's game number: that
+     * number comes from the game boundaries, which are not reliable on exactly
+     * the sheets this matters for. A golden block that has been ruled out is
+     * struck; one that is being played is not, and its alternatives are.
+     *
+     * A block the sheet never tagged tells us nothing either way, so it is
+     * left marked — the rows are really there and nothing contradicts them.
+     */
+    const extraTimeIsHappening = (from: number, to: number): boolean => {
+      const golden = rows.slice(from, to + 1).filter((r) => r.outcome === "golden");
+      if (golden.length === 0) return true;
+      if (golden.some((r) => r.skipped)) return false;
+      const game = golden[0]!.outcomeGame ?? 1;
+      return rows.some((r) => r.outcome && r.outcome !== "golden" && (r.outcomeGame ?? 1) === game && r.skipped);
+    };
     const next = phases
       .filter((p) => p.kind !== "half-time" && p.kind !== "break")
+      .filter((p) => p.kind !== "extra-time" || extraTimeIsHappening(p.from, p.to))
       .map((p) => {
         const rawTop = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
         const rawBottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);

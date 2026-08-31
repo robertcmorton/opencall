@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Extra time is marked when it is being played, not because the sheet carries it.** Sheets keep a golden-point block against every game in case it is needed — full time, scores level, a break, a period — whether or not anybody ever plays one. Marking those rows as a period of play put a permanent GP down the edge of a sheet where extra time never happened, which says something untrue about every game on it. The mark now appears when the block is actually in the running order: its alternatives struck, and itself not. A block the sheet never tagged is left marked, since nothing contradicts it.
+
 ### Fixed
 - **A period of play ends at full time.** The last period of a game was running to the end of the game's whole stretch, which on a sheet that writes its own endings into the running order means every win, lose and draw branch and the build-up to the next match — so a "2H" mark could sit over gates-open, the walk-in and the anthem of the following game. It now stops at the siren. A full-time *wrap* or a highlights read is not the siren and does not stop it.
 

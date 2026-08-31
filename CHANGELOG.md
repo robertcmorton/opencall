@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Every row after full time is reachable again.** With the endings collapsed to one line, the sheet stopped at the "Full time" line: below it sat a screenful of empty sheet, and the items after the match — the venue reset, the de-rig, the end of the day — could not be scrolled to at all. The rows the collapsed block hides draw nothing, but the sheet was still setting aside the space they would have taken if they were drawn, and that invented space pushed everything below them out of reach. Hidden rows now take no room, because they take no room.
+
+### Fixed
 - **The sheet ends where the last row ends.** A stretch of empty sheet had appeared below the final item, with a stray coloured stripe down the side of it. The strip that names the periods of play is drawn as free-floating blocks, and when one was placed using an estimated position rather than a measured one it could land past the end of the table — and because it floats, it did not simply sit out of sight, it made the sheet scroll further to reach it. Measured on a real sheet: 394 pixels of scroll that nothing was in. Bands are now held inside the table's real extent, so a period can never begin after the last row or end past it.
 
 ### Fixed

@@ -1017,6 +1017,36 @@ export function RundownEditor({
       if (prev?.classList.contains("layer-row")) h += prev.getBoundingClientRect().height;
       seen.set(i, h);
     }
+    /**
+     * A row the layout chose not to draw takes NO space, and has to say so.
+     *
+     * Only rows that actually rendered are measured here, so a row the sheet
+     * deliberately hides keeps whatever the window last assumed about it —
+     * which for a row nobody has scrolled past is the average height of the
+     * ones they have. In the collapsed ending layout the WHOLE block is hidden
+     * until a result is called: eighteen rows on a real sheet, each still
+     * counted at the average, inventing a screenful of blank sheet with
+     * nothing in it — and pushing everything below the block out of the
+     * window, so the rows after full time could not be reached at all. That is
+     * what "is it even showing all the rows?" looks like, and the answer was
+     * no.
+     *
+     * Every index inside the window that did not draw is therefore reported as
+     * zero. Inside the window that is not an assumption: it is in the DOM or
+     * it is not.
+     */
+    for (let i = rowWindow.from; i < rowWindow.to; i++) if (!seen.has(i)) seen.set(i, 0);
+    /**
+     * …and the one line the collapsed block DOES draw belongs to the row it
+     * stands in for. It carries no `data-rowid` — it is not that row, it is a
+     * summary of the block — so without this it would be zeroed above and the
+     * spacers would come up one line short.
+     */
+    for (const fork of tb.querySelectorAll<HTMLTableRowElement>("tr.fork-row[data-forkfor]")) {
+      const i = indexOf.get(fork.dataset.forkfor ?? "");
+      if (i == null) continue;
+      seen.set(i, (seen.get(i) ?? 0) + fork.getBoundingClientRect().height);
+    }
     if (seen.size > 0) rowWindow.report(seen);
   });
   // Set after mount: locale-formatted dates differ between server and client,
@@ -4359,7 +4389,7 @@ export function RundownEditor({
                   const open = chosenOf(game) == null && !goldenPlaying(game);
                   const forkRow =
                     mark.blockOpens && open ? (
-                      <tr key={`fork-${rowRecord.id}`} className="fork-row">
+                      <tr key={`fork-${rowRecord.id}`} className="fork-row" data-forkfor={rowRecord.id}>
                         {bannerCells(
                           t.startSec,
                           <>

@@ -3837,22 +3837,66 @@ export function RundownEditor({
         {/* Off air it needs `mayDrive`: these buttons EDIT the sheet, and a
             view-only phone should not be handed them just because the show has
             not started. Live is unchanged. */}
-        {canEditContent && nudgeRowAt && (showLive || mayDrive) && (
+        {/* WHILE THE SHOW IS ON, this belongs to the item that is on air and to
+            nothing else.
+            It used to follow the pointer down the sheet, which put CUE and a
+            row's timing under the mouse wherever it happened to rest — so
+            reading ahead during a show meant hovering live controls over rows
+            that are not live, and one stray click took the show there.
+            The one exception is the button that builds an extra-time block:
+            that belongs to the row saying full time, which is usually not the
+            cue when somebody wants it, and it appears ALONE — no nudges, no
+            CUE, no HOLD.
+            Off air there is no cue to belong to, so hovering is how a row is
+            reached and the ± buttons stay where they were. */}
+        {(() => {
+          if (!canEditContent || !nudgeRowAt) return null;
+          const onAir = nudgeRowAt.id === activeRowId;
+          const golden = goldenFor(nudgeRowAt.id);
+          /**
+           * CUE still belongs to rows AHEAD of the show, and only CUE.
+           *
+           * "Take this item now" is a thing you do to something that has not
+           * happened yet — the game is running long, so skip the montage and
+           * go straight to the anthem — so the button has to be reachable on
+           * the row you are going TO. The numbers and HOLD do not: both are
+           * corrections to whatever is on air this second, and offering them
+           * on a row three pages down is offering to re-time something nobody
+           * is watching.
+           *
+           * Behind the cue, nothing. Those items have been played; their times
+           * are the record of when they went to air, and the sheet does not
+           * offer to rewrite history from a hover.
+           */
+          const at = rows.findIndex((r) => r.id === nudgeRowAt.id);
+          const liveAt = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+          const ahead = liveAt >= 0 && at > liveAt;
+          if (showLive ? !onAir && !ahead && golden == null : !mayDrive) return null;
+          return (
           <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
             <TimingNudge
-              live={showLive}
+              nudges={showLive ? onAir : true}
+              live={showLive && (onAir || ahead)}
               onNudge={(d) => nudgeRow(nudgeRowAt.id, d)}
               onCue={() => cueRow(nudgeRowAt.id)}
               skips={cueSkipCount(nudgeRowAt.id)}
-              golden={goldenFor(nudgeRowAt.id) ?? undefined}
-              hold={{
-                heldSec: holding?.id === nudgeRowAt.id ? heldSec : null,
-                onToggle: () =>
-                  holding?.id === nudgeRowAt.id ? settleHold() : setHolding({ id: nudgeRowAt.id, at: Date.now() }),
-              }}
+              golden={golden ?? undefined}
+              hold={
+                // Holding an item past its end is only a thing you can do to
+                // the item that is on air. Withheld rather than disabled: a
+                // greyed HOLD on every row ahead is noise on a live sheet.
+                onAir
+                  ? {
+                      heldSec: holding?.id === nudgeRowAt.id ? heldSec : null,
+                      onToggle: () =>
+                        holding?.id === nudgeRowAt.id ? settleHold() : setHolding({ id: nudgeRowAt.id, at: Date.now() }),
+                    }
+                  : undefined
+              }
             />
           </div>
-        )}
+          );
+        })()}
         {canEditContent && selected.size > 0 && (
           // Floats just below the last selected row — the actions clearly
           // belong to the rows they act on without covering any of them.

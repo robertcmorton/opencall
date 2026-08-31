@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **The timing buttons belong to the item on air, not to whatever the mouse is over.** During a show the strip followed the pointer down the sheet, so reading ahead put CUE and a row's timing under the mouse over rows that are not live — and one stray click took the show there. Now: the item on air gets all of them; a row **ahead** of the cue gets **CUE alone**, because "take this item now" is a thing you do to something that has not happened yet; a row already played gets nothing, since its times are the record of when it went to air. Off air, where there is no cue to belong to, hovering still reaches any row's ± buttons.
+
+- **A banner row is one flat colour.** It was painted with a fade that restarted in every column, so it read as banding across the row rather than as one marked line.
+
 ### Fixed
 - **Every row after full time is reachable again.** With the endings collapsed to one line, the sheet stopped at the "Full time" line: below it sat a screenful of empty sheet, and the items after the match — the venue reset, the de-rig, the end of the day — could not be scrolled to at all. The rows the collapsed block hides draw nothing, but the sheet was still setting aside the space they would have taken if they were drawn, and that invented space pushed everything below them out of reach. Hidden rows now take no room, because they take no room.
 

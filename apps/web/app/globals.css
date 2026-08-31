@@ -908,7 +908,11 @@ kbd {
 /* ---------- Milestone rows ---------- */
 
 .rundown-grid tr.milestone-row td {
-  background: linear-gradient(90deg, var(--warn-soft), transparent 70%);
+  /* One flat colour, not a fade.
+     The gradient was applied per CELL, so it did not wash once across the row
+     — it restarted in every column, which read as banding rather than as a
+     single marked line. A banner is a statement about the whole row. */
+  background: var(--warn-soft);
   border-top: 1px solid rgba(232, 176, 60, 0.35);
   border-bottom: 1px solid rgba(232, 176, 60, 0.35);
   font-weight: 600;

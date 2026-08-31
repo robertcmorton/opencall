@@ -35,3 +35,41 @@ describe("rowNumbering", () => {
     expect(at(99)).toBe("");
   });
 });
+
+describe("endings", () => {
+  const at = (outcome: string | null, sourceNumber?: string) => ({ outcome, ...(sourceNumber ? { sourceNumber } : {}) });
+
+  it("names an ending after the row it hangs off, and what it is", () => {
+    const rows = [at(null, "49"), at(null, "50"), at("win"), at("lose"), at("draw"), at("golden")];
+    const n = rowNumbering(rows);
+    expect([2, 3, 4, 5].map(n)).toEqual(["50W", "50L", "50D", "50GP"]);
+  });
+
+  it("follows the competition's own word for the extra period", () => {
+    // Some kinds of show call it extra time, not golden point.
+    const rows = [at(null, "12"), at("golden")];
+    expect(rowNumbering(rows, "ET")(1)).toBe("12ET");
+  });
+
+  it("does not let an ending consume a number on a counted sheet", () => {
+    // THE BUG. Counting positions gave every alternative a number of its own,
+    // so a sheet with three endings ran three numbers ahead of the paper from
+    // that point down.
+    const rows = [at(null), at(null), at("win"), at("lose"), at("draw"), at(null)];
+    const n = rowNumbering(rows);
+    expect([0, 1].map(n)).toEqual(["1", "2"]);
+    expect([2, 3, 4].map(n)).toEqual(["2W", "2L", "2D"]);
+    expect(n(5)).toBe("3"); // the row after the endings, NOT 6
+  });
+
+  it("hangs every ending off the same row, not off each other", () => {
+    const rows = [at(null, "7"), at("win"), at("lose")];
+    expect([1, 2].map(rowNumbering(rows))).toEqual(["7W", "7L"]);
+  });
+
+  it("says only what it is when nothing above it was numbered", () => {
+    // A sheet whose ending block comes before anything the sheet numbered.
+    // Better a bare "W" than a number invented to hang it off.
+    expect(rowNumbering([at("win", undefined), at(null, "3")])(0)).toBe("W");
+  });
+});

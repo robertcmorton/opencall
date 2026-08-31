@@ -58,7 +58,7 @@ export function GuestView({ token }: { token: string }) {
   const { meta, columns, rows } = data;
   const timing = computeTiming(rows, meta.plannedStartSec);
   /** One rule for what a row is called — see `rowNumbering`. */
-  const numberOf = rowNumbering(rows as { sourceNumber?: string | null }[]);
+  const numberOf = rowNumbering(rows as { sourceNumber?: string | null; outcome?: string | null }[]);
   // Columns render in the doc's order, which mirrors the source sheet.
   const orderedColumns = columns.filter(
     (c) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration" || c.kind === "richtext",

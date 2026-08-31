@@ -719,7 +719,19 @@ export function RundownEditor({
    * disagreeing. Read after mount so the server render and the first client
    * render match.
    */
-  const [outcomeLayout, setOutcomeLayout] = useState<OutcomeLayout>("layers");
+  /**
+   * One line until something is called — see `forkHides`.
+   *
+   * The default was "layers", which draws every ending at once: three or four
+   * versions of the same minute, stacked, on a sheet where only one of them
+   * will happen. That is a fair way to SHOW somebody what the alternatives
+   * are, and a poor way to read a run sheet, because the rows below the block
+   * are pushed down by endings that are not going to occur.
+   *
+   * Still a preference, still remembered per browser, and anybody who wants
+   * the stack can have it back from the toolbar. Only the starting point moved.
+   */
+  const [outcomeLayout, setOutcomeLayout] = useState<OutcomeLayout>("fork");
   useEffect(() => {
     const saved = window.localStorage.getItem(OUTCOME_LAYOUT_KEY);
     if (saved === "fork" || saved === "layers") setOutcomeLayout(saved);
@@ -2060,6 +2072,17 @@ export function RundownEditor({
    */
   const phases = useMemo(() => findPhases(rows, gameEnds), [rows, gameEnds]);
   const railW = phases.length > 0 ? RAIL_W : 0;
+  /**
+   * Endings need more gutter than items do.
+   *
+   * "17" is two characters; "17GP" is four, and on a sheet numbered into the
+   * hundreds "150GP" is five. The column is 46px wide and gives 26 of them to
+   * the period rail, which left the suffix clipped to its first letter —
+   * measured on the test sheet, "17W" rendered as "1". Widened only where a
+   * sheet actually carries endings, which is three of the twenty-seven sample
+   * sheets; the rest keep the narrow gutter they had.
+   */
+  const endingsW = rows.some((r) => r.outcome) ? 20 : 0;
 
   /**
    * Which match's PLAY a row belongs to — not which match's afternoon.
@@ -2602,7 +2625,7 @@ export function RundownEditor({
     const extras = shown.filter((c) => c.kind === "richtext");
     if (gridWidth == null || extras.length === 0) return new Set<string>();
     const structural =
-      COL_W.rownum + railW + (shown.some((c) => c.kind === "startTime") ? COL_W.time : 0) + (shown.some((c) => c.kind === "duration") ? COL_W.dur : 0);
+      COL_W.rownum + railW + endingsW + (shown.some((c) => c.kind === "startTime") ? COL_W.time : 0) + (shown.some((c) => c.kind === "duration") ? COL_W.dur : 0);
     const room = gridWidth - structural - MIN_TITLE;
     const keep = Math.max(0, Math.floor(room / MIN_EXTRA));
     return new Set(extras.slice(keep).map((c) => c.key));
@@ -2624,7 +2647,7 @@ export function RundownEditor({
         sum +
         (colWidths[c.key] ??
           (c.kind === "startTime" ? COL_W.time : c.kind === "duration" ? COL_W.dur : c.kind === "richtext" ? (c.width ?? COL_W.extra) : 0)),
-      (colWidths["rownum"] ?? COL_W.rownum) + railW,
+      (colWidths["rownum"] ?? COL_W.rownum) + railW + endingsW,
     );
     return Math.max(MIN_TITLE, gridWidth - others - 2);
   })();
@@ -2680,7 +2703,14 @@ export function RundownEditor({
    * here, and a short sheet still gets a narrow column.
    */
   /** One rule for what a row is called — see `rowNumbering`. */
-  const numberOf = useMemo(() => rowNumbering(rows), [rows]);
+  /**
+   * What each row is called. Endings take the number of the row they hang off
+   * plus what they are — `50W`, `50L`, `50D`, `50GP` — and the last of those
+   * follows the competition's own word for the extra period, so a sheet whose
+   * kind of show calls it extra time reads `50ET`.
+   */
+  const extraShort = /golden/i.test(showType?.extraLabel ?? "Golden point") ? "GP" : "ET";
+  const numberOf = useMemo(() => rowNumbering(rows, extraShort), [rows, extraShort]);
 
   /**
    * Notes the crew have raised against rows.
@@ -3882,7 +3912,7 @@ export function RundownEditor({
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""} ${railW ? "has-rail" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: share("rownum", (colWidths["rownum"] ?? COL_W.rownum) + railW) }}>
+              <th data-colkey="rownum" style={{ width: share("rownum", (colWidths["rownum"] ?? COL_W.rownum) + railW + endingsW) }}>
                 {resizeHandle(prevColKey("rownum"), "rownum")}
               </th>
               {orderedColumns.map((c) => {

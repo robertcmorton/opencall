@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Endings are named for what they are, and stop taking numbers from the running order.** The win, lose, draw and golden-point rows now read **17W**, **17L**, **17D**, **17GP** — the row the decision hangs off, plus what each one is — instead of counting on through the sheet as though all of them were going to happen. On a sheet numbered from one, three endings used to push every row below them three numbers out of step with the paper.
+
+  The letters are chosen so they can be said out loud: "go to seventeen-W" lands, where "seventeen-B" needs everyone to remember which alternative B was, in a dark room, off paper. They are also order-independent, and the last one follows the competition's own word — `17GP` where it is golden point, `17ET` where it is extra time.
+
+- **The endings start collapsed to one line.** A sheet that has not reached full time was drawing three or four versions of the same minute, stacked, when only one of them will happen. It now shows a single "Full time — one of these will happen" line, and fills in the branch that was actually called. This was already available and is now the starting point; the stacked view is still one press away in the toolbar, and the choice is remembered.
+
 ### Added
 - **The build badge tells you what changed, and whether you are looking at it.** Clicking the version bottom-right used to copy it to the clipboard — something one person does twice a year when filing a bug. It now opens **What's new**: every change since the last release as a one-line summary you can open for the detail, taken from this file rather than from a second list written beside it, because a summary kept next to the real thing stops matching it about two releases in.
 

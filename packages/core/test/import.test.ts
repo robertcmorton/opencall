@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultViewColumns } from "../src/eventTypes";
+import { computeTiming, findTimingGaps } from "../src/timing";
 import { PROMPTER_COLOR, buildSheet, classifySheet, looksLikeBotchedValue, findCueTypeColumn, PROMPTER_TAG, classifyRows, detectHeaderRow, detectOutcomes, detectRoles, detectBlocks, findRoleColumn, foldWrappedHeader, mapColumns, reclaimRowsAboveHeader, splitRunTogetherHeadings, mergeWrappedRows, parseDurationLoose, parseTimeLoose, planImport, suggestDurationFix, suggestTimeFix, UNPARSED_DURATION_KEY } from "../src/import";
 
 describe("parseDurationLoose", () => {
@@ -1050,6 +1051,93 @@ describe("detectHeaderRow — how deep it looks", () => {
   });
 });
 
+/**
+ * The same rule, through the whole importer rather than one pass of it.
+ *
+ * This is not a duplicate of the unit test above: that one hands `detectBlocks`
+ * rows whose endings are already marked, which is the one thing the pipeline
+ * was not doing. Blocks were detected BEFORE endings, so the guard read an
+ * `outcome` that nothing had set yet and could never fire. A test that calls
+ * the pass directly cannot see that, and did not — it passed with the old
+ * order still in place.
+ */
+describe("endings and blocks, in the order the importer runs them", () => {
+  /**
+   * Two matches, each with four alternate endings — the shape that showed all
+   * of this. Small enough to read, and faithful in the two ways that matter:
+   * the endings carry a role (without one they are read as banners, and a
+   * banner is not counted when the importer decides what kind of sheet this
+   * is), and the day is timed only on its running order, because nobody knows
+   * which ending will be called.
+   */
+  const hhmmss = (sec: number) =>
+    `${String(Math.floor(sec / 3600)).padStart(2, "0")}:${String(Math.floor(sec / 60) % 60).padStart(2, "0")}:00`;
+  const MATCH = 12 * 60;
+  const NOON = 12 * 3600;
+  let counter = 0;
+  const n = () => String(++counter);
+  const match = (m: number, base: number): string[][] => [
+    [n(), hhmmss(base), "01:00", `KICK OFF — MATCH ${m}`, "SC"],
+    [n(), hhmmss(base + 60), "04:00", "First half", "SC"],
+    [n(), hhmmss(base + 300), "01:00", "HALF TIME", "SC"],
+    [n(), hhmmss(base + 360), "04:00", "Second half", "SC"],
+    [n(), "", "", "FULL TIME — HOME WIN", "SC"],
+    [n(), "", "00:45", "Winning song", "AUD"],
+    [n(), "", "00:45", "Presentation", "MC"],
+    [n(), "", "", "FULL TIME — HOME LOSS", "SC"],
+    [n(), "", "00:45", "Music bed only", "AUD"],
+    [n(), "", "00:45", "Away captain interview", "MC"],
+    [n(), "", "", "FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME", "SC"],
+    [n(), "", "00:30", "Golden point break and re-set", "SC"],
+    [n(), "", "01:30", "Golden point period", "SC"],
+    [n(), "", "", "GOLDEN POINT — NO SCORE, MATCH DRAWN", "SC"],
+    [n(), "", "01:00", "Drawn match wrap", "MC"],
+  ];
+  const sheet = (): string[][] => {
+    counter = 0;
+    return [["ITEM", "TIME", "DUR", "ACTION", "WHO"], ...match(1, NOON), ...match(2, NOON + MATCH)];
+  };
+  const built = () => buildSheet(planImport(sheet())).rows;
+  /** Full time in the first match: the second half starts at 12:06 and runs 4:00. */
+  const FULL_TIME = NOON + 600;
+
+  it("marks the endings, and does not let the second half span them", () => {
+    const rows = built();
+    expect(rows.filter((r) => r.outcome).length).toBe(22);
+    expect(rows.some((r) => r.spans)).toBe(false);
+  });
+
+  it("spends the durations of an ending rather than muting them", () => {
+    // A sheet whose untimed rows are ALL endings is not a cue sheet listing
+    // the contents of a block, however few of its rows carry a time — and this
+    // one is 30.8% timed, which is under the threshold that decides that.
+    // Muted, the golden-point period counts for nothing and the day never
+    // budgets for the one thing it cannot predict.
+    const rows = built();
+    const period = rows.find((r) => r.title === "Golden point period")!;
+    expect(period.durationSec).toBe(90);
+    expect(period.durationMuted).toBeFalsy();
+    expect(rows.some((r) => r.durationMuted)).toBe(false);
+  });
+
+  it("times every ending from full time, not from the start of the half", () => {
+    const rows = built();
+    const timing = computeTiming(rows as never, null);
+    const at = (title: string) => timing.rows[rows.findIndex((r) => r.title === title)]!;
+    for (const t of ["FULL TIME — HOME WIN", "FULL TIME — HOME LOSS", "FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME"])
+      expect(at(t).startSec).toBe(FULL_TIME);
+    // The extra period runs its full length from there.
+    expect(at("Golden point period").endSec).toBe(FULL_TIME + 120);
+    // A drawn match can only follow the extra period, so it starts after it.
+    expect(at("GOLDEN POINT — NO SCORE, MATCH DRAWN").startSec).toBe(FULL_TIME + 120);
+  });
+
+  it("leaves no unexplained gap against the sheet's own anchors", () => {
+    const rows = built();
+    expect(findTimingGaps(rows as never, computeTiming(rows as never, null))).toEqual([]);
+  });
+});
+
 describe("detectBlocks — a row printed inside another row's window", () => {
   /** A rugby league half: 35 minutes of match clock, 42:00 of afternoon. */
   const row = (title: string, startSec: number | null, durationSec: number | null) => ({
@@ -1081,6 +1169,42 @@ describe("detectBlocks — a row printed inside another row's window", () => {
     ];
     detectBlocks(rows as never);
     expect(rows.some((r) => (r as { contained?: boolean }).contained)).toBe(false);
+  });
+
+  /**
+   * An alternate ending is never somebody's contents.
+   *
+   * Only one of win, loss and golden point happens, so summing them describes
+   * a day that cannot occur — and when that impossible total lands on the next
+   * timed row, the row above is declared a block covering them. Taken from the
+   * sheet that showed it: a 4:00 second half, endings summing to 6:00, and
+   * exactly 6:00 from the half's start to the next kick-off. The half was read
+   * as spanning its own endings, so it added nothing to the running order and
+   * every ending was timed from the START of the half — four minutes before
+   * the hooter that decides which of them is called.
+   */
+  it("does not read a row as spanning the endings that follow it", () => {
+    const ending = (title: string, durationSec: number | null, outcome: string) => ({
+      ...row(title, null, durationSec),
+      outcome,
+    });
+    const rows = [
+      row("Second half", HH(0, 6), 4 * 60),
+      ending("FULL TIME — WIN", null, "win"),
+      ending("Winning song", 45, "win"),
+      ending("Presentation", 45, "win"),
+      ending("FULL TIME — LOSS", null, "lose"),
+      ending("Music bed only", 45, "lose"),
+      ending("Away captain interview", 45, "lose"),
+      ending("FULL TIME — SCORES LEVEL", null, "golden"),
+      ending("Golden point break", 30, "golden"),
+      ending("Golden point period", 90, "golden"),
+      ending("MATCH DRAWN", null, "draw"),
+      ending("Drawn match wrap", 60, "draw"),
+      row("KICK OFF — NEXT MATCH", HH(0, 12), 60),
+    ];
+    detectBlocks(rows as never);
+    expect(rows.some((r) => (r as { spans?: boolean }).spans)).toBe(false);
   });
 
   // Untimed children alone are the OTHER shape — a block whose contents fill

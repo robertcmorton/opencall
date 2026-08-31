@@ -744,8 +744,14 @@ export function classifySheet(
   // what.
   adoptExtraDurations(rows);
   detectAlongside(rows);
-  detectBlocks(rows);
+  // Endings BEFORE blocks, because the block test has to be able to see them.
+  // Alternate endings are not part of any sum — only one of them happens — and
+  // a block is detected by summing the untimed rows beneath a timed one. With
+  // this the other way round, that guard could never fire: every row's
+  // `outcome` was still unset when the sum was taken. Nothing in the ending
+  // detector reads what the block detector writes, so the order is free.
   detectOutcomes(rows);
+  detectBlocks(rows);
   detectScript(rows, italicText);
   return rows;
 }
@@ -794,7 +800,18 @@ export function detectBlocks(rows: ClassifiedRow[]): void {
     let children = 0;
     let j = i + 1;
     while (j < rows.length && rows[j]!.startSec == null) {
-      if (rows[j]!.kind !== "spacer" && !rows[j]!.parallel) children += rows[j]!.durationSec ?? 0;
+      // An alternate ending is never somebody's contents, and its duration is
+      // never part of a sum. Only one of win, loss and golden point happens,
+      // so adding all of them together describes a day that cannot occur —
+      // and where that impossible total lands on the next timed row, the row
+      // above is declared a block that covers them. Measured on the sheet
+      // that showed it: a second half of 4:00, four endings summing to 6:00,
+      // and exactly 6:00 from the second half's start to the next kick-off.
+      // The half was read as spanning its own endings, so it contributed
+      // nothing to the running order and every ending was timed from the
+      // START of the half — four minutes before the full-time hooter that
+      // decides which of them is called.
+      if (rows[j]!.kind !== "spacer" && !rows[j]!.parallel && !rows[j]!.outcome) children += rows[j]!.durationSec ?? 0;
       j += 1;
     }
     if (j >= rows.length || j === i + 1) continue;
@@ -2138,7 +2155,18 @@ export function buildSheet(
   // contents). At the old 50% threshold every one of them was treated as a cue
   // sheet, and the five run sheets reported two to three times as many faults
   // as they have — 5 became 17 on one of them.
-  const cueish = importable.filter((r) => r.kind !== "banner");
+  //
+  // AN ALTERNATE ENDING IS NOT EVIDENCE EITHER WAY, and counting it as such is
+  // what broke this. A win, a loss, a golden-point period: these have no
+  // printed time because nobody knows which of them will happen, not because
+  // the sheet is a cue sheet listing the contents of a block. A sheet carrying
+  // enough of them therefore reads as sparsely timed no matter how thoroughly
+  // its running order is timed — and the durations then muted are the very
+  // ones the day has to budget for. Measured on a sheet of 120 matches, each
+  // with four endings: 31.3% timed with the endings counted, which reads as a
+  // cue sheet; 100% with them set aside, which is what it is. Across the 29
+  // sample sheets exactly one changes classification — that one.
+  const cueish = importable.filter((r) => r.kind !== "banner" && !r.outcome);
   const sparseTimed = cueish.length >= 10 && cueish.filter((r) => r.startSec != null).length / cueish.length < 0.35;
 
   // Rows the sheet meant to be read aloud are TAGGED in the sheet's own cue

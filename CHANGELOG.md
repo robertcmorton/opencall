@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Alternate endings are timed from full time, and their durations count.** On a sheet carrying enough of them, every ending was being timed from the START of the last half rather than from the hooter that decides which one is called — minutes early — and the durations of the endings themselves were being discarded, so a golden-point period counted for nothing and the day never budgeted for the one thing it cannot predict. Two readings caused it, both the same mistake: an ending has no printed time because nobody knows whether it will happen, not because the sheet lists the contents of a block. A row is no longer read as covering the endings that follow it, and endings no longer count towards the judgement of what kind of sheet this is. On the sheet that showed it: 119 unexplained timing gaps, now none.
+
+### Fixed
 - **The rows of an alternate ending are told apart again.** A branch is a run of rows — "full time, they win" is followed by the song and the presentation — and every row in it was being given the same name. Three rows answered to `50GP`, so calling "go to fifty-GP" named three rows at once. Where the sheet printed numbers for those rows, the screen now says what the paper says, as it already does for every other row; where the sheet left them blank they are numbered within the branch, `50GP.1`, `50GP.2`. Across the sample sheets this was 1591 rows sharing names, and is now none.
 - **A golden-point ending no longer reads `GP` twice.** Its number already ended in `GP` and the marker beside it said `GP` again, printing `1661GPGP` where the row number goes. The marker now appears only when the number has not already said it — which is where it earns its place, beside a number the sheet printed.
 

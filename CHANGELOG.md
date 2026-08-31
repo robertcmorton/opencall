@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The period mark sits in the middle of the stretch it covers.** It used to ride the top of the view, which was right when the strip also banded half time — those ran to thousands of pixels and a centred mark would rarely have been seen. The strip names the periods of play alone now, and the marks are two characters, so the middle reads as belonging to the whole stretch.
+
+### Changed
 - **The strip down the left says 1H, 2H, 1Q–4Q, GP.** Short forms everywhere, at every size. The full names were shown wherever they happened to fit, so the rail said "1st half" against one band and nothing at all against the next — and "nothing at all" was the common case, because a first half is usually a single row about thirty pixels tall and "1st half" written sideways needs fifty-five. This is a narrow strip read out of the corner of the eye; it wants the same two characters every time.
 
 - **The timing buttons sit on the middle of the row** they act on, rather than against its top edge.

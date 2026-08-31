@@ -3933,7 +3933,8 @@ th.col-drop-target {
   left: 0;
   width: 100%;
   display: flex;
-  align-items: flex-start;
+  /* Centred on what the band covers. */
+  align-items: center;
   justify-content: center;
   background: var(--accent-soft);
   /* A hard edge on the inside, so the strip reads as a bracket around the
@@ -3961,17 +3962,16 @@ th.col-drop-target {
 }
 
 .phase-label {
-  /* Rides down the sheet with the reader. A half-time band runs to 3,500px on
-     a real sheet, and a name centred in it is only ever seen by somebody who
-     happens to scroll through the middle. Sticky keeps it against the top of
-     the view for as long as any part of its own band is on screen, and stops
-     of its own accord at the band's bottom edge — so the name is always the
-     name of the period actually being looked at. The offset clears the pinned
-     column headers. */
-  position: sticky;
-  /* Set from the measured header height — see `railHeaderH`. The fallback is
-     only for the first paint, before anything has been measured. */
-  top: var(--phase-label-top, 46px);
+  /* Sits in the MIDDLE of the stretch it names, not pinned to the top of the
+     view.
+     It was sticky, from when the rail also banded half time — those bands ran
+     to 3,500px and a centred name would have been seen only by somebody who
+     happened to scroll through the middle of one. The rail names the periods
+     of play alone now, and the labels are two characters rather than a spelled
+     phrase, so a mark in the centre of the stretch reads as belonging to the
+     whole of it. The trade is real and worth knowing: on a very long half the
+     mark is not on screen at the top or the bottom of it, though the tint
+     always is. */
   writing-mode: vertical-rl;
   /* Reading bottom-to-top, the way a book spine is set everywhere except
      continental Europe. `vertical-rl` on its own would stand the letters on

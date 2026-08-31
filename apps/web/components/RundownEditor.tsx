@@ -2247,7 +2247,6 @@ export function RundownEditor({
    * the rail (z-index 5 against 3). "I can see 2nd half but I can't see 1st
    * half" is what a named constant looks like from the outside.
    */
-  const [railHeaderH, setRailHeaderH] = useState(40);
   useLayoutEffect(() => {
     const tb = tbodyRef.current;
     const scroller = gridEl;
@@ -2263,8 +2262,9 @@ export function RundownEditor({
       const box = el.getBoundingClientRect();
       return (bottom ? box.bottom : box.top) - base;
     };
+    // Still needed as the origin for an ESTIMATED band edge — `offsetOf`
+    // counts from the first row and knows nothing of the headers above it.
     const headerH = tb.offsetTop;
-    setRailHeaderH((prev) => (Math.abs(prev - headerH) < 0.5 ? prev : headerH));
     /**
      * Only the periods of PLAY get a band.
      *
@@ -4063,7 +4063,7 @@ export function RundownEditor({
           <div
             className="phase-rail"
             aria-hidden
-            style={{ width: RAIL_W, ["--phase-label-top" as string]: `${railHeaderH + 6}px` }}
+            style={{ width: RAIL_W }}
           >
             {bandBoxes.map((b) => (
               <div key={b.key} className={`phase-band phase-${b.kind}`} style={{ top: b.top, height: b.height }}>

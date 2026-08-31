@@ -459,7 +459,12 @@ Nothing can start on these until they are answered.
       "update automatically" is allowed to do, and a Railway API token created
       and set as an environment variable. A token is a credential; it has to
       come from you.
-- [ ] **The grey concurrency bars** — keep, change or drop.
+- [x] **The grey concurrency bars** — DROPPED 30 Aug on the user's word ("they
+      mean nothing to me"). They shared the number column's edge with the blue
+      "running right now" mark — a plan and a state, two pixels apart, told
+      apart only by colour — and the plan was the weaker: a shared start time
+      is already in the TIME column. The hover text still names what a row
+      runs with.
 - [x] **Stale sessions end after 24h** — DECIDED AND DONE 30 Aug (aa7cd80).
       Still flagged at 6h for a person to judge; ended at 24h, when there is no
       judgement left. Ended through the state machine so the as-run record gets

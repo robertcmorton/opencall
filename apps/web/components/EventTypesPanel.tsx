@@ -34,7 +34,7 @@ export function EventTypesPanel() {
           <strong>Yours</strong>
           {custom.map((t) => (
             <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
-              <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{eventTypeLabel(t)}</strong>
+              <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
               <span style={{ color: "var(--text-2)" }}>{describeEndings(t)}</span>
               {(t.resultDuePhrases?.length ?? 0) > 0 && (
                 <span className="chip" data-tip="No result is asked for before the show reaches a row worded like this">
@@ -66,8 +66,8 @@ export function EventTypesPanel() {
           competition does.
         </span>
         {EVENT_TYPES.map((t) => (
-          <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
-            <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
+          <div key={t.id} className={t.provisional ? "type-soon" : undefined} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+            <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{eventTypeLabel(t)}</strong>
             <span style={{ color: "var(--text-2)", flex: "1 1 240px", minWidth: 0 }}>{t.blurb}</span>
           </div>
         ))}

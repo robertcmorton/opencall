@@ -121,7 +121,7 @@ function EventTypeSelect({
         {groups.map((g) => (
           <optgroup key={g} label={g}>
             {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.id} disabled={t.provisional} className={t.provisional ? "opt-soon" : undefined}>
                 {eventTypeLabel(t)}
               </option>
             ))}

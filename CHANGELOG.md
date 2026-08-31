@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The kinds of show we have not proven cannot be picked.** Australian rules, football, cricket and netball were marked "(coming soon)" and still selectable; they are now greyed and unselectable. Choosing one today would mean its endings and its extra period came from a rule book rather than from a real run sheet, and rugby league is the only sport the sample corpus is made of. A sheet already set to one keeps it — nothing is taken away, only new choices are.
+
+  Types a company has added itself are untouched and stay selectable: "provisional" is a statement about our homework, not theirs.
+
+### Changed
 - **The period mark sits in the middle of the stretch it covers.** It used to ride the top of the view, which was right when the strip also banded half time — those ran to thousands of pixels and a centred mark would rarely have been seen. The strip names the periods of play alone now, and the marks are two characters, so the middle reads as belonging to the whole stretch.
 
 ### Changed

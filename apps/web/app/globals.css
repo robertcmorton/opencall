@@ -4126,3 +4126,16 @@ th.col-drop-target {
   background: var(--accent);
   vertical-align: middle;
 }
+
+/* Kinds of show that have never been checked against a real run sheet.
+   Shown, so it is clear the app knows the sport exists and that it is coming;
+   not selectable, because picking one today would mean the endings and the
+   extra period are guesses from a rule book rather than read off a sheet.
+   Rugby league is the one the sample corpus is made of. */
+.opt-soon {
+  color: var(--text-3);
+  font-style: italic;
+}
+.type-soon {
+  opacity: 0.55;
+}

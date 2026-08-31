@@ -2543,7 +2543,9 @@ select:disabled {
   position: absolute;
   right: 10px;
   z-index: 7;
-  margin-top: 2px;
+  /* Placed on the row's centre by arithmetic — see `nudgeH`. No margin nudge
+     and no transform: the latter would make this the containing block for the
+     tooltips inside it, which are fixed on purpose. */
   animation: none;
 }
 @media (hover: none) {

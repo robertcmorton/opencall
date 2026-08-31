@@ -54,7 +54,13 @@ export interface Phase {
   /** What to write down the edge. */
   label: string;
   /**
-   * The same thing in two or three characters, for a band with no room.
+   * The same thing in two or three characters — 1H, 2H, 1Q…4Q, GP.
+   *
+   * This is what the rail actually shows, in every band, at every size. The
+   * full names were tried first and are wrong for the job: the rail is 26px
+   * of vertical text down the edge of a sheet, read out of the corner of the
+   * eye while somebody is looking at the rows. "1st half" spelled sideways
+   * needs 55px of height and reads as a word to be parsed; "1H" is a glance.
    *
    * Vertical text needs about 55px of height to spell "1st half", and a first
    * half is very often a SINGLE ROW — the whole forty minutes arrives as one
@@ -275,7 +281,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
         // at the halfway line. Longest wins, for the reason given below.
         const gap = playMatches(QUARTER_BREAK, q + 1, nextStart - 1).concat(playMatches(HALF_TIME, q + 1, nextStart - 1));
         const brk = gap.length === 0 ? null : gap.reduce((best, j) => ((rows[j]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? j : best));
-        out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, short: `Q${i + 1}`, kind: "quarter", game: n });
+        out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, short: `${i + 1}Q`, kind: "quarter", game: n });
         if (brk != null && k + 1 < known.length)
           out.push({
             from: brk,

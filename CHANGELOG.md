@@ -10,6 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **The strip down the left says 1H, 2H, 1Q–4Q, GP.** Short forms everywhere, at every size. The full names were shown wherever they happened to fit, so the rail said "1st half" against one band and nothing at all against the next — and "nothing at all" was the common case, because a first half is usually a single row about thirty pixels tall and "1st half" written sideways needs fifty-five. This is a narrow strip read out of the corner of the eye; it wants the same two characters every time.
+
+- **The timing buttons sit on the middle of the row** they act on, rather than against its top edge.
+
+### Changed
 - **The timing buttons belong to the item on air, not to whatever the mouse is over.** During a show the strip followed the pointer down the sheet, so reading ahead put CUE and a row's timing under the mouse over rows that are not live — and one stray click took the show there. Now: the item on air gets all of them; a row **ahead** of the cue gets **CUE alone**, because "take this item now" is a thing you do to something that has not happened yet; a row already played gets nothing, since its times are the record of when it went to air. Off air, where there is no cue to belong to, hovering still reaches any row's ± buttons.
 
 - **A banner row is one flat colour.** It was painted with a fade that restarted in every column, so it read as banding across the row rather than as one marked line.

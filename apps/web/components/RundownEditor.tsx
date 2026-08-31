@@ -939,16 +939,34 @@ export function RundownEditor({
    * which is declared just above.
    */
   const [nudgeTop, setNudgeTop] = useState(0);
+  /**
+   * The strip's own height, so it can sit on the row's MIDDLE.
+   *
+   * `nudgeRowAt.top` is the row's centre; half of this is subtracted to place
+   * it. Measured rather than named, because the strip is a row of buttons
+   * whose height follows the font and the phone breakpoint changes both.
+   *
+   * Centred by arithmetic and NOT by `translateY(-50%)`, which would be the
+   * obvious way and is the wrong one here: a transformed element becomes the
+   * containing block for `position: fixed` descendants, and every button in
+   * this strip carries a tooltip that is fixed on purpose. That is exactly the
+   * bug fixed earlier today on the selection bar, and it would come straight
+   * back.
+   */
+  const [nudgeH, setNudgeH] = useState(30);
+  const measureNudge = useCallback((el: HTMLDivElement | null) => {
+    if (el) setNudgeH(el.getBoundingClientRect().height);
+  }, []);
   useEffect(() => {
     if (!nudgeRowAt || !gridEl) return;
-    const clamp = () => setNudgeTop(clampBelowHeader(gridEl, nudgeRowAt.top));
+    const clamp = () => setNudgeTop(clampBelowHeader(gridEl, nudgeRowAt.top - nudgeH / 2));
     clamp();
     gridEl.addEventListener("scroll", clamp, { passive: true });
     return () => gridEl.removeEventListener("scroll", clamp);
     // `nudgeRowAt` is replaced only when the hovered ROW changes (the handler
     // checks the id first), so depending on the object does not re-subscribe
     // on every render.
-  }, [nudgeRowAt, gridEl]);
+  }, [nudgeRowAt, gridEl, nudgeH]);
 
   /**
    * Render only the rows near the viewport. ON.
@@ -3804,12 +3822,14 @@ export function RundownEditor({
                   const id = tr?.dataset.rowid;
                   if (!id) return;
                   if (nudgeRowAt?.id !== id) {
-                    const rowTop = tr!.offsetTop;
+                    // The row's MIDDLE, not its top — the strip is centred on
+                    // the row it acts on, so it reads as belonging to it.
+                    const rowTop = tr!.offsetTop + tr!.offsetHeight / 2;
                     setNudgeRowAt({ id, top: rowTop });
                     // Placed in the same event as the row it belongs to, so
                     // the strip's first paint is already clear of the header
                     // rather than corrected a frame later.
-                    setNudgeTop(clampBelowHeader(e.currentTarget, rowTop));
+                    setNudgeTop(clampBelowHeader(e.currentTarget, rowTop - nudgeH / 2));
                   }
                 }
               : undefined
@@ -3873,7 +3893,7 @@ export function RundownEditor({
           const ahead = liveAt >= 0 && at > liveAt;
           if (showLive ? !onAir && !ahead && golden == null : !mayDrive) return null;
           return (
-          <div className="timing-nudge-hover" style={{ top: nudgeTop }}>
+          <div className="timing-nudge-hover" ref={measureNudge} style={{ top: nudgeTop }}>
             <TimingNudge
               nudges={showLive ? onAir : true}
               live={showLive && (onAir || ahead)}
@@ -4047,11 +4067,17 @@ export function RundownEditor({
           >
             {bandBoxes.map((b) => (
               <div key={b.key} className={`phase-band phase-${b.kind}`} style={{ top: b.top, height: b.height }}>
-                {/* A band too short to hold its own name shows none rather
-                    than a fragment of one; the tint still marks the stretch.
-                    A one-row first half is common — on most sheets the whole
-                    forty minutes is a single container row. */}
-                {b.height >= 58 && <span className="phase-label">{b.label}</span>}
+                {/* The short form, always — 1H, 2H, 1Q…4Q, GP.
+                    This is 26px of sideways text read out of the corner of the
+                    eye while somebody is looking at the rows, so it wants to be
+                    the same two characters every time rather than a word to be
+                    parsed. It also has to fit: a first half is very often ONE
+                    row — the whole forty minutes arrives as a single container
+                    about 30px tall — and "1st half" sideways needs 55px, so on
+                    most sheets the full name simply never appeared and the band
+                    was drawn blank. Only a band with no room for two characters
+                    stays bare. */}
+                {b.height >= 22 && <span className="phase-label phase-label-short">{b.short}</span>}
               </div>
             ))}
           </div>

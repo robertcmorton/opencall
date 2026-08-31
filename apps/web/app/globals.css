@@ -3976,3 +3976,139 @@ th.col-drop-target {
 .rundown-grid.has-rail th[data-colkey="rownum"] {
   padding-left: 30px;
 }
+
+/* ---------- What's new ----------
+   Opened from the build badge. A list of headlines, each openable for the
+   detail underneath — the changelog's own shape, which already leads every
+   entry with a sentence that says the whole thing. */
+.whatsnew-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.55);
+}
+.whatsnew {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: min(78vh, 720px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.whatsnew-head,
+.whatsnew-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.whatsnew-head {
+  border-bottom: 1px solid var(--border);
+}
+.whatsnew-head strong {
+  flex: 1 1 auto;
+}
+.whatsnew-foot {
+  border-top: 1px solid var(--border);
+}
+.whatsnew-build {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.whatsnew-behind {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+}
+.whatsnew-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 0 8px;
+}
+.whatsnew-empty {
+  padding: 20px 14px;
+  margin: 0;
+  color: var(--text-3);
+}
+.whatsnew-release h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 14px 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.whatsnew-date {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.whatsnew-entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.whatsnew-entry-head:hover {
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+}
+.whatsnew-kind {
+  flex: 0 0 auto;
+  min-width: 52px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.whatsnew-kind.kind-added {
+  color: var(--under, #3fb950);
+}
+.whatsnew-kind.kind-fixed {
+  color: var(--accent-text);
+}
+.whatsnew-headline {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.whatsnew-more {
+  flex: 0 0 auto;
+  color: var(--text-3);
+}
+.whatsnew-detail {
+  margin: 0 14px 10px 75px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+/* The badge says a newer build is being served without opening anything. */
+.version-behind {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}

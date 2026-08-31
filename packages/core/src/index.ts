@@ -10,3 +10,4 @@ export * from "./tz";
 export * from "./eventTypes";
 export * from "./sheetFaults";
 export * from "./phases";
+export * from "./changelog";

@@ -10,6 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The build badge tells you what changed, and whether you are looking at it.** Clicking the version bottom-right used to copy it to the clipboard — something one person does twice a year when filing a bug. It now opens **What's new**: every change since the last release as a one-line summary you can open for the detail, taken from this file rather than from a second list written beside it, because a summary kept next to the real thing stops matching it about two releases in.
+
+  It also answers a question nothing answered before: a tab left open through a release keeps running the JavaScript it downloaded when it opened, and says nothing. The badge now checks what the server is actually serving — on load, and again when you come back to the tab — and shows a dot when they differ. **Update this tab** puts you on the new one.
+
+  It reloads; it does not deploy. Calling it a deployment would be a lie the first time somebody pressed it and nothing shipped.
+
+### Added
 - **The prompter follows the walkthrough too.** It followed a live cue and nothing else, so while a showcaller walked the crew through the sheet the prompter sat at the top and its operator had to find every row by hand — on the one screen in the building whose whole job is to be on the right words. It now follows the same highlight the run sheet does, and carries the same **Out of sync — rejoin** when the showcaller moves on while you are reading somewhere else.
 
 ### Changed

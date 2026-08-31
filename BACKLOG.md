@@ -331,10 +331,19 @@ Recorded so nobody rediscovers them as bugs.
 
 Nothing can start on these until they are answered.
 
-- [ ] **The update button.** Designed, nothing built. Needs: whether deploy-on-
-      push gets turned off (without it the button is decoration), the branch
-      name, what "update automatically" is allowed to do, and a token created
-      and set as an environment variable.
+- [ ] **The update button — HALF BUILT 30 Aug, and the half that is missing is
+      the half that needs you.** What shipped: the build badge opens a
+      "What's new" dialog reading this repo's own CHANGELOG.md, one line per
+      change with the detail behind a click; and the badge now notices when the
+      DEPLOYMENT has moved past the build this tab loaded, with a button that
+      reloads onto it. That part needs nothing and works today.
+      What did NOT ship is triggering a Railway deployment from the app, and
+      it is blocked on exactly the four things named below — unchanged:
+      whether deploy-on-push gets turned off (with it on, production is already
+      current and a deploy button is decoration), the branch name, what
+      "update automatically" is allowed to do, and a Railway API token created
+      and set as an environment variable. A token is a credential; it has to
+      come from you.
 - [ ] **The grey concurrency bars** — keep, change or drop.
 - [ ] **Should a stale session ever end by itself**, or only be flagged as it is
       now? Flagging was chosen deliberately: ending one on a timer would

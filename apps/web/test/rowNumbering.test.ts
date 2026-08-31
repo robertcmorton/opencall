@@ -73,3 +73,42 @@ describe("endings", () => {
     expect(rowNumbering([at("win", undefined), at(null, "3")])(0)).toBe("W");
   });
 });
+
+/**
+ * Measured, not assumed. Across the sample sheets every one of the 1591 ending
+ * rows carries a printed number and none is blank — so the rule that discarded
+ * them was not a rare edge, it was the whole corpus.
+ */
+describe("endings the paper numbered", () => {
+  const end = (outcome: string, sourceNumber?: string) => ({ outcome, ...(sourceNumber ? { sourceNumber } : {}) });
+
+  it("keeps the printed number of an ending, like every other row", () => {
+    const rows = [{ sourceNumber: "4" }, end("win", "5"), end("win", "6"), end("golden", "11")];
+    expect([1, 2, 3].map(rowNumbering(rows))).toEqual(["5", "6", "11"]);
+  });
+
+  it("tells the rows of one branch apart when the paper did not number them", () => {
+    // THE BUG BEHIND THE REPORT: three rows all called 50GP. "Go to fifty-GP"
+    // named three different rows at once.
+    const rows = [{ sourceNumber: "50" }, end("golden"), end("golden"), end("golden")];
+    expect([1, 2, 3].map(rowNumbering(rows))).toEqual(["50GP.1", "50GP.2", "50GP.3"]);
+  });
+
+  it("leaves a branch of one alone", () => {
+    const rows = [{ sourceNumber: "50" }, end("win"), end("lose")];
+    expect([1, 2].map(rowNumbering(rows))).toEqual(["50W", "50L"]);
+  });
+
+  it("numbers only the parts the paper left out", () => {
+    const rows = [{ sourceNumber: "50" }, end("golden", "51"), end("golden"), end("golden")];
+    expect([1, 2, 3].map(rowNumbering(rows))).toEqual(["51", "50GP.1", "50GP.2"]);
+  });
+
+  it("still keeps endings out of the count on a sheet counting from one", () => {
+    const rows = [{}, {}, end("win"), end("win"), {}];
+    const n = rowNumbering(rows);
+    expect([0, 1].map(n)).toEqual(["1", "2"]);
+    expect([2, 3].map(n)).toEqual(["2W.1", "2W.2"]);
+    expect(n(4)).toBe("3");
+  });
+});

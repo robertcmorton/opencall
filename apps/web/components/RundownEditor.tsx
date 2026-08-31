@@ -135,6 +135,14 @@ const OUTCOME_LAYOUT_KEY = "oc:outcomelayout";
  */
 const RESULT_BUFFER_SEC = 30;
 
+/**
+ * What an alternative ending is called on its chip. Shared with the row number
+ * so the two cannot say the same thing twice — see where it is used.
+ */
+function outcomeChip(outcome: string): string {
+  return outcome === "win" ? "WIN" : outcome === "lose" ? "LOSE" : outcome === "golden" ? "GP" : outcome === "draw" ? "DRAW" : outcome;
+}
+
 function SortableRow({
   row,
   band,
@@ -236,12 +244,17 @@ function SortableRow({
           </span>
         ) : null}
         {active && <span className="cue-badge">CUE</span>}
-        {!active && row.outcome && (branch?.opens ?? true) && (
+        {/* The chip says which alternative this is — unless the number already
+            said it. A golden-point ending named `50GP` sitting beside a chip
+            reading `GP` printed `50GPGP`, which is not a row number anybody
+            could read out. WIN, LOSE and DRAW are words rather than the
+            number's single letter, so they still earn their place. */}
+        {!active && row.outcome && (branch?.opens ?? true) && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
           <span
             className={`outcome-chip oc-${row.outcome}`}
             data-tip="One of several alternate endings, stacked here because only one of them will be called. They all start at the same moment; picking a result plays this branch and skips the rest."
           >
-            {row.outcome === "win" ? "WIN" : row.outcome === "lose" ? "LOSE" : row.outcome === "golden" ? "GP" : row.outcome === "draw" ? "DRAW" : row.outcome}
+            {outcomeChip(row.outcome)}
           </span>
         )}
       </td>

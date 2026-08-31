@@ -23,12 +23,19 @@ export interface NumberedRow {
   /**
    * An ENDING rather than an item: win, lose, draw, golden.
    *
-   * These are alternatives — one of them happens and the others do not — so
-   * they are not places in the running order and must not take numbers from
-   * it. On a sheet counting from one they used to, which pushed every row
-   * below them out of step with the paper by however many endings the sheet
-   * carried. On an imported sheet they are usually left blank instead, which
-   * is honest and says nothing.
+   * These are alternatives — one of them happens and the others do not — so on
+   * a sheet COUNTING FROM ONE they must not take numbers from the running
+   * order. They used to, which pushed every row below them out of step with
+   * the paper by however many endings the sheet carried.
+   *
+   * That reasoning does not reach an imported sheet, and for a while this
+   * applied it there anyway. Nothing is being counted on a mirrored sheet —
+   * the numbers come off the paper — so discarding a printed number protects
+   * no one, and it destroys the one thing this module exists to preserve.
+   * This once claimed printed sheets "usually leave endings blank". They do
+   * not: across the sample sheets, ALL 1591 ending rows carry a printed
+   * number, none is blank. Every one of them was being thrown away and
+   * replaced with a name it shared with the rest of its branch.
    */
   outcome?: string | null;
 }
@@ -55,24 +62,62 @@ function outcomeSuffix(outcome: string | null | undefined, extraShort: string): 
 }
 
 /**
+ * Where one branch of endings starts and stops.
+ *
+ * A branch is a RUN of rows, not a single row: "full time, they win" is
+ * followed by the winning song and the presentation, and all of them belong to
+ * the same alternative. They were all being called the same thing — three rows
+ * answering to `50W` — which is no name at all in a dark room. So a branch of
+ * several rows numbers its parts, and a branch of one is left alone.
+ */
+function branchRuns(rows: NumberedRow[]): number[] {
+  const run: number[] = new Array(rows.length).fill(0);
+  for (let i = 0; i < rows.length; i++) {
+    if (!rows[i]!.outcome) continue;
+    let j = i;
+    while (j < rows.length && rows[j]!.outcome === rows[i]!.outcome) j++;
+    // Only the rows falling back to a made-up name need telling apart; a row
+    // the paper numbered is already distinct.
+    const fallbacks: number[] = [];
+    for (let k = i; k < j; k++) if (!(rows[k]!.sourceNumber ?? "").trim()) fallbacks.push(k);
+    if (fallbacks.length > 1) fallbacks.forEach((k, n) => (run[k] = n + 1));
+    i = j - 1;
+  }
+  return run;
+}
+
+/**
  * Returns the label for a row by its index in `rows` — the sheet's own number
  * when the sheet is numbered at all, otherwise a count from one. Empty string
  * where a numbered sheet left this row without one, because inventing a number
  * for it is exactly how the screens came to disagree.
+ *
+ * An ending is the same: if the paper numbered it, that is its number. Only
+ * when the paper says nothing does it get named after the row it hangs off.
  */
 export function rowNumbering<T extends NumberedRow>(rows: T[], extraShort = "GP"): (index: number) => string {
   const mirrored = rows.some((r) => r.sourceNumber != null);
+  const runs = branchRuns(rows);
   const labels: string[] = [];
   let counted = 0;
   // The number an ending hangs off: the last row above that had one of its
   // own. On a real sheet that lands on full time, which is the row the
-  // decision is made at.
+  // decision is made at. Endings do not update it — they all hang off the same
+  // row, not off each other.
   let lastPlain = "";
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const suffix = outcomeSuffix(row.outcome, extraShort);
     if (suffix) {
-      labels[i] = `${lastPlain}${suffix}`;
+      const printed = mirrored ? (row.sourceNumber ?? "").trim() : "";
+      // The paper wins. It always has for every other row; an ending is not
+      // the exception it was being treated as.
+      if (printed) {
+        labels[i] = printed;
+        continue;
+      }
+      const name = `${lastPlain}${suffix}`;
+      labels[i] = runs[i] ? `${name}.${runs[i]}` : name;
       continue;
     }
     const number = mirrored ? (row.sourceNumber ?? "").trim() : String(++counted);

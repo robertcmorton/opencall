@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The rows of an alternate ending are told apart again.** A branch is a run of rows — "full time, they win" is followed by the song and the presentation — and every row in it was being given the same name. Three rows answered to `50GP`, so calling "go to fifty-GP" named three rows at once. Where the sheet printed numbers for those rows, the screen now says what the paper says, as it already does for every other row; where the sheet left them blank they are numbered within the branch, `50GP.1`, `50GP.2`. Across the sample sheets this was 1591 rows sharing names, and is now none.
+- **A golden-point ending no longer reads `GP` twice.** Its number already ended in `GP` and the marker beside it said `GP` again, printing `1661GPGP` where the row number goes. The marker now appears only when the number has not already said it — which is where it earns its place, beside a number the sheet printed.
+
 ### Added
 - **The server can see what has been deployed.** An administrator-only reading of the recent builds — which commit, when, whether it succeeded, and which half of the app it belongs to. The app runs as two services that deploy separately, so "what is deployed?" has two answers; a reading that showed only one of them would say all was well on exactly the day one half was a day behind. Read only: nothing here can change what is running. It is the groundwork for a button that can put a previous build back, and it exists first on its own so the connection is proven before anything is allowed to act on production.
 

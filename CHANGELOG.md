@@ -12,7 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ### Added
 - **Two rehearsal sheets, for things that are otherwise hard to sit and wait for.** Both run a full day on a short repeating cycle, so whatever time it is, the thing they are for is a minute or two away rather than an evening away.
 
-  **Concurrency Test — many things at once**: two-minute cycles, each with three rows sharing a moment (so they genuinely overlap), a pre-record that runs alongside the order, and a two-minute bell. 720 overlapping groups and 1,440 alongside rows across the day.
+  **Concurrency Test — many things at once**: two-minute cycles, each with several things happening at once beside a main item that runs through all of them, and a two-minute bell. 720 overlapping groups across the day, and it imports with no timing checks — because a row shot beside the running order keeps its real length for everything that reads it, while moving the order on by nothing.
 
   **Golden Point Test — a match every twelve minutes**: a complete match every twelve minutes — kick-off, two short halves either side of half time, then full time with all four endings written out. 120 matches a day, each with win, loss, golden point and drawn-after-extra-time. It imports with no timing checks at all, so anything the check does report while testing is a real finding.
 

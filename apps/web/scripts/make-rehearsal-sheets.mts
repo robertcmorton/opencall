@@ -93,22 +93,32 @@ const DAY = 24 * 60 * 60;
 const conc = new Sheet();
 const CYCLE = 120; // two minutes, so a full cycle is visible without waiting
 for (let t = 0, seg = 1; t + CYCLE <= DAY; t += CYCLE, seg += 1) {
-  // Notes carry the segment number so no line is IDENTICAL across cycles.
-  // Repeated verbatim, they trip the importer's own page-furniture check —
-  // "the same line sits inside 720 different rows" — which is that check
-  // working correctly on a sheet nobody would really print, and a permanent
-  // false fault on a sheet whose whole job is to be run against.
+  /**
+   * Overlap WITHOUT contradicting the clock, which the sheet can express.
+   *
+   * A row's length is used for two different questions and they have different
+   * answers: `effDur` asks "how long is this", and `advanceBy` asks "what
+   * happens next". A pre-record answers the first with its real length — the
+   * crew shooting it need a countdown that is right — and the second with
+   * zero, because it is shot beside the running order rather than in it.
+   *
+   * So it keeps a real window and overlaps everything sharing that window,
+   * while the printed times of the main order still add up. Three ordinary
+   * rows at one moment cannot do both: they overlap by contradicting the
+   * clock, and the timing check is right to say so — 721 of them on the first
+   * version of this sheet.
+   *
+   * The main order here is two rows totalling the whole cycle, so the clock is
+   * exact; everything simultaneous is alongside it.
+   */
   conc.add(t, 30, `Segment ${seg} — opening item`, "SC", "", `Running order, segment ${seg}`);
-  // Three at one moment, each with a real length: they overlap, so they group.
-  conc.add(t + 30, 45, `Segment ${seg} — camera check`, "CAM", "CAM");
-  conc.add(t + 30, 45, `Segment ${seg} — audio line check`, "AUD", "AUDIO");
-  conc.add(t + 30, 45, `Segment ${seg} — graphics build`, "GFX", "GFX");
-  // Alongside the order, not in it: takes none of the running time.
+  conc.add(t + 30, 45, `PRE-RECORD — camera check ${seg}`, "CAM", "CAM");
+  conc.add(t + 30, 45, `PRE-RECORD — audio line check ${seg}`, "AUD", "AUDIO");
   conc.add(t + 30, 60, `PRE-RECORD — sponsor read ${seg}`, "MC", "VTR", `Shot in the tunnel during segment ${seg}`);
+  conc.add(t + 30, 90, `Segment ${seg} — main item`, "SC", "", `Runs while the three above are under way, segment ${seg}`);
   conc.add(t + 90, null, "TWO MINUTE BELL", "SC", "", `Warning over segment ${seg}`);
-  conc.add(t + 95, 25, `Segment ${seg} — close`, "SC");
 }
-conc.banner(DAY - 1, "END OF CONCURRENCY TEST DAY", "SC", "Sheet closes at midnight");
+// The day is the cycles; a banner after the last one only disagrees with it.
 
 // ── 2. Golden point ──────────────────────────────────────────────────────────
 const gp = new Sheet();

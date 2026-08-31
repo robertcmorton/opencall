@@ -14,7 +14,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
   **Concurrency Test — many things at once**: two-minute cycles, each with three rows sharing a moment (so they genuinely overlap), a pre-record that runs alongside the order, and a two-minute bell. 720 overlapping groups and 1,440 alongside rows across the day.
 
-  **Golden Point Test — a match every twelve minutes**: a complete match every twelve minutes — kick-off, two short halves either side of half time, then full time with all four endings written out. 120 matches a day, each with win, loss, golden point and drawn-after-extra-time.
+  **Golden Point Test — a match every twelve minutes**: a complete match every twelve minutes — kick-off, two short halves either side of half time, then full time with all four endings written out. 120 matches a day, each with win, loss, golden point and drawn-after-extra-time. It imports with no timing checks at all, so anything the check does report while testing is a real finding.
 
 ### Fixed
 - **A database restart no longer looks like a crash.** Managed Postgres restarts for maintenance, on somebody else's schedule, and when it does the connection pool reports each idle connection it lost. Nothing was listening, so those reports were being caught by the app's last-resort handler and written to the error log as uncaught exceptions with stacks that pointed nowhere useful. They are handled now and read as what they are: the pool drops the dead connection and opens another.

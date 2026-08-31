@@ -58,6 +58,33 @@ class Sheet {
   banner(timeSec: number, title: string, who = "", notes = ""): void {
     this.rows.push({ n: "", time: hhmmss(timeSec), dur: "", scr: "", title, who, notes });
   }
+  /**
+   * A row inside an alternate ending: a length, and NO TIME.
+   *
+   * Which is how a real sheet writes them, because what time they happen at
+   * depends on a result nobody has yet. Giving them printed times instead —
+   * as this sheet first did — makes the running order add up four endings
+   * that are alternatives, and every one after the first then contradicts its
+   * own printed time. That is what 242 timing checks on a 120-match sheet
+   * looked like: two per match, and none of them a real fault.
+   */
+  branch(durSec: number, title: string, who = "", notes = ""): void {
+    this.n += 1;
+    this.rows.push({ n: String(this.n), time: "", dur: mmss(durSec), scr: "", title, who, notes });
+  }
+  /**
+   * An ending's heading: no time and no length, but IT KEEPS ITS NUMBER.
+   *
+   * A row with no number, no time and no duration is indistinguishable from a
+   * wrapped continuation of the row above it, and the importer folds it in —
+   * which silently ate 480 rows and three of every four endings on the first
+   * attempt, leaving only the golden-point blocks. The number is what says
+   * "this is a row of its own".
+   */
+  branchHead(title: string, who = ""): void {
+    this.n += 1;
+    this.rows.push({ n: String(this.n), time: "", dur: "", scr: "", title, who, notes: "" });
+  }
 }
 
 const DAY = 24 * 60 * 60;
@@ -91,6 +118,12 @@ const TEAMS: [string, string][] = [
   ["COAST RAIDERS", "RANGERS ATHLETIC"],
   ["NORTHBANK CITY", "STONEWELL ROVERS"],
 ];
+// The day IS the matches, and nothing is added after the last one.
+// Two attempts at a closing row both left a timing check behind: the clock
+// after an endings block resumes at the longest branch, and a row placed by
+// arithmetic that assumes a different figure disagrees with it. A sheet whose
+// job is to be clean apart from the thing it tests should not carry a
+// permanent complaint about its own last minute.
 for (let t = 0, m = 1; t + MATCH <= DAY; t += MATCH, m += 1) {
   const [home, away] = TEAMS[(m - 1) % TEAMS.length]!;
   gp.banner(t, `MATCH ${m} — ${home} v ${away}`, "SC");
@@ -98,20 +131,26 @@ for (let t = 0, m = 1; t + MATCH <= DAY; t += MATCH, m += 1) {
   gp.add(t + 60, 240, "First half", "SC", "", "Four minutes standing in for forty");
   gp.add(t + 300, 60, "HALF TIME — sponsor activation", "MC", "GA");
   gp.add(t + 360, 240, "Second half", "SC");
-  // All four endings, written the way sheets write them.
-  gp.banner(t + 600, `FULL TIME — ${home} WIN`, "SC");
-  gp.add(t + 600, 45, "Winning song and lap of the ground", "AUD");
-  gp.add(t + 645, 45, "Player of the match presentation", "MC");
-  gp.banner(t + 600, `FULL TIME — ${home} LOSS`, "SC");
-  gp.add(t + 600, 45, "Music bed only — no winning song", "AUD", "", "Do not play the anthem");
-  gp.add(t + 645, 45, "Away captain interview", "CAM");
-  gp.banner(t + 600, "FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME", "SC");
-  gp.add(t + 600, 30, "Golden point break and re-set", "SC");
-  gp.add(t + 630, 90, "Golden point period", "SC", "", "First score ends it — be ready to cut at any moment");
-  gp.banner(t + 720 - 60, "GOLDEN POINT — NO SCORE, MATCH DRAWN", "SC");
-  gp.add(t + 660, 60, "Drawn match wrap and thank you", "MC");
+  /**
+   * All four endings — lengths but no times, because they are alternatives.
+   *
+   * The clock resumes after the LONGEST of them (the golden-point block at
+   * 120s), which is what makes the next match's kick-off land exactly on
+   * t + 720 and the whole day add up.
+   */
+  gp.branchHead(`FULL TIME — ${home} WIN`, "SC");
+  gp.branch(45, "Winning song and lap of the ground", "AUD");
+  gp.branch(45, "Player of the match presentation", "MC");
+  gp.branchHead(`FULL TIME — ${home} LOSS`, "SC");
+  gp.branch(45, "Music bed only — no winning song", "AUD", "Do not play the anthem");
+  gp.branch(45, "Away captain interview", "CAM");
+  gp.branchHead("FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME", "SC");
+  gp.branch(30, "Golden point break and re-set", "SC");
+  gp.branch(90, "Golden point period", "SC", "First score ends it — be ready to cut at any moment");
+  gp.branchHead("GOLDEN POINT — NO SCORE, MATCH DRAWN", "SC");
+  gp.branch(60, "Drawn match wrap and thank you", "MC");
 }
-gp.banner(DAY - 1, "END OF GOLDEN POINT TEST DAY", "SC", "Sheet closes at midnight");
+
 
 // ── Render ───────────────────────────────────────────────────────────────────
 const HEAD = ["#", "TIME", "DUR", "SCR", "ITEM / ACTION", "WHO", "NOTES"];

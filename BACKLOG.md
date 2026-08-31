@@ -327,6 +327,47 @@ Recorded so nobody rediscovers them as bugs.
       goal) is not in the sheets and will not be guessed. Same for AFL and
       basketball. Needed before any of them can join `eventTypes.ts`.
 
+## 6c. The row window undershoots the bottom — OPEN, two failed fixes
+
+Reported 30 Aug: *"data is missing at the bottom of the runsheet and scrolling
+is jumpy"*, on desktop.
+
+REPRODUCED AND MEASURED on RD25 (356 rows):
+- dragging the scrollbar to the bottom lands on **row 339 of 356** — the bar
+  looks like it is at the end, seventeen rows are below it. In a later run the
+  scroller reported **1,237px short** of its own bottom.
+- scrolling down BY HAND converges perfectly: scroll height settles, the last
+  row is reachable, no phantom spacer. The fault is specific to a JUMP, which
+  on a desktop is how anybody reaches the end of a long sheet.
+- with the window off (`localStorage oc:virtualrows=0`) everything is correct:
+  356 rows, right rows visible, no spacers. That is a working escape hatch.
+
+CAUSE: rows nobody has scrolled past are drawn at the average height of the
+ones who have, and that average is biased LOW — the top of a run sheet is
+short rows, the middle is paragraphs of action text. So the total is
+underestimated and the bottom of the scroll range is not where the bar says.
+
+NOT CAUSED BY the 30 Aug work, but MADE WORSE by it: the period rail and the
+endings gutter took ~46px off the item column, so text wraps more, rows are
+taller, and the gap between guess and truth is wider.
+
+TWO FIXES ATTEMPTED AND BOTH REVERTED, so nobody repeats them:
+1. **Scroll anchoring** — compensate `scrollTop` by however much the space
+   above the window grew when the average moved. Correct in principle, wrong
+   here: after a deliberate jump it drags the reader back toward where the
+   content used to be, and it ran away (the window ended up at the top with
+   the scroller at the bottom).
+2. **Stick to bottom** — if the scroller was at the bottom when heights
+   arrived, put it back at the bottom afterwards. Had no effect; the flag and
+   the layout effect do not order correctly against the row measurement that
+   triggers them.
+
+WHAT IT PROBABLY NEEDS: measuring rows before they are scrolled to, rather
+than guessing — or dropping the estimate model for one that keeps a running
+correction anchored on a known row. That is a real piece of work on the most
+load-bearing hook in the app and should not be attempted at the end of a long
+session, which is exactly how both attempts above happened.
+
 ## 7. Waiting on a decision
 
 Nothing can start on these until they are answered.

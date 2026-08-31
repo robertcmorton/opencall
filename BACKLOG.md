@@ -358,6 +358,31 @@ Recorded so nobody rediscovers them as bugs.
       goal) is not in the sheets and will not be guessed. Same for AFL and
       basketball. Needed before any of them can join `eventTypes.ts`.
 
+## 6b2. The "2H covers too many rows" report — WITHDRAWN, my measurement was wrong
+
+Chased across four commits on 30 Aug and reported twice as "still broken for games two
+to four", with pixel heights to prove it: 2H at 371px, 774px and 284px against a correct
+35px.
+
+**Those numbers were measured with `oc:virtualrows=0` set in my own browser.** I had
+turned the row window off so I could read whole sheets, and that switch also turns off
+height measurement — the effect that reports row heights returns early when the window
+is inactive. With no measured heights, `offsetOf` falls back to a flat 34px per row, and
+any band whose boundary row is not in the DOM (the ending rows, hidden by the collapsed
+layout) is placed by that guess. Hence enormous bands, in my browser only.
+
+With the window at its default, on the same sheet, every band is 35-73px — one row each.
+Verified on production too, freshly loaded: 1H on row 77 alone, 2H on row 79 alone,
+rows 93-105 unbanded and untinted.
+
+The user's screenshot was a STALE TAB: it still showed GP, which f49aba0 had already
+removed, so that page was running an older build.
+
+Nothing to fix. Recorded because the same mistake has now happened three times in one
+day — measuring a page whose state I had altered, or which had crashed, and reading the
+result as a finding. `oc:virtualrows=0` in particular is not a neutral observation tool
+and must not be left on while judging geometry.
+
 ## 6c. The row window undershoots the bottom — STILL OPEN, but much smaller
 
 UPDATE 30 Aug, later: two SEPARATE faults that looked like this one were

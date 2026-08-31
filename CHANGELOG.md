@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Scrolling a banded sheet is light again.** The strip naming the periods of play measured itself after every single render, and measuring means asking the browser to lay the page out there and then. The sheet re-renders on every scroll event, so scrolling a sheet with a game in it forced a layout each time and wrote state behind it. Nothing was wrong on screen, which is why nothing failed — it just made scrolling feel heavy. It now measures only when something can actually have moved the bands.
+
 ### Changed
 - **Endings are named for what they are, and stop taking numbers from the running order.** The win, lose, draw and golden-point rows now read **17W**, **17L**, **17D**, **17GP** — the row the decision hangs off, plus what each one is — instead of counting on through the sheet as though all of them were going to happen. On a sheet numbered from one, three endings used to push every row below them three numbers out of step with the paper.
 

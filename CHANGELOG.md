@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Whether a game can go to golden point is decided by the kind of show, not by guessing from the sheet.** The app used to look for a golden-point block in the running order and, finding none, quietly decide the day ended at full time — offering Draw instead. But a run sheet writes down what is *planned*, and nobody plans extra time: twenty-four of the twenty-seven sample sheets carry no such block, professional fixtures included. So the guess was telling most real matches they could not go to golden point, which is the opposite of true, and it did so silently. The fixture already answers the question — junior, trial and exhibition matches take "Rugby league — no extra time" and everything else does not — and the app can build the block on the night, which is what the offer is for.
+
+### Changed
 - **Extra time is marked when it is being played, not because the sheet carries it.** Sheets keep a golden-point block against every game in case it is needed — full time, scores level, a break, a period — whether or not anybody ever plays one. Marking those rows as a period of play put a permanent GP down the edge of a sheet where extra time never happened, which says something untrue about every game on it. The mark now appears when the block is actually in the running order: its alternatives struck, and itself not. A block the sheet never tagged is left marked, since nothing contradicts it.
 
 ### Fixed

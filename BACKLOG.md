@@ -59,7 +59,12 @@ live screen, so it wants doing carefully:
 - [x] **Insert the block when it is chosen**, and apply the shift. DONE 29 Aug —
       `insertGoldenPointAfter`, verified on production: four rows in, everything
       below +14:00, header end +14:00, one undo taking all of it back.
-- [ ] **Remove the `extraInSheet` sniffing — NOW UNBLOCKED.** The user gave
+- [x] **The `extraInSheet` sniffing is gone** — DONE 30 Aug. Whether golden
+      point can be played is now asked of the KIND OF SHOW alone. Checked the
+      live data first: production carries one event, typed "Rugby league (NRL)
+      — regular season", which is professional and correctly offers golden
+      point, so nothing needed re-typing. Original note:
+- [ ] ~~Remove the `extraInSheet` sniffing~~ The user gave
       the rule on 30 Aug: *junior and exhibition matches have no golden point;
       all other professional NRL and NRLW do.* So the fixtures can be typed
       (`nrl-no-extra` for junior/trial/exhibition, `nrl` or `nrl-finals`

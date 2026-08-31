@@ -2035,12 +2035,26 @@ export function RundownEditor({
    */
   const visibleOutcomesOf = (g: number): string[] => {
     const present = outcomesOfGame(g);
-    // Whether THIS sheet plays an extra period at all. An exhibition or a
-    // junior match is still rugby league but nobody is playing golden point,
-    // and the sheet shows that by not carrying a golden-point block — so the
-    // day ends at full time and Draw is the button that has to be there.
-    const extraInSheet = rows.some((r) => r.outcome === "golden" && (r.outcomeGame ?? 1) === g);
-    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes, { extraInSheet });
+    /**
+     * What the COMPETITION allows, asked of the kind of show.
+     *
+     * This used to peer at the sheet instead — "does it carry a golden-point
+     * block?" — and treat a sheet without one as a day that ends at full time.
+     * That guess was answering the right question with the wrong evidence.
+     * Whether golden point can be played is a fact about the competition, and
+     * the fixture already states it: junior, trial and exhibition matches take
+     * "Rugby league — no extra time", every professional NRL and NRLW fixture
+     * does not.
+     *
+     * The evidence was also poor. Twenty-four of the twenty-seven sample
+     * sheets carry no golden-point block at all — including plainly
+     * professional ones — because a sheet only writes down what is planned,
+     * and nobody plans extra time. So the guess quietly told most real
+     * fixtures that they could not go to golden point, which is the opposite
+     * of true. The app can build the block on the night now, which is what
+     * that offer is FOR.
+     */
+    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes);
     // A type the app does not know, or a sheet with no type set, shows whatever
     // endings the sheet itself carries — better than offering nothing.
     if (offered.length === 0) return [...present];

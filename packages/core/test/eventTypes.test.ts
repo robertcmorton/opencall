@@ -242,21 +242,29 @@ describe("rugby league that cannot go to extra time", () => {
 });
 
 describe("a day with no extra period", () => {
-  it("offers Draw at full time when the sheet carries no golden point", () => {
-    // An exhibition or junior match: rugby league, on a rugby league sheet,
-    // but nobody is playing golden point. Offering it would offer something
-    // that cannot happen; withholding Draw withholds the only button needed.
-    expect(outcomesFor("nrl", false, [], { extraInSheet: false })).toEqual(["win", "lose", "draw"]);
+  it("is decided by the KIND OF SHOW, not by what the sheet happens to carry", () => {
+    // This used to be read off the sheet: no golden-point block, therefore no
+    // golden point. Twenty-four of the twenty-seven sample sheets carry no
+    // such block — including plainly professional ones — because a sheet
+    // writes down what is PLANNED and nobody plans extra time. So the guess
+    // told most real fixtures they could not go to golden point.
+    expect(outcomesFor("nrl", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("nrl-finals", false)).toEqual(["win", "lose", "golden"]);
   });
 
-  it("still routes through golden point when the sheet has one", () => {
-    expect(outcomesFor("nrl", false, [], { extraInSheet: true })).toEqual(["win", "lose", "golden"]);
-    expect(outcomesFor("nrl", false)).toEqual(["win", "lose", "golden"]);
+  it("offers Draw for the competitions that end at full time", () => {
+    // Junior, trial and exhibition rugby league: still rugby league, but
+    // nobody plays golden point, so a level score is a draw. The fixture says
+    // so by being typed for it.
+    expect(outcomesFor("nrl-no-extra", false)).toEqual(["win", "lose", "draw"]);
   });
 
   it("does not invent a draw where the competition has none", () => {
-    // Netball settles; with no extra period on the sheet it is still win/lose.
-    expect(outcomesFor("netball", false, [], { extraInSheet: false })).toEqual(["win", "lose"]);
+    // Netball goes to extra time and is played until somebody leads, so at
+    // full time it offers the route there and never a draw — and after extra
+    // time the draw is still not on offer, because the rules do not allow one.
+    expect(outcomesFor("netball", false)).toEqual(["win", "lose", "golden"]);
+    expect(outcomesFor("netball", true)).not.toContain("draw");
   });
 });
 

@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Scrolling a live sheet with the scrollbar no longer fights you.** The sheet learns that somebody has taken it over by watching for the mouse wheel and for a finger — and between them those miss almost every way a desk actually scrolls: the scrollbar, the trough, Home, End, the arrow keys, the space bar. So scrolling away from the live cue on a desktop left the sheet still believing it was following. Nothing happened at first, which is the confusing part, and then the show advanced a row and the sheet jumped back to the cue, over and over. The Sync Cue button never appeared either, because it only shows once the sheet knows it has been let go of. Any real scroll now hands it over, and Sync Cue brings it back.
+
+### Fixed
 - **Scrolling a banded sheet is light again.** The strip naming the periods of play measured itself after every single render, and measuring means asking the browser to lay the page out there and then. The sheet re-renders on every scroll event, so scrolling a sheet with a game in it forced a layout each time and wrote state behind it. Nothing was wrong on screen, which is why nothing failed — it just made scrolling feel heavy. It now measures only when something can actually have moved the bands.
 
 ### Changed

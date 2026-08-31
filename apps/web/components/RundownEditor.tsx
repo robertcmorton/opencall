@@ -1246,11 +1246,48 @@ export function RundownEditor({
     };
     window.addEventListener("wheel", disengage, { passive: true });
     window.addEventListener("touchmove", disengage, { passive: true });
+
+    /**
+     * DRAGGING THE SCROLLBAR IS NOT A WHEEL EVENT, and neither is Page Down.
+     *
+     * Those two listeners are how the sheet learns that somebody has taken it
+     * over — and between them they miss every way of scrolling that a desktop
+     * actually uses: the scrollbar, the trough, Home, End, the arrow keys,
+     * the space bar. So on a desk, scrolling away from a live cue left the
+     * sheet still believing it was following. Nothing happened at first, which
+     * is the confusing part; then the show advanced a row and the sheet jumped
+     * back to the cue, and kept doing it. No Sync Cue button appeared either,
+     * because that only shows once the sheet knows it has been let go of.
+     * Confirmed on production: dragged to the top, `followScroll` still true.
+     *
+     * Listening to `scroll` itself is what the original code deliberately
+     * avoided, because the follow's own scrolling fires it too. But that is
+     * already solved: `programmaticScroll` is raised around every placement
+     * this component makes, and those placements are INSTANT rather than
+     * smooth — see `centreInSheet` — so they finish inside the window rather
+     * than trailing out of it.
+     *
+     * The 8px floor is for the other kind of scroll nobody asked for: when
+     * measured row heights settle, the total shrinks and the browser can clamp
+     * the position by a pixel or two. That is the sheet correcting itself, not
+     * a reader taking hold of it.
+     */
+    const el = gridEl;
+    let last = el?.scrollTop ?? 0;
+    const onScroll = () => {
+      if (!el) return;
+      const moved = Math.abs(el.scrollTop - last);
+      last = el.scrollTop;
+      if (!programmaticScroll.current && moved >= 8) setFollowScroll(false);
+    };
+    el?.addEventListener("scroll", onScroll, { passive: true });
+
     return () => {
       window.removeEventListener("wheel", disengage);
       window.removeEventListener("touchmove", disengage);
+      el?.removeEventListener("scroll", onScroll);
     };
-  }, [focusRowId]);
+  }, [focusRowId, gridEl]);
 
   /**
    * Which walkthrough row this screen has actually been shown.

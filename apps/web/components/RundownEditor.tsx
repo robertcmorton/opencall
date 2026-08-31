@@ -556,7 +556,7 @@ function TimingNudge({
         disabled={disabled}
         data-tip={
           skips > 0
-            ? `Take this item NOW — the show jumps here, the ${skips} item${skips === 1 ? "" : "s"} in between are marked as not run, and everything below re-times`
+            ? `Take this item NOW — the show jumps here, the ${skips} item${skips === 1 ? "" : "s"} in between are struck, and everything below re-times`
             : "This item is happening NOW — pin it to the clock and re-time everything below it"
         }
         onClick={() => {
@@ -568,7 +568,7 @@ function TimingNudge({
           onCue();
         }}
       >
-        {armed ? `Skip ${skips}?` : "CUE"}
+        {armed ? `Strike ${skips}?` : "CUE"}
       </button>
       )}
       {/* Right of CUE, because it is the other thing you do to the item that is
@@ -3760,7 +3760,7 @@ export function RundownEditor({
             </button>
             <button
               className="btn btn-sm"
-              data-tip="Skip: keeps the row visible but removes it from timing and transport — the show catches back up to the original anchors"
+              data-tip="Strike: keeps the row visible but removes it from timing and transport — the show catches back up to the original anchors"
               onClick={() =>
                 doc.transact(() =>
                   selected.forEach((id) => {
@@ -3770,7 +3770,12 @@ export function RundownEditor({
                 )
               }
             >
-              Skip
+              {/* "Strike", not "Skip". The row is not passed over and forgotten
+                  — it stays on the sheet with a line through it, which is what
+                  a paper run sheet does when something is cut, and what the
+                  copy two panels down has always called it. Skip described the
+                  transport's behaviour; strike describes what the crew see. */}
+              Strike
             </button>
             <Dropdown label="Win / lose / draw rows…" className="btn btn-sm">
               <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
@@ -3826,12 +3831,12 @@ export function RundownEditor({
                 what happened, because the evidence went with the row. Striking
                 it leaves the row on the sheet, visibly struck, out of the
                 timing and out of the transport — which is what "we are not
-                doing that any more" actually means at 8:47. That is the Skip
+                doing that any more" actually means at 8:47. That is the Strike
                 button a few inches to the left, and it is why this one is not
                 here. */}
             {showLive ? (
               <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", maxWidth: 210, lineHeight: 1.35 }}>
-                Rows are struck rather than deleted once the show is on — use Skip.
+                Rows are struck rather than deleted once the show is on — use Strike.
               </span>
             ) : (
               <button className="btn btn-sm btn-danger" onClick={deleteSelected}>

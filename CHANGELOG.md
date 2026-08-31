@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **A pre-record rolling alongside the show reads as a tally light.** Rows shot beside the running order — the coin toss being recorded in the tunnel — already carried a tint and a `∥` beside the number, but while one was actually rolling its progress bar was the ordinary live bar at 40% opacity. That said "something is happening here, quietly" about the one thing on the sheet nobody is watching, and if it overruns, somebody is standing in the wrong place. It now fills at full strength in a recording red, and the row takes a hard red edge down the number column so it can be seen without reading the bar.
+
+  Deliberately **not** the red that means overrun: a second track running is not a problem, and a showcaller scanning for trouble should not keep finding a pre-record. It is a distinct, deeper red — a tally light, not an alarm.
+
+- **Skip is now Strike.** The row is not passed over and forgotten; it stays on the sheet with a line through it, out of the timing and out of the transport — which is what a paper run sheet does when something is cut, and what the copy elsewhere on the screen has always called it. "Skip" described what the transport does; "strike" describes what the crew see. (The import screen's "Skip" is untouched — that one means "do not import this column", which is a different thing entirely.)
+
 ### Added
 - **The timing nudges work while a sheet is being built, not only while it is on air.** Giving an item thirty more seconds is how a sheet gets written as well as how it gets corrected, and doing it on the row beats opening the duration cell and working it out. Off air they lengthen the item and push everything printed below it later. **CUE** and **HOLD** stay live-only: both are claims about what is happening this second, and neither means anything on a sheet for tomorrow.
 

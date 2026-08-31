@@ -54,6 +54,12 @@ html {
      — blue is where the cue IS, amber is a timing problem, teal is yours, red
      and green are late and on time. A pre-record is none of those; it is
      simply not the show. */
+  /* A pre-record being shot alongside the show. Deliberately NOT `--over`:
+     that red means the show is late, and a second track running is not a
+     problem — it is a tally light. A distinct, deeper red so a showcaller
+     scanning for trouble does not find a pre-record instead. */
+  --rec: #e5484d;
+  --rec-soft: rgba(229, 72, 77, 0.22);
   --aside: #a78bfa;
   --aside-soft: rgba(167, 139, 250, 0.11);
 
@@ -1750,8 +1756,26 @@ kbd {
 .rundown-grid tr.on-now td:first-child {
   box-shadow: inset -2px 0 0 var(--accent-2, #58a6ff);
 }
+/* A pre-record under way reads as a TALLY LIGHT, not as a faint hint.
+   It used to be the live bar at 40% opacity, which said "something is
+   happening here, quietly" about the one thing on the sheet nobody is
+   watching — the camera in the tunnel is rolling whether or not the
+   showcaller has looked at it, and if it overruns the presenter is standing
+   in the wrong place. Full strength, in the recording red. */
 .row-progress.alongside {
-  opacity: 0.4;
+  background: var(--rec-soft);
+  border-right: 2px solid var(--rec);
+  opacity: 1;
+}
+/* The row itself carries a hard red edge while it is rolling, so it is visible
+   without reading the bar — the number column is the part that is never
+   scrolled past horizontally. */
+.rundown-grid tr.parallel-row.on-now td:first-child {
+  box-shadow: inset 3px 0 0 var(--rec);
+}
+.rundown-grid tr.parallel-row.on-now .rn-num::after {
+  color: var(--rec);
+  opacity: 1;
 }
 
 /* ---------- Pre-records: alongside the show, not in it ---------- */

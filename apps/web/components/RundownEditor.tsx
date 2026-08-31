@@ -2170,9 +2170,21 @@ export function RundownEditor({
    * placed at 4,528px against a real 21,039px of scroll.
    *
    * So the rendered row is asked directly, and `offsetOf` is kept only for
-   * boundaries outside the window — which by construction are more than the
-   * 600px of overscan away, i.e. off screen, where being wrong cannot be seen.
-   * The band's visible edges are always the measured ones.
+   * boundaries outside the window.
+   *
+   * I wrote here that an estimated boundary is "off screen, where being wrong
+   * cannot be seen". THAT WAS WRONG, and a screenshot disproved it. These
+   * bands are absolutely positioned, so a band placed past the end of the
+   * table does not simply sit out of sight — it EXTENDS THE SCROLLABLE AREA.
+   * Measured on the user's sheet: the last band at top 4,378 + height 181 =
+   * 4,559, which was exactly `scrollHeight`, against a table only 4,165 tall.
+   * The result is a stretch of empty sheet below the final row with a stray
+   * coloured stripe down the side of it — blank space the estimate invented.
+   *
+   * So every band is clamped to the table's real extent. A period of play
+   * cannot begin after the last row of the sheet or end past it, whatever the
+   * arithmetic says, and clamping to something MEASURED means a bad estimate
+   * can no longer add scroll to a sheet that does not have it.
    */
   const [bandBoxes, setBandBoxes] = useState<{ key: string; kind: string; label: string; short: string; top: number; height: number }[]>([]);
   /**
@@ -2215,13 +2227,21 @@ export function RundownEditor({
      * anything the rows do not already say. The gap left behind reads as the
      * break on its own.
      */
+    // The table's own bottom edge, in the same content coordinates. Nothing
+    // the rail draws may go past this.
+    const sheetBottom = tb.getBoundingClientRect().bottom - base;
     const next = phases
       .filter((p) => p.kind !== "half-time" && p.kind !== "break")
       .map((p) => {
-        const top = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
-        const bottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
+        const rawTop = edge(p.from, false) ?? headerH + rowWindow.offsetOf(p.from);
+        const rawBottom = edge(p.to, true) ?? headerH + rowWindow.offsetOf(p.to + 1);
+        const top = Math.min(rawTop, sheetBottom);
+        const bottom = Math.min(rawBottom, sheetBottom);
         return { key: `${p.game}-${p.kind}-${p.from}`, kind: p.kind, label: p.label, short: p.short, top, height: Math.max(0, bottom - top) };
-      });
+      })
+      // A band squashed to nothing by the clamp is not drawn at all, rather
+      // than drawn as a hairline against the last row.
+      .filter((b) => b.height > 0);
     setBandBoxes((prev) =>
       prev.length === next.length &&
       prev.every((b, i) => b.key === next[i]!.key && Math.abs(b.top - next[i]!.top) < 0.5 && Math.abs(b.height - next[i]!.height) < 0.5)

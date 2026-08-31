@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The sheet ends where the last row ends.** A stretch of empty sheet had appeared below the final item, with a stray coloured stripe down the side of it. The strip that names the periods of play is drawn as free-floating blocks, and when one was placed using an estimated position rather than a measured one it could land past the end of the table — and because it floats, it did not simply sit out of sight, it made the sheet scroll further to reach it. Measured on a real sheet: 394 pixels of scroll that nothing was in. Bands are now held inside the table's real extent, so a period can never begin after the last row or end past it.
+
+### Fixed
 - **Scrolling a live sheet with the scrollbar no longer fights you.** The sheet learns that somebody has taken it over by watching for the mouse wheel and for a finger — and between them those miss almost every way a desk actually scrolls: the scrollbar, the trough, Home, End, the arrow keys, the space bar. So scrolling away from the live cue on a desktop left the sheet still believing it was following. Nothing happened at first, which is the confusing part, and then the show advanced a row and the sheet jumped back to the cue, over and over. The Sync Cue button never appeared either, because it only shows once the sheet knows it has been let go of. Any real scroll now hands it over, and Sync Cue brings it back.
 
 ### Fixed

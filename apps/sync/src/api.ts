@@ -21,6 +21,7 @@ import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
+import { recentDeployments } from "./railway";
 import { customEventTypeCode, describeLock, heldByMe, mayClaim, type EditLock } from "@opencall/core";
 
 /**
@@ -579,6 +580,20 @@ export function createApiHandler(
         }
         res.statusCode = 204;
         res.end();
+        return true;
+      }
+
+      /**
+       * What Railway has deployed, for the dashboard's build badge.
+       *
+       * Admin only, like the error journal beside it — it names commits and
+       * build history, which is not for a guest holding a view link. Read
+       * only: nothing here can change what is running.
+       */
+      if (req.method === "GET" && pathname === "/deploys") {
+        if (!(await requireAdmin())) return true;
+        const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 10)));
+        json(res, 200, await recentDeployments(limit));
         return true;
       }
 

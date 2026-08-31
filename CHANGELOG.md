@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The server can see what Railway has deployed.** An administrator-only reading of the recent builds — which commit, when, and whether it succeeded. Read only: nothing here can change what is running. It is the groundwork for a button that can put a previous build back, and it exists first on its own so the credential and the connection are proven before anything is allowed to act on production.
+
+### Added
 - **Two rehearsal sheets, for things that are otherwise hard to sit and wait for.** Both run a full day on a short repeating cycle, so whatever time it is, the thing they are for is a minute or two away rather than an evening away.
 
   **Concurrency Test — many things at once**: two-minute cycles, each with several things happening at once beside a main item that runs through all of them, and a two-minute bell. 720 overlapping groups across the day, and it imports with no timing checks — because a row shot beside the running order keeps its real length for everything that reads it, while moving the order on by nothing.

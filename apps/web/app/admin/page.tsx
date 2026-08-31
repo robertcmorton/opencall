@@ -7,6 +7,7 @@ import { BrandWordmark } from "../../components/ui";
 import {
   api,
   ApiError,
+  API_URL,
   copyViewOnlyLink,
   setAdminToken,
   type EventSummary,
@@ -757,6 +758,12 @@ export default function AdminPage() {
       .then((data) => {
         setEvents(data);
         setLocked(false);
+        // Clearing this is not tidiness. It never was cleared, so a SINGLE
+        // failed request latched the warning for the life of the page: the
+        // sync server restarting — which it does on every code change in dev —
+        // left the dashboard telling you to start a server that was already
+        // running, over the top of data that had loaded perfectly well.
+        setError(false);
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) setLocked(true);
@@ -787,6 +794,20 @@ export default function AdminPage() {
       clearInterval(id);
     };
   }, []);
+
+  /**
+   * Keep trying while the dashboard cannot reach the server.
+   *
+   * Nothing else would. `reload` runs on mount and when the archive toggle
+   * changes, so a failure at either moment left the page showing a warning and
+   * no data until the reader reloaded it by hand — and in dev the usual cause
+   * is the sync server restarting on a code change, which is over in a second.
+   */
+  useEffect(() => {
+    if (!error) return;
+    const id = setInterval(reload, 5_000);
+    return () => clearInterval(id);
+  }, [error, reload]);
 
   const rename = (kind: "event" | "rundown", id: string, current: string) => {
     const name = window.prompt(`Rename ${kind}`, current);
@@ -875,9 +896,19 @@ export default function AdminPage() {
           {me?.role === "admin" && <CreateCompanyForm onCreated={reload} />}
         </header>
 
+        {/* It says "retrying" because it now is — see the effect above. The
+            pnpm advice is for a developer's own machine and used to be given
+            to everybody, so an administrator on a hosted site who caught a
+            momentary blip was told to run commands that mean nothing there. */}
         {error && (
           <div className="panel" style={{ borderColor: "var(--over)", color: "var(--over)", marginBottom: 16 }}>
-            Sync server not reachable — run <code>pnpm dev</code> (and <code>pnpm seed</code> first).
+            Can’t reach the sync server — retrying.
+            {/^https?:\/\/(localhost|127\.0\.0\.1)/.test(API_URL) && (
+              <>
+                {" "}
+                Run <code>pnpm dev</code> (and <code>pnpm seed</code> first).
+              </>
+            )}
           </div>
         )}
 

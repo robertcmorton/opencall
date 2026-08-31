@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **The dashboard stops claiming the server is unreachable once it is reachable again.** The warning was set on a failed request and never cleared, so a single dropped call — the sync server restarting, a moment of flakiness — pinned it for as long as the page stayed open, on top of data that had since loaded perfectly well. It now clears when a request succeeds, and the page keeps trying on its own instead of waiting for somebody to reload it by hand. The advice to start a local server is shown only when the server it cannot reach is a local one; an administrator on a hosted site was being told to run commands that mean nothing there.
+
 ### Changed
 - **The golden-point rehearsal sheet is written the way the game is played.** Extra time is two halves with a hold before each — a re-set after full time, and a change of ends between them — not a single period behind one break. The sheet had the shorter shape, which the app itself never produces, so the sheet disagreed with the thing it exists to test. It now also carries a show between the games — a walk-in, a sponsor read marked to be read aloud, a pre-record running alongside the order, and a different item each cycle — because that is where a real sheet spends most of its rows. A match every fifteen minutes, and every printed time in it lands: the sheet reports no timing faults and no shape faults at all, so anything reported against it is worth investigating.
 

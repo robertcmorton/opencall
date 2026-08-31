@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **The prompter follows the walkthrough too.** It followed a live cue and nothing else, so while a showcaller walked the crew through the sheet the prompter sat at the top and its operator had to find every row by hand — on the one screen in the building whose whole job is to be on the right words. It now follows the same highlight the run sheet does, and carries the same **Out of sync — rejoin** when the showcaller moves on while you are reading somewhere else.
+
 ### Changed
 - **A pre-record rolling alongside the show reads as a tally light.** Rows shot beside the running order — the coin toss being recorded in the tunnel — already carried a tint and a `∥` beside the number, but while one was actually rolling its progress bar was the ordinary live bar at 40% opacity. That said "something is happening here, quietly" about the one thing on the sheet nobody is watching, and if it overruns, somebody is standing in the wrong place. It now fills at full strength in a recording red, and the row takes a hard red edge down the number column so it can be seen without reading the bar.
 

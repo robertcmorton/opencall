@@ -158,9 +158,29 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     reads: cues.map((c) => ({ id: c.id, index: rowIndexById.get(c.id) ?? -1 })),
   });
 
-  // The scroll follows the SHOW. Before it starts there is nothing to follow,
-  // so the script simply sits at the top where a reader can look ahead.
-  const scrollTargetId = liveId;
+  /**
+   * The scroll follows the SHOW — and, before it starts, the walkthrough.
+   *
+   * It used to follow only a live cue, so while a showcaller walked the crew
+   * through the sheet the prompter sat at the top and the operator had to find
+   * every row by hand. The run sheet has followed the walkthrough for a while;
+   * the screen somebody actually reads from should too, and it is the same
+   * `walkRowId` off the same channel.
+   */
+  const walkRowId = liveId ? null : (show?.walkRowId ?? null);
+  const scrollTargetId = liveId ?? walkRowId;
+
+  /**
+   * Which walkthrough row this screen has been shown — see the run sheet, where
+   * the rule is written out. In short: scrolling away is not being out of sync,
+   * because the highlight is still where you last saw it. It becomes out of
+   * sync when the showcaller MOVES while you are reading somewhere else.
+   */
+  const [seenWalkRowId, setSeenWalkRowId] = useState<string | null>(null);
+  useEffect(() => {
+    if (followScroll) setSeenWalkRowId(walkRowId);
+  }, [followScroll, walkRowId]);
+  const walkOutOfSync = !!walkRowId && !liveId && !followScroll && seenWalkRowId !== walkRowId;
   const isRead = (r: (typeof rows)[number]): boolean => cues.some((c) => c.id === r.id);
 
   // Where the followed read sits among the reads, so the one before and the
@@ -548,9 +568,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         {/* Top-centre and over the script, exactly where the run sheet puts
             it — the same button in the same place doing the same job, so it
             is found without being looked for. */}
-        {liveId && !followScroll && (
+        {(liveId ? !followScroll : walkOutOfSync) && (
           <button
-            className="btn btn-primary sync-cue"
+            className={`btn btn-primary sync-cue ${liveId ? "" : "sync-walk"}`}
             // Centred WITHOUT transform. .sync-cue carries `animation:
             // menu-in`, which animates transform to `none` — and a CSS
             // animation beats an inline style, so a translateX(-50%) here was
@@ -567,13 +587,17 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
               width: "fit-content",
               height: "auto",
             }}
-            data-tip="Jump back to the live cue and follow along again"
+            data-tip={
+              liveId
+                ? "Jump back to the live cue and follow along again"
+                : "The showcaller has moved on while you were reading — jump to where they are and follow again"
+            }
             onClick={() => {
               lastActiveRef.current = null;
               setFollowScroll(true);
             }}
           >
-            ⇣ Sync Cue
+            {liveId ? "⇣ Sync Cue" : "⇣ Out of sync — rejoin"}
           </button>
         )}
         <div

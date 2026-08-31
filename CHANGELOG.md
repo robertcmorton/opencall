@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A database restart no longer looks like a crash.** Managed Postgres restarts for maintenance, on somebody else's schedule, and when it does the connection pool reports each idle connection it lost. Nothing was listening, so those reports were being caught by the app's last-resort handler and written to the error log as uncaught exceptions with stacks that pointed nowhere useful. They are handled now and read as what they are: the pool drops the dead connection and opens another.
+
+- **A busy database fails visibly instead of hanging.** If every connection was in use, a request waited indefinitely — so a transport command would simply never answer. Mid-show, a button that hangs is worse than one that says it could not. It now gives up after ten seconds and says so.
+
 ### Changed
 - **Starting a show hands it to the clock and lands on the right row.** Going live used to leave the sheet wherever the start put it — the first item, or nothing — and following the clock was a second, separate press. So a show started at eight in the evening on a sheet whose current item is number forty sat on item one until somebody noticed. Start now does both: the sheet lands on the row the printed times say should be on air, or waits with nothing cued if the day has not begun, and never on the first row by default. It stays a toggle — anybody calling the show by hand switches it off, and that sticks for the session.
 

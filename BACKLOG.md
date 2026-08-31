@@ -286,7 +286,24 @@ the second game starts has only the words to go on.
 
 Recorded so nobody rediscovers them as bugs.
 
-- [ ] A write holds a pooled client across two statements since the transaction
+- [x] **The pooled client — INVESTIGATED 30 Aug, and the transaction was not
+      the problem.** Both statements do run on one dedicated client (drizzle's
+      `transaction()` takes it out of the pool), `createDb` is called once so
+      there is a single pool per process, and the Postgres path was exercised
+      against a real server earlier. What the investigation DID find was two
+      things nobody had looked at, both now fixed:
+      · `connectionTimeoutMillis` was 0 — "wait forever". A starved pool would
+        hang a transport command rather than fail it, and a button that never
+        answers is worse mid-show than one that says no. Now 10s.
+      · no `error` listener on the pool. Postgres restarts for maintenance,
+        node-postgres emits `error` per idle client, and an `error` event with
+        no listener is thrown — which this process catches as an UNCAUGHT
+        EXCEPTION and journals as a crash. A routine restart has been arriving
+        in the error log dressed as something far worse. Now handled and logged
+        as the recoverable event it is.
+      Neither has been observed in the journal; both are things the log would
+      have MISREPORTED if they had. Original note:
+- [ ] ~~A write holds a pooled client across two statements since the transaction~~
       went in. It cannot deadlock, but many simultaneous live shows would
       serialise more than before. Not measured, and no pool size is configured.
 - [x] The transaction is proven on the embedded database only. CLOSED 30 Aug.

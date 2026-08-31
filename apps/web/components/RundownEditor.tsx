@@ -2191,7 +2191,23 @@ export function RundownEditor({
         ? prev
         : next,
     );
-  });
+    /**
+     * DEPENDENCIES, and they matter for scrolling.
+     *
+     * This ran after EVERY render, and it reads geometry — one
+     * `getBoundingClientRect` on the scroller plus one per band edge — which
+     * forces the browser to lay the page out synchronously each time. The row
+     * window re-renders on every scroll event, so scrolling a banded sheet
+     * meant a forced layout per event, and a state write behind it. That is
+     * not a correctness bug, which is why nothing failed; it is the reason
+     * scrolling felt heavy.
+     *
+     * These four cover every way a band's pixels can move: the bands
+     * themselves changed, the window moved, the space above it changed
+     * (which is what happens when measured heights settle), or the scroller
+     * arrived. Nothing else moves them.
+     */
+  }, [phases, gridEl, rowWindow.from, rowWindow.to, rowWindow.padTop, rows]);
 
   /**
    * Put a golden-point block into a sheet that has none, after full time.

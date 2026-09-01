@@ -4071,6 +4071,31 @@ th.col-drop-target {
   background: var(--over-soft);
   box-shadow: inset -2px 0 0 var(--over);
 }
+/* ── Endings, named down their own bar ────────────────────────────────────
+   The block already carries its colour: green for a win, red for a loss,
+   amber for golden point, blue for a draw. Banding it here writes the name
+   sideways against the whole run of rows, the way a half is named, so the row
+   at the bottom of a four-row ending still says which result it belongs to
+   without the word being printed against each one. */
+.phase-band[class*="phase-end-"] {
+  background: color-mix(in srgb, var(--end-rail) 16%, transparent);
+  box-shadow: inset -2px 0 0 var(--end-rail);
+}
+.phase-band[class*="phase-end-"] .phase-label {
+  color: var(--end-rail);
+}
+.phase-end-win {
+  --end-rail: var(--under);
+}
+.phase-end-lose {
+  --end-rail: var(--over);
+}
+.phase-end-draw {
+  --end-rail: var(--accent);
+}
+.phase-end-golden {
+  --end-rail: var(--warn);
+}
 /* The two-character form, for a band one row tall. Tighter tracking, because
    "1H" spaced like a heading looks like two separate letters. */
 .phase-label-short {

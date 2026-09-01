@@ -244,29 +244,12 @@ function SortableRow({
           </span>
         ) : null}
         {active && <span className="cue-badge">CUE</span>}
-        {/* The chip says which alternative this is — unless the number already
-            said it. A golden-point ending named `50GP` sitting beside a chip
-            reading `GP` printed `50GPGP`, which is not a row number anybody
-            could read out. WIN, LOSE and DRAW are words rather than the
-            number's single letter, so they still earn their place.
-            ONCE PER BLOCK, at the top. Repeating it down every row was the
-            first answer to a real problem — a tagged row that did not look
-            tagged — and it made the sheet shout. What links the rows is the
-            BAR down their left edge in the ending's own colour: green for a
-            win, red for a loss, amber for golden point, blue for a draw. The
-            word names the block, the bar carries it down. */}
-        {!active && row.outcome && (branch?.opens ?? true) && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
-          <span
-            className={`outcome-chip oc-${row.outcome}`}
-            data-tip={
-              branch?.opens
-                ? "One of several alternate endings, stacked here because only one of them will be called. They all start at the same moment; picking a result plays this branch and skips the rest."
-                : "Part of the same ending as the row above — it plays only if that result is the one called."
-            }
-          >
-            {outcomeChip(row.outcome)}
-          </span>
-        )}
+        {/* NO CHIP HERE ANY MORE.
+            The ending names itself sideways down its own bar — see the
+            `phase-end-*` bands — which says it once against the whole run of
+            rows rather than against the first of them. A chip beside the row
+            number as well was the same word twice, three characters from the
+            bar already carrying it. */}
       </td>
       {children}
     </tr>
@@ -2498,7 +2481,12 @@ export function RundownEditor({
   useLayoutEffect(() => {
     const tb = tbodyRef.current;
     const scroller = gridEl;
-    if (!tb || !scroller || phases.length === 0) {
+    // Nothing to band, so no geometry is read: this effect measures, and
+    // measuring forces a layout. A sheet with no periods of play may still
+    // have endings to band — the two are independent, and testing only for
+    // phases meant an ending block on a sheet without halves was never
+    // measured at all.
+    if (!tb || !scroller || (phases.length === 0 && !rows.some((r) => r.outcome))) {
       setBandBoxes((prev) => (prev.length === 0 ? prev : []));
       return;
     }
@@ -2550,7 +2538,44 @@ export function RundownEditor({
       const game = golden[0]!.outcomeGame ?? 1;
       return rows.some((r) => r.outcome && r.outcome !== "golden" && (r.outcomeGame ?? 1) === game && r.skipped);
     };
-    const next = phases
+    /**
+     * The ending blocks, banded like the periods of play.
+     *
+     * An ending was named on its opening row and linked by the colour of the
+     * bar beneath it. Sideways down that bar is where the name belongs: it
+     * says WIN once, against the whole run of rows it applies to, in the same
+     * place and the same way a half is named. The block's colour already comes
+     * from `--branch-rail`, so the band only has to say which one it is.
+     *
+     * Only while the block is DRAWN. Collapsed to a fork line there is nothing
+     * to run alongside, and a band over a single line would be a label for a
+     * row that is already labelled.
+     */
+    const endingRuns: { from: number; to: number; outcome: string; game: number }[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      if (!r.outcome || forkHides(i)) continue;
+      const game = r.outcomeGame ?? 1;
+      const last = endingRuns[endingRuns.length - 1];
+      if (last && last.to === i - 1 && last.outcome === r.outcome && last.game === game) last.to = i;
+      else endingRuns.push({ from: i, to: i, outcome: r.outcome, game });
+    }
+    const endingBands = endingRuns.map((e) => {
+      const rawTop = edge(e.from, false) ?? headerH + rowWindow.offsetOf(e.from);
+      const rawBottom = edge(e.to, true) ?? headerH + rowWindow.offsetOf(e.to + 1);
+      const top = Math.min(rawTop, sheetBottom);
+      const bottom = Math.min(rawBottom, sheetBottom);
+      return {
+        key: `end-${e.game}-${e.outcome}-${e.from}`,
+        kind: `end-${e.outcome}`,
+        label: outcomeLabel(e.outcome),
+        short: outcomeChip(e.outcome),
+        top,
+        height: Math.max(0, bottom - top),
+      };
+    });
+    const next = [
+      ...phases
       .filter((p) => p.kind !== "half-time" && p.kind !== "break")
       .filter((p) => p.kind !== "extra-time" || extraTimeIsHappening(p.from, p.to))
       .map((p) => {
@@ -2559,7 +2584,9 @@ export function RundownEditor({
         const top = Math.min(rawTop, sheetBottom);
         const bottom = Math.min(rawBottom, sheetBottom);
         return { key: `${p.game}-${p.kind}-${p.from}`, kind: p.kind, label: p.label, short: p.short, top, height: Math.max(0, bottom - top) };
-      })
+      }),
+      ...endingBands,
+    ]
       // A band squashed to nothing by the clamp is not drawn at all, rather
       // than drawn as a hairline against the last row.
       .filter((b) => b.height > 0);
@@ -2585,7 +2612,10 @@ export function RundownEditor({
      * (which is what happens when measured heights settle), or the scroller
      * arrived. Nothing else moves them.
      */
-  }, [phases, gridEl, rowWindow.from, rowWindow.to, rowWindow.padTop, rows]);
+    // `peekedGames` too: opening an ending block changes which rows are drawn,
+    // and therefore which ending bands exist and how tall they are — without
+    // touching any of the four above.
+  }, [phases, gridEl, rowWindow.from, rowWindow.to, rowWindow.padTop, rows, peekedGames]);
 
   /**
    * Put a golden-point block into a sheet that has none, after full time.
@@ -4415,7 +4445,7 @@ export function RundownEditor({
             printed per row so it survives the row window: the bands are placed
             from `offsetOf`, which knows where a row sits whether or not that
             row is currently rendered. */}
-        {phases.length > 0 && (
+        {(phases.length > 0 || bandBoxes.length > 0) && (
           <div
             className="phase-rail"
             aria-hidden

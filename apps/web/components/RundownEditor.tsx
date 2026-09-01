@@ -2666,13 +2666,20 @@ export function RundownEditor({
     });
   };
 
-  const toggleGroupSelected = (): void => {
+  /**
+   * Label the selected rows — or take the label off again.
+   *
+   * A sheet arrives with its rows already on it, so the everyday job is not
+   * "add a heading" but "this row IS the heading". Pressing it when everything
+   * selected already carries that label turns it back into an ordinary row, so
+   * one button both applies and removes it and nothing needs a second control
+   * to undo it.
+   */
+  const toggleTypeSelected = (kind: "group" | "milestone"): void => {
+    const ids = [...selected];
+    const allAlready = ids.length > 0 && ids.every((id) => yRows.get(id)?.get("type") === kind);
     doc.transact(() => {
-      selected.forEach((id) => {
-        const yRow = yRows.get(id);
-        if (!yRow) return;
-        yRow.set("type", yRow.get("type") === "group" ? "cue" : "group");
-      });
+      ids.forEach((id) => yRows.get(id)?.set("type", allAlready ? "cue" : kind));
     });
   };
 
@@ -3851,20 +3858,6 @@ export function RundownEditor({
             <button className="btn" onClick={() => addRow("cue")} data-tip="A timed item the show steps through — the normal row">
               {Icon.plus} Row
             </button>
-            <button
-              className="btn"
-              onClick={() => addRow("group")}
-              data-tip="A section heading (PRE-GAME, HALF TIME) — organises the sheet into blocks; it has no time and the transport steps past it"
-            >
-              {Icon.plus} Group
-            </button>
-            <button
-              className="btn"
-              onClick={() => addRow("milestone")}
-              data-tip="A fixed moment on the clock (DOORS 6:00 PM, KICK-OFF) — marks a time without being something you play; it has no duration"
-            >
-              {Icon.plus} Milestone
-            </button>
           </span>
         )}
         {canEditContent && timingGaps.length > 0 && !reconciling && (
@@ -4209,8 +4202,25 @@ export function RundownEditor({
             <button className="btn btn-sm" onClick={duplicateSelected}>
               Duplicate
             </button>
-            <button className="btn btn-sm" onClick={toggleGroupSelected}>
-              Group
+            {/* Labelling, where the rows already are. The toolbar used to
+                offer "+ Group" and "+ Milestone", which ADD an empty row of
+                that kind — the wrong verb for a sheet that came in with its
+                rows on it, and two buttons whose difference was only legible
+                from their tooltips. Select the row that is already the
+                heading and say so. */}
+            <button
+              className="btn btn-sm"
+              data-tip="Make these rows section headings (PRE-GAME, HALF TIME) — no time of their own, and the transport steps past them. Press again to turn them back into ordinary rows."
+              onClick={() => toggleTypeSelected("group")}
+            >
+              Heading
+            </button>
+            <button
+              className="btn btn-sm"
+              data-tip="Make these rows fixed moments on the clock (DOORS 6:00 PM, KICK-OFF) — a time to hit, with no duration of its own. Press again to turn them back into ordinary rows."
+              onClick={() => toggleTypeSelected("milestone")}
+            >
+              Milestone
             </button>
             <button
               className="btn btn-sm"

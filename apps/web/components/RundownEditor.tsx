@@ -432,25 +432,46 @@ function BarFill({
 }: {
   frac: number;
   className?: string;
-  /** Row length and progress in ms, for the continuous form. */
-  sweep?: { durationMs: number; elapsedMs: number } | null;
+  /**
+   * Row length and progress in ms, for the continuous form. `key` identifies
+   * the row: while it is unchanged the animation is left strictly alone.
+   */
+  sweep?: { key: string; durationMs: number; elapsedMs: number } | null;
 }) {
   const prevRef = useRef<number | null>(null);
   const snap = prevRef.current == null || frac < prevRef.current;
   useLayoutEffect(() => {
     prevRef.current = frac;
   });
-  if (sweep && sweep.durationMs > 0 && sweep.elapsedMs < sweep.durationMs) {
-    return (
-      <div
-        className={className}
-        style={{
-          width: "100%",
-          transition: "none",
-          animation: `bar-sweep ${sweep.durationMs}ms linear ${-sweep.elapsedMs}ms 1 normal both`,
-        }}
-      />
-    );
+  /**
+   * WORKED OUT ONCE PER ROW, and then left alone.
+   *
+   * Rewriting `animation-delay` restarts the animation from the new offset. So
+   * recomputing this on every render — which happens once a second, when the
+   * timing publishes a new whole second — restarted the sweep once a second,
+   * and each restart re-anchored it a fraction away from where it had got to.
+   * That is a bar that is moving but not smoothly.
+   *
+   * Measured: the alongside bars' animation string never changed and they were
+   * smooth; the active row's shifted by exactly -1000ms every second and it
+   * was not. Same animation, different treatment.
+   *
+   * Nothing here needs updating while a row runs: the animation already
+   * describes the whole row. Only its LENGTH changing — a nudge, extra time —
+   * is a reason to re-aim, and that is in the deps.
+   */
+  const anim = useMemo(
+    () =>
+      sweep && sweep.durationMs > 0 && sweep.elapsedMs < sweep.durationMs
+        ? `bar-sweep ${sweep.durationMs}ms linear ${-sweep.elapsedMs}ms 1 normal both`
+        : null,
+    // `elapsedMs` is deliberately NOT a dependency: it is the starting offset,
+    // read once, and reacting to it is exactly the restart described above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sweep?.key, sweep?.durationMs, sweep == null],
+  );
+  if (anim) {
+    return <div className={className} style={{ width: "100%", transition: "none", animation: anim }} />;
   }
   return <div className={className} style={{ width: `${frac * 100}%`, transition: snap ? "none" : undefined }} />;
 }
@@ -511,7 +532,7 @@ function BigTimer({
           frac={frac}
           sweep={
             plannedSec != null && plannedSec > 0 && !paused && remaining != null && remaining > 0
-              ? { durationMs: plannedSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
+              ? { key: live.rowId, durationMs: plannedSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
               : null
           }
         />
@@ -1625,12 +1646,12 @@ export function RundownEditor({
     return Math.min(1, Math.max(0, (nowAbsSec - t.startSec) / (t.endSec - t.startSec)));
   };
   /** The same window as `clockFrac`, in ms, so the bar can run itself — see `BarFill`. */
-  const clockSweep = (id: string): { durationMs: number; elapsedMs: number } | null => {
+  const clockSweep = (id: string): { key: string; durationMs: number; elapsedMs: number } | null => {
     if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
     const t = i >= 0 ? timing.rows[i] : null;
     if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
-    return { durationMs: (t.endSec - t.startSec) * 1000, elapsedMs: (nowAbsSec - t.startSec) * 1000 };
+    return { key: id, durationMs: (t.endSec - t.startSec) * 1000, elapsedMs: (nowAbsSec - t.startSec) * 1000 };
   };
 
   // Clock-follow runs on the SERVER (live fail-safe: no console needs to stay
@@ -3626,7 +3647,9 @@ export function RundownEditor({
               live={
                 live.rowId === activeRow.id
                   ? live
-                  : { ...live, elapsedInRowSec: 0, rowOverSec: 0, remainingInRowSec: activeRow.durationSec ?? null }
+                  : // Also re-stamped with the row it is now about, so the bar
+                    // below keys its animation on the right one.
+                    { ...live, rowId: activeRow.id, elapsedInRowSec: 0, rowOverSec: 0, remainingInRowSec: activeRow.durationSec ?? null }
               }
               paused={isPaused ?? false}
               // A row the sheet never named still has to announce itself on the
@@ -4590,7 +4613,7 @@ export function RundownEditor({
                                 frac={frac}
                                 sweep={
                                   mine && !over && !isPaused && live.remainingInRowSec != null && live.remainingInRowSec > 0
-                                    ? { durationMs: rowRecord.durationSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
+                                    ? { key: rowRecord.id, durationMs: rowRecord.durationSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
                                     : null
                                 }
                               />

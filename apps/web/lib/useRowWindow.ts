@@ -91,14 +91,34 @@ export function useRowWindow({
     if (!scrollEl || !enabled) return;
     const read = () => setView({ top: scrollEl.scrollTop, height: scrollEl.clientHeight });
     read();
+    /**
+     * Read again after the frame, and once more when things have settled.
+     *
+     * THE SHEET SCROLLS ITSELF AS IT LOADS — to the live cue, which on a
+     * day-long sheet is thousands of pixels down. That scroll can land before
+     * this listener exists, and nothing afterwards tells the window it
+     * happened: no further scroll event fires because nobody is scrolling.
+     * The window then measures from zero while the scroller sits at 99,465,
+     * so it renders the TOP of the sheet, positions it above the viewport,
+     * and the showcaller sees an empty grid on a running show. One flick of
+     * the wheel fixed it, which is exactly why it looked intermittent.
+     *
+     * `count` is in the deps for the same reason: changing how many rows there
+     * are — an import, or expanding every alternate ending at once — moves
+     * every offset without producing a scroll event either.
+     */
+    const raf = requestAnimationFrame(read);
+    const settle = window.setTimeout(read, 300);
     scrollEl.addEventListener("scroll", read, { passive: true });
     const ro = new ResizeObserver(read);
     ro.observe(scrollEl);
     return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(settle);
       scrollEl.removeEventListener("scroll", read);
       ro.disconnect();
     };
-  }, [scrollEl, enabled]);
+  }, [scrollEl, enabled, count]);
 
   /**
    * Two things make the window stand aside and render the whole sheet.

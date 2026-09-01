@@ -405,7 +405,26 @@ day — measuring a page whose state I had altered, or which had crashed, and re
 result as a finding. `oc:virtualrows=0` in particular is not a neutral observation tool
 and must not be left on while judging geometry.
 
-## 6c. The row window undershoots the bottom — STILL OPEN, but much smaller
+## 6c. The row window undershoots the bottom — FOUND AND FIXED 1 September
+
+FOUND, and it was not an undershoot at all — it was the window reading the
+scroll position BEFORE the sheet scrolled itself to the live cue. No further
+scroll event followed, because nobody was scrolling, so the window went on
+measuring from zero while the scroller sat 99,465px down. It rendered the top
+of the sheet, positioned above the viewport, and drew an empty grid.
+
+Measured on the golden-point sheet in layers mode: scrollTop 99,465 of a
+197,468 scroll height, 19 rows rendered and all of them rows 1-19 of the sheet,
+tbody top at -99,079. One synthetic scroll event brought 22 rows into view,
+which is what proved the position rather than the geometry was wrong.
+
+Fixed in `useRowWindow`: re-read after the frame and again once things settle,
+and re-read whenever `count` changes — an import or expanding every ending
+moves every offset without producing a scroll event either.
+
+Verified by reloading with no manual scroll: 22 rows visible, live cue among
+them. Before the fix, one blank row.
+
 
 UPDATE 30 Aug, later: two SEPARATE faults that looked like this one were
 found and fixed, and between them they account for most of what was being

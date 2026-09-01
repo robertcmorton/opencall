@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **A sheet no longer opens blank.** On a long sheet the grid scrolls itself to the live cue as it loads, and on a day-long run sheet that is thousands of pixels down. The rows being drawn were chosen from a scroll position read before that happened, so the sheet rendered its opening rows far above the screen and showed an empty grid on a running show — until you touched the wheel, which is why it looked intermittent. The same thing happened when the number of rows changed, such as opening every alternate ending at once.
+
 ### Removed
 - **The app no longer talks to the hosting provider.** The groundwork for an in-app "update" button — a read-only reading of recent builds — has been taken out along with the idea. Updating is done from the source repository by hand, which needs no credential stored in the running service. The build badge keeps what it had: a "What's new" list read from the changelog, and a notice when the running deployment has moved past the build your tab is on.
 

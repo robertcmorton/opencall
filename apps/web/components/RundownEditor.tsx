@@ -4164,6 +4164,18 @@ export function RundownEditor({
           const at = rows.findIndex((r) => r.id === nudgeRowAt.id);
           const liveAt = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
           const ahead = liveAt >= 0 && at > liveAt;
+          /**
+           * Not during a walkthrough.
+           *
+           * Off air the strip is a building tool — the ± buttons re-time a row
+           * while a sheet is being put together. A walkthrough is not building:
+           * it is stepping a crew through the sheet they are about to run, and
+           * a control that appears under the pointer on every row you move past
+           * is one more thing between the showcaller and the next line. CUE and
+           * HOLD are already live-only, so what shows here mid-walkthrough was
+           * never the useful half anyway.
+           */
+          if (walkRowId != null) return null;
           if (showLive ? !onAir && !ahead && golden == null : !mayDrive) return null;
           return (
           <div className="timing-nudge-hover" ref={measureNudge} style={{ top: nudgeTop }}>

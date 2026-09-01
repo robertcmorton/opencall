@@ -4,8 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildSheet,
   classifySheet,
-  EVENT_TYPES,
-  eventTypeLabel,
   looksLikeBotchedValue,
   detectRoles,
   findCueTypeColumn,
@@ -21,7 +19,6 @@ import {
   suggestTimeFix,
   type ClassifiedRow,
   type ColumnTarget,
-  type EventTypeSpec,
   type PlanRow,
 } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
@@ -200,20 +197,20 @@ export function ImportPanel({
 }) {
   const [name, setName] = useState("");
   /**
-   * What kind of show this sheet is for.
+   * What kind of show this sheet is for — INHERITED, not asked for.
    *
-   * Asked at import because this is the moment somebody is looking at the
-   * sheet and knows — and because it decides what the live result chooser
-   * offers, which is the wrong thing to discover at full time. It is stored on
-   * THIS SHEET: a match day can run netball off one sheet and rugby league off
-   * the next, so the event's setting is only where the default comes from.
+   * It used to be a required field on this form, and it does not belong here.
+   * Importing is about whether the file read correctly; how a match ends is a
+   * property of the sheet, set on the sheet, and asking for it up front made
+   * somebody answer a question about golden point before they had seen
+   * whether their columns had even landed in the right places.
+   *
+   * An event that already has a kind still stamps its sheets with it — that is
+   * what arrives here as `eventType` — and anything else is chosen afterwards,
+   * per sheet, because a match day can run netball off one and rugby league
+   * off the next.
    */
-  const [type, setType] = useState<string | null>(initialType);
-  /** Kinds of show the company added for itself, offered beside the built-ins. */
-  const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
-  useEffect(() => {
-    api.eventTypes().then(setCustomTypes).catch(() => setCustomTypes([]));
-  }, []);
+  const type = initialType;
   const [tried, setTried] = useState(false);
   const [rawGrid, setRawGrid] = useState<string[][] | null>(null); // as extracted, pre-merge
   const [lineMeta, setLineMeta] = useState<{ page: number; y: number }[] | undefined>(undefined);
@@ -463,7 +460,11 @@ export function ImportPanel({
   /** Everything this import still needs. Named, so nobody hunts the form. */
   const missing = [
     !replaceRundown && !name.trim() && "A name for this run sheet",
-    !type && "Event type",
+    // The kind of show is NOT asked for here. It belongs to the sheet, is set
+    // on the sheet, and blocking an import on it made somebody answer a
+    // question about how a match ends before they had seen whether the file
+    // had even read properly. An event that already has one still stamps it —
+    // that arrives as `eventType` — and anything else is chosen later.
     importable.length === 0 && "A sheet with at least one row",
   ].filter((v) => typeof v === "string") as string[];
 
@@ -674,37 +675,6 @@ export function ImportPanel({
                 />
               </div>
             )}
-            <div>
-              <label className="field-label" data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch. It is set per run sheet, so one event can hold two sports.">
-                Kind of show
-              </label>
-              <select
-                className={"input " + (tried && !type ? "field-missing" : "")}
-                value={type ?? ""}
-                onChange={(e) => setType(e.target.value || null)}
-                style={{ minWidth: 190 }}
-              >
-                <option value="">Choose…</option>
-                {(["Sport", "Production"] as const).map((g) => (
-                  <optgroup key={g} label={g}>
-                    {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
-                      <option key={t.id} value={t.id} disabled={t.provisional} className={t.provisional ? "opt-soon" : undefined}>
-                        {eventTypeLabel(t)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-                {customTypes.length > 0 && (
-                  <optgroup label="Yours">
-                    {customTypes.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
             <div>
               <label className="field-label" data-tip="Which source row holds the column headers — adjust if detection picked the wrong one">
                 Header row

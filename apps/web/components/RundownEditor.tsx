@@ -248,11 +248,21 @@ function SortableRow({
             said it. A golden-point ending named `50GP` sitting beside a chip
             reading `GP` printed `50GPGP`, which is not a row number anybody
             could read out. WIN, LOSE and DRAW are words rather than the
-            number's single letter, so they still earn their place. */}
-        {!active && row.outcome && (branch?.opens ?? true) && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
+            number's single letter, so they still earn their place.
+            ON EVERY ROW OF THE BRANCH, not just the one that opens it. Two rows
+            tagged the same result showed the word against the first and nothing
+            against the second, so the second looked untagged — reported as
+            exactly that. The tint and the rail were carrying it, at 7% and
+            three pixels, under a selection outline that covered both. A row
+            saying which ending it belongs to is worth one small word. */}
+        {!active && row.outcome && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
           <span
             className={`outcome-chip oc-${row.outcome}`}
-            data-tip="One of several alternate endings, stacked here because only one of them will be called. They all start at the same moment; picking a result plays this branch and skips the rest."
+            data-tip={
+              branch?.opens
+                ? "One of several alternate endings, stacked here because only one of them will be called. They all start at the same moment; picking a result plays this branch and skips the rest."
+                : "Part of the same ending as the row above — it plays only if that result is the one called."
+            }
           >
             {outcomeChip(row.outcome)}
           </span>

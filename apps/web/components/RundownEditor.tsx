@@ -4304,14 +4304,18 @@ export function RundownEditor({
                 onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", color)))}
               />
             ))}
+            {/* NO COLOUR, drawn as the absence of one.
+                This was an ✕ sitting in the row of swatches, which reads as
+                "close" everywhere else on this bar — and there is a real close
+                button eight pixels away. An empty bordered square says the same
+                thing in the same visual language as the five beside it: it is
+                the swatch you pick when you want none. */}
             <button
-              className="color-swatch"
-              data-tip="Clear highlight"
-              style={{ background: "transparent" }}
+              className="color-swatch color-swatch-none"
+              data-tip="No highlight"
+              aria-label="No highlight"
               onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", null)))}
-            >
-              ✕
-            </button>
+            />
             {/* Not while the show is on.
                 Deleting a row mid-show takes its as-run history with it: what
                 was cued, when, and for how long. Afterwards nobody can explain
@@ -4330,9 +4334,13 @@ export function RundownEditor({
                 Delete
               </button>
             )}
+            {/* The way out sits in the corner, where a way out belongs.
+                In the row of controls it was one more thing to read past, and
+                the second ✕ on a bar that already had one in the swatches. */}
             <button
-              className="btn btn-sm btn-ghost"
+              className="sel-close"
               data-tip="Clear selection"
+              aria-label="Clear selection"
               onClick={() => {
                 setSelected(new Set());
                 setLastSelected(null);

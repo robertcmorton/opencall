@@ -475,6 +475,36 @@ input.inline-edit {
   animation: menu-in var(--t-fast) var(--ease);
   box-shadow: var(--shadow-overlay);
 }
+/* The way out, in the corner of the bar rather than in the row of controls.
+   Sits half outside the top-right so it reads as belonging to the bar as a
+   whole; the bar is positioned, so this anchors to it. */
+.selection-bar {
+  position: relative;
+}
+.sel-close {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--overlay);
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-overlay);
+}
+.sel-close:hover {
+  color: var(--text-1);
+  border-color: var(--text-3);
+}
+
 .selection-bar .count {
   color: var(--accent-text);
   font-weight: 600;
@@ -935,6 +965,13 @@ kbd {
 }
 .color-swatch:hover {
   transform: scale(1.15);
+}
+/* "None" — the same square as the others with nothing in it, so it reads as a
+   choice among them rather than as a way to dismiss something. */
+.color-swatch-none {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--text-3);
 }
 
 /* ---------- Cue-type chips over a cell editor ---------- */

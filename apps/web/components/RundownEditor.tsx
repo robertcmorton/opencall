@@ -977,12 +977,31 @@ export function RundownEditor({
    */
   const [gridWidth, setGridWidth] = useState<number | null>(null);
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
+  /**
+   * How much width the columns actually have to share.
+   *
+   * `clientWidth` is the right number — it excludes the vertical scrollbar,
+   * which the columns cannot use. The trap is the OBSERVER: a ResizeObserver
+   * watches the border box by default, and the border box does not change when
+   * a scrollbar appears inside the element. So the width was read once while
+   * the sheet was still short enough not to scroll, the rows arrived, the
+   * scrollbar took fifteen pixels, and nothing ever told this.
+   *
+   * The columns stayed sized for a box fifteen pixels wider than they had.
+   * Measured on a 1000px window: headers summing to 982 in a 966 content box,
+   * so the table ran under the scrollbar AND raised a horizontal one of its
+   * own — the dark strip down the right-hand edge, and part of why widths
+   * appear to jump when something else forces a re-measure.
+   *
+   * Observing the CONTENT box fixes it: that is the measurement a scrollbar
+   * changes.
+   */
   const measureGrid = useCallback((el: HTMLDivElement | null) => {
     setGridEl(el);
     if (!el) return;
     const read = () => setGridWidth(el.clientWidth);
     read();
-    new ResizeObserver(read).observe(el);
+    new ResizeObserver(read).observe(el, { box: "content-box" });
   }, []);
 
   /**
@@ -2972,8 +2991,40 @@ export function RundownEditor({
    * of rendering, so the widths remain meaningful if the grid is measured
    * again.
    */
-  const colTotalPx = orderedColKeys.reduce((sum, k) => sum + (colWidths[k] ?? 0), 0);
-  const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => colWidths[k] != null);
+  /**
+   * What a column is worth, stored or not.
+   *
+   * The share-out below used to require that EVERY column had been dragged, so
+   * one that had not — the Zero countdown never has a stored width at all —
+   * dropped the whole table back to raw pixels. Fixed layout then honours each
+   * width as given and lets the total fall where it likes, which on a 1000px
+   * window meant headers summing to 982 inside a 966 content box: the table
+   * ran under the vertical scrollbar and raised a horizontal one of its own.
+   * That is the dark strip down the right-hand edge, and the widths that
+   * appear to jump are the same thing from the other side — the table finding
+   * a different wrong answer when something forces a re-measure.
+   *
+   * Every column can be valued without being dragged: the structural ones have
+   * defaults, and the item column is the remainder, which is what `titleWidth`
+   * already works out. With all of them valued the proportions are exact and
+   * 100% of the grid is the grid.
+   */
+  const widthOf = (key: string): number | null => {
+    const stored = colWidths[key];
+    if (stored != null) return stored;
+    if (key === "rownum") return COL_W.rownum + railW + endingsW;
+    // The Zero countdown is a duration in everything but name.
+    if (key === "zero") return COL_W.dur;
+    const c = orderedColumns.find((x) => x.key === key);
+    if (!c) return null;
+    if (c.kind === "startTime") return COL_W.time;
+    if (c.kind === "duration") return COL_W.dur;
+    if (c.kind === "richtext") return c.width ?? COL_W.extra;
+    // The item column: whatever is left, and null until the grid is measured.
+    return titleWidth;
+  };
+  const colTotalPx = orderedColKeys.reduce((sum, k) => sum + (widthOf(k) ?? 0), 0);
+  const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => widthOf(k) != null);
 
   /**
    * Wide enough for the longest row number the sheet actually has — plus the
@@ -3045,7 +3096,7 @@ export function RundownEditor({
   const colPct: Record<string, string> = {};
   if (sharing && gridWidth != null && gridWidth > 2) {
     const avail = gridWidth - 2;
-    const base = Object.fromEntries(orderedColKeys.map((k) => [k, colWidths[k] ?? 0]));
+    const base = Object.fromEntries(orderedColKeys.map((k) => [k, widthOf(k) ?? 0]));
     const px: Record<string, number> = {};
     const pinned = new Set<string>();
     /**

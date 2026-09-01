@@ -1267,6 +1267,29 @@ export function RundownEditor({
    */
   /** Whichever row this screen is meant to be looking at — the cue, or, before
    *  the show is live, the row the showcaller is walking the crew through. */
+  /**
+   * A row the show STEPS ONTO — walking the crew through it, or calling it.
+   *
+   * Three places decided this for themselves and none of them agreed. The
+   * walkthrough skipped headings but stepped onto pre-records; the transport
+   * skipped pre-records but stepped onto headings; and each had its own filter
+   * written inline. So "next" meant a different thing depending on which
+   * control you pressed, and the two disagreed about exactly the rows whose
+   * labels are hardest to reason about.
+   *
+   * One rule: a heading is a label rather than a thing that happens, a struck
+   * row is not going to happen, and a pre-record happens BESIDE the running
+   * order rather than in it. A milestone stays — it is a moment to hit, and
+   * hitting it is the point.
+   *
+   * "What is on next" on the big timer deliberately keeps its own, narrower
+   * rule (cue rows only): it answers "what do I play next", where a marker is
+   * not an answer. Different question, different rule, said here so the next
+   * reader does not take it for drift.
+   */
+  const stepsOnto = (r: { type?: string; skipped?: boolean; parallel?: boolean }): boolean =>
+    r.type !== "group" && !r.skipped && !r.parallel;
+
   const focusRowId = activeRowId ?? walkRowId;
   /**
    * A cheap signature of WHICH ROWS ARE DRAWN, for the follow below.
@@ -3694,13 +3717,13 @@ export function RundownEditor({
               <div className={isShow && !showLive && rows.length > 0 ? "preshow-group" : undefined}>
                 <ShowStateControls
                   channel={channel}
-                  orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
+                  orderedRowIds={rows.filter((r) => stepsOnto(r) || r.id === activeRowId).map((r) => r.id)}
                   preflight={preflight}
                   untilShowSec={untilShowSec}
                 />
                 {isShow && !showLive && mayDrive && rows.length > 0 &&
                   (() => {
-                    const walkable = rows.filter((r) => r.type !== "group" && !r.skipped);
+                    const walkable = rows.filter(stepsOnto);
                     const at = walkRowId ? walkable.findIndex((r) => r.id === walkRowId) : -1;
                     // Name the row the way the SHEET names it. This counted its
                     // own position among walkable rows, so on an imported sheet
@@ -3778,7 +3801,7 @@ export function RundownEditor({
         {isShow && (
           <TransportBar
             channel={channel}
-            orderedRowIds={rows.filter((r) => (!r.skipped && !r.parallel) || r.id === activeRowId).map((r) => r.id)}
+            orderedRowIds={rows.filter((r) => stepsOnto(r) || r.id === activeRowId).map((r) => r.id)}
           />
         )}
         {isShow && showLive && mayDrive && (

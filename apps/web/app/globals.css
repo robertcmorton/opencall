@@ -481,10 +481,16 @@ input.inline-edit {
 .selection-bar {
   position: relative;
 }
-.sel-close {
+/* `.selection-bar` prefixed for SPECIFICITY, not for tidiness: this button
+   carries a `data-tip`, and `[data-tip] { position: relative }` further down
+   the file matches it with the same weight as a bare `.sel-close` — so the
+   later rule won and `absolute` never applied. The offsets were then read as a
+   relative nudge, which is why it sat just inside the corner instead of on it. */
+.selection-bar .sel-close {
   position: absolute;
-  top: -9px;
-  right: -9px;
+  /* Straddling the corner: a little outside the box, a little inside. */
+  top: -10px;
+  right: -10px;
   width: 20px;
   height: 20px;
   padding: 0;
@@ -500,7 +506,7 @@ input.inline-edit {
   justify-content: center;
   box-shadow: var(--shadow-overlay);
 }
-.sel-close:hover {
+.selection-bar .sel-close:hover {
   color: var(--text-1);
   border-color: var(--text-3);
 }

@@ -495,9 +495,13 @@ input.inline-edit {
   height: 20px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--border);
+  /* The bar's own edge is the accent, and this sits ON that edge — so it
+     carries the same colour rather than the neutral grey used for controls
+     inside the bar. That is what makes it read as the bar's corner rather
+     than as another button that happens to be round. */
+  border: 1px solid var(--accent);
   background: var(--overlay);
-  color: var(--text-2);
+  color: var(--accent-text);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -507,8 +511,9 @@ input.inline-edit {
   box-shadow: var(--shadow-overlay);
 }
 .selection-bar .sel-close:hover {
-  color: var(--text-1);
-  border-color: var(--text-3);
+  color: #fff;
+  border-color: var(--accent-hover);
+  background: var(--accent-soft);
 }
 
 .selection-bar .count {

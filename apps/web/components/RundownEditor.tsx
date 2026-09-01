@@ -3609,7 +3609,25 @@ export function RundownEditor({
           )}
           {live && activeRow && (
             <BigTimer
-              live={live}
+              /**
+               * The numbers, but only if they are about THIS row.
+               *
+               * The active row changes the instant the server says so; these
+               * are recomputed on their own beat and published only when a
+               * whole second changes, so for up to a second after a handover
+               * they still describe the row that just finished. Dividing that
+               * elapsed by the new row's length pins the bar full, which is
+               * why every handover showed a finished bar, held it, and then
+               * dropped back to nothing.
+               *
+               * A row that has just started has run for no time at all, and
+               * saying so is both true and what the next tick will say anyway.
+               */
+              live={
+                live.rowId === activeRow.id
+                  ? live
+                  : { ...live, elapsedInRowSec: 0, rowOverSec: 0, remainingInRowSec: activeRow.durationSec ?? null }
+              }
               paused={isPaused ?? false}
               // A row the sheet never named still has to announce itself on the
               // biggest readout on the page — the same stand-in the sheet uses,
@@ -4547,14 +4565,22 @@ export function RundownEditor({
                           }
                           if (activeRowId !== rowRecord.id || !live || rowRecord.durationSec == null || rowRecord.durationSec <= 0)
                             return plain;
+          // The same staleness the big timer guards against: for up to a
+                          // second after a handover these numbers are still about the row
+                          // that just finished, and the previous row's remaining measured
+                          // against this row's length pins the bar full. A row that has
+                          // just started has run for no time.
+                          const mine = live.rowId === rowRecord.id;
                           // Red only after a full second over — the moment between a cue
                           // ending and the next taking over must not flash red.
-                          const over = live.remainingInRowSec != null && live.remainingInRowSec < -1;
-                          const frac = over
-                            ? 1
-                            : live.remainingInRowSec != null
-                              ? Math.min(1, Math.max(0, 1 - live.remainingInRowSec / rowRecord.durationSec))
-                              : 0;
+                          const over = mine && live.remainingInRowSec != null && live.remainingInRowSec < -1;
+                          const frac = !mine
+                            ? 0
+                            : over
+                              ? 1
+                              : live.remainingInRowSec != null
+                                ? Math.min(1, Math.max(0, 1 - live.remainingInRowSec / rowRecord.durationSec))
+                                : 0;
                           return (
                             <td className="mono-progress" style={{ position: "relative" }}>
                               {rowRecord.cells[col.key] ?? ""}
@@ -4563,7 +4589,7 @@ export function RundownEditor({
                                 className={`row-progress ${over ? "over" : ""}`}
                                 frac={frac}
                                 sweep={
-                                  !over && !isPaused && live.remainingInRowSec != null && live.remainingInRowSec > 0
+                                  mine && !over && !isPaused && live.remainingInRowSec != null && live.remainingInRowSec > 0
                                     ? { durationMs: rowRecord.durationSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
                                     : null
                                 }

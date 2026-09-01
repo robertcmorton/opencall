@@ -19,6 +19,18 @@ export interface LiveShowInput {
 }
 
 export interface LiveShowTiming {
+  /**
+   * WHICH ROW these numbers describe.
+   *
+   * Without it a reader cannot tell whether what it is holding is still about
+   * the row on screen. It usually is; for up to a second after the show moves
+   * on it is not, because the active row changes the moment the server says so
+   * while these are recomputed on their own beat. In that window the previous
+   * row's elapsed was being divided by the new row's length, which on a sheet
+   * of short items pins the progress bar full — so every handover showed a
+   * finished bar, held it, and then dropped back to nothing.
+   */
+  rowId: string;
   /** Seconds spent in the active row (pause-adjusted). */
   elapsedInRowSec: number;
   /** Planned duration minus elapsed; negative once over. */
@@ -96,7 +108,7 @@ export function computeLiveTiming(input: LiveShowInput): LiveShowTiming | null {
     if (timing.endSec != null) projectedEndSec = timing.endSec + showDriftSec;
   }
 
-  return { elapsedInRowSec, remainingInRowSec, rowOverSec, showDriftSec, projectedEndSec };
+  return { rowId: activeRowId, elapsedInRowSec, remainingInRowSec, rowOverSec, showDriftSec, projectedEndSec };
 }
 
 /** Default show-timezone mapping: local seconds since midnight. */

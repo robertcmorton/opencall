@@ -1290,6 +1290,18 @@ export function RundownEditor({
   const stepsOnto = (r: { type?: string; skipped?: boolean; parallel?: boolean }): boolean =>
     r.type !== "group" && !r.skipped && !r.parallel;
 
+  /**
+   * The walkthrough moved because somebody CLICKED a row, not because the
+   * position arrived from elsewhere.
+   *
+   * Clicking a row is done to a row you are already looking at, so re-centring
+   * it moves the sheet under the hand that just pointed at it — the one place
+   * the follow is unwanted. It still centres when the position arrives from
+   * another screen, which is the whole point of a shared walkthrough, and when
+   * Prev and Next step somewhere that may be off screen.
+   */
+  const walkFromClick = useRef(false);
+
   const focusRowId = activeRowId ?? walkRowId;
   /**
    * A cheap signature of WHICH ROWS ARE DRAWN, for the follow below.
@@ -1345,6 +1357,10 @@ export function RundownEditor({
    */
   useLayoutEffect(() => {
     if (!focusRowId || !followScroll) return;
+    if (walkFromClick.current) {
+      walkFromClick.current = false;
+      return;
+    }
     // Opening a rundown that is ALREADY live: the show state often arrives
     // before the document's rows have rendered, so retry until the live row
     // exists — first thing on screen is the current cue, centred.
@@ -4608,14 +4624,10 @@ export function RundownEditor({
                        * two exclusions Prev and Next already use.
                        */
                       const buildingSelection = e.shiftKey || e.metaKey || e.ctrlKey;
-                      if (
-                        isShow &&
-                        !showLive &&
-                        mayDrive &&
-                        !buildingSelection &&
-                        rowRecord.type !== "group" &&
-                        !rowRecord.skipped
-                      ) {
+                      if (isShow && !showLive && mayDrive && !buildingSelection && stepsOnto(rowRecord)) {
+                        // Pointed at, so already on screen: do not move it. See
+                        // `walkFromClick`.
+                        walkFromClick.current = true;
                         channel.sendCmd("walk", rowRecord.id);
                       }
                     }}

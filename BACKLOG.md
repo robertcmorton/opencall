@@ -533,7 +533,24 @@ Nothing can start on these until they are answered.
       CUE?** They are live-only now. If nudging a selected row is useful while
       building, the answer is to split the strip — CUE cannot be off-air
       whatever happens to the arrows.
-- [ ] **Should a refused command look like the behind-the-clock bar?** Its
+- [x] **Should a refused command look like the behind-the-clock bar?** ANSWERED
+      1 Sep: NO, and the question turned out to be hiding a real fault.
+      A full-width band is the right shape for a STATE — "the live cue is five
+      rows behind" is true until somebody fixes it, and the drift bar says so
+      for as long as it lasts. A refusal is an EVENT: you pressed something and
+      it did not happen. It needs to be seen once and dismissed, and dressing a
+      moment as a standing condition makes the sheet cry wolf. It stays a pill.
+      What was actually wrong: `.cmd-error` stacked above `--rolebar-h` and
+      nothing else, while the outcome dock and the touch nudge dock sit in the
+      same corner and publish their heights for exactly this purpose. A refusal
+      could be drawn UNDERNEATH the result chooser — which is up at full time,
+      the moment a refused command matters most. Fixed.
+      Also dropped its `translateX(-50%)` for auto margins. Nothing inside it is
+      `position: fixed` today, so it was harmless today; a transformed element
+      becomes the containing block for fixed descendants, and this repo has
+      already lost an afternoon to that exact bug.
+      Original note:
+- [ ] ~~Should a refused command look like the behind-the-clock bar?~~ Its
       LAYOUT was fixed 30 Aug — it was 188px wide holding an 87px sentence on a
       phone, five lines of one word each, because a fixed box with `left` and
       no `right` shrinks to half the screen. Whether it should also adopt the

@@ -2965,16 +2965,30 @@ th.col-drop-target {
 /* A transport command the server refused — shown where the caller is looking. */
 .cmd-error {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  /* A fixed box given `left` and no `right` shrink-to-fits inside what is left
-     of the screen — from 50% to the right edge, i.e. HALF of it. Measured on a
-     375px phone: the bar came out 188px wide and the sentence inside it 87px,
-     five lines of one word each, and the `max-width` below never came into it
-     because the box could never get that big. `max-content` asks for the whole
-     sentence on one line and lets max-width bring it back. */
+  /* Centred with auto margins rather than a transform. Nothing inside this box
+     is `position: fixed` today, so a transform would do no harm today — but a
+     transformed element becomes the containing block for fixed descendants,
+     and this house has already lost an afternoon to a tooltip rendering
+     hundreds of pixels from its button for exactly that reason. The next
+     person to put a control with a tooltip in here should not have to know. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  /* `max-content` asks for the whole sentence on one line and lets `max-width`
+     below bring it back, and it is what auto margins need in order to centre
+     anything. This box once had `left: 50%` and no `right`, which makes a fixed
+     box shrink-to-fit inside what is left of the screen — from 50% to the right
+     edge, i.e. HALF of it. Measured on a 375px phone: 188px wide around an 87px
+     sentence, five lines of one word each, with `max-width` never reached
+     because the box could not get that big. */
   width: max-content;
-  bottom: calc(16px + var(--rolebar-h, 0px));
+  /* ABOVE WHATEVER ELSE IS DOWN THERE.
+     This counted the role bar and nothing else, while the result chooser and
+     the touch nudge dock also sit at the bottom and publish their heights for
+     exactly this. So a refusal could be drawn underneath them — and the
+     chooser is up at full time, which is when a refused command is both most
+     likely and most expensive to miss. */
+  bottom: calc(16px + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;

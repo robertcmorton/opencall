@@ -211,7 +211,19 @@ export function ShowStateControls({
     return () => window.clearTimeout(t);
   }, [armStart]);
 
-  if (channel.role !== "caller" && channel.role !== "admin") return null;
+  /**
+   * Only a caller drives the show — but everybody may see whether it is running.
+   *
+   * This used to return null for anyone else, which took the LIVE / PAUSED
+   * badge away along with the buttons. "Is the show on air?" is worth knowing
+   * wherever you are sitting, and it is the same line the drift warning
+   * already draws: the warning is for everybody, the remedy is for the caller.
+   *
+   * Before the doors there is no badge to show, so a non-caller still gets
+   * nothing rather than an empty strip.
+   */
+  const mayDrive = channel.role === "caller" || channel.role === "admin";
+  if (!mayDrive && !isLive) return null;
 
   /**
    * Going live is not the same as starting the first item.
@@ -302,6 +314,7 @@ export function ShowStateControls({
               resume. The same fault Stop had when it became Confirm, and the
               same fix: both words share a cell, so the button is as wide as the
               longer of them whatever it currently says. Green still means go. */}
+          {mayDrive && (
           <button
             className={`btn btn-sm ${liveState === "running" ? "" : "btn-positive"}`}
             data-tip={liveState === "running" ? "Hold the show here — the clock keeps running" : "Resume"}
@@ -313,6 +326,8 @@ export function ShowStateControls({
               <span className={liveState === "running" ? "is-off" : undefined}>Resume</span>
             </span>
           </button>
+          )}
+          {mayDrive && (
           <button
             // Stopping needs a second press — ending a live show by a stray
             // tap is worse than a wasted one. But the first press has to LOOK
@@ -345,6 +360,7 @@ export function ShowStateControls({
               <span className={armStop ? undefined : "is-off"}>Confirm</span>
             </span>
           </button>
+          )}
         </>
       )}
     </div>

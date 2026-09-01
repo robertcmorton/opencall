@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Removed
+- **The app no longer talks to the hosting provider.** The groundwork for an in-app "update" button — a read-only reading of recent builds — has been taken out along with the idea. Updating is done from the source repository by hand, which needs no credential stored in the running service. The build badge keeps what it had: a "What's new" list read from the changelog, and a notice when the running deployment has moved past the build your tab is on.
+
+### Changed
+- **Anyone watching a show can see whether it is running.** The LIVE / PAUSED badge was hidden from everybody except the caller, along with the controls beside it. Whether the show is on air is worth knowing wherever you are sitting; starting, holding and stopping it stay with the caller.
+
 ### Changed
 - **The timing buttons appear in the middle of the row.** The strip a showcaller reaches for — the seconds either side of CUE and HOLD — sat at the far right edge of the sheet, away from the row it acts on. It is now centred on the row across as well as down.
 

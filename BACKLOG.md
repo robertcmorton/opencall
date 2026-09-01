@@ -468,30 +468,20 @@ session, which is exactly how both attempts above happened.
 
 Nothing can start on these until they are answered.
 
-- [ ] **The update button — HALF BUILT 30 Aug, and the half that is missing is
-      the half that needs you.** What shipped: the build badge opens a
-      "What's new" dialog reading this repo's own CHANGELOG.md, one line per
-      change with the detail behind a click; and the badge now notices when the
-      DEPLOYMENT has moved past the build this tab loaded, with a button that
-      reloads onto it. That part needs nothing and works today.
-      What did NOT ship is triggering a Railway deployment from the app, and
-      it is blocked on exactly the four things named below — unchanged:
-      whether deploy-on-push gets turned off (with it on, production is already
-      current and a deploy button is decoration), the branch name, what
-      "update automatically" is allowed to do, and a Railway API token created
-      and set as an environment variable. A token is a credential; it has to
-      come from you.
-- [x] **The grey concurrency bars** — DROPPED 30 Aug on the user's word ("they
-      mean nothing to me"). They shared the number column's edge with the blue
-      "running right now" mark — a plan and a state, two pixels apart, told
-      apart only by colour — and the plan was the weaker: a shared start time
-      is already in the TIME column. The hover text still names what a row
-      runs with.
-- [x] **Stale sessions end after 24h** — DECIDED AND DONE 30 Aug (aa7cd80).
-      Still flagged at 6h for a person to judge; ended at 24h, when there is no
-      judgement left. Ended through the state machine so the as-run record gets
-      its closing entry.
-      Original note:
+- [x] **The update button — DROPPED 1 Sep, on the user's instruction.** "Lets
+      remove this development altogether. People can update it themselves from
+      GitHub manually." So the app will not deploy itself, and the four
+      questions it was blocked on (deploy-on-push, the branch name, what
+      automatic updating may do, the token) are moot.
+      REMOVED with it: the read-only Railway client and the admin `/deploys`
+      endpoint built on 31 Aug. Nothing else read them.
+      KEPT, because it is useful and needs no credentials: the build badge's
+      "What's new" dialog, which reads this repo's own CHANGELOG.md, and the
+      notice that appears when the running deployment has moved past the build
+      a tab loaded, with a button that reloads onto it.
+      ACTION FOR THE USER: delete `RAILWAY_API_TOKEN` from the `opencall-sync`
+      service's variables in Railway. Nothing reads it now, and a live token
+      nothing uses is worth removing.
 - [ ] ~~Should a stale session ever end by itself~~, or only be flagged as it is
       now? Flagging was chosen deliberately: ending one on a timer would
       eventually stop a real show that sat quiet through a long delay.

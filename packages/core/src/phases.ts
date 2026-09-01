@@ -198,6 +198,26 @@ export const isExtraTimeRow = (title: string): boolean => EXTRA_TIME.test(title)
  */
 const NOT_EXTRA_TIME = /\b(?:buffer|estimate|allowance)\b|\bno\s+(?:extra\s?time|golden)/i;
 
+/**
+ * How much longer a rival has to be before it takes the break.
+ *
+ * The break between two halves is chosen as the LONGEST row named for it,
+ * because on a real sheet the candidates are "STANDBY FOR HALF TIME" with no
+ * length, "HALF TIME (15 mins)" at 900s, and a crowd-DJ track at 110s: first
+ * and last both pick the wrong one, longest picks the break.
+ *
+ * But `durationSec` is a LIVE number. Holding a row, nudging it, adding time —
+ * all of them write to it during a show, and a bare `>` means two candidates a
+ * few seconds apart can swap places while somebody is calling, and the band
+ * down the side of the sheet jumps. Requiring a clear margin makes that
+ * impossible without changing any real answer: the sheets this was measured on
+ * separate 900s from 110s, which is thirteen times this figure.
+ */
+const BREAK_MARGIN_SEC = 60;
+/** Longer, and by enough that a live edit cannot have caused it. */
+const longerBy = (a: number | null | undefined, b: number | null | undefined): boolean =>
+  (a ?? -1) >= (b ?? -1) + BREAK_MARGIN_SEC;
+
 const QUARTER_BREAK = /(?:1st|first|2nd|second|3rd|third)\s+(?:quarter|qtr)\s+break\b/i;
 
 export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[]): Phase[] {
@@ -297,7 +317,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
     const breakAt = (from: number, to: number): number | null => {
       const hits = playMatches(HALF_TIME, from, to);
       if (hits.length === 0) return null;
-      return hits.reduce((best, i) => ((rows[i]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? i : best));
+      return hits.reduce((best, i) => (longerBy(rows[i]?.durationSec, rows[best]?.durationSec) ? i : best));
     };
 
     /**
@@ -320,7 +340,7 @@ export function findPhases(rows: readonly PhaseRow[], gameEnds: readonly number[
         // The break between two quarters: a named quarter break, or half time
         // at the halfway line. Longest wins, for the reason given below.
         const gap = playMatches(QUARTER_BREAK, q + 1, nextStart - 1).concat(playMatches(HALF_TIME, q + 1, nextStart - 1));
-        const brk = gap.length === 0 ? null : gap.reduce((best, j) => ((rows[j]?.durationSec ?? -1) > (rows[best]?.durationSec ?? -1) ? j : best));
+        const brk = gap.length === 0 ? null : gap.reduce((best, j) => (longerBy(rows[j]?.durationSec, rows[best]?.durationSec) ? j : best));
         out.push({ from: q, to: (brk ?? nextStart) - 1, label: `${i + 1}${["st", "nd", "rd", "th"][i]} qtr`, short: `${i + 1}Q`, kind: "quarter", game: n });
         if (brk != null && k + 1 < known.length)
           out.push({

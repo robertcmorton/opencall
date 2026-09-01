@@ -358,11 +358,18 @@ Recorded so nobody rediscovers them as bugs.
 - [ ] ~~The prompter has its own follow~~, and did not get the walkthrough
       browse-and-rejoin behaviour. The user said "any viewer", and a prompter
       operator is one. Not touched, not tested.
-- [ ] **The half-time choice reads a LIVE number.** It takes the longest
+- [x] **The half-time choice reads a LIVE number** — FIXED 1 Sep. A rival now
+      has to be a clear 60s longer before it takes the break, so no hold, nudge
+      or add-time can move the band. The measured gap on the sample sheets is
+      900s against 110s, thirteen times the margin, so no real answer changes.
+      Mutation-tested — and the first version of that test proved nothing,
+      because its second fixture row ("HALF TIME music bed") does not match the
+      half-time pattern at all: it wants a separator before trailing words. A
+      fixture that fails to match tests nothing.
+      Original note:
+- [ ] ~~The half-time choice reads a LIVE number.~~ It takes the longest
       half-time-named row between the halves by `durationSec`, and durations
-      change during a show (HOLD, nudges, add-time). Margin on the sample
-      sheets is 900s against 110s so it will not flip in practice — but if a
-      band ever jumps mid-show, this is why.
+      change during a show (HOLD, nudges, add-time).
 - [x] **Landscape safe-area** — CONFIRMED BY THE USER 30 Aug ("resolved").
       Original note:
 - [ ] ~~Landscape safe-area NOT VERIFIED ON HARDWARE.~~ `env(safe-area-inset-*)`

@@ -343,3 +343,59 @@ describe("sheetFaults", () => {
     expect(f.map((x) => x.kind)).not.toContain("repeated-line");
   });
 });
+
+/**
+ * The break between two halves is chosen by length, and length is a LIVE
+ * number — held, nudged, added to while a show runs. A bare comparison lets two
+ * candidates a few seconds apart swap places mid-show, and the band down the
+ * side of the sheet jumps with them.
+ */
+describe("which row is the break", () => {
+  const sheet = (halfTimeRows: { title: string; durationSec: number | null }[]) => [
+    { title: "KICK OFF", durationSec: 60 },
+    { title: "First half", durationSec: 2400 },
+    ...halfTimeRows,
+    { title: "Second half", durationSec: 2400 },
+    { title: "FULL TIME", durationSec: null },
+  ];
+  const breakTitle = (rows: { title: string; durationSec: number | null }[]) => {
+    const ht = findPhases(rows as never, []).find((p) => p.kind === "half-time");
+    return ht ? rows[ht.from]!.title : null;
+  };
+
+  it("takes the real break over a stinger that shares its name", () => {
+    expect(
+      breakTitle(
+        sheet([
+          { title: "STANDBY FOR HALF TIME", durationSec: null },
+          { title: "HALF TIME (15 mins)", durationSec: 900 },
+          { title: "Crowd DJ — Stadium Beats HALF TIME", durationSec: 110 },
+        ]),
+      ),
+    ).toBe("HALF TIME (15 mins)");
+  });
+
+  /** THE POINT OF THE MARGIN: a nudge must not move the band. */
+  it("does not change its mind when a live edit lengthens the other one", () => {
+    // Both titles must actually READ as half time — "HALF TIME music bed" does
+    // not, because the pattern wants a separator before any trailing words, and
+    // a fixture that fails to match tests nothing at all. Found by mutation:
+    // removing the margin broke no test until this was corrected.
+    const rows = sheet([
+      { title: "HALF TIME — the break", durationSec: 900 },
+      { title: "HALF TIME — music bed", durationSec: 880 },
+    ]);
+    expect(breakTitle(rows)).toBe("HALF TIME — the break");
+    // Somebody holds the music bed for half a minute mid-show.
+    rows[3]!.durationSec = 910;
+    expect(breakTitle(rows)).toBe("HALF TIME — the break");
+  });
+
+  it("still moves when the difference is real rather than a nudge", () => {
+    const rows = sheet([
+      { title: "HALF TIME standby", durationSec: 30 },
+      { title: "HALF TIME (15 mins)", durationSec: 900 },
+    ]);
+    expect(breakTitle(rows)).toBe("HALF TIME (15 mins)");
+  });
+});

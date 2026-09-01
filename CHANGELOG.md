@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
-- **The big timer's progress bar sweeps instead of stepping.** Its fill was animating over nearly a second while a new position arrives four times a second, so every update interrupted the one before and the bar lurched and slowed, lurched and slowed. It now moves at one continuous speed. The same fault had already been found and fixed on the row-level bar; this was the one that was missed.
+- **The progress bars move continuously instead of stepping once a second.** The numbers behind them are published once a second on purpose — it is what stops a long sheet rebuilding itself four times a second — and the bars were trying to interpolate between those steps with a CSS transition. No transition length works for that: shorter and the bar lurches then waits, longer and it never arrives. A bar that knows how long its row is now runs a single animation for the whole row, started partway through at exactly the right point, so it is drawn every frame by the browser rather than once a second by the app. Both the big timer's bar and the row bars.
 
 ### Fixed
 - **Calling a result takes the sheet to the live row.** Pressing Win, Lose or golden point makes rows appear under the cue — five of them for a golden-point block — and the live row was left wherever that pushed it, sometimes hard against the bottom edge or off the screen entirely. Calling a result is a deliberate act on a live show and the one moment you want to see what you just chose, so the sheet now goes back to the cue, whether or not you had scrolled away.

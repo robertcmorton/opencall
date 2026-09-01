@@ -996,13 +996,18 @@ kbd {
   bottom: 3px;
   background: rgba(44, 100, 208, 0.42);
   border-right: 2px solid var(--accent);
-  /* 250ms because the fraction behind it is recomputed every 250ms.
-     It was 900ms, so every value started an animation that was retargeted
-     two thirds of the way from finishing — the bar was permanently chasing a
-     position it never reached, and its speed changed on every tick, which is
-     what made it look like it was stepping rather than sweeping. Matched to
-     the tick, each step lands exactly as the next is set and the motion is one
-     continuous sweep. Change one and change the other. */
+  /* This transition is now only the FALLBACK — a paused row, or one in
+     overrun, where there is nothing left to sweep towards. While a row is
+     running the fill is driven by the `bar-sweep` animation instead, which
+     runs once for the whole row and is started partway through with a
+     negative delay.
+     The old comment here said 250ms matched the tick "because the fraction is
+     recomputed every 250ms". It is COMPUTED four times a second and PUBLISHED
+     about once, because `useLiveTiming` drops any sample whose values round to
+     the same whole seconds — which is what stops a 3,000-row sheet rebuilding
+     itself four times a second. So the fraction really did arrive once a
+     second, and no transition length is right for that: shorter and the bar
+     lurches then waits, longer and it never arrives. */
   transition: width 250ms linear;
   pointer-events: none;
 }
@@ -1611,19 +1616,23 @@ kbd {
   overflow: hidden;
   margin-top: 5px;
 }
+/* One animation for the whole row, started partway through with a negative
+   delay — see `BarFill`. The compositor runs it, so it is smooth at whatever
+   the display refreshes at rather than at whatever rate React re-renders. */
+@keyframes bar-sweep {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
 .bt-bar > div {
   height: 100%;
   background: var(--under);
-  /* MATCHED TO THE TICK, and that is the whole point of the number.
-     `useLiveTiming` recomputes every 250ms, so a new width lands four times a
-     second. At 900ms each of those restarted an animation three and a half
-     times longer than the gap before the next one, so the bar never travelled
-     at a steady rate: it lurched toward each new target and decelerated, over
-     and over. Measured on a live countdown — a 4.6px step every 700ms against
-     a 1.53px baseline, which is what "jumping" looks like from the outside.
-     At 250ms each transition finishes exactly as the next begins, and the fill
-     moves at one continuous speed. Change this only alongside the interval in
-     `useLiveTiming`. */
+  /* Fallback only: a paused or overrunning row, where there is nothing left
+     to sweep towards. A running row is drawn by `bar-sweep` — see `BarFill`. */
   transition: width 250ms linear;
 }
 .big-timer.amber .bt-bar > div {

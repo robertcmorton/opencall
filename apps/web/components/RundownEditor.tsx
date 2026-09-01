@@ -398,18 +398,60 @@ const clampBelowHeader = (scroller: HTMLElement, rowTop: number): number => {
 };
 
 /**
- * Progress-bar fill that only ever animates forwards. Chrome will start the
- * CSS width transition from the previous fill's value even across a remount,
- * so on a row change the bar visibly receded instead of snapping to zero —
- * the transition is disabled inline whenever the fraction shrinks (and on
- * first paint), which prevents any width transition from starting.
+ * Progress-bar fill that only ever animates forwards.
+ *
+ * Chrome will start the CSS width transition from the previous fill's value
+ * even across a remount, so on a row change the bar visibly receded instead of
+ * snapping to zero — the transition is disabled inline whenever the fraction
+ * shrinks (and on first paint), which prevents any width transition from
+ * starting.
+ *
+ * `sweep` is the difference between a bar that STEPS and one that MOVES.
+ *
+ * The numbers behind these bars are published once a second, deliberately:
+ * `useLiveTiming` samples four times a second but only re-renders when a
+ * value ROUNDED TO WHOLE SECONDS changes, which is what keeps a 3,000-row
+ * sheet from rebuilding itself four times a second. That is right for the
+ * readouts, which show whole seconds anyway, and wrong for a bar, which is
+ * the one thing on screen whose whole job is to be continuous. Interpolating
+ * between the steps with a transition was the old answer and it never really
+ * worked: too short and the bar lurches then waits, too long and it is always
+ * chasing a position it never reaches.
+ *
+ * So a bar that knows how long the row is does not step at all. It is handed
+ * the row's length and how far into it we are, and runs one linear animation
+ * for the whole row with a NEGATIVE delay that starts it exactly where it
+ * should be. The compositor draws every frame; nothing has to tick. A nudge or
+ * a hold changes the numbers, the delay is recomputed, and it re-aims without
+ * a visible jump.
  */
-function BarFill({ frac, className }: { frac: number; className?: string }) {
+function BarFill({
+  frac,
+  className,
+  sweep,
+}: {
+  frac: number;
+  className?: string;
+  /** Row length and progress in ms, for the continuous form. */
+  sweep?: { durationMs: number; elapsedMs: number } | null;
+}) {
   const prevRef = useRef<number | null>(null);
   const snap = prevRef.current == null || frac < prevRef.current;
   useLayoutEffect(() => {
     prevRef.current = frac;
   });
+  if (sweep && sweep.durationMs > 0 && sweep.elapsedMs < sweep.durationMs) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: "100%",
+          transition: "none",
+          animation: `bar-sweep ${sweep.durationMs}ms linear ${-sweep.elapsedMs}ms 1 normal both`,
+        }}
+      />
+    );
+  }
   return <div className={className} style={{ width: `${frac * 100}%`, transition: snap ? "none" : undefined }} />;
 }
 
@@ -465,7 +507,14 @@ function BigTimer({
       </div>
       <div className="bt-time">{display}</div>
       <div className="bt-bar">
-        <BarFill frac={frac} />
+        <BarFill
+          frac={frac}
+          sweep={
+            plannedSec != null && plannedSec > 0 && !paused && remaining != null && remaining > 0
+              ? { durationMs: plannedSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
+              : null
+          }
+        />
       </div>
       {nextTitle && <div className="bt-neighbour bt-then">{nextTitle}</div>}
     </div>
@@ -1555,6 +1604,14 @@ export function RundownEditor({
     const t = i >= 0 ? timing.rows[i] : null;
     if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
     return Math.min(1, Math.max(0, (nowAbsSec - t.startSec) / (t.endSec - t.startSec)));
+  };
+  /** The same window as `clockFrac`, in ms, so the bar can run itself — see `BarFill`. */
+  const clockSweep = (id: string): { durationMs: number; elapsedMs: number } | null => {
+    if (nowAbsSec == null) return null;
+    const i = rows.findIndex((r) => r.id === id);
+    const t = i >= 0 ? timing.rows[i] : null;
+    if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
+    return { durationMs: (t.endSec - t.startSec) * 1000, elapsedMs: (nowAbsSec - t.startSec) * 1000 };
   };
 
   // Clock-follow runs on the SERVER (live fail-safe: no console needs to stay
@@ -4433,7 +4490,7 @@ export function RundownEditor({
                               <td className="mono-progress" style={{ position: "relative" }}>
                                 {rowRecord.cells[col.key] ?? ""}
                                 {foldedLine(rowRecord)}
-                                <BarFill className="row-progress alongside" frac={f} />
+                                <BarFill className="row-progress alongside" frac={f} sweep={clockSweep(rowRecord.id)} />
                               </td>
                             );
                           }
@@ -4451,7 +4508,15 @@ export function RundownEditor({
                             <td className="mono-progress" style={{ position: "relative" }}>
                               {rowRecord.cells[col.key] ?? ""}
                               {foldedLine(rowRecord)}
-                              <BarFill className={`row-progress ${over ? "over" : ""}`} frac={frac} />
+                              <BarFill
+                                className={`row-progress ${over ? "over" : ""}`}
+                                frac={frac}
+                                sweep={
+                                  !over && !isPaused && live.remainingInRowSec != null && live.remainingInRowSec > 0
+                                    ? { durationMs: rowRecord.durationSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
+                                    : null
+                                }
+                              />
                             </td>
                           );
                         })();

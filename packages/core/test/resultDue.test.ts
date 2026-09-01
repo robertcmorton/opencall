@@ -110,3 +110,54 @@ describe("the second question, after the extra period", () => {
     expect(resultDueNow({ ...extra, liveIndex: 8, remainingInRowSec: 5 })).toBe(false);
   });
 });
+
+/**
+ * Golden point may end at any moment, and usually does.
+ *
+ * A try in the second minute ends the match with nine minutes of block still
+ * printed below the cue. If the chooser waited for the last half-minute of the
+ * last row — the rule for a period played out in full — the one result that
+ * actually happened would be uncallable until somebody noticed and cued past
+ * it, live, with a producer talking in their ear.
+ */
+describe("a period the first score ends", () => {
+  const inExtra: ResultDueInput = {
+    ...base,
+    extraPlaying: true,
+    firstEndingIndex: 4,
+    lastExtraIndex: 9, // the block runs rows 5-9
+    lastEndingIndex: 14,
+    remainingInRowSec: 600,
+  };
+
+  it("keeps the chooser up for every second of golden point", () => {
+    for (const liveIndex of [5, 6, 7, 8, 9])
+      expect(resultDueNow({ ...inExtra, liveIndex, suddenDeathFromIndex: 5 })).toBe(true);
+  });
+
+  // The cost is a bar across the foot of the screen covering rows, which is
+  // why it is not simply the rule everywhere: a score in the second minute of
+  // an extra time that is PLAYED OUT settles nothing.
+  it("still waits for the end when the period is played out", () => {
+    for (const liveIndex of [5, 6, 7, 8])
+      expect(resultDueNow({ ...inExtra, liveIndex, suddenDeathFromIndex: -1 })).toBe(false);
+    expect(resultDueNow({ ...inExtra, liveIndex: 9, suddenDeathFromIndex: -1 })).toBe(false);
+    expect(resultDueNow({ ...inExtra, liveIndex: 9, remainingInRowSec: 20, suddenDeathFromIndex: -1 })).toBe(true);
+  });
+
+  /**
+   * A FINAL is both in one block: extra time rows 5-8 played out, then golden
+   * point at row 9. The chooser must stay away for the first ten minutes and
+   * be there for all of what follows.
+   */
+  it("splits a final between the two", () => {
+    const final = { ...inExtra, suddenDeathFromIndex: 9 };
+    for (const liveIndex of [5, 6, 7, 8]) expect(resultDueNow({ ...final, liveIndex })).toBe(false);
+    expect(resultDueNow({ ...final, liveIndex: 9 })).toBe(true);
+  });
+
+  // Absent means the old rule, so every sheet that never asked keeps what it had.
+  it("defaults to the late rule when nobody says", () => {
+    expect(resultDueNow({ ...inExtra, liveIndex: 6 })).toBe(false);
+  });
+});

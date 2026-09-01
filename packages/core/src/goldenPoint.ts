@@ -38,6 +38,9 @@ export const HOLDING_SEC = 120;
 /** Each half of golden point. Fixed by the competition: five minutes a side. */
 export const GOLDEN_HALF_SEC = 300;
 
+/** The unlimited period a final goes to when extra time settles nothing. */
+export const SUDDEN_DEATH_TITLE = "Golden point";
+
 /**
  * The block, in running order.
  *
@@ -46,11 +49,24 @@ export const GOLDEN_HALF_SEC = 300;
  * would be holding two periods together with nothing between them.
  *
  * `mustSettle` adds a fifth and sixth row, and that is a competition rule
- * rather than a preference. In a REGULAR SEASON match the ten minutes are
- * sudden death — the first score ends it, and nobody scoring means a draw is
- * declared and the night moves on. In a FINAL the same ten minutes are played
- * out whatever the score, and if the teams are still level after them the game
- * goes to a continuous, unlimited golden point that ends only on a score.
+ * rather than a preference. The two competitions play DIFFERENT extra periods,
+ * and this was wrong here until 1 September — both were called golden point,
+ * which is the name of only one of them:
+ *
+ *   REGULAR SEASON  the ten minutes ARE golden point. Sudden death: the first
+ *                   score wins and the match stops there, so the block very
+ *                   often does not run its length. Nobody scoring in the ten
+ *                   minutes is a draw.
+ *   FINAL           the ten minutes are EXTRA TIME, played out in full
+ *                   whatever the score. Only if the teams are still level
+ *                   after them does the game go to golden point, which is
+ *                   continuous and unlimited and ends on the first score.
+ *
+ * So `label` names the first ten minutes — "Golden point" in the regular
+ * season, "Extra time" in a final — and the row a final adds after them is
+ * golden point by name, because that is what it is. A showcaller reading
+ * "Golden point — first half" in a FINAL would believe the first try ended
+ * the match, and it does not.
  *
  * A run sheet cannot put a length on that last period, and should not pretend
  * to: the row carries no duration, which is how the rest of the sheet already
@@ -67,11 +83,39 @@ export function goldenPointBlock(label = "Golden point", mustSettle = false): Go
   if (mustSettle) {
     block.push(
       { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
-      { type: "cue", title: `${label} — sudden death`, durationSec: null },
+      { type: "cue", title: SUDDEN_DEATH_TITLE, durationSec: null },
     );
   }
   return block;
 }
+
+/**
+ * Is this row a period the first score ends?
+ *
+ * It decides when the result can be CALLED, and the two extra periods differ.
+ * Golden point is sudden death: a try goes down in the second minute and the
+ * match is over, so the chooser has to be reachable for every second of it. An
+ * extra time played out in full cannot be called early — the score is not the
+ * result until the siren — and a chooser sitting across the foot of the screen
+ * for ten minutes is ten minutes of covered rows.
+ *
+ * Read off the row's own words rather than from the kind of show, because the
+ * block is not always ours: plenty of sheets arrive with one already written
+ * in, worded by the production. Both name it the same way the laws do.
+ *
+ * HOLDING rows are excluded even when they name what they are holding for
+ * ("HOLDING — GOLDEN POINT RE-SET" is real wording from a sheet). Nothing is
+ * being played during a hold, so nothing can be scored, and the chooser can
+ * wait the two minutes.
+ */
+const SUDDEN_DEATH_TITLE_RE = /\bgolden\s*point\b|\bsudden\s*death\b/i;
+const A_HOLD = /\bholding\b|\bhold\b/i;
+
+export const isSuddenDeathRow = (title: string | null | undefined): boolean => {
+  const t = (title ?? "").trim();
+  if (!t || A_HOLD.test(t)) return false;
+  return SUDDEN_DEATH_TITLE_RE.test(t);
+};
 
 /**
  * What the whole block costs the night.

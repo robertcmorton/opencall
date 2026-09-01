@@ -137,6 +137,16 @@ export interface ResultDueInput {
   firstEndingIndex: number;
   /** The last row of the extra period, when one is being played. */
   lastExtraIndex: number;
+  /**
+   * The first row of the SUDDEN-DEATH stretch of the extra period — the part
+   * the first score ends. -1 when the extra period is played out in full.
+   *
+   * In the regular season that is the whole of golden point, so this is the
+   * block's first playing row. In a final the ten minutes of extra time are
+   * played out whatever the score and only the unlimited period after them is
+   * sudden death, so this points at that row instead.
+   */
+  suddenDeathFromIndex?: number;
   /** The extra period is in the running order and under way. */
   extraPlaying: boolean;
   /** Seconds left on the row that is on air; null when it has no duration. */
@@ -168,6 +178,7 @@ export function resultDueNow(input: ResultDueInput): boolean {
     called,
     lastEndingIndex,
     bufferSec,
+    suddenDeathFromIndex = -1,
   } = input;
 
   // Called already: keep the chooser up while the show is still IN the
@@ -190,6 +201,21 @@ export function resultDueNow(input: ResultDueInput): boolean {
   if (extraPlaying) {
     if (lastExtraIndex < 0) return true;
     if (liveIndex > lastExtraIndex) return true; // past it: it must be callable
+    /**
+     * SUDDEN DEATH IS THE EXCEPTION, and it is most of the extra time this app
+     * will ever see. Golden point ends on the first score: a try goes down in
+     * the second minute and the match is over, with nine minutes of block still
+     * printed below the cue. Waiting for the last half-minute of the last row
+     * would leave the one result that actually happened uncallable for as long
+     * as it took somebody to notice and cue past it.
+     *
+     * So inside a period the first score ends, the chooser is up throughout.
+     * The cost is real and is why this is not simply the rule everywhere: the
+     * chooser is a bar across the foot of a live screen, and it is now covering
+     * rows for up to ten minutes. Extra time that is PLAYED OUT keeps the late
+     * rule, because a score in the second minute of it settles nothing.
+     */
+    if (suddenDeathFromIndex >= 0 && liveIndex >= suddenDeathFromIndex) return true;
     return liveIndex === lastExtraIndex && withinBuffer;
   }
 
@@ -385,6 +411,110 @@ export function secondsUntilShow(
  * midnight like the sheet — a wall clock resets at 00:00 and a show running
  * into the small hours does not.
  */
+/**
+ * What the clock should do when the sheet gives it nothing to aim at.
+ *
+ * `clockTargetRow` only ever answers with a row the sheet gave a TIME. That is
+ * right for choosing between printed rows and wrong for getting through the
+ * ones with no time at all, which is what extra time is made of: nobody knows
+ * when golden point will happen, so nobody writes a time against it.
+ *
+ * The consequence was severe and was reported four ways at once. Call golden
+ * point on a live show and the cue stays on the second half, because the block
+ * beneath it is invisible to the clock — so the half runs over, its bar pins
+ * full and turns red, the big timer counts up in red, and the result chooser
+ * never returns, because it comes back when the cue reaches the LAST row of
+ * the extra period and the cue never gets there. Then the clock reaches the
+ * next match's first printed row and jumps to it, carrying the show out of the
+ * game with the result still uncalled and no way left to call it.
+ *
+ * So: a row with no printed time is played for its LENGTH, which is the only
+ * honest thing it has, and the clock may not step over one that has not been
+ * played. A row with no time AND no length stops the clock and waits for a
+ * person — the sheet is saying "this takes as long as it takes", and guessing
+ * would be worse than holding.
+ */
+export type ClockStep =
+  | { kind: "clock" }
+  | { kind: "hold"; reason: "running" | "unknowable" }
+  | { kind: "advance"; rowId: string };
+
+export function clockStep(
+  rows: readonly ClockTargetRow[],
+  durations: readonly (number | null)[],
+  activeRowId: string | null,
+  elapsedInRowSec: number,
+): ClockStep {
+  if (!activeRowId) return { kind: "clock" };
+  const at = rows.findIndex((r) => r.id === activeRowId);
+  if (at < 0) return { kind: "clock" };
+  /**
+   * `cueable` is the wrong test here, and deliberately so: it excludes rows the
+   * sheet never timed, because the CLOCK can never aim at one. This function
+   * exists precisely to play those rows, so it asks the other question — is
+   * this somewhere the show can stand? A heading is not, a struck row is not,
+   * a pre-record runs beside the order, and a milestone is a deadline with no
+   * length that would park the show reading as overrun. An untimed row with a
+   * length is none of those things.
+   */
+  const playable = (r: ClockTargetRow): boolean =>
+    r.type !== "group" && r.type !== "milestone" && !r.skipped && !r.parallel;
+  const nextAt = rows.findIndex((r, i) => i > at && playable(r));
+  const next = nextAt >= 0 ? rows[nextAt] : null;
+  const onUntimed = rows[at]!.hardStartSec == null;
+  // Only two situations are ours: standing ON a row the sheet never timed, or
+  // standing immediately before one. Everywhere else the clock knows best.
+  if (!onUntimed && (!next || next.hardStartSec != null)) return { kind: "clock" };
+  const planned = durations[at];
+  if (!next) return { kind: "hold", reason: "unknowable" };
+  /**
+   * No length means no time in the running order — which is what a null
+   * duration means everywhere else in this app, where `effDur` counts it as
+   * zero. So it is passed straight through rather than stalling the show on
+   * it. The row this matters for is the head of an ending block, "FULL TIME —
+   * SCORES LEVEL, GOLDEN POINT EXTRA TIME": a label for what follows, carrying
+   * no length because nothing about it takes time. Holding there would have
+   * left the cue on a caption while the extra period ran underneath it, and
+   * the result chooser waits for the cue to reach the LAST row of that period.
+   *
+   * KNOWN LIMIT, written down rather than papered over: a genuinely open-ended
+   * period — the unlimited golden point of a drawn final, which `goldenPointBlock`
+   * builds with no duration precisely because a sheet cannot put a length on it
+   * — is indistinguishable from a caption by these fields alone, and will be
+   * passed through too. A showcaller would have to cue it back. Telling the two
+   * apart wants a flag from the importer, the way `extraTime` was added.
+   */
+  if (planned == null || planned <= 0) return { kind: "advance", rowId: next.id };
+  if (elapsedInRowSec < planned) return { kind: "hold", reason: "running" };
+  return { kind: "advance", rowId: next.id };
+}
+
+/**
+ * When the row the follower just moved to BEGAN.
+ *
+ * Two kinds of move, and they need opposite answers.
+ *
+ * A row the CLOCK reached began when the sheet says it began, not when the
+ * follower noticed. Following the clock means the show is on the clock:
+ * backdating to the planned start keeps the item's countdown honest and the
+ * drift at zero, instead of reporting however long ago the row was due.
+ *
+ * A row `clockStep` reached begins NOW. It was not reached because a printed
+ * time came round — it has no printed time, which is the only reason it needed
+ * stepping into at all. Asking the timing model where it was PLANNED to start
+ * gets the answer "at full time", which was minutes ago, so the row is stamped
+ * as having begun before it began. The next tick finds it already past its
+ * length and advances again, and again, one row per tick at 1Hz.
+ *
+ * Measured on a live show on 1 September, before this existed: a twelve-second
+ * HOLDING lasted one second, a thirty-second half lasted two, and the whole
+ * golden-point block was gone in five seconds — the show coming out the far
+ * side into the next match with the result still uncalled. The chooser did
+ * appear on the way past, for a single second.
+ */
+export const rowStartedAtMs = (step: ClockStep, plannedMs: number, nowMs: number): number =>
+  step.kind === "advance" ? nowMs : plannedMs;
+
 export function clockTargetRow(
   rows: readonly ClockTargetRow[],
   startSecs: readonly (number | null)[],
@@ -815,4 +945,59 @@ export function reportClockRefusal(
   if (seen.get(rundownId) === target) return false;
   seen.set(rundownId, target);
   return true;
+}
+
+/** Which game the chooser is asking about. */
+export interface ActiveGameInput {
+  /** Every game on the sheet that has endings, in sheet order. */
+  games: readonly number[];
+  /** For each row: the game whose endings it belongs to, or null. */
+  endingGameAt: readonly (number | null)[];
+  /** Where the live cue is; -1 when no show is running. */
+  liveIndex: number;
+  /** Has this game's result been called? */
+  called: (game: number) => boolean;
+}
+
+/**
+ * The match the result chooser is about.
+ *
+ * Ordinarily the first game whose endings still lie ahead of the cue: a
+ * double-header asks about the game being played, not the one already won.
+ *
+ * A MATCH THE SHOW WALKED PAST WITHOUT A RESULT outranks that, and losing it
+ * is what made a called golden point unanswerable. Calling golden point strikes
+ * the win, lose and draw rows — that is how the app records extra time being
+ * played rather than a result — so the block ENDS at the last golden row, and
+ * the instant the cue steps off it every ending of that game is behind the cue.
+ * The question moved on to the next match and the result of the one just played
+ * became uncallable: no chooser, and no way to get one back. Watched happening
+ * on 1 September, golden point running its full ten minutes and the show going
+ * straight into the next walk-in with nobody ever asked who won.
+ *
+ * Bounded deliberately. The unfinished match holds the question only until the
+ * NEXT game's endings come into view. A showcaller who never calls a result
+ * should be asked again — but not at the cost of the chooser for the match
+ * actually on air, which is the one whose answer still changes what plays.
+ */
+export function activeOutcomeGame(input: ActiveGameInput): number | null {
+  const { games, endingGameAt, liveIndex, called } = input;
+  if (games.length === 0) return null;
+  if (games.length === 1) return games[0]!;
+  if (liveIndex < 0) return games.find((g) => !called(g)) ?? games[0]!;
+
+  const firstOf = (g: number) => endingGameAt.findIndex((x) => x === g);
+  const lastOf = (g: number): number =>
+    endingGameAt.reduce<number>((acc, x, i) => (x === g ? i : acc), -1);
+
+  const passedUncalled = [...games]
+    .reverse()
+    .find((g) => firstOf(g) >= 0 && liveIndex > lastOf(g) && !called(g));
+  if (passedUncalled != null) {
+    const next = games.find((g) => firstOf(g) > lastOf(passedUncalled));
+    if (liveIndex < (next == null ? Infinity : firstOf(next))) return passedUncalled;
+  }
+
+  for (const g of games) if (lastOf(g) >= liveIndex) return g;
+  return games[games.length - 1]!;
 }

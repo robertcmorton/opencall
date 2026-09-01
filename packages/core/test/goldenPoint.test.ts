@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GOLDEN_HALF_SEC,
   HOLDING_SEC,
-  findDecisionPoints, goldenPointBlock,
+  findDecisionPoints, goldenPointBlock, isSuddenDeathRow,
   goldenPointDurationSec,
   shiftAnchorsAfter,
 } from "../src/index";
@@ -141,9 +141,28 @@ describe("goldenPointBlock — a final cannot end level", () => {
   // Without this the sheet runs out of rows while a final is still being
   // played.
   it("carries on into sudden death in a final", () => {
-    const block = goldenPointBlock("Golden point", true);
+    const block = goldenPointBlock("Extra time", true);
     expect(block).toHaveLength(6);
-    expect(block.at(-1)?.title).toBe("Golden point — sudden death");
+    expect(block.at(-1)?.title).toBe("Golden point");
+  });
+
+  /**
+   * The two periods of a final are DIFFERENT periods, and calling both of them
+   * golden point is the kind of mistake that stands a match down on the first
+   * try scored in extra time. A final's ten minutes are played out; only what
+   * follows them ends on a score.
+   */
+  it("names a final's first ten minutes extra time, not golden point", () => {
+    const titles = goldenPointBlock("Extra time", true).map((r) => r.title);
+    expect(titles).toEqual([
+      "HOLDING",
+      "Extra time — first half",
+      "HOLDING",
+      "Extra time — second half",
+      "HOLDING",
+      "Golden point",
+    ]);
+    expect(titles.slice(0, 5).some((t) => /golden/i.test(t))).toBe(false);
   });
 
   // Nobody can say how long it runs, and a run sheet should not pretend to.
@@ -154,6 +173,44 @@ describe("goldenPointBlock — a final cannot end level", () => {
   it("counts only the periods whose length is known", () => {
     expect(goldenPointDurationSec("Golden point")).toBe(2 * HOLDING_SEC + 2 * GOLDEN_HALF_SEC);
     // The extra HOLDING is real time; the period after it is not knowable.
-    expect(goldenPointDurationSec("Golden point", true)).toBe(3 * HOLDING_SEC + 2 * GOLDEN_HALF_SEC);
+    expect(goldenPointDurationSec("Extra time", true)).toBe(3 * HOLDING_SEC + 2 * GOLDEN_HALF_SEC);
+  });
+});
+
+/**
+ * Which rows the first score can end.
+ *
+ * This is what decides whether the result chooser is up for the whole period
+ * or only its last half-minute, so it has to tell golden point from an extra
+ * time played out in full — and it has to do it on wording, because plenty of
+ * sheets arrive with the block already written by the production.
+ */
+describe("isSuddenDeathRow", () => {
+  it("knows golden point ends on a score", () => {
+    expect(isSuddenDeathRow("Golden point")).toBe(true);
+    expect(isSuddenDeathRow("Golden point — first half")).toBe(true);
+    expect(isSuddenDeathRow("GOLDEN POINT - SECOND HALF")).toBe(true);
+    expect(isSuddenDeathRow("Sudden death")).toBe(true);
+  });
+
+  // A final plays these out whatever the score. Calling them early is calling
+  // a result the siren has not given yet.
+  it("knows extra time is played out", () => {
+    expect(isSuddenDeathRow("Extra time — first half")).toBe(false);
+    expect(isSuddenDeathRow("Extra time — second half")).toBe(false);
+  });
+
+  // Nothing is being played during a hold, so nothing can be scored — and the
+  // wording is real: sheets name what they are holding for.
+  it("does not count a hold as a period", () => {
+    expect(isSuddenDeathRow("HOLDING")).toBe(false);
+    expect(isSuddenDeathRow("HOLDING — GOLDEN POINT RE-SET")).toBe(false);
+    expect(isSuddenDeathRow("HOLDING — change of ends")).toBe(false);
+  });
+
+  it("says no to nothing at all", () => {
+    expect(isSuddenDeathRow("")).toBe(false);
+    expect(isSuddenDeathRow(null)).toBe(false);
+    expect(isSuddenDeathRow("Winning song and lap of the ground")).toBe(false);
   });
 });

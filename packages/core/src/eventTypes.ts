@@ -120,13 +120,22 @@ export const EVENT_TYPES: EventTypeDef[] = [
    * The ENDINGS are identical, so the women's game needs no kind of show of its
    * own:
    *   REGULAR SEASON  level at full time goes to two five-minute halves of
-   *                   golden point, sudden death — the first score wins, and
-   *                   if nobody scores a draw is declared. That is `nrl`.
-   *   FINALS & GF     the same ten minutes, but played out whatever the score;
-   *                   still level after them and it goes to a continuous,
-   *                   unlimited golden point that ends only on a score. That
-   *                   is `nrl-finals`, and the unlimited period is why the
-   *                   generated block grows a last row with no length on it.
+   *                   golden point, sudden death — the first score wins and
+   *                   the match stops there, so those ten minutes very often
+   *                   do not run their length. Nobody scoring in them is a
+   *                   draw. That is `nrl`.
+   *   FINALS & GF     level at full time goes to two five-minute halves of
+   *                   EXTRA TIME, which are played out in full whatever the
+   *                   score. Still level after them and the game goes on to
+   *                   golden point — continuous, unlimited, ended only by a
+   *                   score. That is `nrl-finals`: two periods, not one, and
+   *                   the unlimited second is why the generated block grows a
+   *                   last row with no length on it.
+   *
+   * The difference is not cosmetic and it was modelled wrongly here until
+   * 1 September, when both were called golden point. A final's first ten
+   * minutes are not sudden death; a showcaller told they were would stand the
+   * match down on the first try scored in them.
    */
   {
     id: "nrl",
@@ -134,15 +143,15 @@ export const EVENT_TYPES: EventTypeDef[] = [
     group: "Sport",
     ...extraCanDraw("Golden point"),
     resultDueAfter: SECOND_HALF,
-    blurb: "Level at full time goes to golden point — ten minutes, first score wins. Still level at the end and it is a draw.",
+    blurb: "Level at full time goes to golden point — two five-minute halves, first score wins and the match ends there. Still level at the end and it is a draw.",
   },
   {
     id: "nrl-finals",
     label: "Rugby league (NRL) — final",
     group: "Sport",
-    ...extraMustSettle("Golden point"),
+    ...extraMustSettle("Extra time"),
     resultDueAfter: SECOND_HALF,
-    blurb: "A final cannot be drawn: level after golden point is played on until somebody scores.",
+    blurb: "Level at full time plays two five-minute halves of extra time in full, then golden point until somebody scores. A final cannot be drawn.",
   },
   {
     /**

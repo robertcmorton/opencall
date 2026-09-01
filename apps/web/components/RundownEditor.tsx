@@ -25,11 +25,13 @@ import {
   defaultViewColumns,
   resolveEventType,
   resultDueNow,
+  activeOutcomeGame,
   outcomesFor,
   findDecisionPoints,
   findPhases,
   goldenPointBlock,
   goldenPointDurationSec,
+  isSuddenDeathRow,
   shiftAnchorsAfter,
   formatDuration,
   formatTimeOfDay,
@@ -632,8 +634,27 @@ function TimingNudge({
     const t = window.setTimeout(() => setArmed(false), 6000);
     return () => window.clearTimeout(t);
   }, [armed]);
+  /**
+   * CUE stands apart from the rest, and that is a safety rule rather than a
+   * layout preference.
+   *
+   * Everything else on this strip is a CORRECTION to a row: take five seconds
+   * out, give it thirty, hold it past its end. They are small, they are
+   * reversible, and the worst of them costs the sheet half a minute. CUE is
+   * not one of those. It takes the show to this row NOW, on air, and strikes
+   * whatever it passes on the way — on a hovered row three pages down that is
+   * a dozen items gone.
+   *
+   * Sitting in the same pill, at the same size, in the same row of buttons,
+   * it read as the fourth of eight corrections. Its own pill, with a gap of
+   * clear space either side, is the difference between reaching for -5 and
+   * hitting it.
+   */
+  const corrections = nudges || (hold && live) || golden;
   return (
-    <div className="timing-nudge" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="timing-nudge-group" onPointerDown={(e) => e.stopPropagation()}>
+      {corrections && (
+      <div className="timing-nudge">
       {nudges &&
         [-30, -15, -5].map((d) => (
         <button
@@ -647,28 +668,6 @@ function TimingNudge({
           {d}
         </button>
         ))}
-      {live && (
-      <button
-        type="button"
-        className={`tn-btn tn-cue ${armed ? "armed" : ""}`}
-        disabled={disabled}
-        data-tip={
-          skips > 0
-            ? `Take this item NOW — the show jumps here, the ${skips} item${skips === 1 ? "" : "s"} in between are struck, and everything below re-times`
-            : "This item is happening NOW — pin it to the clock and re-time everything below it"
-        }
-        onClick={() => {
-          if (skips > 0 && !armed) {
-            setArmed(true);
-            return;
-          }
-          setArmed(false);
-          onCue();
-        }}
-      >
-        {armed ? `Strike ${skips}?` : "CUE"}
-      </button>
-      )}
       {/* Right of CUE, because it is the other thing you do to the item that is
           on air: CUE says the next one starts now, HOLD says this one is not
           finished. Pressing it starts a stopwatch; pressing GO spends whatever
@@ -714,6 +713,33 @@ function TimingNudge({
         >
           ⚡ {golden.label}
         </button>
+      )}
+      </div>
+      )}
+      {/* Its own pill — see above. */}
+      {live && (
+        <div className="timing-nudge tn-cue-pill">
+      <button
+        type="button"
+        className={`tn-btn tn-cue ${armed ? "armed" : ""}`}
+        disabled={disabled}
+        data-tip={
+          skips > 0
+            ? `Take this item NOW — the show jumps here, the ${skips} item${skips === 1 ? "" : "s"} in between are struck, and everything below re-times`
+            : "This item is happening NOW — pin it to the clock and re-time everything below it"
+        }
+        onClick={() => {
+          if (skips > 0 && !armed) {
+            setArmed(true);
+            return;
+          }
+          setArmed(false);
+          onCue();
+        }}
+      >
+        {armed ? `Strike ${skips}?` : "CUE"}
+      </button>
+        </div>
       )}
     </div>
   );
@@ -1926,9 +1952,17 @@ export function RundownEditor({
     const liveIndex = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
     const firstEndingIndex = rows.findIndex((r) => r.outcome && (r.outcomeGame ?? 1) === g);
 
+    // The extra period, and the part of it the first score would end. Golden
+    // point is sudden death and can stop at any moment, so the chooser has to
+    // be reachable throughout it; a final's extra time is played out and keeps
+    // the late rule. Read off the rows' own words — see `isSuddenDeathRow`.
     let lastExtraIndex = -1;
-    for (let i = 0; i < rows.length; i++)
-      if ((rows[i]!.outcomeGame ?? 1) === g && rows[i]!.outcome === "golden") lastExtraIndex = i;
+    let suddenDeathFromIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if ((rows[i]!.outcomeGame ?? 1) !== g || rows[i]!.outcome !== "golden") continue;
+      lastExtraIndex = i;
+      if (suddenDeathFromIndex < 0 && isSuddenDeathRow(rows[i]!.title)) suddenDeathFromIndex = i;
+    }
 
     // The far edge of this game's endings, across every branch — where the
     // decision stops being live and becomes something that already happened.
@@ -1956,6 +1990,7 @@ export function RundownEditor({
       firstEndingIndex,
       lastExtraIndex,
       extraPlaying: goldenPlaying(g),
+      suddenDeathFromIndex,
       remainingInRowSec: live?.remainingInRowSec ?? null,
       notBeforeIndex,
       called: chosenOf(g) != null,
@@ -2017,18 +2052,12 @@ export function RundownEditor({
     return Boolean(r.skipped);
   };
   /** The game whose full time is nearest the live cue — the one being called. */
-  const activeGame = (() => {
-    if (outcomeGames.length === 0) return null;
-    if (outcomeGames.length === 1) return outcomeGames[0]!;
-    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-    if (liveIdx < 0) return outcomeGames.find((g) => chosenOf(g) == null) ?? outcomeGames[0]!;
-    // The first game whose branch rows still lie ahead of the live cue.
-    for (const g of outcomeGames) {
-      const last = rows.reduce((acc, r, i) => ((r.outcomeGame ?? 1) === g && r.outcome ? i : acc), -1);
-      if (last >= liveIdx) return g;
-    }
-    return outcomeGames[outcomeGames.length - 1]!;
-  })();
+  const activeGame = activeOutcomeGame({
+    games: outcomeGames,
+    endingGameAt: rows.map((r) => (r.outcome ? r.outcomeGame ?? 1 : null)),
+    liveIndex: activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1,
+    called: (g) => chosenOf(g) != null,
+  });
   const pickOutcome = (o: string, game: number): void => {
     // Extra time that has already been played stays played. Picking the result
     // AFTER golden point used to skip the golden block, so the twenty minutes
@@ -2817,12 +2846,31 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * EXPORTS TAKE EVERY COLUMN THE SHEET HAS, not the ones that fit.
+   *
+   * `orderedColumns` is a RESPONSIVE set: `foldedKeys` drops the extra columns
+   * that will not fit the window and the grid draws them folded under the item
+   * instead. Nothing is hidden on screen. But both exports read that set, so
+   * the file came out with whatever happened to fit the window it was exported
+   * from — a sheet exported from a narrow window lost WHO, SCR and NOTES
+   * entirely, silently, with no sign in the file that they had ever existed.
+   * Measured on the concurrency sheet in an 800px pane: four columns in the
+   * CSV, `Type,TIME,DUR,ITEM / ACTION`, against the six on the sheet.
+   *
+   * A file is not a viewport. `shown` is every column the sheet carries, which
+   * is what somebody exporting a run sheet is asking for.
+   *
+   * Read inside the callbacks rather than hoisted to a const up here: `shown`
+   * is declared further down the component, and a const at this point would be
+   * in its temporal dead zone on every render. These two only run on a click.
+   */
   const exportCsv = (): void => {
     // Columns in the sheet's order, with the sheet's own header names.
-    const header = ["Type", ...orderedColumns.map((c) => c.title)];
+    const header = ["Type", ...shown.map((c) => c.title)];
     const body = rows.map((r, i) => [
       r.type,
-      ...orderedColumns.map((c) =>
+      ...shown.map((c) =>
         c.kind === "title"
           ? r.title
           : c.kind === "startTime"
@@ -2852,7 +2900,7 @@ export function RundownEditor({
       versionLabel: meta.versionLabel,
       use24h: meta.use24h,
       keyTimes,
-      columns: orderedColumns,
+      columns: shown,
       widthFor: (key) => colWidths[key] ?? columns.find((c) => c.key === key)?.width,
       rows,
       timing,

@@ -2425,6 +2425,20 @@ select:disabled {
 
 /* ---------- Timing nudges (row-level ± seconds and CUE) ---------- */
 
+/* CUE sits in a pill of its own, with clear space either side.
+   Everything in `.timing-nudge` is a correction to a row — take five seconds
+   out, give it thirty, hold it past its end — and all of them are small and
+   reversible. CUE takes the show to the row NOW and strikes whatever it
+   passes. In the same pill, at the same size, it read as the fourth of eight
+   corrections; the gap is what stops a reach for -5 landing on it. */
+.timing-nudge-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.timing-nudge.tn-cue-pill {
+  border-color: var(--accent);
+}
 .timing-nudge {
   display: inline-flex;
   align-items: center;

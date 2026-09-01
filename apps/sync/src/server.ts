@@ -11,6 +11,8 @@ import {
 import {
   absoluteNow,
   clockTargetRow as coreClockTargetRow,
+  clockStep,
+  rowStartedAtMs,
   followerMayMove,
   reportClockRefusal,
   computeTiming,
@@ -623,7 +625,41 @@ async function clockTick(): Promise<void> {
       const sheet = await sheetNow(rundownId);
       if (!sheet) continue;
       const { rows, timing, nowMs, nowSec } = sheet;
-      const target = clockTargetRow(rows, timing, nowSec);
+
+      /**
+       * ROWS THE SHEET NEVER TIMED come first, because the clock cannot see
+       * them and must not step over them.
+       *
+       * Extra time is made of them: nobody knows when golden point will
+       * happen, so nobody writes a time against it. With only the clock to go
+       * on, calling golden point left the cue on the second half — the block
+       * beneath it being invisible — so the half overran in red with its bar
+       * pinned, the big timer counted up, and the result chooser never came
+       * back, because it returns when the cue reaches the LAST row of the
+       * extra period. Then the next match's first printed row came round and
+       * the clock jumped to it, taking the show out of the game with the
+       * result still uncalled and no way left to call it. All four of those
+       * were reported at once, and they are one fault.
+       *
+       * A row with no printed time is played for its LENGTH instead — the only
+       * honest thing it has — and the clock is not allowed past one that has
+       * not been played.
+       */
+      const elapsedSec =
+        current.activeRowStartedAtMs == null
+          ? 0
+          : Math.max(0, (nowMs - current.activeRowStartedAtMs - current.pausedAccumMs) / 1000);
+      const step = clockStep(
+        rows,
+        rows.map((r) => r.durationSec ?? null),
+        current.activeRowId,
+        elapsedSec,
+      );
+      if (step.kind === "hold") {
+        refusedClockTarget.delete(rundownId);
+        continue;
+      }
+      const target = step.kind === "advance" ? step.rowId : clockTargetRow(rows, timing, nowSec);
       /**
        * A null target means the clock has not reached the first item yet, and
        * this leaves the cue alone rather than clearing it.
@@ -681,11 +717,15 @@ async function clockTick(): Promise<void> {
         continue;
       }
 
-      // The row began when the SHEET says it began, not at the moment the
-      // follower noticed. Following the clock means the show is on the clock:
-      // backdating keeps the item's countdown honest and the drift at zero,
-      // instead of reporting however long ago the row was due to start.
-      const result = machine.apply("jump", target, nowMs, plannedStartMs(timing, targetIndex, nowMs, nowSec));
+      // Backdated to the planned start when the CLOCK reached the row, stamped
+      // NOW when `clockStep` stepped into one the sheet never timed. The rule
+      // and the reason live in core, where they can be tested.
+      const startedAtMs = rowStartedAtMs(
+        step,
+        plannedStartMs(timing, targetIndex, nowMs, nowSec),
+        nowMs,
+      );
+      const result = machine.apply("jump", target, nowMs, startedAtMs);
       if (typeof result === "string") continue;
       refusedClockTarget.delete(rundownId);
       broadcast(rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });

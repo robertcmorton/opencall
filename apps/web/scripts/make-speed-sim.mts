@@ -28,6 +28,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { buildSheet, computeTiming, planImport, type BuiltRow, type PlanRow } from "@opencall/core";
 import { extractGrid } from "../lib/importExtract";
+import { compressSegment } from "../lib/compressTimes";
 
 const legacyPdfjs = () => import("pdfjs-dist/legacy/build/pdf.mjs") as never;
 
@@ -151,15 +152,21 @@ const smallOffset = (sec: number) => Math.round(sec / divisor);
     if (!boundary || i === segStart) continue;
     const seg = beats.slice(segStart, i);
     const spend = seg.filter((b) => !b.row.parallel && b.lengthSec > 0);
-    for (const b of seg) b.smallSec = b.lengthSec > 0 ? Math.max(1, Math.round(b.lengthSec / divisor)) : 0;
+    for (const b of seg) b.smallSec = 0;
     const target =
       i < beats.length ? smallOffset(beats[i]!.offsetSec) - smallOffset(beats[segStart]!.offsetSec) : null;
-    if (target != null && spend.length > 0) {
-      const have = spend.reduce((a, b) => a + b.smallSec, 0);
-      const last = spend[spend.length - 1]!;
-      // Never below a second: a row that takes no time is a row deleted.
-      last.smallSec = Math.max(1, last.smallSec + (target - have));
-    }
+    /**
+     * Every stretch lands on its next anchor, by construction.
+     *
+     * This used to round each row on its own and then push the whole remainder
+     * onto the LAST row, floored at a second — which drops any remainder that
+     * row cannot give back, and does nothing at all for a stretch with nothing
+     * to spend. The sheet it produced carried 108 timing complaints in four
+     * families of exactly 27, one per cycle: 10.5% of its rows were sitting on
+     * that one-second floor. See `compressSegment`.
+     */
+    const compressed = compressSegment(spend.map((b) => b.lengthSec), divisor, target);
+    spend.forEach((b, k) => (b.smallSec = compressed[k]!));
     segStart = i;
   }
 }

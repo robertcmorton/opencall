@@ -163,6 +163,7 @@ function SortableRow({
   onNow,
   disabled,
   onSelect,
+  onRowClick,
 }: {
   row: ProjectedRow;
   /** Set when this row is one of a game's alternate endings — see `branchAt`. */
@@ -188,6 +189,15 @@ function SortableRow({
   onNow: boolean;
   disabled: boolean;
   onSelect: (e: React.MouseEvent) => void;
+  /**
+   * A click anywhere on the row, for walking the sheet.
+   *
+   * Only supplied while a walkthrough is running. Cells open on DOUBLE click,
+   * so a single click on one is otherwise doing nothing at all — which is what
+   * made "click the row to take us there" read as broken everywhere except the
+   * one narrow column that happened to carry the handler.
+   */
+  onRowClick?: (e: React.MouseEvent) => void;
   /** Which match this row belongs to on a day that holds more than one. */
   band?: number | null;
   /** Unresolved notes the crew have raised against this row. */
@@ -202,6 +212,18 @@ function SortableRow({
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
       }`}
+      onClick={
+        onRowClick
+          ? (e) => {
+              // The row-number cell has its own handler and already does this;
+              // and anything you can press — a button, a field, the fork
+              // triangle — is answering the click itself.
+              const el = e.target as HTMLElement;
+              if (el.closest("td.row-number, button, input, select, textarea, [contenteditable='true']")) return;
+              onRowClick(e);
+            }
+          : undefined
+      }
       data-rowid={row.id}
       data-tip={
         walk
@@ -4654,6 +4676,28 @@ export function RundownEditor({
                     runsWith={runsWith.get(rowRecord.id)}
                     onNow={onNowIds.has(rowRecord.id)}
                     disabled={!canEditContent}
+                    /**
+                     * Walking the sheet by clicking the row — ANY of it.
+                     *
+                     * This lived on the row-number cell alone, which is one
+                     * narrow column at the far left, so "click a row to take
+                     * us there" was true of about a twentieth of the row and
+                     * read as broken over the rest. Cells open on double
+                     * click, so a single click on one was doing nothing.
+                     * Offered only while a walkthrough is running, so that
+                     * clicking rows to colour or strike them before the doors
+                     * does not drag the crew's highlight around.
+                     */
+                    onRowClick={
+                      isShow && !showLive && mayDrive && walkRowId != null
+                        ? (e) => {
+                            if (e.shiftKey || e.metaKey || e.ctrlKey) return;
+                            if (!stepsOnto(rowRecord)) return;
+                            walkFromClick.current = true;
+                            channel.sendCmd("walk", rowRecord.id);
+                          }
+                        : undefined
+                    }
                     onSelect={(e) => {
                       if (!canEditContent) return;
                       selectRow(rowRecord.id, e);

@@ -4692,6 +4692,12 @@ export function RundownEditor({
                       isShow && !showLive && mayDrive && walkRowId != null
                         ? (e) => {
                             if (e.shiftKey || e.metaKey || e.ctrlKey) return;
+                            // Selected as well as walked to, so the row's own
+                            // controls come up with it — the number cell has
+                            // always done both, and a click on the rest of the
+                            // row that moved the crew but offered nothing to do
+                            // with the row was half an answer.
+                            if (canEditContent) selectRow(rowRecord.id, e);
                             if (!stepsOnto(rowRecord)) return;
                             walkFromClick.current = true;
                             channel.sendCmd("walk", rowRecord.id);

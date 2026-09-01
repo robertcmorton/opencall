@@ -1179,6 +1179,23 @@ export function RundownEditor({
   /** Whichever row this screen is meant to be looking at — the cue, or, before
    *  the show is live, the row the showcaller is walking the crew through. */
   const focusRowId = activeRowId ?? walkRowId;
+  /**
+   * A cheap signature of WHICH ROWS ARE DRAWN, for the follow below.
+   *
+   * The follow re-centres on `rows.length`, which is right for a row being
+   * added or removed and blind to the thing that actually moves the sheet
+   * about: calling a result. Nothing is added or deleted then — the endings
+   * that will not be played are struck and stop being drawn, and the branch
+   * that will be played appears — so the live row can jump half a screen
+   * while `rows.length` sits perfectly still and the follow never fires.
+   * Calling golden point is the everyday case: five rows arrive under the cue
+   * and the sheet does not move to it.
+   *
+   * Counting struck rows catches all of it — `forkHides` reduces to exactly
+   * that once anything is called, and to "every ending" before — and it is one
+   * pass with no nested lookups, which `chosenOf` per row would not be.
+   */
+  const drawnSignature = `${outcomeLayout}:${rows.reduce((n, r) => n + (r.skipped ? 1 : 0), 0)}`;
   const syncToCue = () => {
     channel.resync();
     setFollowScroll(true);
@@ -1290,7 +1307,7 @@ export function RundownEditor({
     // the screen is telling somebody they are on.
     // `rows.length` so this re-runs the instant the sheet has rows to scroll
     // through — without it the only thing that noticed was the timer above.
-  }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom, rows.length]);
+  }, [focusRowId, followScroll, rowWindow.active, gridEl, dockBottom, rows.length, drawnSignature]);
   /**
    * Scrolling away hands the sheet back to whoever is holding the mouse.
    *
@@ -1859,6 +1876,15 @@ export function RundownEditor({
     // Win cuts the thing that is actually happening. The chosen branch is the
     // next unskipped row, so the show reaches it when the current item ends,
     // by Next or by the clock, exactly as it would have anyway.
+    //
+    // The SHEET does move, though. Rows appear under the cue the moment this
+    // is pressed — five of them for a golden-point block — and the live row
+    // was left wherever that shoved it: measured going from 576px down a
+    // 987px grid to 913px down a 1037px one, hard against the bottom edge,
+    // and staying there. Calling a result is a deliberate act on a live show
+    // and the one moment you want to see what you just chose, so it takes the
+    // sheet back to the cue whether or not somebody had scrolled away.
+    setFollowScroll(true);
   };
   const clearOutcomeOf = (game: number): void => {
     doc.transact(() => {

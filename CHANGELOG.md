@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Calling a result takes the sheet to the live row.** Pressing Win, Lose or golden point makes rows appear under the cue — five of them for a golden-point block — and the live row was left wherever that pushed it, sometimes hard against the bottom edge or off the screen entirely. Calling a result is a deliberate act on a live show and the one moment you want to see what you just chose, so the sheet now goes back to the cue, whether or not you had scrolled away.
+
+### Fixed
 - **A sheet no longer opens blank.** On a long sheet the grid scrolls itself to the live cue as it loads, and on a day-long run sheet that is thousands of pixels down. The rows being drawn were chosen from a scroll position read before that happened, so the sheet rendered its opening rows far above the screen and showed an empty grid on a running show — until you touched the wheel, which is why it looked intermittent. The same thing happened when the number of rows changed, such as opening every alternate ending at once.
 
 ### Removed

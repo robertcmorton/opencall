@@ -815,6 +815,21 @@ export function RundownEditor({
    * the stack can have it back from the toolbar. Only the starting point moved.
    */
   const [outcomeLayout, setOutcomeLayout] = useState<OutcomeLayout>("fork");
+  /**
+   * Ending blocks a reader has opened for a look, by game.
+   *
+   * Local to this screen and to this sitting: opening one is reading, not
+   * calling, so it must not reach anybody else's sheet and must not survive as
+   * a preference. A result being called closes it again, because by then the
+   * block is showing the path that is actually happening.
+   */
+  const [peekedGames, setPeekedGames] = useState<ReadonlySet<number>>(new Set());
+  const togglePeek = (g: number) =>
+    setPeekedGames((was) => {
+      const next = new Set(was);
+      if (!next.delete(g)) next.add(g);
+      return next;
+    });
   useEffect(() => {
     const saved = window.localStorage.getItem(OUTCOME_LAYOUT_KEY);
     if (saved === "fork" || saved === "layers") setOutcomeLayout(saved);
@@ -1972,6 +1987,11 @@ export function RundownEditor({
     const r = rows[i];
     if (!r?.outcome) return false;
     const g = r.outcomeGame ?? 1;
+    // Opened by hand from the fork line. Reading what is written against each
+    // result is exactly what a walkthrough is for — you cannot rehearse an
+    // ending you are not allowed to look at — and this asks nothing of the
+    // sheet: nothing is called, nothing is skipped, it is only drawn.
+    if (peekedGames.has(g)) return false;
     // Still entirely hypothetical — nothing called, no extra period under way
     // — so the block collapses to its one fork line.
     if (chosenOf(g) == null && !goldenPlaying(g)) return true;
@@ -4303,7 +4323,7 @@ export function RundownEditor({
                   ["lose", "Play these when we LOSE"],
                   ["draw", "Play these on a DRAW"],
                   ["golden", "Play these in EXTRA TIME (golden point)"],
-                  [null, "Always play these (not result-specific)"],
+                  [null, "Not an ending — always plays"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -4801,6 +4821,22 @@ export function RundownEditor({
                         {bannerCells(
                           t.startSec,
                           <>
+                            <button
+                              type="button"
+                              className={`fork-peek ${peekedGames.has(game) ? "is-open" : ""}`}
+                              aria-expanded={peekedGames.has(game)}
+                              data-tip={
+                                peekedGames.has(game)
+                                  ? "Hide the rows written for each result"
+                                  : "Show the rows written for each result — reading them changes nothing"
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePeek(game);
+                              }}
+                            >
+                              ▸
+                            </button>
                             <span className="fork-lead">Full time</span>
                             <span className="fork-note">
                               {isShow ? "call it below — the sheet fills in" : "one of these will happen"}

@@ -1191,6 +1191,24 @@ kbd {
   color: var(--text-2);
   font-weight: 600;
 }
+/* The disclosure on a collapsed ending block. Rotates rather than swapping
+   glyphs, so the control does not change width as it opens. */
+.fork-peek {
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 1;
+  transition: transform var(--t-fast) var(--ease);
+  transform-origin: 50% 50%;
+}
+.fork-peek.is-open {
+  transform: rotate(90deg);
+  color: var(--text-1);
+}
+
 .fork-lead {
   font-weight: 700;
 }

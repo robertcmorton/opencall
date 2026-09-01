@@ -1837,23 +1837,18 @@ kbd {
    here three things already are — the row is tinted, it carries a red edge
    while it is rolling, and hovering it says "runs alongside the show, takes no
    time in the running order" in words.
-   It survives on PAPER, below, because that is the one place with no tint to
-   rely on and no tooltip to hover. */
+   Removed from PAPER too, on the same instruction. Paper keeps the claim it
+   can actually hold: a rule down the left of the row, in ink, which survives a
+   printer throwing the tint away and needs nothing explained. */
 @media print {
   /* Paper is where a second track is most easily misread as the next cue, and
-     a tint is the first thing a printer throws away. So on paper the claim is
-     made in ink: a rule down the left of the row, and the mark in black. */
+     a tint is the first thing a printer throws away, so the claim is made in
+     ink instead: a rule down the left of the row. */
   .rundown-grid tr.parallel-row td {
     background: none;
   }
   .rundown-grid tr.parallel-row td:first-child {
     box-shadow: inset 3px 0 0 #000;
-  }
-  .rundown-grid tr.parallel-row .rn-num::after {
-    content: "∥";
-    margin-left: 4px;
-    font-size: 0.8em;
-    color: #000;
   }
 }
 

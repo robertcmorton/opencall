@@ -114,11 +114,21 @@ for (let t = 0, seg = 1; t + CYCLE <= DAY; t += CYCLE, seg += 1) {
    * The main order here is two rows totalling the whole cycle, so the clock is
    * exact; everything simultaneous is alongside it.
    */
+  /**
+   * THE ITEM ON AIR FIRST, the things running beside it underneath.
+   *
+   * This sheet had the three pre-records above the main item, which is not how
+   * run sheets are written. Measured across the sixteen real sheets in the
+   * sample: of the rows that run alongside something, 50 are printed AFTER the
+   * item they run during and 9 before — and several sheets are unanimous about
+   * it. The thing being called belongs at the top of its group; what is being
+   * shot beside it hangs underneath.
+   */
   conc.add(t, 30, `Segment ${seg} — opening item`, "SC", "", `Running order, segment ${seg}`);
+  conc.add(t + 30, 90, `Segment ${seg} — main item`, "SC", "", `Runs while the three below are under way, segment ${seg}`);
   conc.add(t + 30, 45, `PRE-RECORD — camera check ${seg}`, "CAM", "CAM");
   conc.add(t + 30, 45, `PRE-RECORD — audio line check ${seg}`, "AUD", "AUDIO");
   conc.add(t + 30, 60, `PRE-RECORD — sponsor read ${seg}`, "MC", "VTR", `Shot in the tunnel during segment ${seg}`);
-  conc.add(t + 30, 90, `Segment ${seg} — main item`, "SC", "", `Runs while the three above are under way, segment ${seg}`);
   conc.add(t + 90, null, "TWO MINUTE BELL", "SC", "", `Warning over segment ${seg}`);
 }
 // The day is the cycles; a banner after the last one only disagrees with it.

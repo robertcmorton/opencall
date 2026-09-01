@@ -3048,16 +3048,17 @@ export function RundownEditor({
   const sharing = orderedColKeys.length > 0 && colTotalPx > 0 && orderedColKeys.every((k) => widthOf(k) != null);
 
   /**
-   * Wide enough for the longest row number the sheet actually has — plus the
-   * mark that sits beside it.
+   * Wide enough for the longest row number the sheet actually has.
    *
-   * A pre-record's number carries a "∥" after it, and on a long sheet the
-   * numbers are four digits: "1015 ∥" wanted 60px in a 55px column, so the
-   * ellipsis ate the NUMBER and left "50…" where a row number should be. The
-   * mark annotating the number was crowding it out. Never visible on a
-   * hundred-row match sheet, obvious on a three-thousand-row one — so the
-   * floor is taken from the sheet in hand rather than from a number typed
-   * here, and a short sheet still gets a narrow column.
+   * This was written when a pre-record's number carried a "∥" after it: on a
+   * long sheet the numbers are four digits, "1015 ∥" wanted 60px in a 55px
+   * column, and the ellipsis ate the NUMBER, leaving "50…" where a row number
+   * should be. The mark is gone now, so that particular crowding is too — but
+   * the measurement stands on its own. Four-digit numbers still need more room
+   * than three-digit ones, it is never visible on a hundred-row match sheet
+   * and obvious on a three-thousand-row one, so the floor is taken from the
+   * sheet in hand rather than from a number typed here, and a short sheet
+   * still gets a narrow column.
    */
   /** One rule for what a row is called — see `rowNumbering`. */
   /**
@@ -3356,7 +3357,7 @@ export function RundownEditor({
                 data-tip="Runs alongside the show: takes no time in the running order, and the transport steps over it"
                 onClick={() => setRowField(rowRecord.id, "parallel", !rowRecord.parallel)}
               >
-                ∥ Alongside
+                Alongside
               </button>
               <button type="button" className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }} onClick={() => setDurationPopover(null)}>
                 Done

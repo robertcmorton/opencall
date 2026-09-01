@@ -249,13 +249,13 @@ function SortableRow({
             reading `GP` printed `50GPGP`, which is not a row number anybody
             could read out. WIN, LOSE and DRAW are words rather than the
             number's single letter, so they still earn their place.
-            ON EVERY ROW OF THE BRANCH, not just the one that opens it. Two rows
-            tagged the same result showed the word against the first and nothing
-            against the second, so the second looked untagged — reported as
-            exactly that. The tint and the rail were carrying it, at 7% and
-            three pixels, under a selection outline that covered both. A row
-            saying which ending it belongs to is worth one small word. */}
-        {!active && row.outcome && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
+            ONCE PER BLOCK, at the top. Repeating it down every row was the
+            first answer to a real problem — a tagged row that did not look
+            tagged — and it made the sheet shout. What links the rows is the
+            BAR down their left edge in the ending's own colour: green for a
+            win, red for a loss, amber for golden point, blue for a draw. The
+            word names the block, the bar carries it down. */}
+        {!active && row.outcome && (branch?.opens ?? true) && !displayNumber.endsWith(outcomeChip(row.outcome)) && (
           <span
             className={`outcome-chip oc-${row.outcome}`}
             data-tip={
@@ -4294,7 +4294,7 @@ export function RundownEditor({
               data-tip="Make these rows section headings (PRE-GAME, HALF TIME) — no time of their own, and the transport steps past them. Press again to turn them back into ordinary rows."
               onClick={() => toggleTypeSelected("group")}
             >
-              Heading
+              Group
             </button>
             <button
               className="btn btn-sm"
@@ -4560,8 +4560,15 @@ export function RundownEditor({
                  * cue-number column, a third of its width.
                  */
                 const timeIdx = orderedColumns.findIndex((c) => c.kind === "startTime");
-                const bannerCells = (timeSec: number | null, body: React.ReactNode): React.ReactNode => {
-                  const cells: React.ReactNode[] = [<td key="n" />];
+                const bannerCells = (timeSec: number | null, body: React.ReactNode, firstCell?: React.ReactNode): React.ReactNode => {
+                  // The far-left column, which on a fork line carries the
+                  // disclosure — the same column the row numbers live in, so
+                  // the control sits where the eye already runs down the sheet.
+                  const cells: React.ReactNode[] = [
+                    <td key="n" className={firstCell ? "fork-first" : undefined}>
+                      {firstCell}
+                    </td>,
+                  ];
                   const lead = timeIdx < 0 ? 0 : timeIdx;
                   for (let c = 0; c < lead; c++) cells.push(<td key={`b${c}`} />);
                   if (timeIdx >= 0)
@@ -4831,22 +4838,6 @@ export function RundownEditor({
                         {bannerCells(
                           t.startSec,
                           <>
-                            <button
-                              type="button"
-                              className={`fork-peek ${peekedGames.has(game) ? "is-open" : ""}`}
-                              aria-expanded={peekedGames.has(game)}
-                              data-tip={
-                                peekedGames.has(game)
-                                  ? "Hide the rows written for each result"
-                                  : "Show the rows written for each result — reading them changes nothing"
-                              }
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                togglePeek(game);
-                              }}
-                            >
-                              ▸
-                            </button>
                             <span className="fork-lead">Full time</span>
                             <span className="fork-note">
                               {isShow ? "call it below — the sheet fills in" : "one of these will happen"}
@@ -4857,6 +4848,22 @@ export function RundownEditor({
                               </span>
                             ))}
                           </>,
+                          <button
+                            type="button"
+                            className={`fork-peek ${peekedGames.has(game) ? "is-open" : ""}`}
+                            aria-expanded={peekedGames.has(game)}
+                            data-tip={
+                              peekedGames.has(game)
+                                ? "Hide the rows written for each result"
+                                : "Show the rows written for each result — reading them changes nothing"
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePeek(game);
+                            }}
+                          >
+                            ▸
+                          </button>,
                         )}
                       </tr>
                     ) : null;

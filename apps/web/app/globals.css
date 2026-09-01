@@ -1116,12 +1116,31 @@ kbd {
   /* Tinted rather than filled: the row's own colour still shows through. */
   background-color: color-mix(in srgb, var(--branch-rail) 7%, transparent);
 }
+/* THE BAR THAT LINKS THE BLOCK.
+   The ending is named once, at the top, and this carries that naming down every
+   row under it — so a row three deep still says which result it belongs to
+   without the word being repeated four times.
+   It has to survive a selection outline, which is the state a row is in while
+   somebody is tagging it: at three pixels and 7% tint the mark was there and
+   invisible underneath one, and the row read as untagged. Five pixels, full
+   colour, and a second inset line just inside it in the page's own background
+   so the bar reads as a bar rather than as a thick cell border. */
 .branch-row > td:first-child {
-  box-shadow: inset 3px 0 0 var(--branch-rail);
+  box-shadow:
+    inset 5px 0 0 var(--branch-rail),
+    inset 6px 0 0 var(--bg);
 }
 /* The line between one ending and the next in the stack. */
 .branch-open > td {
   border-top: 1px dashed var(--branch-rail);
+}
+/* The bar's ends, so a block reads as one run rather than as rows that happen
+   to share a colour. */
+.branch-open > td:first-child {
+  border-top-left-radius: 3px;
+}
+.branch-close > td:first-child {
+  border-bottom-left-radius: 3px;
 }
 /* The frame around the whole set. */
 .branch-block-open > td {
@@ -1193,6 +1212,13 @@ kbd {
 }
 /* The disclosure on a collapsed ending block. Rotates rather than swapping
    glyphs, so the control does not change width as it opens. */
+/* The fork line's first cell: the disclosure sits in the row-number column,
+   where the eye already runs down the sheet. */
+.fork-first {
+  text-align: center;
+  padding: 0;
+}
+
 .fork-peek {
   border: 0;
   background: none;

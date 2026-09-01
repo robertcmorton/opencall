@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The big timer's progress bar sweeps instead of stepping.** Its fill was animating over nearly a second while a new position arrives four times a second, so every update interrupted the one before and the bar lurched and slowed, lurched and slowed. It now moves at one continuous speed. The same fault had already been found and fixed on the row-level bar; this was the one that was missed.
+
+### Fixed
 - **Calling a result takes the sheet to the live row.** Pressing Win, Lose or golden point makes rows appear under the cue — five of them for a golden-point block — and the live row was left wherever that pushed it, sometimes hard against the bottom edge or off the screen entirely. Calling a result is a deliberate act on a live show and the one moment you want to see what you just chose, so the sheet now goes back to the cue, whether or not you had scrolled away.
 
 ### Fixed

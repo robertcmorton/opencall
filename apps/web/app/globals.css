@@ -1614,7 +1614,17 @@ kbd {
 .bt-bar > div {
   height: 100%;
   background: var(--under);
-  transition: width 900ms linear;
+  /* MATCHED TO THE TICK, and that is the whole point of the number.
+     `useLiveTiming` recomputes every 250ms, so a new width lands four times a
+     second. At 900ms each of those restarted an animation three and a half
+     times longer than the gap before the next one, so the bar never travelled
+     at a steady rate: it lurched toward each new target and decelerated, over
+     and over. Measured on a live countdown — a 4.6px step every 700ms against
+     a 1.53px baseline, which is what "jumping" looks like from the outside.
+     At 250ms each transition finishes exactly as the next begins, and the fill
+     moves at one continuous speed. Change this only alongside the interval in
+     `useLiveTiming`. */
+  transition: width 250ms linear;
 }
 .big-timer.amber .bt-bar > div {
   background: var(--warn);

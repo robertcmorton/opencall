@@ -1808,10 +1808,6 @@ kbd {
 .rundown-grid tr.parallel-row.on-now td:first-child {
   box-shadow: inset 3px 0 0 var(--rec);
 }
-.rundown-grid tr.parallel-row.on-now .rn-num::after {
-  color: var(--rec);
-  opacity: 1;
-}
 
 /* ---------- Pre-records: alongside the show, not in it ---------- */
 
@@ -1834,14 +1830,15 @@ kbd {
 .rundown-grid tr.parallel-row td {
   background: var(--aside-soft);
 }
-.rundown-grid tr.parallel-row .rn-num::after {
-  content: "∥";
-  margin-left: 4px;
-  font-size: 0.8em;
-  color: var(--aside);
-  /* The row number stays the row number; this is a mark beside it. */
-  opacity: 0.9;
-}
+/* NO MARK BESIDE THE NUMBER ON SCREEN.
+   There was a "∥" after the row number on every pre-record. It was removed on
+   the same grounds as the concurrency dash before it: a symbol that has to be
+   learned earns its place only if nothing else is saying the same thing, and
+   here three things already are — the row is tinted, it carries a red edge
+   while it is rolling, and hovering it says "runs alongside the show, takes no
+   time in the running order" in words.
+   It survives on PAPER, below, because that is the one place with no tint to
+   rely on and no tooltip to hover. */
 @media print {
   /* Paper is where a second track is most easily misread as the next cue, and
      a tint is the first thing a printer throws away. So on paper the claim is
@@ -1853,6 +1850,9 @@ kbd {
     box-shadow: inset 3px 0 0 #000;
   }
   .rundown-grid tr.parallel-row .rn-num::after {
+    content: "∥";
+    margin-left: 4px;
+    font-size: 0.8em;
     color: #000;
   }
 }

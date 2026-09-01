@@ -145,19 +145,18 @@ const gp = new Sheet();
  * resumes at the longest branch, and a row placed by arithmetic that assumes a
  * different figure disagrees with it.
  *
- *     a win, or a loss      90 + 90    = 180s   = exactly the room
  *     golden point   12 + 30 + 12 + 30 =  84s
- *     a draw after it             60   =  60s
+ *     a win, or a loss      48 + 48    =  96s
+ *                                      -----
+ *     the longest way through            180s   = exactly the room
  *
- * The running order resumes after the LONGEST BRANCH, and the longest is the
- * 180s one, so every printed time lands and this sheet reports no timing
- * faults at all. That is the point of it: a gap reported here is a bug in the
- * app, not a quirk of the sheet.
+ * The LONGEST WAY THROUGH, not the longest branch. This block is written as
+ * the extra period only, so a win or a loss still plays after it — the day
+ * needs both, one after the other. A draw needs 84 + 60 and fits inside that.
  *
- * What deliberately does NOT fit is golden point and then a result — 84 + 180
- * — because that is the shape a real sheet habitually under-budgets, and it is
- * the case worth having in a test bed. It shows up in the day's planned
- * length rather than as a gap.
+ * Every path therefore lands on the next kick-off and this sheet reports no
+ * timing faults at all, which is the point of it: a gap reported here is a bug
+ * in the app rather than a quirk of the sheet.
  */
 const MATCH = 15 * 60;
 const TEAMS: [string, string][] = [
@@ -217,11 +216,11 @@ for (let t = 0, m = 1; t + MATCH <= DAY; t += MATCH, m += 1) {
    * the two-minute holds become 12s and the five-minute halves 30s.
    */
   gp.branchHead(`FULL TIME — ${home} WIN`, "SC");
-  gp.branch(90, "Winning song and lap of the ground", "AUD");
-  gp.branch(90, "Player of the match presentation", "MC");
+  gp.branch(48, "Winning song and lap of the ground", "AUD");
+  gp.branch(48, "Player of the match presentation", "MC");
   gp.branchHead(`FULL TIME — ${home} LOSS`, "SC");
-  gp.branch(90, "Music bed only — no winning song", "AUD", "Do not play the anthem");
-  gp.branch(90, "Away captain interview", "CAM");
+  gp.branch(48, "Music bed only — no winning song", "AUD", "Do not play the anthem");
+  gp.branch(48, "Away captain interview", "CAM");
   gp.branchHead("FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME", "SC");
   gp.branch(12, "HOLDING — golden point re-set", "SC", "Teams take a breather, cameras find them");
   gp.branch(30, "Golden point — first half", "SC", "First score ends it — be ready to cut at any moment");

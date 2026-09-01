@@ -1,4 +1,5 @@
 import { parseDurationShorthand, parseTimeOfDay } from "./format";
+import { isExtraTimeRow } from "./phases";
 
 /**
  * Run-sheet import: turn an extracted text grid (from XLSX/XLS/CSV/PDF) into
@@ -2242,6 +2243,10 @@ export function buildSheet(
       sourceNumber: r.sourceNumber,
       outcome: r.outcome ?? undefined,
       outcomeGame: r.outcomeGame,
+      // The extra period itself, as opposed to anything after it. Read from
+      // the title here because the timing engine works in flags and never
+      // reads words — see `PlanRow.extraTime`.
+      extraTime: isExtraTimeRow(r.title) || undefined,
       cells: { ...r.cells, ...spilled, ...(assigned ? { roles: assigned } : {}) },
     };
   });

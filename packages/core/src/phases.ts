@@ -177,6 +177,15 @@ const FULL_TIME_ROW = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
 const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
 
 const EXTRA_TIME = /\b(?:golden\s?(?:point|goal|try)|extra\s?time|sudden death|drop[-\s]?off)\b/i;
+
+/**
+ * Is this row the extra period ITSELF, rather than something after it?
+ *
+ * Shared with the timing engine, which has to tell one shape of ending block
+ * from the other and cannot read titles itself — see `PlanRow.extraTime`.
+ * Same test the period rail uses, so the two cannot drift apart.
+ */
+export const isExtraTimeRow = (title: string): boolean => EXTRA_TIME.test(title) && !NOT_EXTRA_TIME.test(title);
 /**
  * A slot held in case it is needed is not the thing happening, and a sheet
  * saying there will be NONE is the opposite of one.

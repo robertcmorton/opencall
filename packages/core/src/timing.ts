@@ -234,29 +234,73 @@ export function computeTiming(
     }
     closeBranch();
 
-    if (resultCalled) {
-      // The path is known: extra time and the ending that followed it both
-      // happened, or the match was decided at full time and only one did.
-      total += prelude ? goldenSpan + longestResult : Math.max(goldenSpan, longestResult);
-    } else if (hasExtra) {
-      /**
-       * Nothing called yet, so plan for the longest way through — the extra
-       * period AND the longest ending that can follow it. The old reading took
-       * the longest single branch, which is the time the day needs only if the
-       * match is settled at full time. A golden point that is then won needs
-       * both, and a sheet that never says so gets off air late on the one night
-       * it matters.
-       */
-      const afterExtraLongest = Math.max(0, ...[...plannedSpans].filter(([k]) => k !== goldenKey).map(([, v]) => v));
-      const atFullTimeLongest = Math.max(
-        0,
-        ...[...plannedSpans].filter(([k]) => k !== goldenKey && !AFTER_EXTRA_ONLY.has(k.split(":")[1] ?? "")).map(([, v]) => v),
-      );
-      total += Math.max(atFullTimeLongest, plannedGolden + afterExtraLongest);
-    } else {
-      total += Math.max(goldenSpan, longestResult);
+    /**
+     * IS THE EXTRA PERIOD THE WHOLE OF ITS BRANCH, or only the start of it?
+     *
+     * Two shapes are written in the wild and they cost the day different
+     * amounts:
+     *
+     *   ONLY THE PERIOD — hold, half, hold, half — and a win or a loss plays
+     *   afterwards. The day needs both, one after the other.
+     *
+     *   THE WHOLE PATH — the period, and then this branch's own closing
+     *   ceremony and thank-yous. Nothing follows it, so it is an alternative
+     *   to the other endings like any other, and the day needs the longest.
+     *
+     * The sheet says which by what it writes: if the branch carries rows after
+     * its last extra-time row, it is the whole path. Follow the sheet where the
+     * sheet speaks; where it does not, the block we build ourselves is only the
+     * period, so that is the assumption when nothing says otherwise.
+     */
+    let lastExtraInBranch = -1;
+    let lastGoldenRow = -1;
+    for (let k = i; k < end; k++) {
+      if (branchOf(rows[k]!) !== goldenKey) continue;
+      lastGoldenRow = k;
+      if (rows[k]!.extraTime) lastExtraInBranch = k;
     }
-    cursor = latestEnd ?? blockStart;
+    const goldenIsWholePath = lastExtraInBranch >= 0 && lastGoldenRow > lastExtraInBranch;
+
+    /**
+     * ONE figure for what the block costs, used for the day's length AND for
+     * where the next row starts.
+     *
+     * They were worked out separately and could disagree: the total planned for
+     * the extra period and the ending after it, while the cursor resumed at the
+     * end of the longest single branch. A sheet that correctly left room for
+     * both was then reported as having an unexplained hole the size of the
+     * extra period at the end of every game.
+     */
+    const advance = resultCalled
+      ? // The path is known: extra time and the ending that followed it both
+        // happened, or the match was decided at full time and only one did.
+        prelude
+        ? goldenSpan + longestResult
+        : Math.max(goldenSpan, longestResult)
+      : hasExtra && !goldenIsWholePath
+        ? (() => {
+            /**
+             * Nothing called yet, so plan for the longest way through — the
+             * extra period AND the longest ending that can follow it. Taking
+             * the longest single branch is the time the day needs only if the
+             * match is settled at full time; a golden point that is then won
+             * needs both, and a sheet that never says so gets off air late on
+             * the one night it matters.
+             */
+            const afterExtraLongest = Math.max(0, ...[...plannedSpans].filter(([k]) => k !== goldenKey).map(([, v]) => v));
+            const atFullTimeLongest = Math.max(
+              0,
+              ...[...plannedSpans].filter(([k]) => k !== goldenKey && !AFTER_EXTRA_ONLY.has(k.split(":")[1] ?? "")).map(([, v]) => v),
+            );
+            return Math.max(atFullTimeLongest, plannedGolden + afterExtraLongest);
+          })()
+        : // Either no extra period, or a branch that is the whole path and so
+          // an alternative like any other: only one of them is played.
+          Math.max(goldenSpan, longestResult);
+    total += advance;
+    // An imported time inside a branch still wins, exactly as anywhere else —
+    // hence the max rather than a plain assignment.
+    cursor = blockStart != null ? Math.max(latestEnd ?? blockStart, blockStart + advance) : (latestEnd ?? blockStart);
     i = end;
   }
 
@@ -325,6 +369,8 @@ export interface AnchoredRow {
   outcome?: string | null;
   /** Which game on the day that ending belongs to. */
   outcomeGame?: number;
+  /** The extra period itself — see `PlanRow.extraTime`. */
+  extraTime?: boolean;
   /** Alongside the running order rather than in it — see `PlanRow.parallel`. */
   parallel?: boolean;
   /** A gap of this size before the row has been called deliberate — see the
@@ -396,19 +442,33 @@ export function findTimingGaps(rows: AnchoredRow[], timing: PlanTiming): TimingG
       }
       let end = i;
       while (end < rows.length && gameAt(end) === game) end += 1;
-      let longest = 0;
-      let run = 0;
-      let branch = "";
+      // Each branch's own length, kept apart: the extra period is not an
+      // alternative to the ending that follows it, it comes BEFORE it.
+      const spans = new Map<string, number>();
+      let lastExtra = -1;
+      let lastGolden = -1;
       for (let k = i; k < end; k++) {
-        const key = `${rows[k]!.outcomeGame ?? 1}:${rows[k]!.outcome}`;
-        if (key !== branch) {
-          branch = key;
-          longest = Math.max(longest, run);
-          run = 0;
+        const outcome = rows[k]!.outcome ?? "";
+        spans.set(outcome, (spans.get(outcome) ?? 0) + dur(k));
+        if (outcome === "golden") {
+          lastGolden = k;
+          if (rows[k]!.extraTime) lastExtra = k;
         }
-        run += dur(k);
       }
-      advance[i] = Math.max(longest, run);
+      /**
+       * The same question `computeTiming` asks, answered the same way, because
+       * the two disagreeing is what produced phantom holes: is the extra
+       * period the WHOLE of its branch, or only the start of it? A branch
+       * carrying rows after its last extra-time row is the whole path and is
+       * an alternative like any other; one that ends on the period itself has
+       * a result still to play after it, and the day needs both.
+       */
+      const wholePath = lastExtra >= 0 && lastGolden > lastExtra;
+      const golden = spans.get("golden") ?? 0;
+      const others = [...spans].filter(([o]) => o !== "golden" && o !== "");
+      const longestOther = Math.max(0, ...others.map(([, v]) => v));
+      const atFullTime = Math.max(0, ...others.filter(([o]) => !AFTER_EXTRA_ONLY.has(o)).map(([, v]) => v));
+      advance[i] = wholePath ? Math.max(golden, longestOther) : Math.max(atFullTime, golden + longestOther);
       i = end;
     }
   }

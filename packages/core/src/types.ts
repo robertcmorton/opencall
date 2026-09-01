@@ -20,6 +20,21 @@ export interface PlanRow {
   /** Excluded from cascade math (contributes 0) while keeping its display value. */
   durationMuted?: boolean;
   /**
+   * This row IS the extra period — golden point, extra time — rather than
+   * something that happens after it.
+   *
+   * Set at import, where the titles are, because the timing engine works in
+   * flags and never reads words. It exists to tell two shapes of ending block
+   * apart, which the sheet does not otherwise say:
+   *
+   *   the branch is ONLY the extra period, and a result plays after it;
+   *   the branch is the WHOLE path, extra period and closing ceremony and all.
+   *
+   * Both are written in the wild and they cost the day different amounts —
+   * see `computeTiming`.
+   */
+  extraTime?: boolean;
+  /**
    * Work that happens ALONGSIDE the running order rather than in it.
    *
    * A pre-record is shot while the show goes on around it — the coin toss is

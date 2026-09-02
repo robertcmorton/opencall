@@ -1,3 +1,4 @@
+import { NOT_EXTRA_TIME } from "./phases";
 /**
  * Extra time the sheet never mentioned.
  *
@@ -127,6 +128,19 @@ const A_HOLD = /\bholding\b|\bhold\b/i;
 export const isSuddenDeathRow = (title: string | null | undefined): boolean => {
   const t = (title ?? "").trim();
   if (!t || A_HOLD.test(t)) return false;
+  /**
+   * A slot held IN CASE of extra time is not extra time, and neither is a row
+   * saying there will not be any. `NOT_EXTRA_TIME` is the same guard the period
+   * rail uses and is shared with it rather than copied — those words came off
+   * the sample sheets, which print "Extra Time Buffer" on five of them and
+   * "NO EXTRA TIME" on a shortened exhibition game.
+   *
+   * Without it this matched "Golden Point Buffer", "Golden point estimate" and
+   * "NO GOLDEN POINT" — and a row with no duration matching this HOLDS THE
+   * CLOCK, so a buffer nobody was playing would have stopped a live show until
+   * somebody cued past it by hand.
+   */
+  if (NOT_EXTRA_TIME.test(t)) return false;
   return SUDDEN_DEATH_TITLE_RE.test(t);
 };
 

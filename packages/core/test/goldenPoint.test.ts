@@ -208,6 +208,18 @@ describe("isSuddenDeathRow", () => {
     expect(isSuddenDeathRow("HOLDING — change of ends")).toBe(false);
   });
 
+  /**
+   * A slot held IN CASE of extra time is not extra time, and a row saying there
+   * will not be any is the opposite of one. A row with no duration matching this
+   * HOLDS THE CLOCK, so these would have stopped a live show on a buffer.
+   */
+  it("is not fooled by a buffer, an estimate, or a denial", () => {
+    expect(isSuddenDeathRow("Golden Point Buffer")).toBe(false);
+    expect(isSuddenDeathRow("Golden point estimate")).toBe(false);
+    expect(isSuddenDeathRow("Golden point allowance")).toBe(false);
+    expect(isSuddenDeathRow("NO GOLDEN POINT")).toBe(false);
+  });
+
   it("says no to nothing at all", () => {
     expect(isSuddenDeathRow("")).toBe(false);
     expect(isSuddenDeathRow(null)).toBe(false);

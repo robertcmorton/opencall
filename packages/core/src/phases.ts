@@ -196,7 +196,13 @@ export const isExtraTimeRow = (title: string): boolean => EXTRA_TIME.test(title)
  * exhibition game and would otherwise have been banded as extra time being
  * played.
  */
-const NOT_EXTRA_TIME = /\b(?:buffer|estimate|allowance)\b|\bno\s+(?:extra\s?time|golden)/i;
+/**
+ * Shared with `isSuddenDeathRow` rather than copied there. These words were
+ * found by sweeping the sample sheets and they are the difference between a
+ * period and a slot held in case one is needed; a second copy of them would
+ * drift the first time somebody widened one.
+ */
+export const NOT_EXTRA_TIME = /\b(?:buffer|estimate|allowance)\b|\bno\s+(?:extra\s?time|golden)/i;
 
 /**
  * How much longer a rival has to be before it takes the break.

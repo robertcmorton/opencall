@@ -159,6 +159,8 @@ const DEPARTMENT_DETECTION_HEADERS = [
 ];
 
 /** Values that identify an untitled column as the cue-type column. */
+/** What the app's own CSV export writes in its Type column — see `mapColumns`. */
+const ROW_KIND_TOKENS = new Set(["cue", "group", "milestone"]);
 const CUE_TYPE_TOKENS = new Set([
   "audio", "gfx", "vtr", "led", "pa", "mc", "ga", "dj", "hk", "crew", "pyro",
   "lighting", "super", "takeover", "score", "note", "cam", "live vision",
@@ -400,7 +402,28 @@ export function mapColumns(headers: string[], sampleRows: string[][] = []): Colu
     if (NUMBER_HEADERS.includes(h) || /^\d+$/.test(h) || TITLE_HEADERS.includes(h)) return { kind: "skip" };
     if (START_HEADERS.includes(h)) return { kind: "start" };
     if (DURATION_HEADERS.includes(h)) return { kind: "duration" };
-    if (TYPE_HEADERS.includes(h)) return { kind: "department", key: uniqueKey("type"), title: "Type" };
+    if (TYPE_HEADERS.includes(h)) {
+      /**
+       * THE APP'S OWN EXPORT WRITES A "Type" COLUMN, and it means something
+       * different from a production's TYPE column. A house's TYPE says what a
+       * row is made of — VTR, GFX, LED — and is kept as the department column
+       * it is. The export's says what KIND of row it was — cue, group,
+       * milestone — for the importer's benefit, and the importer was keeping
+       * it too: a re-imported sheet grew a seventh column of the words "cue"
+       * and "milestone" down every row. Measured on a round trip of the
+       * finals fixture on 3 September: TYPE, TIME, DUR, SCR, ITEM / ACTION,
+       * WHO, NOTES against the six the sheet has.
+       *
+       * Told apart by what the column holds. Row kinds are a closed set the
+       * app itself wrote; if that is all that is in the column, it is ours
+       * and it is dropped. The kinds themselves are not lost: a milestone is
+       * still a start with no length and a heading is still a title with
+       * nothing else, which is how they are read from every other sheet.
+       */
+      const values = sampleRows.map((row) => (row[i] ?? "").trim().toLowerCase()).filter(Boolean);
+      if (values.length > 0 && values.every((v) => ROW_KIND_TOKENS.has(v))) return { kind: "skip" };
+      return { kind: "department", key: uniqueKey("type"), title: "Type" };
+    }
 
     if (!h) {
       // Untitled column: recognize it by what it contains.
@@ -483,6 +506,26 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
     // treating it as a trigger opened an ending block that swallowed the rest
     // of the sheet — 130 rows on one real run sheet.
     const extra = /\bgolden\s?point\b/.test(t);
+    /**
+     * A FINAL DOES NOT GO STRAIGHT TO GOLDEN POINT. It plays ten minutes of
+     * extra time first, and the caption that opens that block reads "FULL
+     * TIME — SCORES LEVEL, EXTRA TIME" — no golden point in it, because
+     * golden point is not what happens next. Read by the rule above, that
+     * caption and the two halves under it were not a branch head at all, so
+     * they fell into whatever ending had been opened before them: the LOSS.
+     * Calling extra time on that sheet then STRUCK the extra-time halves as
+     * part of the losing branch and the cue jumped straight to golden point.
+     * Measured on 3 September on the finals fixture: caption, coin toss, and
+     * both halves tagged `lose`; only "golden point re-start" onward tagged
+     * `golden`.
+     *
+     * Still not a bare "extra time" trigger — the 130-row lesson above holds.
+     * The phrase counts only on a row that also reads as FULL TIME, which is
+     * what win and lose already demand: it is the siren, saying what follows.
+     * "Scores level" on a full-time row means the same thing and opens the
+     * same block.
+     */
+    const extraAtFullTime = fullTime && /\bextra\s?time\b|\bscores?\s+(?:are\s+)?level\b/.test(t);
     const drawn = /\bdrawn?\b/.test(t);
     // A draw is only a real ending once extra time has been played. At full
     // time a level score does not end the match — it sends it to golden point,
@@ -492,7 +535,7 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
     if (drawn && extra) return "draw";
     if (fullTime && /\bwin\b/.test(t)) return "win";
     if (fullTime && /\b(lose|loss|lost)\b/.test(t)) return "lose";
-    if (extra) return "golden";
+    if (extra || extraAtFullTime) return "golden";
     if (fullTime && drawn) return "golden";
     return null;
   };

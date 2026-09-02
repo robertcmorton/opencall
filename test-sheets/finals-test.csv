@@ -21,7 +21,7 @@ cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
 cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
 cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
 cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
-cue,,01:00,,Presentation and trophy,MC,
+cue,,01:24,,Presentation and trophy,MC,
 milestone,00:15:00,,,MATCH 2 — COAST RAIDERS v RANGERS ATHLETIC,SC,
 cue,00:15:00,00:30,,Walk-in music and crowd welcome,MC,Doors open for match 2
 cue,00:15:30,00:45,prompter,SPONSOR READ — Sponsor A,MC,"Read live, match 2"
@@ -44,7 +44,7 @@ cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
 cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
 cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
 cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
-cue,,01:00,,Presentation and trophy,MC,
+cue,,01:24,,Presentation and trophy,MC,
 milestone,00:30:00,,,MATCH 3 — STONEWELL ROVERS v NORTHBANK CITY,SC,
 cue,00:30:00,00:30,,Walk-in music and crowd welcome,MC,Doors open for match 3
 cue,00:30:30,00:45,prompter,SPONSOR READ — Advertiser,MC,"Read live, match 3"
@@ -67,4 +67,4 @@ cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
 cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
 cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
 cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
-cue,,01:00,,Presentation and trophy,MC,
+cue,,01:24,,Presentation and trophy,MC,

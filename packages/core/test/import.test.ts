@@ -396,6 +396,77 @@ describe("detectOutcomes", () => {
     detectOutcomes(rows);
     expect(rows.every((r) => !r.outcome)).toBe(true);
   });
+
+  /**
+   * A final plays extra time BEFORE golden point, and the caption that opens
+   * that block says so — no "golden point" in it, because golden point is
+   * not what happens next. Read by the golden-point rule alone, the caption
+   * and both halves under it fell into the ending opened before them: the
+   * loss. Calling extra time then struck the extra-time halves as part of the
+   * losing branch and the cue jumped straight to golden point.
+   */
+  it("opens the extra period on a full-time caption that names extra time", () => {
+    const rows = [
+      row("Kick off"),
+      row("FULL TIME — HARBOUR KINGS WIN"),
+      row("Winning song"),
+      row("FULL TIME — HARBOUR KINGS LOSS"),
+      row("Away captain interview"),
+      row("FULL TIME — SCORES LEVEL, EXTRA TIME"),
+      row("HOLDING — coin toss"),
+      row("Extra time — first half"),
+      row("Extra time — second half"),
+      row("Golden point"),
+    ];
+    detectOutcomes(rows);
+    expect(rows.map((r) => r.outcome ?? null)).toEqual([null, "win", "win", "lose", "lose", "golden", "golden", "golden", "golden", "golden"]);
+  });
+
+  // "Scores level" at full time means the same thing and opens the same block.
+  it("reads scores level at full time the same way", () => {
+    const rows = [row("Kick off"), row("Fulltime - X WIN"), row("Song"), row("Full time — scores are level"), row("Extra time — first half")];
+    detectOutcomes(rows);
+    expect(rows.map((r) => r.outcome ?? null)).toEqual([null, "win", "win", "golden", "golden"]);
+  });
+
+  /**
+   * The 130-row lesson still holds: "extra time" on its own is NOT a trigger.
+   * It turns up in ordinary notes, and treating it as one opened an ending
+   * block that swallowed the rest of a real sheet. Only a row that also reads
+   * as full time may open the period.
+   */
+  it("still ignores extra time that is not at full time", () => {
+    const rows = [row("Kick off"), row("Fulltime - X WIN"), row("Song"), row("Allow extra time for egress"), row("Fireworks")];
+    detectOutcomes(rows);
+    expect(rows.map((r) => r.outcome ?? null)).toEqual([null, "win", "win", "win", "win"]);
+  });
+});
+
+/**
+ * The app's own CSV export writes a Type column of row KINDS — cue, group,
+ * milestone — for the importer to read. A production's TYPE column says what a
+ * row is made of — VTR, GFX, LED — and must be kept. Both are headed "Type".
+ */
+describe("a Type column of the app's own row kinds", () => {
+  it("is dropped on the way back in, rather than kept as a seventh column", () => {
+    const headers = ["Type", "TIME", "DUR", "ITEM / ACTION", "WHO"];
+    const sample = [
+      ["milestone", "12:00:00", "", "MATCH 1", "SC"],
+      ["cue", "12:00:00", "00:30", "Walk-in", "MC"],
+      ["cue", "12:00:30", "00:45", "Sponsor read", "MC"],
+    ];
+    expect(mapColumns(headers, sample)[0]).toEqual({ kind: "skip" });
+  });
+
+  it("keeps a production's TYPE column, which says what a row is made of", () => {
+    const headers = ["Type", "TIME", "DUR", "ITEM / ACTION", "WHO"];
+    const sample = [
+      ["VTR", "12:00:00", "00:30", "Opener", "SC"],
+      ["GFX", "12:00:30", "00:45", "Sponsor board", "MC"],
+      ["cue", "12:01:15", "00:45", "Odd one out", "MC"],
+    ];
+    expect(mapColumns(headers, sample)[0]).toMatchObject({ kind: "department", title: "Type" });
+  });
 });
 
 describe("centred department headers", () => {

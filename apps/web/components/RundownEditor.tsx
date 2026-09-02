@@ -26,6 +26,7 @@ import {
   resolveEventType,
   resultDueNow,
   activeOutcomeGame,
+  buildOfferDue,
   outcomesFor,
   findDecisionPoints,
   findPhases,
@@ -2784,11 +2785,15 @@ export function RundownEditor({
     if (!showLive || !activeRowId) return null;
     const at = rows.findIndex((r) => r.id === activeRowId);
     if (at < 0) return null;
+    // The row on air, or the one it hands over to — but the hand-over case
+    // only in its last half-minute, the same rule the tagged endings keep. It
+    // used to be up for the whole of the second half; see `buildOfferDue`.
     for (const i of [at, at + 1]) {
       const row = rows[i];
       if (!row) continue;
       const action = goldenFor(row.id);
-      if (action) return action;
+      if (!action) continue;
+      if (buildOfferDue({ liveIndex: at, decisionIndex: i, remainingInRowSec: live?.remainingInRowSec ?? null, bufferSec: RESULT_BUFFER_SEC })) return action;
     }
     return null;
   })();

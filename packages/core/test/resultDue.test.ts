@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resultDueNow, type ResultDueInput } from "../src/live";
+import { resultDueNow, buildOfferDue, type ResultDueInput } from "../src/live";
 
 /**
  * The result chooser is a bar across the foot of a LIVE screen.
@@ -159,5 +159,37 @@ describe("a period the first score ends", () => {
   // Absent means the old rule, so every sheet that never asked keeps what it had.
   it("defaults to the late rule when nobody says", () => {
     expect(resultDueNow({ ...inExtra, liveIndex: 6 })).toBe(false);
+  });
+});
+
+/**
+ * The offer to BUILD an extra period, on a sheet with no endings written. It
+ * used to sit there for the whole of the second half — measured live, four
+ * and a half minutes before full time — which is the exact thing the chooser
+ * above is built not to do.
+ */
+describe("when the offer to build an extra period is due", () => {
+  const at = (liveIndex: number, remainingInRowSec: number | null) =>
+    buildOfferDue({ liveIndex, decisionIndex: 16, remainingInRowSec, bufferSec: 30 });
+
+  it("is always due on the full-time row itself", () => {
+    expect(at(16, 12)).toBe(true);
+    expect(at(16, null)).toBe(true);
+  });
+
+  it("stays away for the body of the half before it", () => {
+    expect(at(15, 282)).toBe(false);
+    expect(at(15, 31)).toBe(false);
+  });
+
+  it("arrives in the last half-minute, and stays once the half runs over", () => {
+    expect(at(15, 30)).toBe(true);
+    expect(at(15, 0)).toBe(true);
+    expect(at(15, -40)).toBe(true);
+  });
+
+  it("is never due two rows out, or with no show", () => {
+    expect(at(14, 5)).toBe(false);
+    expect(at(-1, 5)).toBe(false);
   });
 });

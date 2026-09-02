@@ -1016,3 +1016,34 @@ export function activeOutcomeGame(input: ActiveGameInput): number | null {
   for (const g of games) if (lastOf(g) >= liveIndex) return g;
   return games[games.length - 1]!;
 }
+
+/**
+ * When the offer to BUILD an extra period is due.
+ *
+ * On a sheet with no ending rows written — most real sheets — the result is
+ * called at the row that reads as full time, and the extra period is built
+ * there if it is needed. The offer used to appear on that row and on the one
+ * that hands over to it, with no notion of time: measured live on the
+ * regular-game sheet, it was on screen four and a half minutes before full
+ * time, from the moment the second half went to air. On a real sheet that is
+ * forty-seven minutes of a bar across the foot of a live screen, which is the
+ * exact thing `resultDueNow` was built not to do for the tagged endings, and
+ * for the same reason — up for the whole half it is just something covering
+ * rows, and the showcaller stops seeing it.
+ *
+ * So it keeps the chooser's rule: on the decision row itself, always; on the
+ * row before it, only in the last half-minute. A half that has run over counts
+ * as due, not as not-yet.
+ */
+export function buildOfferDue(input: {
+  liveIndex: number;
+  decisionIndex: number;
+  remainingInRowSec: number | null;
+  bufferSec: number;
+}): boolean {
+  const { liveIndex, decisionIndex, remainingInRowSec, bufferSec } = input;
+  if (liveIndex < 0 || decisionIndex < 0) return false;
+  if (liveIndex === decisionIndex) return true;
+  if (liveIndex !== decisionIndex - 1) return false;
+  return remainingInRowSec != null && remainingInRowSec <= bufferSec;
+}

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  FULL_TIME_WORDS,
   GOLDEN_HALF_SEC,
   HOLDING_SEC,
+  NOT_THE_SIREN,
   findDecisionPoints, goldenPointBlock, isSuddenDeathRow,
   goldenPointDurationSec,
   shiftAnchorsAfter,
@@ -241,5 +243,51 @@ describe("the coin toss before a final's extra time", () => {
   // TIME and this document says nothing about a toss before golden point.
   it("leaves the regular season's hold generic", () => {
     expect(goldenPointBlock("Golden point")[0]?.title).toBe("HOLDING");
+  });
+});
+
+/**
+ * The period rail and the result chooser must agree about where full time is.
+ *
+ * They had a byte-identical copy of these words each, with nothing making them
+ * match. Widen one to accept "FT" and the rail would band the second half to
+ * one row while the chooser appeared at another — and nobody would find out
+ * until a show. The words are now one shared thing; each module still decides
+ * for itself what to do with them.
+ */
+describe("full-time words are shared with the period rail", () => {
+  const sheet = [
+    { title: "Second half", hardStartSec: 3600, durationSec: 2400 },
+    { title: "Full Time Wrap", hardStartSec: 6000, durationSec: 120 },
+    { title: "READ 20 - Full Time Wrap", hardStartSec: 6120, durationSec: 60 },
+    { title: "FULL TIME — HARBOUR KINGS WIN", hardStartSec: 6180, durationSec: 60 },
+  ];
+
+  it("passes over the segments that merely mention it", () => {
+    expect(findDecisionPoints(sheet)).toEqual([3]);
+  });
+
+  /**
+   * The guard with teeth, and the first attempt at it had none.
+   *
+   * Asserting things about `FULL_TIME_WORDS` itself proves nothing: it tests
+   * the shared export while the module under test could be using a private copy
+   * of its own. Verified by mutation — re-copying the pattern into goldenPoint
+   * and widening it to accept "FT" broke NOTHING.
+   *
+   * So this asserts the two agree on a title that only a WIDENED pattern would
+   * accept. "FT" is the obvious widening somebody would reach for, and both
+   * modules currently refuse it. Copy the pattern into either one and widen it,
+   * and exactly one of these two answers changes.
+   */
+  it("agrees with the rail on a shorthand neither accepts", () => {
+    const shorthand = [
+      { title: "Second half", hardStartSec: 3600, durationSec: 2400 },
+      { title: "FT — HARBOUR KINGS WIN", hardStartSec: 6180, durationSec: 60 },
+    ];
+    expect(findDecisionPoints(shorthand)).toEqual([]);
+    expect(FULL_TIME_WORDS.test("FT — HARBOUR KINGS WIN")).toBe(false);
+    // And the words the rail rejects are the same words the chooser rejects.
+    expect(NOT_THE_SIREN.test("Full Time Wrap")).toBe(true);
   });
 });

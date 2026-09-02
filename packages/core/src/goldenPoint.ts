@@ -1,4 +1,4 @@
-import { NOT_EXTRA_TIME } from "./phases";
+import { FULL_TIME_WORDS, NOT_EXTRA_TIME, NOT_THE_SIREN } from "./phases";
 /**
  * Extra time the sheet never mentioned.
  *
@@ -222,8 +222,12 @@ export function shiftAnchorsAfter(
  *   · a row already tagged with an outcome is left alone. Those sheets have a
  *     block written into them and `detectOutcomes` already reads it.
  */
-const FULL_TIME_TITLE = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
-const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
+/**
+ * Shared with the period rail rather than copied — see `FULL_TIME_WORDS`. What
+ * this file DECIDES with them is still its own: the rail is drawing a band, and
+ * this is deciding whether to raise a chooser on a live screen.
+ */
+const FULL_TIME_TITLE = FULL_TIME_WORDS;
 
 /** The shape this needs from a row. */
 export interface DecidableRow {

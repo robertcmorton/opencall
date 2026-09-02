@@ -173,8 +173,28 @@ const QUARTER = ORDINALS.map((o) => period(String.raw`(?:${o})\s+(?:quarter|qtr)
  * Same two patterns as `findDecisionPoints`, including its exclusions — a full
  * time WRAP or a highlights read is about the game, not the end of it.
  */
-const FULL_TIME_ROW = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
-const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
+/**
+ * THE WORDS ARE SHARED; THE JUDGEMENT IS NOT.
+ *
+ * Two modules need to recognise full time and both had their own copy of these
+ * — byte-identical, in two files, with nothing making them agree. Widen one to
+ * accept "FT" and the other silently keeps the old answer, and the two would
+ * then disagree about where full time is: this file would band the second half
+ * to one row and `findDecisionPoints` would raise the result chooser at
+ * another. Nobody would notice until a show. That exact shape of bug — a rule
+ * copied instead of shared, and one copy updated — cost a live show a frozen
+ * clock earlier today, in `isSuddenDeathRow`.
+ *
+ * So the PATTERNS live here and are imported. What each module DECIDES with
+ * them stays its own: this file is asking where a period ends so it can draw a
+ * band, and `goldenPoint.ts` is asking where a decision is made so it can put a
+ * chooser on a live screen. Those can legitimately want different answers — the
+ * band is generous, the chooser interrupts a show and stays strict — and
+ * merging the decisions would hide that behind a single rule.
+ */
+export const FULL_TIME_WORDS = /^(?:[^\n]*?\b)?full[-\s]?time\b/i;
+export const NOT_THE_SIREN = /\bwrap\b|\bread\b|\bhighlights?\b|\bpost[-\s]?match\b/i;
+const FULL_TIME_ROW = FULL_TIME_WORDS;
 
 const EXTRA_TIME = /\b(?:golden\s?(?:point|goal|try)|extra\s?time|sudden death|drop[-\s]?off)\b/i;
 

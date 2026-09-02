@@ -105,3 +105,43 @@ describe("when the row it moved to began", () => {
     expect(clockStep(rows, durations, "hold", stampedNow)).toEqual({ kind: "hold", reason: "running" });
   });
 });
+
+/**
+ * The period that decides a final, which nobody can put a length on.
+ *
+ * The laws: a drawn final goes to golden point played "with no change of ends
+ * or time limit, until a point is scored". The sheet carries a row with no
+ * duration because there is no honest number to print. The clock used to read
+ * "no duration" as "takes no time" and walk straight past it, carrying the
+ * show out of a match that was still being played.
+ */
+describe("an open-ended period", () => {
+  const rows = [
+    { id: "cap", type: "cue" as const, hardStartSec: null, title: "FULL TIME — SCORES LEVEL, GOLDEN POINT EXTRA TIME" },
+    { id: "hold", type: "cue" as const, hardStartSec: null, title: "HOLDING — golden point re-set" },
+    { id: "gp", type: "cue" as const, hardStartSec: null, title: "Golden point" },
+    { id: "after", type: "cue" as const, hardStartSec: null, title: "Presentation" },
+  ];
+  const durations = [null, 120, null, 300];
+
+  it("holds on golden point rather than walking out of the match", () => {
+    expect(clockStep(rows, durations, "gp", 600)).toEqual({ kind: "hold", reason: "unknowable" });
+    // Still holding an hour in: it lasts as long as it lasts.
+    expect(clockStep(rows, durations, "gp", 3600)).toEqual({ kind: "hold", reason: "unknowable" });
+  });
+
+  /**
+   * The caption that OPENS the block has the same wording and the same missing
+   * duration, and must still be passed through — holding there would park the
+   * show on a label while the extra period ran underneath it.
+   */
+  it("still passes through the caption that opens the block", () => {
+    expect(clockStep(rows, durations, "cap", 0)).toEqual({ kind: "advance", rowId: "hold" });
+  });
+
+  // A hold before the period is a hold, and runs its length like any other.
+  it("runs the hold before it for its length", () => {
+    expect(clockStep(rows, durations, "hold", 30)).toEqual({ kind: "hold", reason: "running" });
+    expect(clockStep(rows, durations, "hold", 120)).toEqual({ kind: "advance", rowId: "gp" });
+  });
+});

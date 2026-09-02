@@ -1,5 +1,6 @@
 import { OUT_OF_ORDER_SEC } from "./timing";
 import type { PlanTiming } from "./types";
+import { isOpenEndedPeriodRow } from "./goldenPoint";
 
 export interface LiveShowInput {
   /** Planned timing for the rundown (computeTiming output). */
@@ -321,6 +322,8 @@ export interface ClockTargetRow {
   hardStartSec?: number | null;
   /** Runs alongside the order — never becomes the cue. See `PlanRow.parallel`. */
   parallel?: boolean;
+  /** The row's words, for telling an open-ended period from a caption. */
+  title?: string;
 }
 
 /**
@@ -484,7 +487,19 @@ export function clockStep(
    * passed through too. A showcaller would have to cue it back. Telling the two
    * apart wants a flag from the importer, the way `extraTime` was added.
    */
-  if (planned == null || planned <= 0) return { kind: "advance", rowId: next.id };
+  if (planned == null || planned <= 0) {
+    /**
+     * Unless it is a PERIOD with no knowable end, which is a different thing
+     * from a label that takes no time. A drawn final goes to golden point
+     * played with no change of ends and no time limit, until somebody scores —
+     * so the sheet carries a row with no length, and passing through it walks
+     * the show out of the match while it is still being played. Held instead,
+     * which is what this function already says it does for a row the sheet is
+     * describing as "as long as it takes".
+     */
+    if (isOpenEndedPeriodRow(rows[at]!.title)) return { kind: "hold", reason: "unknowable" };
+    return { kind: "advance", rowId: next.id };
+  }
   if (elapsedInRowSec < planned) return { kind: "hold", reason: "running" };
   return { kind: "advance", rowId: next.id };
 }

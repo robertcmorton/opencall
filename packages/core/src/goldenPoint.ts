@@ -225,3 +225,29 @@ export function findDecisionPoints(rows: readonly DecidableRow[]): number[] {
   });
   return out;
 }
+
+/**
+ * A period nobody can put a length on.
+ *
+ * The laws are explicit about this one, and it is the reason it needs its own
+ * test. A drawn final goes to golden point that is played "with no change of
+ * ends or time limit, until a point is scored". Not ten minutes, not five and
+ * five — until somebody scores, however long that takes. A run sheet cannot
+ * print a length against it and `goldenPointBlock` does not pretend to.
+ *
+ * The clock treats a row with no length as taking no time, which is right for
+ * the CAPTION that opens an ending block — "FULL TIME — SCORES LEVEL, GOLDEN
+ * POINT EXTRA TIME" is a label for what follows and takes nothing — and wrong
+ * for the period itself. Both are rows with golden-point wording and no
+ * duration, so the words alone do not separate them; the caption is the one
+ * that reads as full time, which is exactly what `FULL_TIME_TITLE` already
+ * knows how to spot for `findDecisionPoints`.
+ *
+ * Left unseparated, the clock walked straight past the one period that decides
+ * a final, taking the show out of the match while it was still being played.
+ */
+export const isOpenEndedPeriodRow = (title: string | null | undefined): boolean => {
+  const first = (title ?? "").split("\n")[0]?.trim() ?? "";
+  if (!first || FULL_TIME_TITLE.test(first)) return false;
+  return isSuddenDeathRow(first);
+};

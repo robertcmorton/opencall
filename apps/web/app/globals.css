@@ -1229,6 +1229,24 @@ kbd {
   line-height: 1;
   transition: transform var(--t-fast) var(--ease);
   transform-origin: 50% 50%;
+  /* Explicit, not inherited: the hit area below is positioned against this
+     box, and a `position` arriving from somewhere else would move it. This
+     project has been bitten once by a bare rule losing to `[data-tip]`. */
+  position: relative;
+}
+/* THE TRIANGLE IS 14x11 PIXELS, which is a fine thing to look at and a poor
+   thing to hit. Measured on a phone: 14x11 against a 44px guideline, on the
+   control that opens a block of endings — the one somebody rehearsing a show
+   reaches for over and over.
+   The glyph stays exactly as it is and the TARGET grows around it, so nothing
+   moves on the page. Deliberately kept inside the row's own height rather than
+   taken out to the full 44px: a taller box would reach over the rows above and
+   below and swallow their clicks, and in a walkthrough a click anywhere on a
+   row is how you go to it. ~30x29 against 14x11 is 5.6x the area. */
+.fork-peek::before {
+  content: "";
+  position: absolute;
+  inset: -9px -8px;
 }
 .fork-peek.is-open {
   transform: rotate(90deg);
@@ -4323,4 +4341,12 @@ th.col-drop-target {
   background: var(--danger-soft, rgba(220, 60, 60, 0.18));
   border-color: var(--danger, #dc3c3c);
   font-weight: 800;
+}
+
+/* A flex item will not shrink below its own content unless told to, and the
+   sheet name is a flex item that already knows how to truncate. Without this
+   it held its full width and pushed the VIEW ONLY chip off a phone screen.
+   The `title` is set alongside so a truncated name is still readable. */
+.sheet-name {
+  min-width: 0;
 }

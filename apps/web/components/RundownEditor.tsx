@@ -3695,7 +3695,15 @@ export function RundownEditor({
       <header className="topbar-head">
         <div className="topbar-left">
         <div className="topbar-name">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        {/* WRAPS, so the badge that says you cannot drive the show is never
+            the thing that gets cut off.
+            `minWidth: 0` here was not enough on its own: the h1 inside is a
+            flex item too, and its own `min-width: auto` kept it at full
+            content width, so this row measured 419px inside a 253px parent and
+            put "VIEW ONLY" twenty-four pixels past the edge of a phone. The
+            name truncates (see `.sheet-name`) and the chip drops to a second
+            line rather than off the screen. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minWidth: 0 }}>
           {/* No back arrow. It sat in the same wrapping flex as the sheet name
               and squeezed it into a five-line tower on a tablet, for a job two
               other things already do: the sheet's name IS the way back on any
@@ -3718,6 +3726,10 @@ export function RundownEditor({
             />
           ) : (
             <h1
+              /* Truncates with an ellipsis, so the full name has to be
+                 reachable some other way — it is 325px of name in 160px of
+                 column on a phone. */
+              title={meta.name || "Untitled sheet"}
               className={`${canEditContent && !tapBack ? "sheet-name editable" : "sheet-name"} ${tapBack ? "tap-back" : ""}`}
               style={{ fontSize: "1.15rem", fontWeight: 650, margin: 0, letterSpacing: "-0.01em" }}
               data-tip={

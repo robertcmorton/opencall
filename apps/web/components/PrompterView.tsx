@@ -707,7 +707,24 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       <footer
         style={{
           display: "flex",
+          /**
+           * WRAPS, because a prompter is read off a phone as often as a rack
+           * screen and this row does not fit one.
+           *
+           * Measured at 375px: the row laid out 542px wide, so the document
+           * scrolled sideways by 167px and "mirror" and "auto pace" — two of
+           * the prompter's four controls — sat off the right-hand edge. A
+           * reader would have had to scroll the page sideways to reach them,
+           * on the one screen whose entire job is to be read without looking
+           * away. That is also the black bar down the right-hand side: the
+           * page was genuinely wider than the phone.
+           *
+           * Nothing here has a reason to be on one line. Wrapping costs a
+           * second row on a narrow screen and nothing at all on a wide one.
+           */
+          flexWrap: "wrap",
           gap: 14,
+          rowGap: 8,
           alignItems: "center",
           padding: "8px 14px",
           background: "#0d0d0d",

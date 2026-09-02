@@ -879,8 +879,16 @@ export default function AdminPage() {
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
       <WithSideNav title={me?.role === "company" ? me.teamName : "Admin"} settings={settings}>
       <main className="admin-main">
-        <header style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "1.5rem" }}>
-          <div style={{ flex: 1 }}>
+        {/* WRAPS, and the heading beside it is allowed to shrink.
+            A flex item defaults to `min-width: auto`, which means it will not
+            shrink below its own content — so the heading block held its full
+            width and shoved "+ Company" off the right-hand edge. Measured at
+            375px: the button's right edge landed at 398, twenty-three pixels
+            past the viewport, and the whole page scrolled sideways to reach
+            it. `minWidth: 0` lets the text give way; the wrap catches whatever
+            is still too wide. */}
+        <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: "1.5rem" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
               <BrandWordmark size={22} />{" "}
               <span style={{ color: "var(--text-3)", fontWeight: 500 }}>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  mayEditShow,
   computeLiveTiming,
   computeTiming,
   type PlanRow,
@@ -345,5 +346,23 @@ describe("the wait before the first cue", () => {
       { id: "real", type: "cue", durationSec: 600, hardStartSec: EIGHT_PM },
     ];
     expect(firstCueRow(messy, startsOf(messy))?.id).toBe("real");
+  });
+});
+
+/**
+ * Who may change the sheet from the show console. Everyone in show mode could,
+ * which let a crew member with a join code re-time a live show — measured, a
+ * follower's -30 took the on-air row from 00:30 to 00:00.
+ */
+describe("who may edit from the show console", () => {
+  it("is the roles that may drive the show", () => {
+    expect(mayEditShow("caller")).toBe(true);
+    expect(mayEditShow("admin")).toBe(true);
+  });
+  it("is not a follower, a viewer, or nobody", () => {
+    expect(mayEditShow("follower")).toBe(false);
+    expect(mayEditShow("viewer")).toBe(false);
+    expect(mayEditShow(null)).toBe(false);
+    expect(mayEditShow(undefined)).toBe(false);
   });
 });

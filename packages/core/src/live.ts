@@ -1047,3 +1047,21 @@ export function buildOfferDue(input: {
   if (liveIndex !== decisionIndex - 1) return false;
   return remainingInRowSec != null && remainingInRowSec <= bufferSec;
 }
+
+/**
+ * May this viewer change the sheet from the show console?
+ *
+ * The show console deliberately sits outside the edit lock — whoever is
+ * calling the show keeps every control — and that was written as "everyone in
+ * show mode may edit", which let a crew member holding a join code re-time a
+ * live show. Measured on 3 September: a follower's -30 took the on-air row
+ * from 00:30 to 00:00 with no refusal and no message.
+ *
+ * On a locked deployment the server makes a follower's document connection
+ * read-only, so the room never saw that edit — but the follower did. The
+ * change applied to their own copy and was silently dropped upstream, leaving
+ * their sheet drifting from everyone else's with nothing to say so. That is
+ * the bug this closes: the controls that write to the sheet are for the roles
+ * that may drive it, and nobody else is offered them.
+ */
+export const mayEditShow = (role: string | null | undefined): boolean => role === "caller" || role === "admin";

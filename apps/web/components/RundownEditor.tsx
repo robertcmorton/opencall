@@ -27,6 +27,7 @@ import {
   resultDueNow,
   activeOutcomeGame,
   buildOfferDue,
+  mayEditShow,
   outcomesFor,
   findDecisionPoints,
   findPhases,
@@ -778,7 +779,15 @@ export function RundownEditor({
    */
   const mayEditSheet = mode === "edit";
   const lock = useEditLock(rundownId, mayEditSheet);
-  const canEditContent = mode === "show" ? true : mayEditSheet ? lock.mine : false;
+  // The show channel is opened here, ahead of everything that reads the
+  // viewer's role. It was declared thirty lines down, and the first read of
+  // `channel.role` above it threw in the temporal dead zone — a blank page for
+  // every viewer, caller included. It depends only on props, so it can sit
+  // wherever it is first needed.
+  const channel = useShowChannel(rundownId, "console", joinCode);
+  // In show mode the lock is not applied — but the ROLE still is. A follower
+  // holding a join code sees the sheet and drives nothing; see `mayEditShow`.
+  const canEditContent = mode === "show" ? mayEditShow(channel.role) : mayEditSheet ? lock.mine : false;
   const { doc, revision, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode, initialEpoch);
   /**
    * Read the whole document once per CHANGE, not once per render.
@@ -804,7 +813,6 @@ export function RundownEditor({
     [doc, revision],
   );
   const timing = useMemo(() => computeTiming(rows, meta.plannedStartSec), [rows, meta.plannedStartSec]);
-  const channel = useShowChannel(rundownId, "console", joinCode);
   // Panel API calls (join codes, snapshots…) inherit this page's code.
   useEffect(() => {
     setActiveJoinCode(joinCode ?? null);
@@ -3637,7 +3645,11 @@ export function RundownEditor({
           Export CSV
         </button>
       </SideNavSection>
-      {isShow && (
+      {/* Ending the event, saving it as a template, its history and its links are
+          the showcaller's business. A follower was offered all four; the API
+          refused them, which made them dead buttons rather than a hole — and a
+          dead "End event" is a bad thing to put in front of a crew member. */}
+      {isShow && mayDrive && (
         <SideNavSection heading="Show settings">
           <button
             type="button"

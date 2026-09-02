@@ -317,6 +317,15 @@ export function ShowStateControls({
           {mayDrive && (
           <button
             className={`btn btn-sm ${liveState === "running" ? "" : "btn-positive"}`}
+            /**
+             * NAMED FOR ANYONE NOT LOOKING AT IT. The word is drawn by
+             * `label-swap`, which keeps BOTH words in the button and hides one
+             * with a class so the width never shifts. That is right for the
+             * eye and useless to a screen reader, which was reading these three
+             * — the only controls that start, hold and end a live show — as
+             * "button", "button", "button".
+             */
+            aria-label={liveState === "running" ? "Pause the show" : "Resume the show"}
             data-tip={liveState === "running" ? "Hold the show here — the clock keeps running" : "Resume"}
             onClick={() => channel.sendCmd(liveState === "running" ? "pause" : "resume")}
           >
@@ -341,6 +350,10 @@ export function ShowStateControls({
             // there is least time to read one.
             ref={stopRef}
             className={`btn btn-sm btn-danger ${armStop ? "is-on armed" : ""}`}
+            // Named for the state it is IN: armed, this button ends the show on
+            // the next press, and that is the one thing a screen reader must
+            // not have to infer. See the Pause button above.
+            aria-label={armStop ? "Confirm — end the show now" : "Stop the show"}
             data-tip={armStop ? "Press again to end the show — or touch anything else to cancel" : "Stop the show — asks once to confirm"}
             onClick={() => {
               if (armStop) {

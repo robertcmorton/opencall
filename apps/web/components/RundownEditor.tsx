@@ -4339,11 +4339,27 @@ export function RundownEditor({
            * never the useful half anyway.
            */
           if (walkRowId != null) return null;
-          if (showLive ? !onAir && !ahead && golden == null : !mayDrive) return null;
+          /**
+           * A LIVE SHOW ONLY, which is a reversal and a deliberate one.
+           *
+           * The ± buttons used to work off air too, on the reasoning that
+           * giving an item thirty seconds is how a sheet gets WRITTEN as well
+           * as how it gets corrected. Reported on 2 September as noise: they
+           * appear under the pointer on every row of a sheet nobody is
+           * running, on a surface whose job is reading rather than re-timing,
+           * and a control that shows up wherever the mouse goes is a control
+           * you stop seeing.
+           *
+           * Nothing is lost. A duration is still editable in its own cell,
+           * which is where somebody building a sheet is already looking, and
+           * that path takes a typed value rather than six presses of -5.
+           */
+          if (!showLive) return null;
+          if (!onAir && !ahead && golden == null) return null;
           return (
           <div className="timing-nudge-hover" ref={measureNudge} style={{ top: nudgeTop }}>
             <TimingNudge
-              nudges={showLive ? onAir : true}
+              nudges={onAir}
               live={showLive && (onAir || ahead)}
               onNudge={(d) => nudgeRow(nudgeRowAt.id, d)}
               onCue={() => cueRow(nudgeRowAt.id)}

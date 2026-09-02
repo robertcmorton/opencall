@@ -162,6 +162,10 @@ export function Stopwatch() {
       <button
         type="button"
         className={`btn btn-sm sw-face ${running ? "is-on" : ""}`}
+        // The face is written straight into the span for speed, so its text is
+        // no use as a name — and "00:00.00" would be a poor one anyway. Say
+        // what pressing it does.
+        aria-label={running ? "Stop the stopwatch" : elapsed > 0 ? "Start the stopwatch again from here" : "Start the stopwatch"}
         onClick={startStop}
         data-tip={running ? "Stop the stopwatch" : elapsed > 0 ? "Start it again from here" : "Start the stopwatch"}
       >

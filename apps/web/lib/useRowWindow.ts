@@ -55,6 +55,39 @@ export interface RowWindow {
   offsetOf: (index: number) => number;
 }
 
+/**
+ * Has the scroller moved without the window hearing about it?
+ *
+ * The window only knows where it is when something TELLS it — a scroll event,
+ * a resize, or one of the reads below. That is nearly always enough, and when
+ * it is not the failure is total: the window measures from the wrong place,
+ * renders the rows for that place, positions them outside the viewport, and
+ * the sheet appears EMPTY. Headers, the period rail down the edge, and no rows
+ * at all. One flick of the wheel puts it right, which is exactly why it reads
+ * as intermittent and why it has been fixed once before.
+ *
+ * The reads below aim at the known cause — the sheet scrolling itself to the
+ * live cue as it loads, before this hook is listening. That was the right fix
+ * for that cause and it is not enough in general: seen again on 2 September on
+ * a 2,114-row sheet on production, where a fresh load of a running show drew a
+ * blank grid and `get_page_text` confirmed the DOM held the rows from the TOP
+ * of the sheet while the scroller sat near the bottom.
+ *
+ * So rather than chase each ordering, the window checks itself. This runs after
+ * every render — one property read — and corrects the moment the two disagree.
+ * Whatever the cause, the sheet is right in the next frame instead of waiting
+ * for somebody to touch the wheel.
+ *
+ * The tolerance is not decoration: sub-pixel scroll positions are ordinary
+ * (trackpads, zoom, fractional device pixels), and comparing exactly would set
+ * state on every render forever.
+ */
+export const viewIsStale = (
+  scrollTop: number,
+  clientHeight: number,
+  view: { top: number; height: number },
+): boolean => Math.abs(scrollTop - view.top) > 1 || Math.abs(clientHeight - view.height) > 1;
+
 export function useRowWindow({
   count,
   scrollEl,
@@ -119,6 +152,20 @@ export function useRowWindow({
       ro.disconnect();
     };
   }, [scrollEl, enabled, count]);
+
+  /**
+   * The window checking itself, after every render — see `viewIsStale`.
+   *
+   * Deliberately no dependency array. The whole point is that the divergence
+   * this catches arrives WITHOUT a dependency changing: a programmatic scroll
+   * that landed in a frame nobody was listening in. When the two agree, which
+   * is almost always, this reads one property and stops.
+   */
+  useEffect(() => {
+    if (!scrollEl || !enabled) return;
+    if (viewIsStale(scrollEl.scrollTop, scrollEl.clientHeight, view))
+      setView({ top: scrollEl.scrollTop, height: scrollEl.clientHeight });
+  });
 
   /**
    * Two things make the window stand aside and render the whole sheet.

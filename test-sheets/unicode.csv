@@ -1,0 +1,10 @@
+TIME,DUR,SCR,ITEM / ACTION,WHO,NOTES
+00:00:00,00:30,,Walk-in 🎶 crowd welcome,MC,Emoji in a title
+00:00:30,00:45,prompter,"SPONSOR READ — “Northbank”, the ‘quoted’ one",MC,"Curly quotes, a comma"
+00:01:15,01:00,,Sponsor segment — a very long segment name that keeps going a very long segment name that keeps going a very long segment name that keeps going a very long segment name that keeps going a very long segment name that keeps going,SC,"One title, 220 characters"
+00:02:15,04:00,,First half,SC,"Line one
+Line two inside the cell"
+00:06:15,01:00,GA,HALF TIME — Coast Mutual,MC,
+00:07:15,04:00,,Second half,SC,Naïve café — résumé
+00:11:15,02:00,,FULL TIME,SC,
+00:13:15,,,VENUE CLEAR,SC,

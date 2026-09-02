@@ -1,0 +1,23 @@
+TIME,DUR,SCR,ITEM / ACTION,WHO,NOTES
+00:00:00,00:30,,Walk-in,MC,
+00:00:30,00:45,VTR,PRE-RECORD — Captain interview package,CAM,Shot during the walk-in
+00:00:30,01:00,,KICK OFF,SC,
+00:01:30,04:00,,First half,SC,
+00:05:30,00:30,VTR,PRE-RECORD — Half-time show tease,CAM,Shot during the first half
+00:05:30,01:00,GA,HALF TIME,MC,
+00:06:30,04:00,,Second half,SC,
+,,,FULL TIME — HARBOUR KINGS WIN,SC,
+,00:48,VTR,Captain interview package plays,VTR,The pre-record
+,00:30,VTR,PRE-RECORD — Trophy lift for socials,CAM,Shot beside the presentation
+,00:48,,Presentation,MC,
+,,,FULL TIME — HARBOUR KINGS LOSS,SC,
+,00:48,AUDIO,Music bed only,AUD,
+,00:48,CAM,Away captain interview,CAM,
+,,,"FULL TIME — DRAW, GOLDEN POINT",SC,
+,00:12,,HOLDING — golden point re-set,SC,
+,00:30,,Golden point — first half,SC,
+,00:12,,HOLDING — change of ends,SC,
+,00:30,,Golden point — second half,SC,
+,,,"GOLDEN POINT — NO SCORE, MATCH DRAWN",SC,
+,00:12,,Drawn match wrap,MC,
+00:12:06,,,VENUE CLEAR,SC,

@@ -1,0 +1,15 @@
+TIME,DUR,SCR,ITEM / ACTION,WHO,NOTES
+00:00:00,00:30,,Walk-in,MC,
+00:00:30,01:00,,KICK OFF,SC,
+00:01:30,04:00,,First half,SC,
+00:05:30,01:00,,HALF TIME,MC,Rehearsals — Half time movements were this morning
+00:06:30,04:00,,Second half,SC,
+00:10:30,05:00,,Extra Time Buffer,SC,Held in case — five sheets print exactly this
+00:15:30,00:30,,Extra Time Estimate — allow extra time for egress,SC,"A note, not a period"
+,,,FULL TIME — HARBOUR KINGS WIN,SC,
+,00:48,AUDIO,Winning song,AUD,
+,,,FULL TIME — HARBOUR KINGS LOSS,SC,
+,00:48,AUDIO,Music bed only,AUD,
+,,,FULL TIME — NO EXTRA TIME (exhibition) — draw stands,SC,A shortened exhibition game
+,00:48,,Drawn match wrap,MC,
+00:16:48,,,VENUE CLEAR,SC,

@@ -159,6 +159,8 @@ const DEPARTMENT_DETECTION_HEADERS = [
 ];
 
 /** Values that identify an untitled column as the cue-type column. */
+/** A sheet saying there is NO extra period — the opposite of one being played. */
+const NO_EXTRA_PERIOD = /\bno\s+(?:extra\s?time|golden(?:\s?point)?|overtime)\b/i;
 /** What the app's own CSV export writes in its Type column — see `mapColumns`. */
 const ROW_KIND_TOKENS = new Set(["cue", "group", "milestone"]);
 const CUE_TYPE_TOKENS = new Set([
@@ -532,7 +534,27 @@ export function detectOutcomes(rows: ClassifiedRow[]): void {
     // and the block under that banner is the extra-time period. So a drawn
     // result NAMED alongside extra time is its own ending, and "full time,
     // draw" on its own still opens the golden-point block.
-    if (drawn && extra) return "draw";
+    /**
+     * "Draw" beside "golden point" is two different rows depending on whether
+     * the siren is in the sentence. "GOLDEN POINT — NO SCORE, MATCH DRAWN" is
+     * the ending AFTER the period: a draw. "FULL TIME — DRAW, GOLDEN POINT" is
+     * the caption that SENDS a level match into the period, and it is the
+     * head of the golden block, not a result. Read as a draw, the block split:
+     * the caption was placed after the halves it introduces, and the day's
+     * arithmetic came up sixty-four seconds short on the double-header sheet.
+     */
+    if (drawn && extra) return fullTime ? "golden" : "draw";
+    /**
+     * A DRAW THAT STANDS. "FULL TIME — NO EXTRA TIME (exhibition) — draw
+     * stands" is a shortened exhibition game's rule, and it is the opposite of
+     * a level score being sent on. Read by the rule below — full time and
+     * drawn opens the extra period — that caption opened a golden-point block
+     * on a sheet whose whole point was that there is none, and the chooser
+     * then offered a period the fixture cannot play. The period rail has
+     * known these words since the corpus sweep (`NOT_EXTRA_TIME`); the
+     * endings now agree with it.
+     */
+    if (fullTime && drawn && NO_EXTRA_PERIOD.test(t)) return "draw";
     if (fullTime && /\bwin\b/.test(t)) return "win";
     if (fullTime && /\b(lose|loss|lost)\b/.test(t)) return "lose";
     if (extra || extraAtFullTime) return "golden";

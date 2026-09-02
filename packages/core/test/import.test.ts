@@ -435,6 +435,34 @@ describe("detectOutcomes", () => {
    * block that swallowed the rest of a real sheet. Only a row that also reads
    * as full time may open the period.
    */
+  /**
+   * A draw that STANDS. A shortened exhibition game prints "no extra time",
+   * and a level score there is the result — not a level score being sent on.
+   * Read as "full time, draw" alone it opened a golden-point block on a sheet
+   * whose whole point was that there is none.
+   */
+  it("reads a full-time draw marked no extra time as the result it is", () => {
+    const rows = [row("Kick off"), row("Fulltime - X WIN"), row("Song"), row("FULL TIME — NO EXTRA TIME (exhibition) — draw stands"), row("Drawn match wrap")];
+    detectOutcomes(rows);
+    expect(rows.map((r) => r.outcome ?? null)).toEqual([null, "win", "win", "draw", "draw"]);
+  });
+
+  /**
+   * "Draw" beside "golden point" is two different rows. After the period it is
+   * the result; at full time it is the caption sending a level match INTO the
+   * period, and the block it heads must not be split from the halves under it.
+   */
+  it("tells the caption into golden point from the draw after it", () => {
+    const rows = [
+      row("Kick off"),
+      row("FULL TIME — X WIN"), row("Song"),
+      row("FULL TIME — DRAW, GOLDEN POINT"), row("HOLDING — golden point re-set"), row("Golden point — first half"),
+      row("GOLDEN POINT — NO SCORE, MATCH DRAWN"), row("Drawn match wrap"),
+    ];
+    detectOutcomes(rows);
+    expect(rows.map((r) => r.outcome ?? null)).toEqual([null, "win", "win", "golden", "golden", "golden", "draw", "draw"]);
+  });
+
   it("still ignores extra time that is not at full time", () => {
     const rows = [row("Kick off"), row("Fulltime - X WIN"), row("Song"), row("Allow extra time for egress"), row("Fireworks")];
     detectOutcomes(rows);

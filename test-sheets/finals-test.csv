@@ -1,0 +1,70 @@
+Type,TIME,DUR,SCR,ITEM / ACTION,WHO,NOTES
+milestone,00:00:00,,,MATCH 1 — HARBOUR KINGS v RIVERS UNITED,SC,
+cue,00:00:00,00:30,,Walk-in music and crowd welcome,MC,Doors open for match 1
+cue,00:00:30,00:45,prompter,SPONSOR READ — Northbank,MC,"Read live, match 1"
+cue,00:00:30,00:45,VTR,PRE-RECORD — Finals week package,CAM,"Shot during the walk-in, match 1"
+cue,00:01:15,00:45,,Finals week package,MC,"Between games, match 1"
+cue,00:02:00,01:00,,KICK OFF — MATCH 1,SC,Starts this match's endings
+cue,00:03:00,04:00,,First half,SC,Four minutes standing in for forty
+cue,00:07:00,01:00,GA,HALF TIME — Northbank activation,MC,
+cue,00:08:00,04:00,,Second half,SC,
+cue,,,,FULL TIME — HARBOUR KINGS WIN,SC,
+cue,,00:48,,Winning song and lap of the ground,AUD,
+cue,,00:48,,Presentation and trophy,MC,
+cue,,,,FULL TIME — HARBOUR KINGS LOSS,SC,
+cue,,00:48,,Music bed only — no winning song,AUD,Do not play the anthem
+cue,,00:48,,Away captain interview,CAM,
+cue,,,,"FULL TIME — SCORES LEVEL, EXTRA TIME",SC,A final cannot be drawn
+cue,,00:12,,HOLDING — coin toss,SC,Captains toss for ends before extra time
+cue,,00:30,,Extra time — first half,SC,Played out in full whatever the score
+cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
+cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
+cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
+cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
+cue,,01:00,,Presentation and trophy,MC,
+milestone,00:15:00,,,MATCH 2 — COAST RAIDERS v RANGERS ATHLETIC,SC,
+cue,00:15:00,00:30,,Walk-in music and crowd welcome,MC,Doors open for match 2
+cue,00:15:30,00:45,prompter,SPONSOR READ — Sponsor A,MC,"Read live, match 2"
+cue,00:15:30,00:45,VTR,PRE-RECORD — Finals week package,CAM,"Shot during the walk-in, match 2"
+cue,00:16:15,00:45,,Finals week package,MC,"Between games, match 2"
+cue,00:17:00,01:00,,KICK OFF — MATCH 2,SC,Starts this match's endings
+cue,00:18:00,04:00,,First half,SC,Four minutes standing in for forty
+cue,00:22:00,01:00,GA,HALF TIME — Sponsor A activation,MC,
+cue,00:23:00,04:00,,Second half,SC,
+cue,,,,FULL TIME — COAST RAIDERS WIN,SC,
+cue,,00:48,,Winning song and lap of the ground,AUD,
+cue,,00:48,,Presentation and trophy,MC,
+cue,,,,FULL TIME — COAST RAIDERS LOSS,SC,
+cue,,00:48,,Music bed only — no winning song,AUD,Do not play the anthem
+cue,,00:48,,Away captain interview,CAM,
+cue,,,,"FULL TIME — SCORES LEVEL, EXTRA TIME",SC,A final cannot be drawn
+cue,,00:12,,HOLDING — coin toss,SC,Captains toss for ends before extra time
+cue,,00:30,,Extra time — first half,SC,Played out in full whatever the score
+cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
+cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
+cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
+cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
+cue,,01:00,,Presentation and trophy,MC,
+milestone,00:30:00,,,MATCH 3 — STONEWELL ROVERS v NORTHBANK CITY,SC,
+cue,00:30:00,00:30,,Walk-in music and crowd welcome,MC,Doors open for match 3
+cue,00:30:30,00:45,prompter,SPONSOR READ — Advertiser,MC,"Read live, match 3"
+cue,00:30:30,00:45,VTR,PRE-RECORD — Finals week package,CAM,"Shot during the walk-in, match 3"
+cue,00:31:15,00:45,,Finals week package,MC,"Between games, match 3"
+cue,00:32:00,01:00,,KICK OFF — MATCH 3,SC,Starts this match's endings
+cue,00:33:00,04:00,,First half,SC,Four minutes standing in for forty
+cue,00:37:00,01:00,GA,HALF TIME — Advertiser activation,MC,
+cue,00:38:00,04:00,,Second half,SC,
+cue,,,,FULL TIME — STONEWELL ROVERS WIN,SC,
+cue,,00:48,,Winning song and lap of the ground,AUD,
+cue,,00:48,,Presentation and trophy,MC,
+cue,,,,FULL TIME — STONEWELL ROVERS LOSS,SC,
+cue,,00:48,,Music bed only — no winning song,AUD,Do not play the anthem
+cue,,00:48,,Away captain interview,CAM,
+cue,,,,"FULL TIME — SCORES LEVEL, EXTRA TIME",SC,A final cannot be drawn
+cue,,00:12,,HOLDING — coin toss,SC,Captains toss for ends before extra time
+cue,,00:30,,Extra time — first half,SC,Played out in full whatever the score
+cue,,00:12,,HOLDING — change of ends,SC,"Swap ends, hold the crowd"
+cue,,00:30,,Extra time — second half,SC,Still played out — a score here does not end it
+cue,,00:12,,HOLDING — golden point re-start,SC,Only if still level after extra time
+cue,,,,Golden point,SC,First score wins — nobody can say how long this runs
+cue,,01:00,,Presentation and trophy,MC,

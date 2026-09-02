@@ -4313,3 +4313,14 @@ th.col-drop-target {
 .type-soon {
   opacity: 0.55;
 }
+
+/* The result was never called and the show has gone past the endings. Louder
+   than the ordinary prompt: the ordinary one is a question being asked in good
+   time, this one is a thing already missed. It does not stop the show — the
+   next items are on air — it just refuses to be silent about what is owed. */
+.outcome-dock .od-stage.od-missed {
+  color: var(--danger-text, #ffd9d9);
+  background: var(--danger-soft, rgba(220, 60, 60, 0.18));
+  border-color: var(--danger, #dc3c3c);
+  font-weight: 800;
+}

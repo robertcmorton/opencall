@@ -2020,8 +2020,25 @@ export function RundownEditor({
         ? "At full time"
         : "How it ends";
 
-  const outcomeStage = (g: number): "full-time" | "extra-time" | "settled" =>
-    chosenOf(g) != null ? "settled" : goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
+  /**
+   * `missed` is the show having walked clean past a game's endings with nobody
+   * having called the result.
+   *
+   * The show does NOT stop for it — a live sheet that halts itself is worse
+   * than one that carries on, and the next items are already going to air. But
+   * it cannot be silent either: extra time ends, the cue moves into whatever
+   * follows, and the one thing still owed is a result nobody asked for. So the
+   * chooser stays and says plainly what happened, rather than sitting there in
+   * the same words it used before the siren.
+   */
+  const outcomeStage = (g: number): "full-time" | "extra-time" | "settled" | "missed" => {
+    if (chosenOf(g) != null) return "settled";
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    let lastEnding = -1;
+    for (let i = 0; i < rows.length; i++) if (rows[i]!.outcome && (rows[i]!.outcomeGame ?? 1) === g) lastEnding = i;
+    if (lastEnding >= 0 && liveIdx > lastEnding) return "missed";
+    return goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
+  };
 
   /**
    * In `fork` layout, is this row one the sheet is currently hiding?
@@ -5068,10 +5085,12 @@ export function RundownEditor({
             {outcomeStage(activeGame) === "settled" ? (
               <span className="od-stage od-done">Result called</span>
             ) : (
-              <span className={`od-stage ${decisionSoon ? "od-soon" : ""}`}>
-                {outcomeStage(activeGame) === "extra-time"
-                  ? `⚡ ${showType?.extraLabel ?? "Extra time"} — call the result`
-                  : "Full time — call the result"}
+              <span className={`od-stage ${outcomeStage(activeGame) === "missed" ? "od-missed" : decisionSoon ? "od-soon" : ""}`}>
+                {outcomeStage(activeGame) === "missed"
+                  ? "⚠ The result was never called — the show has moved on"
+                  : outcomeStage(activeGame) === "extra-time"
+                    ? `⚡ ${showType?.extraLabel ?? "Extra time"} — call the result`
+                    : "Full time — call the result"}
               </span>
             )}
             {/* A deadline, not just a prompt. The chooser is only up for the

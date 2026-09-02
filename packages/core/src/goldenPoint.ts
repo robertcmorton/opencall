@@ -75,7 +75,20 @@ export const SUDDEN_DEATH_TITLE = "Golden point";
  */
 export function goldenPointBlock(label = "Golden point", mustSettle = false): GoldenPointRow[] {
   const block: GoldenPointRow[] = [
-    { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
+    /**
+     * A FINAL TOSSES A COIN BEFORE EXTRA TIME, and it is in the laws rather
+     * than inferred: "FINALS EXTRA TIME … A coin toss will take place prior to
+     * the commencement of extra time" (Section 6, Law 2(b)), deciding "either
+     * kick off or choose which end of the field his team will defend" (Section
+     * 5, Law 2).
+     *
+     * That is a thing that happens on the field in front of cameras while
+     * somebody talks over it — a cue, not dead air — and the hold was sitting
+     * there unnamed. Only in a final, because that is where the law puts it;
+     * the regular season's hold stays generic rather than claiming a toss this
+     * document does not mention.
+     */
+    { type: "cue", title: mustSettle ? "HOLDING — coin toss" : "HOLDING", durationSec: HOLDING_SEC },
     { type: "cue", title: `${label} — first half`, durationSec: GOLDEN_HALF_SEC },
     { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
     { type: "cue", title: `${label} — second half`, durationSec: GOLDEN_HALF_SEC },

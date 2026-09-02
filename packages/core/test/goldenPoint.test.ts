@@ -155,7 +155,7 @@ describe("goldenPointBlock — a final cannot end level", () => {
   it("names a final's first ten minutes extra time, not golden point", () => {
     const titles = goldenPointBlock("Extra time", true).map((r) => r.title);
     expect(titles).toEqual([
-      "HOLDING",
+      "HOLDING — coin toss",
       "Extra time — first half",
       "HOLDING",
       "Extra time — second half",
@@ -212,5 +212,22 @@ describe("isSuddenDeathRow", () => {
     expect(isSuddenDeathRow("")).toBe(false);
     expect(isSuddenDeathRow(null)).toBe(false);
     expect(isSuddenDeathRow("Winning song and lap of the ground")).toBe(false);
+  });
+});
+
+/**
+ * The laws put a coin toss before a final's extra time — Section 6, Law 2(b) —
+ * to decide who kicks off and which end each team defends. It happens on the
+ * field in front of cameras, so it is a cue rather than dead air.
+ */
+describe("the coin toss before a final's extra time", () => {
+  it("names the hold a final holds for", () => {
+    expect(goldenPointBlock("Extra time", true)[0]?.title).toBe("HOLDING — coin toss");
+  });
+
+  // Not claimed for the regular season: the law states it under FINALS EXTRA
+  // TIME and this document says nothing about a toss before golden point.
+  it("leaves the regular season's hold generic", () => {
+    expect(goldenPointBlock("Golden point")[0]?.title).toBe("HOLDING");
   });
 });

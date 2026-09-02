@@ -40,15 +40,19 @@ def timed(t, d, scr, title, who, note=""):
 def regular_game(compress=1.0, start=17*3600):
     S = lambda s: int(round(s / compress))
     t = start; rows = []
-    def add(d, scr, title, who, note=""):
+    def add(d, scr, title, who, note="", alongside=False):
         nonlocal t
-        rows.append(timed(t, S(d), scr, title, who, note)); t += S(d)
+        rows.append(timed(t, S(d), scr, title, who, note))
+        # A pre-record runs BESIDE the order and spends none of its time. The
+        # first cut of this sheet advanced the clock past it and left a 1:30
+        # hole the pre-flight check rightly refused to start a show over.
+        if not alongside: t += S(d)
     def milestone(title, who="SC", note=""):
         rows.append(timed(t, 0, "", title, who, note))
     milestone("CREW CALL — HARBOUR KINGS v RIVERS UNITED", "SC", "Everyone on comms by this time")
     add(30*60, "", "Rig and line checks", "CREW", "Cameras 1–4, both fotis, PA walk")
     add(20*60, "", "Production meeting", "ALL", "Level 5 — bring the sheet")
-    add(15*60, "VTR", "PRE-RECORD — Coin toss package", "CAM", "Shot in the tunnel while rehearsals run")
+    add(15*60, "VTR", "PRE-RECORD — Coin toss package", "CAM", "Shot in the tunnel while rehearsals run", alongside=True)
     add(45*60, "", "Rehearsals — anthem, player walk, half-time show", "MC", "")
     milestone("GATES OPEN", "SC", "Fixed — the venue opens whatever we are doing")
     add(20*60, "AUDIO", "Crowd DJ — arrival set", "DJ", "")

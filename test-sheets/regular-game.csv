@@ -3,19 +3,19 @@ TIME,DUR,SCR,ITEM / ACTION,WHO,NOTES
 17:00:00,30:00,,Rig and line checks,CREW,"Cameras 1–4, both fotis, PA walk"
 17:30:00,20:00,,Production meeting,ALL,Level 5 — bring the sheet
 17:50:00,15:00,VTR,PRE-RECORD — Coin toss package,CAM,Shot in the tunnel while rehearsals run
-18:05:00,45:00,,"Rehearsals — anthem, player walk, half-time show",MC,
-18:50:00,,,GATES OPEN,SC,Fixed — the venue opens whatever we are doing
-18:50:00,20:00,AUDIO,Crowd DJ — arrival set,DJ,
-19:10:00,03:00,prompter,SPONSOR READ — Northbank welcome,MC,Read live from the sideline
-19:13:00,10:00,GFX,Fan competition on the big screen,MC,Winners announced before warm-ups
-19:23:00,25:00,,Team warm-ups,SC,Both squads on the field
-19:48:00,03:00,VTR,Coin toss package plays,VTR,The pre-record from earlier
-19:51:00,04:00,AUDIO,Anthem and player walk,MC,House lights to half
-19:55:00,01:00,,KICK OFF,SC,
-19:56:00,47:00,,First half,SC,Forty minutes plus stoppages
-20:43:00,15:00,GA,HALF TIME — Northbank activation and half-time show,MC,Fifteen minutes; the show is eight of them
-20:58:00,47:00,,Second half,SC,
-21:45:00,02:00,,FULL TIME,SC,Siren — call the result here
-21:47:00,06:00,,Post-match presentation,MC,"Player of the match, then captains"
-21:53:00,05:00,AUDIO,Crowd exit music and thank you,DJ,
-21:58:00,,,VENUE CLEAR,SC,
+17:50:00,45:00,,"Rehearsals — anthem, player walk, half-time show",MC,
+18:35:00,,,GATES OPEN,SC,Fixed — the venue opens whatever we are doing
+18:35:00,20:00,AUDIO,Crowd DJ — arrival set,DJ,
+18:55:00,03:00,prompter,SPONSOR READ — Northbank welcome,MC,Read live from the sideline
+18:58:00,10:00,GFX,Fan competition on the big screen,MC,Winners announced before warm-ups
+19:08:00,25:00,,Team warm-ups,SC,Both squads on the field
+19:33:00,03:00,VTR,Coin toss package plays,VTR,The pre-record from earlier
+19:36:00,04:00,AUDIO,Anthem and player walk,MC,House lights to half
+19:40:00,01:00,,KICK OFF,SC,
+19:41:00,47:00,,First half,SC,Forty minutes plus stoppages
+20:28:00,15:00,GA,HALF TIME — Northbank activation and half-time show,MC,Fifteen minutes; the show is eight of them
+20:43:00,47:00,,Second half,SC,
+21:30:00,02:00,,FULL TIME,SC,Siren — call the result here
+21:32:00,06:00,,Post-match presentation,MC,"Player of the match, then captains"
+21:38:00,05:00,AUDIO,Crowd exit music and thank you,DJ,
+21:43:00,,,VENUE CLEAR,SC,

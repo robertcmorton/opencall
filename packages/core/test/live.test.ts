@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  clockLinedUp,
   mayEditShow,
   computeLiveTiming,
   computeTiming,
@@ -364,5 +365,28 @@ describe("who may edit from the show console", () => {
     expect(mayEditShow("viewer")).toBe(false);
     expect(mayEditShow(null)).toBe(false);
     expect(mayEditShow(undefined)).toBe(false);
+  });
+});
+
+/**
+ * "Synced" is the claim that can be checked: the cue is the row the clock
+ * points at. Its blind spot was a show started before the sheet begins —
+ * nothing on air, nothing due, and the button sat amber for the whole wait.
+ */
+describe("is the show lined up with the clock", () => {
+  it("is not, when the clock is not driving", () => {
+    expect(clockLinedUp({ clockFollow: false, activeRowId: "a", clockRowId: "a", untilShowSec: null })).toBe(false);
+  });
+  it("is, when the cue is the row the clock points at", () => {
+    expect(clockLinedUp({ clockFollow: true, activeRowId: "a", clockRowId: "a", untilShowSec: null })).toBe(true);
+    expect(clockLinedUp({ clockFollow: true, activeRowId: "a", clockRowId: "b", untilShowSec: null })).toBe(false);
+  });
+  it("is, while waiting for a first cue that is still ahead", () => {
+    expect(clockLinedUp({ clockFollow: true, activeRowId: null, clockRowId: null, untilShowSec: 143 })).toBe(true);
+  });
+  // The first cue has come and the cue has not moved onto it: that is late.
+  it("is not, once the first cue is due and nothing is on air", () => {
+    expect(clockLinedUp({ clockFollow: true, activeRowId: null, clockRowId: "a", untilShowSec: null })).toBe(false);
+    expect(clockLinedUp({ clockFollow: true, activeRowId: null, clockRowId: null, untilShowSec: null })).toBe(false);
   });
 });

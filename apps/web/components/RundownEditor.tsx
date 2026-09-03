@@ -31,6 +31,7 @@ import {
   extraUnderWay,
   resultCalled,
   keepAfterResult,
+  clockLinedUp,
   type EndingRow,
   outcomesFor,
   findDecisionPoints,
@@ -1699,6 +1700,23 @@ export function RundownEditor({
           nowAbsSec,
         );
   const firstCueRowRecord = firstCue ? rows.find((r) => r.id === firstCue.id) : undefined;
+  /**
+   * A LIVE SHOW WAITING FOR ITS FIRST ROW ticks once a second.
+   *
+   * `nowMs` is read every fifteen seconds, on the reasoning that once a row is
+   * on air `useLiveTiming` re-renders the sheet whenever a displayed second
+   * changes. It does — but only once a row is on air. Start a show before the
+   * sheet begins and nothing is on air, so nothing re-renders, and the "till
+   * show starts" countdown moved in fifteen-second jumps. Measured: 02:23 for
+   * three seconds, then 02:08. This is the one stretch of a live show that
+   * has no other clock, so it gets one here. Declared after `showLive`, on
+   * purpose — see the note above `useShowChannel`.
+   */
+  useEffect(() => {
+    if (!showLive || activeRowId) return;
+    const id = window.setInterval(() => setNowMs(serverNowRef.current()), 1000);
+    return () => window.clearInterval(id);
+  }, [showLive, activeRowId]);
 
   /**
    * What runs WITH what, and what is on right now.
@@ -1805,7 +1823,7 @@ export function RundownEditor({
    * there claiming it was following the clock. This is the claim that can be
    * checked: the live cue IS the row the clock points at.
    */
-  const clockSynced = clockFollow && !!activeRowId && !!clockRowId && activeRowId === clockRowId;
+  const clockSynced = clockLinedUp({ clockFollow, activeRowId, clockRowId, untilShowSec });
 
   const cueDriftRows = (() => {
     if (!showLive || clockFollow || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;

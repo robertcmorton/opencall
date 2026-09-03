@@ -1150,3 +1150,27 @@ export function keepAfterResult(rows: readonly EndingRow[], chosen: string, live
   }
   return keep;
 }
+
+/**
+ * Is the show where the clock says it should be?
+ *
+ * "Following clock" says only that the server is in charge; "synced" is the
+ * claim that can be checked — the live cue IS the row the clock points at.
+ * That check had one blind spot: a show started before its sheet begins. No
+ * row is on air and the clock points at nothing, because nothing is due yet
+ * — which is exactly lined up, and the button sat amber for the whole wait
+ * saying otherwise. Nothing due and nothing on air, with the first cue still
+ * ahead, is synced.
+ */
+export function clockLinedUp(input: {
+  clockFollow: boolean;
+  activeRowId: string | null;
+  clockRowId: string | null;
+  /** Seconds until the first cue, or null once it has come. */
+  untilShowSec: number | null;
+}): boolean {
+  const { clockFollow, activeRowId, clockRowId, untilShowSec } = input;
+  if (!clockFollow) return false;
+  if (activeRowId && clockRowId) return activeRowId === clockRowId;
+  return !activeRowId && !clockRowId && untilShowSec != null;
+}

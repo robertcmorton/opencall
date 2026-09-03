@@ -628,7 +628,9 @@ function promptDates(event: { id: string; startDate: string; endDate: string }, 
  * one you cannot take back.
  *
  * It comes back if the delete actually fails, which is the only honest reason
- * for it to reappear.
+ * for it to reappear — and it says why. It used to come back in silence, so
+ * "I can't delete the company" was the whole of the report, and the reason
+ * (a table the cascade had never heard of) had to be dug out of the journal.
  */
 function DangerButton({
   label,
@@ -641,24 +643,37 @@ function DangerButton({
 }) {
   const [armed, setArmed] = useState(false);
   const [gone, setGone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   if (gone) return null;
   return (
-    <button
-      className={`btn btn-sm btn-danger ${armed ? "is-on" : ""}`}
-      onClick={() => {
-        if (!armed) {
-          setArmed(true);
-          window.setTimeout(() => setArmed(false), 3000);
-          return;
-        }
-        setArmed(false);
-        setGone(true);
-        // Awaited only to put the button back when the delete did not happen.
-        void Promise.resolve(onConfirm()).catch(() => setGone(false));
-      }}
-    >
-      {armed ? confirmLabel : label}
-    </button>
+    <>
+      <button
+        className={`btn btn-sm btn-danger ${armed ? "is-on" : ""}`}
+        onClick={() => {
+          if (!armed) {
+            setArmed(true);
+            window.setTimeout(() => setArmed(false), 3000);
+            return;
+          }
+          setArmed(false);
+          setGone(true);
+          setError(null);
+          // Awaited only to put the button back, with the reason, when the
+          // delete did not happen.
+          void Promise.resolve(onConfirm()).catch((err: unknown) => {
+            setGone(false);
+            setError(err instanceof Error ? err.message : String(err));
+          });
+        }}
+      >
+        {armed ? confirmLabel : label}
+      </button>
+      {error && (
+        <span role="alert" style={{ color: "var(--over)", fontSize: "var(--fs-xs)", maxWidth: 360, lineHeight: 1.35 }}>
+          Not deleted — {error}
+        </span>
+      )}
+    </>
   );
 }
 

@@ -328,7 +328,35 @@ export function createApiHandler(
       await db.delete(schema.showSessions).where(eq(schema.showSessions.rundownId, rundownId));
       await db.delete(schema.shareTokens).where(eq(schema.shareTokens.rundownId, rundownId));
       await db.delete(schema.rundownSnapshots).where(eq(schema.rundownSnapshots.rundownId, rundownId));
+      // A person's own view of the sheet — column widths, hidden columns —
+      // points at the sheet too, and a delete that forgets it is refused.
+      await db.delete(schema.userRundownPrefs).where(eq(schema.userRundownPrefs.rundownId, rundownId));
       await db.delete(schema.rundowns).where(eq(schema.rundowns.id, rundownId));
+    };
+
+    /**
+     * Everything under an event, then the event.
+     *
+     * The event route and the company cascade share this so they cannot
+     * disagree about what "under" means — and they did. Folders and files
+     * were added after both were written, and neither was told, so the first
+     * event with a file in it could not be deleted and nor could its company.
+     * The database refused, correctly; the cascade was simply out of date.
+     * test/cascade.test.ts now fails whenever a table starts pointing at an
+     * event, a company or a sheet and this code has not heard of it.
+     */
+    const deleteEvent = async (eventId: string): Promise<void> => {
+      const rundowns = await db.query.rundowns.findMany({
+        where: eq(schema.rundowns.eventId, eventId),
+        columns: { id: true },
+      });
+      for (const r of rundowns) await deleteRundown(r.id);
+      await db.delete(schema.eventFiles).where(eq(schema.eventFiles.eventId, eventId));
+      await db.delete(schema.eventFolders).where(eq(schema.eventFolders.eventId, eventId));
+      // The grants that pointed at this event go with it: a grant to an event
+      // that no longer exists is what left an account unable to create one.
+      await db.delete(schema.userGrants).where(eq(schema.userGrants.targetId, eventId));
+      await db.delete(schema.events).where(eq(schema.events.id, eventId));
     };
 
     try {
@@ -1098,16 +1126,13 @@ export function createApiHandler(
           where: eq(schema.events.teamId, id),
           columns: { id: true },
         });
-        for (const event of companyEvents) {
-          const rundowns = await db.query.rundowns.findMany({
-            where: eq(schema.rundowns.eventId, event.id),
-            columns: { id: true },
-          });
-          for (const r of rundowns) await deleteRundown(r.id);
-          // The grants that pointed at this event go with it — see below.
-          await db.delete(schema.userGrants).where(eq(schema.userGrants.targetId, event.id));
-          await db.delete(schema.events).where(eq(schema.events.id, event.id));
-        }
+        for (const event of companyEvents) await deleteEvent(event.id);
+        // The company's own kinds of show, and the invitations it sent that
+        // were never taken up. The invitation is what refused the delete on
+        // 3 September: "user_invites_team_id_teams_id_fk", three times, while
+        // the button on the dashboard said nothing at all.
+        await db.delete(schema.customEventTypes).where(eq(schema.customEventTypes.teamId, id));
+        await db.delete(schema.userInvites).where(eq(schema.userInvites.teamId, id));
         await db.delete(schema.templates).where(eq(schema.templates.teamId, id));
         await db.delete(schema.teamMembers).where(eq(schema.teamMembers.teamId, id));
         /**
@@ -1185,12 +1210,7 @@ export function createApiHandler(
       if (req.method === "DELETE" && /^\/events\/[^/]+$/.test(pathname)) {
         const id = pathname.split("/")[2]!;
         if (!(await requireEventAccess(id))) return true;
-        const rundowns = await db.query.rundowns.findMany({
-          where: eq(schema.rundowns.eventId, id),
-          columns: { id: true },
-        });
-        for (const r of rundowns) await deleteRundown(r.id);
-        await db.delete(schema.events).where(eq(schema.events.id, id));
+        await deleteEvent(id);
         json(res, 200, { id });
         return true;
       }

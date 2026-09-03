@@ -260,6 +260,20 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
   // Only after a first attempt: naming everything wrong before anyone has
   // typed is nagging, not help.
   const [tried, setTried] = useState(false);
+  /**
+   * The server's answer when it refuses, and whether a request is in flight.
+   *
+   * Neither existed: the create was fired with a `.then` and no `.catch`, so
+   * a refusal — an account whose grants do not reach a company, a session
+   * that had died, an end date before its start — rejected in silence. The
+   * form stayed open, every field looked fine, and pressing Create did
+   * nothing at all. Reported on 3 September by an account holder who had
+   * filled in the location the form asked for and then could not create the
+   * event: the first press had been refused by the FORM (a missing field, and
+   * it said so), the second by the SERVER, and that one said nothing.
+   */
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   /**
    * Everything an event needs before it is worth creating.
@@ -290,13 +304,19 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
-        if (missing.length > 0) return;
-        void api.createEvent({ name: name.trim(), location: location.trim() || undefined, startDate, endDate, timezone, sport, teamId }).then(() => {
-          setName("");
-          setLocation("");
-          setOpen(false);
-          onCreated();
-        });
+        setError(null);
+        if (missing.length > 0 || busy) return;
+        setBusy(true);
+        api
+          .createEvent({ name: name.trim(), location: location.trim() || undefined, startDate, endDate, timezone, sport, teamId })
+          .then(() => {
+            setName("");
+            setLocation("");
+            setOpen(false);
+            onCreated();
+          })
+          .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+          .finally(() => setBusy(false));
       }}
     >
       <div>
@@ -351,9 +371,14 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
         <EventTypeSelect value={sport} onChange={setSport} placeholder="Leave to each run sheet…" />
       </div>
       {tried && <MissingFields missing={missing} />}
+      {error && (
+        <div role="alert" style={{ color: "var(--danger-text, #ffd9d9)", fontSize: "var(--fs-sm)", flexBasis: "100%" }}>
+          <strong>Not created</strong> — {error}
+        </div>
+      )}
       <div className="field-actions">
-        <button className="btn btn-primary" type="submit">
-          Create event
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy ? "Creating…" : "Create event"}
         </button>
         <button className="btn btn-ghost" type="button" onClick={() => setOpen(false)}>
           Cancel

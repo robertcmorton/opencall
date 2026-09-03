@@ -1104,10 +1104,21 @@ export function createApiHandler(
             columns: { id: true },
           });
           for (const r of rundowns) await deleteRundown(r.id);
+          // The grants that pointed at this event go with it — see below.
+          await db.delete(schema.userGrants).where(eq(schema.userGrants.targetId, event.id));
           await db.delete(schema.events).where(eq(schema.events.id, event.id));
         }
         await db.delete(schema.templates).where(eq(schema.templates.teamId, id));
         await db.delete(schema.teamMembers).where(eq(schema.teamMembers.teamId, id));
+        /**
+         * AND THE GRANTS THAT POINTED AT IT. They were left behind, and a grant
+         * to a company that no longer exists is worse than no grant: the
+         * account still sees "A whole company" on the users page, the
+         * dashboard still offers it a New event button, and the server — which
+         * trusted the grant — tried to insert an event for a team that was not
+         * there and fell over on the foreign key. Seven times, on 3 September.
+         */
+        await db.delete(schema.userGrants).where(eq(schema.userGrants.targetId, id));
         await db.delete(schema.teams).where(eq(schema.teams.id, id));
         json(res, 200, { id });
         return true;
@@ -1320,6 +1331,21 @@ export function createApiHandler(
             return true;
           }
         } else teamId = asked ?? (await defaultTeamId());
+        /**
+         * The company must EXIST. A grant can outlive the company it points at
+         * — one did, and the insert below then failed on the events→teams
+         * foreign key with a 500 the form swallowed: an account holder who had
+         * filled in everything the form asked for pressed Create seven times
+         * and nothing happened. Journal, 3 September 17:15. Said plainly here
+         * instead, with the one thing that fixes it.
+         */
+        const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, teamId), columns: { id: true } });
+        if (!team) {
+          json(res, 409, {
+            error: "the company this account is granted access to no longer exists — an admin needs to grant access to a current company",
+          });
+          return true;
+        }
         await db.insert(schema.events).values({
           id,
           teamId,

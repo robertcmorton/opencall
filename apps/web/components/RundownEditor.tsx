@@ -5460,6 +5460,24 @@ export function RundownEditor({
         </div>
       )}
 
+      {/* A LOADED SHEET THAT THE SERVER THEN REFUSES. The panel below only
+          renders on an EMPTY sheet, so a tab that already held rows — a
+          signed-in laptop, mid-show, on a sheet that was then deleted and
+          re-imported under a new id — got nothing but the diagnostics bar
+          while it showed rows that existed only in its own memory. Say so
+          where the rows are, and say the one useful thing: export before
+          leaving, because those rows and any live edits are not on the
+          server. Seen on show night, 3 September. */}
+      {rows.length > 0 && docStatus.blocked && (
+        <div className="cmd-error no-print" role="alert">
+          <span className="cmd-error-msg">
+            <strong>{docStatus.blocked.title}</strong> — {docStatus.blocked.detail}{" "}
+            {docStatus.blocked.reason === "no-such-rundown"
+              ? "The rows below are this screen's last copy and are not on the server: Export CSV before you leave this tab, then open the sheet again from the dashboard."
+              : "The rows below are this screen's last copy. Changes will not reach the server until this is resolved."}
+          </span>
+        </div>
+      )}
       {rows.length === 0 &&
         // Until the document has arrived it is legitimately empty — saying so
         // would be a lie on a slow connection, and hides a real failure when

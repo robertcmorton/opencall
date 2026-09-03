@@ -269,6 +269,78 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
     setPhase("connecting");
     setAttempts((n) => n + 1);
     let concluded = false;
+    /**
+     * Set once a refusal is FINAL. The provider's own reconnect logic can fire
+     * after `disconnect()` — a retry scheduled before the call, or a close
+     * arriving during it — and each refused attempt used to restart the loop:
+     * the tab showed "this run sheet no longer exists" for twenty-five
+     * seconds and then went back to "disconnected, retrying" with the bare
+     * 4401, measured on 3 September. Once settled, every later close is
+     * answered with another disconnect and nothing else.
+     */
+    let settled = false;
+    /**
+     * Conclude a refused connection, once.
+     *
+     * Reached two ways, and the second was missing. The document server
+     * refuses a connection by sending a permission-denied message carrying its
+     * reason and then closing the socket with 4401 — and the provider surfaces
+     * that as `onAuthenticationFailed`. But a refusal can also arrive as the
+     * bare close: seen on the night of 3 September on a sheet that had been
+     * DELETED while a signed-in tab was open on it. The tab's reconnects were
+     * refused, `onClose` logged "socket closed 4401 Unauthorized", nothing
+     * concluded, and the screen sat on "disconnected, retrying" over rows that
+     * existed only in that tab's memory — with no word that the sheet was
+     * gone. A fresh load of the same link said so at once, because the epoch
+     * pre-check above settles a deleted sheet before any socket is opened.
+     *
+     * So both paths conclude the same way, and the epoch lookup is the
+     * authority: gone means gone whatever the socket said; moved means an
+     * in-place restore to follow; unchanged means the refusal is final.
+     */
+    const conclude = (reason: string | undefined): void => {
+      if (concluded) return;
+      concluded = true;
+      void fetchEpoch(rundownId).then(async (current) => {
+        if (cancelled) return;
+        if (current !== null && current !== epoch) {
+          concluded = false; // a moved epoch is a fresh start, not a refusal
+          setEpoch(current);
+          return;
+        }
+        // Nothing about this will change by asking again: stop reconnecting
+        // so the device isn't retrying a hopeless socket for the rest of the
+        // show. "Try again" and sign-in both reload the page.
+        settled = true;
+        provider.disconnect();
+        if (current === null) {
+          setPhase("no such rundown");
+          setLastError("this run sheet no longer exists");
+          setBlocked(describeRefusal("no-such-rundown", null, false));
+          return;
+        }
+        // Ask the server who this credential belongs to. That single answer
+        // separates "your sign-in died" from "your account lacks access" —
+        // the two causes look identical from inside the socket.
+        let identity: string | null = null;
+        let signedIn = false;
+        try {
+          const res = await fetch(`${API_URL}/me`, { headers: { authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const me = (await res.json()) as { role?: string | null; name?: string; teamName?: string };
+            if (me.role) {
+              signedIn = true;
+              identity = me.name ?? me.teamName ?? me.role;
+            } else {
+              identity = "not recognised by the server";
+            }
+          }
+        } catch {
+          identity = null;
+        }
+        if (!cancelled) setBlocked(describeRefusal(reason ?? "permission-denied", identity, signedIn));
+      });
+    };
     const provider = new HocuspocusProvider({
       url: DOC_WS_URL,
       name: `${rundownId}@${epoch}`,
@@ -284,12 +356,23 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
       },
       onDisconnect: () => {
         setConnected(false);
+        // A settled refusal keeps its own phase ("no such rundown", …) rather
+        // than being overwritten by the disconnect it caused.
+        if (settled) return;
         setPhase("disconnected, retrying");
       },
       onClose: ({ event }: { event: { code?: number; reason?: string } }) => {
+        if (settled) {
+          provider.disconnect();
+          return;
+        }
         if (event?.code && event.code !== 1000) {
           setLastError(`socket closed ${event.code}${event.reason ? ` ${event.reason}` : ""}`);
         }
+        // 4401 is the document server refusing us. When the refusal reaches
+        // us only as this close — see `conclude` — it still has to be
+        // concluded, or the tab retries a dead socket for the rest of the show.
+        if (event?.code === 4401) conclude(undefined);
       },
       onAuthenticationFailed: ({ reason }: { reason?: string }) => {
         setAuthFailed(true);
@@ -297,45 +380,8 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
         setLastError(`auth refused${reason ? `: ${reason}` : ""}`);
         // The provider retries forever. Diagnosing the same refusal on every
         // attempt would put a steady stream of requests on the server from a
-        // screen that is going nowhere, so conclude it once.
-        if (concluded) return;
-        concluded = true;
-        // Possibly a stale epoch after an in-place restore — follow it. If the
-        // epoch has NOT moved the refusal is final: this used to fall through
-        // to nothing at all, leaving the screen loading forever with no hint of
-        // why, which is exactly the failure a crew member cannot report.
-        void fetchEpoch(rundownId).then(async (current) => {
-          if (cancelled) return;
-          if (current !== null && current !== epoch) {
-            concluded = false; // a moved epoch is a fresh start, not a refusal
-            setEpoch(current);
-            return;
-          }
-          // Nothing about this will change by asking again: stop reconnecting
-          // so the device isn't retrying a hopeless socket for the rest of the
-          // show. "Try again" and sign-in both reload the page.
-          provider.disconnect();
-          // Ask the server who this credential belongs to. That single answer
-          // separates "your sign-in died" from "your account lacks access" —
-          // the two causes look identical from inside the socket.
-          let identity: string | null = null;
-          let signedIn = false;
-          try {
-            const res = await fetch(`${API_URL}/me`, { headers: { authorization: `Bearer ${token}` } });
-            if (res.ok) {
-              const me = (await res.json()) as { role?: string | null; name?: string; teamName?: string };
-              if (me.role) {
-                signedIn = true;
-                identity = me.name ?? me.teamName ?? me.role;
-              } else {
-                identity = "not recognised by the server";
-              }
-            }
-          } catch {
-            identity = null;
-          }
-          if (!cancelled) setBlocked(describeRefusal(reason ?? "permission-denied", identity, signedIn));
-        });
+        // screen that is going nowhere, so conclude it once — see `conclude`.
+        conclude(reason);
       },
     });
     const bump = () => setTick((n) => n + 1);

@@ -4,15 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandWordmark } from "../../components/ui";
-import {
-  api,
-  ApiError,
-  API_URL,
-  copyViewOnlyLink,
-  setAdminToken,
-  type EventSummary,
-  type TemplateSummary,
-} from "../../lib/api";
+import { api, ApiError, API_URL, copyViewOnlyLink, type EventSummary, type TemplateSummary } from "../../lib/api";
+import { sendToSignIn } from "../../lib/session";
 import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
 import { SideNavSection, WithSideNav } from "../../components/SideNav";
@@ -442,77 +435,15 @@ function CreateRundownForm({
   );
 }
 
-function TokenGate({ onUnlocked }: { onUnlocked: () => void }) {
-  const [token, setToken] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const login = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password) return;
-    setBusy(true);
-    setError(null);
-    void api
-      .login(email.trim(), password)
-      .then(({ token: session }) => {
-        setAdminToken(session);
-        onUnlocked();
-      })
-      .catch(() => {
-        setError("Invalid email or password.");
-        setBusy(false);
-      });
-  };
-
-  return (
-    <div style={{ maxWidth: 420, margin: "10vh auto", display: "grid", gap: 14 }}>
-      <form
-        className="panel"
-        style={{ display: "grid", gap: 12 }}
-        onSubmit={login}
-      >
-        <div>
-          <h2 style={{ margin: "0 0 4px", fontSize: "1.05rem" }}>Sign in</h2>
-          <p style={{ margin: 0, color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-            This server is locked. Sign in with your account, or use a token below.
-          </p>
-        </div>
-        <input className="input" type="email" autoFocus autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="input" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        {error && <div style={{ color: "var(--over)", fontSize: "var(--fs-sm)" }}>{error}</div>}
-        <button className="btn btn-primary" type="submit" disabled={busy || !email.trim() || !password}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-      <form
-        className="panel"
-        style={{ display: "grid", gap: 10 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!token.trim()) return;
-          setAdminToken(token.trim());
-          onUnlocked();
-        }}
-      >
-        <label className="field-label" style={{ margin: 0 }}>
-          Or use a token (admin, company, or personal)
-        </label>
-        <input
-          className="input"
-          type="password"
-          placeholder="Token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-        />
-        <button className="btn" type="submit" disabled={!token.trim()}>
-          Unlock with token
-        </button>
-      </form>
-    </div>
-  );
-}
+/*
+ * There is no sign-in form here any more, deliberately. The dashboard used to
+ * carry one of its own — account form on top, token box beneath — shown
+ * inline whenever the session had died, while the landing page carries the
+ * same two the other way round. Two sign-in screens for one app, and which
+ * one you saw depended on where you were standing when the session ended.
+ * A dead session now goes to the landing page with the way back (see
+ * lib/session.ts), so there is one screen, and it is the one people know.
+ */
 
 /** Inline start/end editor for an event card. End can never precede start. */
 function DatesEditor({
@@ -776,6 +707,12 @@ export default function AdminPage() {
   const [live, setLive] = useState<Map<string, LiveSession>>(new Map());
   const [error, setError] = useState(false);
   const [locked, setLocked] = useState(false);
+  // Locked means the server answered 401 to the dashboard's own reads: no
+  // session, or one that has died. Either way the sign-in screen is the
+  // landing page, with this page as the way back.
+  useEffect(() => {
+    if (locked) sendToSignIn(router);
+  }, [locked, router]);
   // Import panel target: an event (new rundown), optionally replacing an existing rundown's content.
   const [importFor, setImportFor] = useState<{ eventId: string; replace?: { id: string; name: string } } | null>(null);
   const [me, setMe] = useState<{
@@ -897,8 +834,8 @@ export default function AdminPage() {
 
   if (locked)
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
-        <TokenGate onUnlocked={reload} />
+      <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-3)", display: "grid", placeItems: "center" }}>
+        Taking you to sign in…
       </div>
     );
 

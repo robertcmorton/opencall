@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
+import { sendToSignIn } from "../../lib/session";
 
 /** My account: who I am, what I can access, and my details. */
 export default function AccountPage() {
@@ -13,13 +15,22 @@ export default function AccountPage() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
 
+  const router = useRouter();
   useEffect(() => {
-    void api.me().then((m) => {
-      setMe(m);
-      setName(m.name ?? "");
-      setEmail(m.email ?? "");
-    });
-  }, []);
+    void api
+      .me()
+      .then((m) => {
+        // "My account" with no account: the sign-in screen, and back here after.
+        if (m.role == null) {
+          sendToSignIn(router);
+          return;
+        }
+        setMe(m);
+        setName(m.name ?? "");
+        setEmail(m.email ?? "");
+      })
+      .catch(() => sendToSignIn(router));
+  }, [router]);
 
   if (!me) return <main style={{ padding: "4rem", textAlign: "center", color: "var(--text-3)" }}>Loading…</main>;
 

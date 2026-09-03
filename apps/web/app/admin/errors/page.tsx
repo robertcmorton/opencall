@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
+import { sendToSignIn } from "../../../lib/session";
 import { WithSideNav } from "../../../components/SideNav";
 import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
 import { ErrorLogPanel } from "../../../components/ErrorLogPanel";
@@ -17,9 +18,10 @@ export default function AdminErrorsPage() {
       .me()
       .then((m) => {
         setMe(m);
-        if (m.role == null) router.replace("/admin"); // sign-in gate lives there
+        if (m.role == null) sendToSignIn(router); // no session: the sign-in screen, with the way back
+        else if (m.role !== "admin") router.replace("/admin"); // signed in, but this page is the server's
       })
-      .catch(() => router.replace("/admin"));
+      .catch(() => sendToSignIn(router));
   }, [router]);
 
   return (

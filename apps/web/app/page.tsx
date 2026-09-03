@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, getAdminToken, setAdminToken } from "../lib/api";
 import { BrandWordmark } from "../components/ui";
+import { safeNext } from "../lib/session";
 
 const ROUTE_BY_ROLE = { caller: "show", editor: "edit", follower: "view" } as const;
 
-/**
- * A screen that refused a connection sends people here with `?next=` so they
- * land back where they were trying to go. Only same-site paths are honoured —
- * `//host` would leave the site entirely, so it is rejected.
- */
-const safeNext = (value: string | null): string | null =>
-  value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+// A screen that found no session sends people here with `?next=` so they land
+// back where they were. What counts as a safe way back is decided in one place.
 
 /** Personal/company/admin access tokens are pasted here too — they start with a known prefix. */
 const looksLikeAccessToken = (v: string): boolean => /^(usr_|co_|oc_)/i.test(v);

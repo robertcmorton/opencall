@@ -162,6 +162,14 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
       const { reportClientError } = await import("./errorReport");
       reportClientError(`API ${method} ${path} → ${res.status}: ${detail.slice(0, 300)}`);
     }
+    // A 401 on a surface that needs a session may mean the session has died
+    // — expired, revoked, signed out in another tab. The check decides; it
+    // moves nobody whose credential still works. Imported here rather than
+    // at the top because that module imports this one.
+    if (res.status === 401) {
+      const { onUnauthorized } = await import("./session");
+      onUnauthorized(path);
+    }
     throw new ApiError(humanMessage(res.status, detail), res.status, `${method} ${path} → ${res.status}: ${detail}`);
   }
   return (await res.json()) as T;

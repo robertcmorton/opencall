@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EventTypeSpec } from "@opencall/core";
 import { api, ApiError } from "../../../lib/api";
+import { sendToSignIn } from "../../../lib/session";
 import { WithSideNav } from "../../../components/SideNav";
 import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
 import { EventTypesPanel, ImportedSheetsPanel } from "../../../components/EventTypesPanel";
@@ -26,8 +27,8 @@ export default function AdminEventTypesPage() {
       .catch(() => setMe({ role: null }));
     api.eventTypes().then(setCustom).catch(() => setCustom([]));
     api.events().catch((err) => {
-      // Not signed in → the dashboard carries the sign-in gate.
-      if (err instanceof ApiError && err.status === 401) router.replace("/admin");
+      // No session, or a dead one → the sign-in screen, with the way back.
+      if (err instanceof ApiError && err.status === 401) sendToSignIn(router);
     });
   }, [router]);
   useEffect(reload, [reload]);

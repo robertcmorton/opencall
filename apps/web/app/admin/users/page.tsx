@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, type EventSummary } from "../../../lib/api";
+import { sendToSignIn } from "../../../lib/session";
 import { byDate, byName } from "../../../lib/pickOrder";
 import { WithSideNav } from "../../../components/SideNav";
 import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
@@ -25,8 +26,8 @@ export default function AdminUsersPage() {
       .events()
       .then((evs) => setEvents(byDate(evs)))
       .catch((err) => {
-        // Not signed in (or not allowed) → the dashboard carries the sign-in gate.
-        if (err instanceof ApiError && err.status === 401) router.replace("/admin");
+        // No session, or a dead one → the sign-in screen, with the way back.
+        if (err instanceof ApiError && err.status === 401) sendToSignIn(router);
       });
     // The scoped list: names only, and it works for a company as well as an
     // admin. `api.companies()` is admin-only because its rows carry each

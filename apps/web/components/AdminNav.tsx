@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, getAdminToken, setAdminToken } from "../lib/api";
 import { SideNavSection } from "./SideNav";
@@ -59,6 +60,7 @@ export function CredentialsNavSection({
   /** Re-read the session after signing out — the caller owns what that means. */
   onSignedOut: () => void;
 }) {
+  const router = useRouter();
   const [hasToken, setHasToken] = useState(false);
   // localStorage is read in an effect, never in the render body: the server
   // renders "not signed in" and a signed-in browser would render otherwise,
@@ -105,6 +107,9 @@ export function CredentialsNavSection({
             const done = () => {
               setAdminToken(null);
               onSignedOut();
+              // Chosen, not suffered: no way back is remembered, because
+              // "sign out" was the request.
+              router.replace("/");
             };
             if (bearer?.startsWith("ses_")) void api.logout().catch(() => undefined).then(done);
             else done();

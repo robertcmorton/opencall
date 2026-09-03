@@ -68,9 +68,11 @@ export interface PlanRow {
    */
   spans?: boolean;
   /**
-   * Skipped live (show running behind): the row stays visible but its duration
-   * leaves the cascade, so downstream times catch back up to the original
-   * anchors. Transport steps over it.
+   * Struck: the row stays visible, with a line through it, but its duration
+   * leaves the cascade and the transport steps over it. The fixed times below
+   * it move up by its length when it is struck (see `strikeShift`) — a printed
+   * time is an anchor, and left alone it would put the struck minutes straight
+   * back.
    */
   skipped?: boolean;
   /** Display-only flag; does not affect math. */

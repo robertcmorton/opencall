@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./timing";
 export * from "./format";
 export * from "./live";
+export * from "./retime";
 export * from "./goldenPoint";
 export * from "./editLock";
 export * from "./csv";

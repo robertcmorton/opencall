@@ -47,7 +47,7 @@ import {
   parseTimeOfDay,
   serializeCsv,
   startEditRipples,
-  zoneSecondsOfDay,
+  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { api, setActiveJoinCode } from "../lib/api";
@@ -3035,6 +3035,13 @@ export function RundownEditor({
       if (from < 0 || to < 0) return;
       yOrder.delete(from, 1);
       yOrder.insert(to, [String(active.id)]);
+      // The rows it jumped over move by its length, and it takes the time of
+      // its new place — otherwise every row keeps the time of where it WAS,
+      // and the sheet reads in one order while its clock reads in another.
+      if (rows[from]?.id !== String(active.id)) return;
+      for (const c of fixedTimesAfterMove(rows, from, to, meta.plannedStartSec)) {
+        yRows.get(c.id)?.set("hardStartSec", c.hardStartSec);
+      }
     });
   };
 
@@ -4519,15 +4526,26 @@ export function RundownEditor({
             </button>
             <button
               className="btn btn-sm"
-              data-tip="Strike: keeps the row visible but removes it from timing and transport — the show catches back up to the original anchors"
-              onClick={() =>
+              data-tip="Strike: keeps the row visible but takes it out of the timing and the transport — every printed time below moves up by its length. Press again to put it back."
+              onClick={() => {
+                // A printed time is an anchor. Flip the flag alone and the row
+                // leaves the cascade but the row under it still says 8:47,
+                // because 8:47 is written on it — so the struck minutes came
+                // straight back and nothing below moved. The strike is a
+                // change of length, and ripples like one.
+                const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
                 doc.transact(() =>
                   selected.forEach((id) => {
                     const yRow = yRows.get(id);
-                    yRow?.set("skipped", !(yRow.get("skipped") as boolean | undefined));
+                    if (!yRow) return;
+                    const struck = !(yRow.get("skipped") as boolean | undefined);
+                    yRow.set("skipped", struck);
+                    const idx = rows.findIndex((r) => r.id === id);
+                    const delta = strikeShift(rows, idx, struck, liveIdx);
+                    if (delta !== 0) shiftFixedTimes(idx + 1, rows.length - 1, delta);
                   }),
-                )
-              }
+                );
+              }}
             >
               {/* "Strike", not "Skip". The row is not passed over and forgotten
                   — it stays on the sheet with a line through it, which is what

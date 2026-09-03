@@ -28,6 +28,10 @@ import {
   activeOutcomeGame,
   buildOfferDue,
   mayEditShow,
+  extraUnderWay,
+  resultCalled,
+  keepAfterResult,
+  type EndingRow,
   outcomesFor,
   findDecisionPoints,
   findPhases,
@@ -222,8 +226,16 @@ function SortableRow({
               // The row-number cell has its own handler and already does this;
               // and anything you can press — a button, a field, the fork
               // triangle — is answering the click itself.
+              //
+              // NOT the text cells. They are contenteditable, and excluding
+              // them meant "click anywhere on a row to go there" was true of
+              // the number, the time and the item and false of the notes and
+              // the who — most of a wide row. This handler only exists during
+              // a walkthrough, which is rehearsal rather than editing, so a
+              // click on a note both focuses the cell (harmless) and walks
+              // the crew to the row (the point).
               const el = e.target as HTMLElement;
-              if (el.closest("td.row-number, button, input, select, textarea, [contenteditable='true']")) return;
+              if (el.closest("td.row-number, button, input, select, textarea")) return;
               onRowClick(e);
             }
           : undefined
@@ -1911,14 +1923,17 @@ export function RundownEditor({
    * period of football, and the match still has to end in a win, a loss or a
    * draw afterwards.
    */
-  const goldenPlaying = (g: number): boolean => {
-    if (!outcomesOfGame(g).includes("golden") || !playing(g, "golden")) return false;
-    // Before anything is called NOTHING is skipped, so every ending is
-    // technically "playing" — including golden. Extra time is only under way
-    // once it has been chosen, which is to say once the results are skipped.
-    const results = rowsOfGame(g).filter((r) => r.outcome !== "golden");
-    return results.length > 0 && results.every((r) => r.skipped);
-  };
+  /** This game's endings in the shape the result rules read — see `EndingRow`. */
+  const endingRowsOf = (g: number): EndingRow[] =>
+    rows
+      .map((r, index) => ({ r, index }))
+      .filter(({ r }) => r.outcome && (r.outcomeGame ?? 1) === g)
+      .map(({ r, index }) => ({ id: r.id, index, outcome: r.outcome!, skipped: !!r.skipped }));
+  const liveIndexNow = (): number => (activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1);
+  // The rules live in core, where they are tested: a written block records
+  // "golden point called" by its struck results, a BUILT block has no results
+  // and reads the cue instead. See `extraUnderWay`.
+  const goldenPlaying = (g: number): boolean => extraUnderWay(endingRowsOf(g), liveIndexNow());
   /**
    * The result that has been called, or null while it is still open.
    *
@@ -1927,14 +1942,7 @@ export function RundownEditor({
    * block STAYS in the running order — it happened. Reading it as the answer
    * left the chooser saying "golden point" after the match had been won.
    */
-  const chosenOf = (g: number): string | null => {
-    const results = outcomesOfGame(g).filter((o) => o !== "golden");
-    for (const o of results) {
-      const others = rowsOfGame(g).filter((r) => r.outcome !== o && r.outcome !== "golden");
-      if (playing(g, o) && others.length > 0 && others.every((r) => r.skipped)) return o;
-    }
-    return null;
-  };
+  const chosenOf = (g: number): string | null => resultCalled(endingRowsOf(g));
   /** What the chooser is asking about right now. */
   /**
    * Is the result worth asking about yet?
@@ -2089,12 +2097,13 @@ export function RundownEditor({
     // AFTER golden point used to skip the golden block, so the twenty minutes
     // of football everyone just watched vanished out of the running order and
     // every time below it jumped back.
-    const keepGolden = o !== "golden" && goldenPlaying(game) && outcomesOfGame(game).includes("golden");
+    // What stays is decided in core — the chosen ending, plus whatever of the
+    // extra period was actually played. "Keep every golden row" used to walk
+    // the unplayed rest of a sudden-death period after the try that ended it.
+    // See `keepAfterResult`.
+    const keep = keepAfterResult(endingRowsOf(game), o, liveIndexNow());
     doc.transact(() => {
-      for (const r of rowsOfGame(game)) {
-        const keep = r.outcome === o || (keepGolden && r.outcome === "golden");
-        yRows.get(r.id)?.set("skipped", !keep);
-      }
+      for (const r of rowsOfGame(game)) yRows.get(r.id)?.set("skipped", !keep.has(r.id));
     });
     // Deliberately NOT a jump. Calling the result says which ending WILL be
     // played, not that it starts now — the siren has gone but the second half
@@ -2338,6 +2347,16 @@ export function RundownEditor({
     // A type the app does not know, or a sheet with no type set, shows whatever
     // endings the sheet itself carries — better than offering nothing.
     if (offered.length === 0) return [...present];
+    /**
+     * A BUILT block is nothing but the period. The sheet wrote no win, lose
+     * or draw rows, so filtering to what is present offered "golden point"
+     * and nothing else — right through a sudden-death period, with no way to
+     * say the try had gone down. The rules do not need result rows to act:
+     * a Win with nothing to keep strikes the unplayed rest of the period and
+     * marks the game settled (`keepAfterResult`, `resultCalled`). So when the
+     * endings are only the period, the kind of show's own list is offered.
+     */
+    if (present.every((o) => o === "golden")) return offered;
     return offered.filter((o) => present.includes(o));
   };
   const outcomeLabel = (o: string): string =>
@@ -2710,6 +2729,12 @@ export function RundownEditor({
    *
    * One transaction, so one undo takes the whole thing back out.
    */
+  /** Which game on the day a decision row belongs to, counting from one. */
+  const gameOfDecision = (rowId: string): number => {
+    const order = rows.filter((r) => decisionRowIds.has(r.id)).map((r) => r.id);
+    const i = order.indexOf(rowId);
+    return i >= 0 ? i + 1 : 1;
+  };
   const insertGoldenPointAfter = (rowId: string): void => {
     const at = rows.findIndex((r) => r.id === rowId);
     if (at < 0 || !titleColumn) return;
@@ -2729,6 +2754,15 @@ export function RundownEditor({
         yRow.set("type", seed.type);
         yRow.set("hardStartSec", null);
         yRow.set("durationSec", seed.durationSec);
+        // Tagged as the extra period of THIS game, the way a written block is.
+        // Untagged, the built rows took ordinary numbers — the crew's printed
+        // item 18 read 22 on screen once the block went in — and nothing about
+        // them was a period: no chooser during sudden death, no "score — move
+        // on", the rail's band by wording alone. With the tag they hang off
+        // full time as 17GP.1… and every rule written for a written block
+        // applies to a built one.
+        yRow.set("outcome", "golden");
+        yRow.set("outcomeGame", gameOfDecision(rowId));
         const cells = new Y.Map<Y.XmlFragment>();
         const fragment = new Y.XmlFragment();
         const paragraph = new Y.XmlElement("paragraph");
@@ -4032,7 +4066,7 @@ export function RundownEditor({
                 synced" is a claim about where the show IS, and that is the one
                 anybody is actually checking — the two came apart badly enough
                 once to be worth separating for good. */}
-            ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
+            ◷ {!channel.connected && clockFollow ? "Reconnecting…" : clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
           </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are

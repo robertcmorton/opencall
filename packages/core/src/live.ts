@@ -1065,3 +1065,88 @@ export function buildOfferDue(input: {
  * that may drive it, and nobody else is offered them.
  */
 export const mayEditShow = (role: string | null | undefined): boolean => role === "caller" || role === "admin";
+
+/** One row of a game's endings, as the result rules see it. */
+export interface EndingRow {
+  id: string;
+  /** Position in the full sheet. */
+  index: number;
+  outcome: string;
+  skipped: boolean;
+}
+
+const isGolden = (r: EndingRow) => r.outcome === "golden";
+
+/**
+ * Is the extra period under way for this game?
+ *
+ * Two shapes of sheet answer it differently. A sheet with RESULT rows written
+ * (win, lose, draw) records "golden point has been called" by striking those
+ * results — before anything is called nothing is struck, so every ending is
+ * technically playing, golden included, and the period only counts as under
+ * way once the results are out of the running order. A sheet with NO result
+ * rows — the block was built at full time on a sheet that never wrote any —
+ * has nothing to strike, and the only honest signal is the cue: the period is
+ * under way once the show has reached it.
+ */
+export function extraUnderWay(rows: readonly EndingRow[], liveIndex: number): boolean {
+  const golden = rows.filter(isGolden);
+  if (golden.length === 0 || golden.some((r) => r.skipped)) return false;
+  const results = rows.filter((r) => !isGolden(r));
+  if (results.length > 0) return results.every((r) => r.skipped);
+  return liveIndex >= Math.min(...golden.map((r) => r.index));
+}
+
+/**
+ * The result that has been called for this game, or null while it is open.
+ *
+ * With result rows on the sheet it is the one whose rows all play while every
+ * other result is struck; golden point is skipped over, because once the
+ * period is playing the question is still open, and once a result is called
+ * after it the golden block STAYS in the order — it happened.
+ *
+ * A built block has no result rows to read. There the tell is the block
+ * itself: a result called mid-period strikes the part of it that was never
+ * played, and a struck golden row means the match has been decided. Which
+ * result it was is not recorded anywhere on such a sheet — there is nothing
+ * for it to select between — so the answer is only that one HAS been called.
+ */
+export function resultCalled(rows: readonly EndingRow[]): string | null {
+  const results = rows.filter((r) => !isGolden(r));
+  if (results.length === 0) return rows.some((r) => isGolden(r) && r.skipped) ? "settled" : null;
+  const outcomes = [...new Set(results.map((r) => r.outcome))];
+  for (const o of outcomes) {
+    const mine = results.filter((r) => r.outcome === o);
+    const others = results.filter((r) => r.outcome !== o);
+    if (mine.every((r) => !r.skipped) && others.length > 0 && others.every((r) => r.skipped)) return o;
+  }
+  return null;
+}
+
+/**
+ * Which ending rows stay in the running order once a result is called.
+ *
+ * The chosen ending plays. Everything else is struck — except the extra
+ * period, which is the part this used to get wrong. "Extra time that has
+ * already been played stays played" is right, and it had been written as
+ * "keep every golden row", which on a sudden-death period is wrong by the
+ * length of whatever had not been played yet: a try in the second minute
+ * ended the match, and the show then walked the rest of the first half, the
+ * change of ends and the whole second half before it reached the winning
+ * song. The first score wins and the match stops there — so the rows of the
+ * period at or before the cue stay (they happened, or are happening), and the
+ * rows after it are struck (they never will).
+ *
+ * Called at full time, before the period has begun, nothing of it has been
+ * played and all of it is struck, which is what a match decided at the siren
+ * needs. Called after the period has run its length, all of it stays.
+ */
+export function keepAfterResult(rows: readonly EndingRow[], chosen: string, liveIndex: number): Set<string> {
+  const underWay = extraUnderWay(rows, liveIndex);
+  const keep = new Set<string>();
+  for (const r of rows) {
+    if (r.outcome === chosen) keep.add(r.id);
+    else if (isGolden(r) && chosen !== "golden" && underWay && r.index <= liveIndex) keep.add(r.id);
+  }
+  return keep;
+}

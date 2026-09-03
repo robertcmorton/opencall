@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ErrorReporter } from "../components/ErrorReporter";
 import { ViewportLock } from "../components/ViewportLock";
+import { THEME_BOOT_SCRIPT } from "../lib/theme";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -30,8 +31,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jbmono.variable}`}>
+    // suppressHydrationWarning: the boot script below stamps data-theme on
+    // this element before React arrives, and the server cannot know what a
+    // browser chose. Without it every light-mode load would be a #418.
+    <html lang="en" className={`${inter.variable} ${jbmono.variable}`} suppressHydrationWarning>
       <body>
+        {/* Before first paint, before hydration: see THEME_BOOT_SCRIPT. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <ErrorReporter />
         <ViewportLock />
         {children}

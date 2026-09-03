@@ -93,7 +93,25 @@ html {
   --press-veil: rgba(255, 255, 255, 0.14);
 }
 
+/* Chosen per browser from the menu's Appearance section (lib/theme.ts). The
+   semantic colours are re-pitched, not just the surfaces: the dark palette's
+   green reads at 1.9:1 on white, which is invisible, not subtle. */
 [data-theme="light"] {
+  color-scheme: light;
+  --hairline: rgba(20, 30, 50, 0.2);
+  --text-label: #66707f;
+  --under: #178a52;
+  --under-soft: rgba(23, 138, 82, 0.12);
+  --over: #d33a32;
+  --over-soft: rgba(211, 58, 50, 0.1);
+  --warn: #a8730a;
+  --warn-soft: rgba(168, 115, 10, 0.12);
+  --live: #d7373f;
+  --live-soft: rgba(215, 55, 63, 0.14);
+  --rec: #d7373f;
+  --rec-soft: rgba(215, 55, 63, 0.18);
+  --aside: #6d4fd1;
+  --aside-soft: rgba(109, 79, 209, 0.1);
   --bg: #f4f5f8;
   --surface: #ffffff;
   --raised: #ffffff;
@@ -776,6 +794,11 @@ input.inline-edit {
    combo — box-shadow doesn't compose across rules.) */
 :root {
   --cue-rail: inset 0 3px 0 #ffffff, inset 0 -3px 0 #ffffff;
+}
+/* The cue rail is a white line on the dark sheet; on the light one white
+   vanishes into the paper, so it is ink there. */
+[data-theme="light"] :root {
+  --cue-rail: inset 0 3px 0 #171c24, inset 0 -3px 0 #171c24;
 }
 .rundown-grid tr.active-row td {
   background: rgba(76, 141, 255, 0.18);

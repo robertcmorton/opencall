@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BrandWordmark, Icon } from "./ui";
+import { applyTheme, isTheme, readTheme, saveTheme, THEME_KEY, THEMES, type Theme } from "../lib/theme";
 
 /**
  * App shell with the persistent left settings panel: navigation (main page,
@@ -117,6 +118,7 @@ export function WithSideNav({
           </Link>
         </nav>
         {settings}
+        <ThemeSection />
         {/* The credit sits at the foot of the panel, after everything that
             does a job — visible on every screen without competing with any of
             them. "Built by" rather than anything more elaborate: it is the
@@ -142,5 +144,63 @@ export function SideNavSection({ heading, children }: { heading: string; childre
       <div className="menu-heading">{heading}</div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Dark, light, or match the machine — on every screen, because it is a
+ * property of the person looking rather than of any page. Read in an effect,
+ * never in the render body: the server renders "dark" and a browser set to
+ * light would render otherwise, which is the hydration mismatch of 17 August.
+ */
+function useTheme(): [Theme, (t: Theme) => void] {
+  const [theme, setThemeState] = useState<Theme>("dark");
+  useEffect(() => setThemeState(readTheme()), []);
+  // "Match system" means keep matching it: a laptop that goes dark at sunset
+  // takes the sheet with it.
+  useEffect(() => {
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const follow = () => applyTheme("system");
+    mq.addEventListener("change", follow);
+    return () => mq.removeEventListener("change", follow);
+  }, [theme]);
+  // Chosen in another tab: this one follows, so two tabs of the same sheet do
+  // not sit side by side in different appearances.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== THEME_KEY) return;
+      const next = isTheme(e.newValue) ? e.newValue : "dark";
+      setThemeState(next);
+      applyTheme(next);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const set = useCallback((t: Theme) => {
+    saveTheme(t);
+    setThemeState(t);
+  }, []);
+  return [theme, set];
+}
+
+export function ThemeSection() {
+  const [theme, setTheme] = useTheme();
+  return (
+    <SideNavSection heading="Appearance">
+      {THEMES.map((t) => (
+        <button
+          key={t.value}
+          type="button"
+          className="menu-item"
+          data-tip={t.tip}
+          aria-pressed={theme === t.value}
+          onClick={() => setTheme(t.value)}
+        >
+          <span className="check">{theme === t.value && "✓"}</span>
+          {t.label}
+        </button>
+      ))}
+    </SideNavSection>
   );
 }

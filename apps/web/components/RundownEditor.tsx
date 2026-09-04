@@ -4150,7 +4150,7 @@ export function RundownEditor({
                 ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off and step the show yourself."
                 : clockFollow
                   ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off and step the show yourself."
-                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Pause holds; manual jumps self-correct.",
+                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Manual jumps self-correct.",
               describeShowDrift(
                 live,
                 meta.use24h,

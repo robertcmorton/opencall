@@ -308,33 +308,24 @@ export function ShowStateControls({
               <span className={liveState === "paused" ? undefined : "is-off"}>PAUSED</span>
             </span>
           </span>
-          {/* One button, two states — not two buttons.
-              As two, "Resume" was wider than "Pause", so pausing a show shifted
-              Stop and the stopwatch sideways and then shifted them back on
-              resume. The same fault Stop had when it became Confirm, and the
-              same fix: both words share a cell, so the button is as wide as the
-              longer of them whatever it currently says. Green still means go. */}
-          {mayDrive && (
-          <button
-            className={`btn btn-sm ${liveState === "running" ? "" : "btn-positive"}`}
-            /**
-             * NAMED FOR ANYONE NOT LOOKING AT IT. The word is drawn by
-             * `label-swap`, which keeps BOTH words in the button and hides one
-             * with a class so the width never shifts. That is right for the
-             * eye and useless to a screen reader, which was reading these three
-             * — the only controls that start, hold and end a live show — as
-             * "button", "button", "button".
-             */
-            aria-label={liveState === "running" ? "Pause the show" : "Resume the show"}
-            data-tip={liveState === "running" ? "Hold the show here — the clock keeps running" : "Resume"}
-            onClick={() => channel.sendCmd(liveState === "running" ? "pause" : "resume")}
-          >
-            {liveState === "running" ? Icon.pause : Icon.play}{" "}
-            <span className="label-swap">
-              <span className={liveState === "running" ? undefined : "is-off"}>Pause</span>
-              <span className={liveState === "running" ? "is-off" : undefined}>Resume</span>
-            </span>
-          </button>
+          {/* NO PAUSE. It froze the clock on the item on air and marked every
+              screen PAUSED — while time of day and the printed times beneath
+              kept going, so on resume everything under the cue was wrong by
+              the length of the pause unless HOLD or the nudges put it right.
+              A stoppage is what HOLD is for: it re-times the sheet as it
+              waits. Removed from the transport on 4 September 2026. The server
+              still understands "pause" and "resume", so a session paused
+              before that day can be picked up: Resume is offered then, and
+              only then. */}
+          {mayDrive && liveState === "paused" && (
+            <button
+              className="btn btn-sm btn-positive"
+              aria-label="Resume the show"
+              data-tip="Resume"
+              onClick={() => channel.sendCmd("resume")}
+            >
+              {Icon.play} Resume
+            </button>
           )}
           {mayDrive && (
           <button

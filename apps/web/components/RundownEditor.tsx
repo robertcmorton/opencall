@@ -3055,7 +3055,9 @@ export function RundownEditor({
       // its new place — otherwise every row keeps the time of where it WAS,
       // and the sheet reads in one order while its clock reads in another.
       if (rows[from]?.id !== String(active.id)) return;
-      for (const c of fixedTimesAfterMove(rows, from, to, meta.plannedStartSec)) {
+      // Live, the cue is the anchor — see fixedTimesAfterMove.
+      const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+      for (const c of fixedTimesAfterMove(rows, from, to, meta.plannedStartSec, liveIdx)) {
         yRows.get(c.id)?.set("hardStartSec", c.hardStartSec);
       }
     });

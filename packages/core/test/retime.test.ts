@@ -119,6 +119,51 @@ describe("fixedTimesAfterMove", () => {
     ]);
   });
 
+  describe("live — the cue is the anchor", () => {
+    // A 19:00 (2m) · B 19:02 (3m) · C 19:05 (1m) · D 19:06 (4m) · E flowing. Live cue: B.
+    it("a future row moved above the cue: the cue and what is between stay, everything below its old place loses its length", () => {
+      // D (4m) goes above B. B is on air at 19:02 and must not move; C was
+      // before D already and keeps 19:05; E loses nothing it had (flowing).
+      const rows = sheet();
+      rows[4] = cue("E", 90, T(19, 10));
+      expect(fixedTimesAfterMove(rows, 3, 1, null, 1)).toEqual([
+        { id: "E", hardStartSec: T(19, 6) },
+        { id: "D", hardStartSec: T(19, 2) },
+      ]);
+    });
+
+    it("a pre-record between the cue and the old place is left alone — its length is not the show's", () => {
+      const rows = sheet();
+      rows[2] = cue("C", 60, T(19, 5), { parallel: true });
+      rows[4] = cue("E", 90, T(19, 10));
+      const ids = fixedTimesAfterMove(rows, 3, 1, null, 1).map((c) => c.id);
+      expect(ids).not.toContain("B");
+      expect(ids).not.toContain("C");
+      expect(ids).toContain("E");
+    });
+
+    it("a past row moved below the cue: everything below its new place gains its length", () => {
+      // A (2m) goes below C, with B live. B and C stay; D gains two minutes.
+      const rows = sheet();
+      expect(fixedTimesAfterMove(rows, 0, 2, null, 1)).toEqual([
+        { id: "D", hardStartSec: T(19, 8) },
+        { id: "A", hardStartSec: T(19, 6) },
+      ]);
+    });
+
+    it("moving the cue itself, or moving within the past, re-times nothing", () => {
+      expect(fixedTimesAfterMove(sheet(), 1, 3, null, 1)).toEqual([]);
+      expect(fixedTimesAfterMove(sheet(), 0, 1, null, 2)).toEqual([]);
+    });
+
+    it("both in the future: the plain re-ordering rule still applies", () => {
+      expect(fixedTimesAfterMove(sheet(), 2, 3, null, 0)).toEqual([
+        { id: "D", hardStartSec: T(19, 5) },
+        { id: "C", hardStartSec: T(19, 9) },
+      ]);
+    });
+  });
+
   it("nowhere to go: same place, or off the sheet", () => {
     expect(fixedTimesAfterMove(sheet(), 2, 2)).toEqual([]);
     expect(fixedTimesAfterMove(sheet(), 2, 7)).toEqual([]);

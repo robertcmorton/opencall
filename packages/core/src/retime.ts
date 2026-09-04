@@ -73,16 +73,47 @@ export function fixedTimesAfterMove(
   from: number,
   to: number,
   plannedStartSec: number | null = null,
+  liveIndex = -1,
 ): FixedTime[] {
   const moved = rows[from];
   if (!moved || from === to || to < 0 || to >= rows.length) return [];
   const changes: FixedTime[] = [];
   const len = moved.skipped || moved.outcome ? 0 : runningLength(moved);
-  const jumped = from < to ? rows.slice(from + 1, to + 1) : rows.slice(to, from);
-  const delta = from < to ? -len : len;
-  if (delta !== 0) {
-    for (const r of jumped) {
-      if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + delta) });
+  /**
+   * Live, the cue is the anchor: whatever is on air never moves, and the past
+   * is the past. So a move ACROSS the cue is not a re-ordering of the plan,
+   * it is time leaving or joining the future.
+   *
+   *   future → past: the row will now never play. Nothing at or above the cue
+   *   changes, nor anything between the cue and where the row used to be —
+   *   the row was after them already. Everything below its old place loses
+   *   its length. (Measured on show day: the plain rule pushed the LIVE cue
+   *   and the pre-record after it an hour later while the cue was on air.)
+   *
+   *   past → future: the row will now play. Everything below its new place
+   *   gains its length; the rows it passed on the way stay where they are.
+   *
+   * Moving the cue itself, or moving within the past, re-times nothing: one
+   * is not a plan change anyone can mean, the other is history.
+   */
+  const crossing = liveIndex >= 0 && (from > liveIndex) !== (to > liveIndex);
+  if (liveIndex >= 0 && (from === liveIndex || (from <= liveIndex && to <= liveIndex))) return [];
+  if (crossing) {
+    const toPast = from > liveIndex;
+    const shiftFrom = toPast ? from + 1 : to + 1;
+    const delta = toPast ? -len : len;
+    if (delta !== 0) {
+      for (const r of rows.slice(shiftFrom)) {
+        if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + delta) });
+      }
+    }
+  } else {
+    const jumped = from < to ? rows.slice(from + 1, to + 1) : rows.slice(to, from);
+    const delta = from < to ? -len : len;
+    if (delta !== 0) {
+      for (const r of jumped) {
+        if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + delta) });
+      }
     }
   }
   // A pre-record sits at its own time wherever on the sheet it is written.

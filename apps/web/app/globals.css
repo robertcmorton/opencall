@@ -3050,6 +3050,12 @@ th.col-drop-target {
 
 /* Sits across the very bottom so a photo of the screen carries the whole
    story: build, how far the connection got, and what stopped it. */
+.diag-bar.diag-collapsed {
+  /* One row: actions only, right-aligned, on the same amber ground. */
+  justify-content: flex-end;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .diag-bar {
   position: fixed;
   left: 0;

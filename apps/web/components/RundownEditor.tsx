@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
+import { highlightCss, ROW_HIGHLIGHTS } from "../lib/highlights";
 import { COL_W_PHONE, PHONE_MEDIA } from "../lib/phoneColumns";
 import { useRowWindow } from "../lib/useRowWindow";
 import { Stopwatch } from "./Stopwatch";
@@ -258,7 +259,11 @@ function SortableRow({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
-        background: mine ? `${mineColor}14` : row.type !== "group" && row.color ? row.color : undefined,
+        background: mine
+          ? `color-mix(in srgb, ${mineColor} var(--tint-mix), transparent)`
+          : row.type !== "group" && row.color
+            ? highlightCss(row.color)
+            : undefined,
         boxShadow: mine ? `inset 3px 0 0 ${mineColor}` : undefined,
       }}
     >
@@ -4662,19 +4667,13 @@ export function RundownEditor({
                 </button>
               ))}
             </Dropdown>
-            {[
-              ["rgba(229,72,77,0.16)", "Red"],
-              ["rgba(232,176,60,0.16)", "Amber"],
-              ["rgba(63,214,143,0.14)", "Green"],
-              ["rgba(76,141,255,0.15)", "Blue"],
-              ["rgba(167,139,250,0.16)", "Purple"],
-            ].map(([color, label]) => (
+            {ROW_HIGHLIGHTS.map(({ stored, label, css }) => (
               <button
-                key={color}
+                key={stored}
                 className="color-swatch"
                 data-tip={`Highlight ${label}`}
-                style={{ background: color }}
-                onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", color)))}
+                style={{ background: css }}
+                onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", stored)))}
               />
             ))}
             {/* NO COLOUR, drawn as the absence of one.

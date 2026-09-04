@@ -67,6 +67,20 @@ html {
   --aside: #a78bfa;
   --aside-soft: rgba(167, 139, 250, 0.11);
 
+  /* Row highlights. The five a person can paint a row with, and how strong
+     the wash is. A row STORES the colour it was given as a literal — these
+     exact strings, from the day the swatches were written — and the sheet
+     turns that literal into a token here, so the same highlight is a 16%
+     wash on the dark sheet and a fuller one on paper. Read as-is on white,
+     16% of red is not red, it is nothing. */
+  --hl-red: rgba(229, 72, 77, 0.16);
+  --hl-amber: rgba(232, 176, 60, 0.16);
+  --hl-green: rgba(63, 214, 143, 0.14);
+  --hl-blue: rgba(76, 141, 255, 0.15);
+  --hl-purple: rgba(167, 139, 250, 0.16);
+  /* How much of a role's colour tints the rows that are yours. */
+  --tint-mix: 8%;
+
   /* Shape & depth */
   --r-sm: 6px;
   --r-md: 10px;
@@ -106,6 +120,12 @@ html {
 [data-theme="light"] {
   color-scheme: light;
   --surface-2: #ffffff;
+  --hl-red: rgba(229, 72, 77, 0.26);
+  --hl-amber: rgba(232, 176, 60, 0.34);
+  --hl-green: rgba(63, 214, 143, 0.32);
+  --hl-blue: rgba(76, 141, 255, 0.24);
+  --hl-purple: rgba(167, 139, 250, 0.28);
+  --tint-mix: 16%;
   --hairline: rgba(20, 30, 50, 0.2);
   --text-label: #66707f;
   --under: #178a52;

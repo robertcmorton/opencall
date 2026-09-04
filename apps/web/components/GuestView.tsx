@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { computeTiming, formatDuration, formatTimeOfDay, type PlanRow } from "@opencall/core";
 import { API_URL } from "../lib/api";
+import { highlightCss } from "../lib/highlights";
 import { useColWidths } from "../lib/useColWidths";
 import { rowNumbering } from "../lib/rowNumbering";
 
@@ -115,7 +116,7 @@ export function GuestView({ token }: { token: string }) {
               <tr
                 key={row.id}
                 className={row.type === "group" ? "group-row" : row.type === "milestone" ? "milestone-row" : ""}
-                style={{ background: row.type !== "group" && row.color ? row.color : undefined }}
+                style={{ background: row.type !== "group" && row.color ? highlightCss(row.color) : undefined }}
               >
                 <td className="row-number mono" style={{ cursor: "default" }}>
                   {numberOf(i)}

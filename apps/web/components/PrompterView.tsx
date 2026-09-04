@@ -13,8 +13,8 @@ import {
   formatTimeOfDayWithDay,
   PROMPTER_TAG,
   secondsUntilRow,
-  zoneSecondsOfDay,,
-  clockLinedUp
+  zoneSecondsOfDay,
+  clockLinedUp,
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";

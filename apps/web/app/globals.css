@@ -607,7 +607,10 @@ input.inline-edit {
      cells to their tops, and any padding here is 13 pixels the middle one
      starts lower than its neighbours. The room around the buttons comes from
      the header's own spacing, not from this box. */
-  padding: 0 10px;
+  /* …and it matches the gap BETWEEN the buttons. It was 10px, so the box
+     held Start show and Next away from its edges by more than it held the
+     buttons from each other, and the ends read as loose. */
+  padding: 0 8px;
 }
 /* The transport row keeps its own padding everywhere else — inside this group
    it would stack with the group's border and push Start show down again. */

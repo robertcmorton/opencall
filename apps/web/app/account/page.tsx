@@ -16,6 +16,7 @@ export default function AccountPage() {
   const [next, setNext] = useState("");
 
   const router = useRouter();
+  const [unreachable, setUnreachable] = useState(false);
   useEffect(() => {
     void api
       .me()
@@ -29,10 +30,17 @@ export default function AccountPage() {
         setName(m.name ?? "");
         setEmail(m.email ?? "");
       })
-      .catch(() => sendToSignIn(router));
+      // A request that failed is not a session that has ended: the page
+      // says the server is out of reach rather than signing anyone out.
+      .catch(() => setUnreachable(true));
   }, [router]);
 
-  if (!me) return <main style={{ padding: "4rem", textAlign: "center", color: "var(--text-3)" }}>Loading…</main>;
+  if (!me)
+    return (
+      <main style={{ padding: "4rem", textAlign: "center", color: "var(--text-3)" }}>
+        {unreachable ? "Can't reach the sync server — you are still signed in. Reload in a moment." : "Loading…"}
+      </main>
+    );
 
   const access =
     me.role === "admin"

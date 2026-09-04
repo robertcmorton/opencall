@@ -3870,6 +3870,13 @@ export function RundownEditor({
                 tapBack ? () => router.push("/admin") : canEditContent ? () => setEditingName(true) : undefined
               }
             >
+              {channel.brandImage && (
+                <img
+                  src={channel.brandImage}
+                  alt=""
+                  style={{ height: 22, width: 22, objectFit: "contain", borderRadius: 5, verticalAlign: "-4px", marginRight: 8 }}
+                />
+              )}
               {meta.name || "Untitled sheet"}
             </h1>
           )}

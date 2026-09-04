@@ -1,0 +1,1 @@
+ALTER TABLE "rundowns" ADD COLUMN "brand_image" text;

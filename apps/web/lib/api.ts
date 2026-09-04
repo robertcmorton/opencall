@@ -18,6 +18,8 @@ export interface RundownSummary {
    * match day can run two sports, so the answer lives here rather than there.
    */
   sport: string | null;
+  /** The show's brand image, or null. */
+  brandImage: string | null;
   /** Filename of the run sheet it was imported from, when it was. */
   sourceName: string | null;
 }
@@ -421,7 +423,7 @@ export const api = {
   patchEvent: (id: string, body: { name?: string; location?: string; timezone?: string; startDate?: string; endDate?: string; sport?: string | null; image1?: string | null; image2?: string | null }) =>
     request<{ id: string }>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteEvent: (id: string) => request<{ id: string }>(`/events/${id}`, { method: "DELETE" }),
-  patchRundown: (id: string, body: { name?: string; sport?: string | null }) =>
+  patchRundown: (id: string, body: { name?: string; sport?: string | null; brandImage?: string | null }) =>
     request<{ id: string }>(`/rundowns/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   /** Kinds of show a company added for itself, on top of the built-in list. */
   eventTypes: (teamId?: string) =>

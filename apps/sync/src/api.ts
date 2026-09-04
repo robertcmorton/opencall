@@ -1246,6 +1246,9 @@ export function createApiHandler(
           const sport = body.sport.trim().toLowerCase().slice(0, 40) || null;
           await db.update(schema.rundowns).set({ sport }).where(eq(schema.rundowns.id, id));
         }
+        // The show's brand: one image, on the sheet. Null clears it.
+        const brandImage = imageValue(body.brandImage);
+        if (brandImage !== undefined) await db.update(schema.rundowns).set({ brandImage }).where(eq(schema.rundowns.id, id));
         json(res, 200, { id });
         return true;
       }
@@ -1275,6 +1278,7 @@ export function createApiHandler(
           name,
           description: source.description,
           showDate: source.showDate,
+          brandImage: source.brandImage ?? null,
           plannedStartSec: source.plannedStartSec,
           doc: encodeDoc(doc),
           docUpdatedAt: new Date(),
@@ -1302,7 +1306,7 @@ export function createApiHandler(
             eventId: true,
             name: true,
             description: true,
-            showDate: true,
+            showDate: true, brandImage: true,
             archivedAt: true,
             sport: true,
             sourceName: true,
@@ -1463,7 +1467,7 @@ export function createApiHandler(
           res,
           200,
           await db.query.rundowns.findMany({
-            columns: { id: true, eventId: true, name: true, description: true, showDate: true },
+            columns: { id: true, eventId: true, name: true, description: true, showDate: true, brandImage: true },
           }),
         );
         return true;
@@ -2358,6 +2362,7 @@ export function createApiHandler(
           name,
           description: source.description,
           showDate: source.showDate,
+          brandImage: source.brandImage ?? null,
           plannedStartSec: source.plannedStartSec,
           doc: encodeDoc(doc),
           docUpdatedAt: new Date(),

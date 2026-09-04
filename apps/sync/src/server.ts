@@ -306,7 +306,7 @@ wss.on("connection", (ws, req) => {
       // The event's location decides the timezone every clock renders in.
       const rundownRow = await dbHandle.db.query.rundowns.findFirst({
         where: eq(schema.rundowns.id, rundownId),
-        columns: { eventId: true, sport: true },
+        columns: { eventId: true, sport: true, brandImage: true },
       });
       const eventRow = rundownRow
         ? await dbHandle.db.query.events.findFirst({
@@ -331,6 +331,7 @@ wss.on("connection", (ws, req) => {
         doc: { mode: resolved.role === "guest" ? "projection" : "sync" },
         timezone: eventRow?.timezone,
         sport,
+        brandImage: rundownRow?.brandImage ?? null,
         ...(eventTypeSpec ? { eventTypeSpec } : {}),
       });
       broadcastPresence(rundownId);

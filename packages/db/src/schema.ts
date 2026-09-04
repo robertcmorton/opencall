@@ -153,6 +153,8 @@ export const rundowns = pgTable("rundowns", {
    * event's default, which is what every sheet imported before this did.
    */
   sport: text("sport"),
+  /** One image for this show — the event's brand, on the sheet it belongs to. */
+  brandImage: text("brand_image"),
   showDate: text("show_date"),
   plannedStartSec: integer("planned_start_sec"),
   doc: bytea("doc"),

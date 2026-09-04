@@ -47,6 +47,8 @@ export interface ShowChannel {
    * sport-specific live flows.
    */
   sport: string | null;
+  /** The show's brand image, as sent on hello, or null. */
+  brandImage: string | null;
   /**
    * The whole definition when the sheet uses a kind of show a company added.
    * Built-in types are already in the client's own list; this arrives only for
@@ -95,6 +97,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const [role, setRole] = useState<Role | null>(null);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
+  const [brandImage, setBrandImage] = useState<string | null>(null);
   const [eventTypeSpec, setEventTypeSpec] = useState<EventTypeSpec | null>(null);
   const [show, setShow] = useState<ShowStatePayload | null>(null);
   const [lastCmdError, setLastCmdError] = useState<{ action: string; msg: string; at: number } | null>(null);
@@ -182,6 +185,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             setRole(msg.role);
             setTimezone(msg.timezone ?? null);
             setSport(msg.sport ?? null);
+            setBrandImage(msg.brandImage ?? null);
             setEventTypeSpec((msg.eventTypeSpec as EventTypeSpec | undefined) ?? null);
             lastSeqRef.current = msg.show.seq;
             setShow(msg.show);
@@ -301,6 +305,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     role,
     timezone,
     sport,
+    brandImage,
     eventTypeSpec,
     show,
     serverNow: () => Date.now() + offsetRef.current,

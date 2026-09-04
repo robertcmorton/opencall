@@ -1011,16 +1011,10 @@ export default function AdminPage() {
                 {group.events.map((event) => (
             <section key={event.id} className="card">
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 4px", opacity: event.archivedAt ? 0.55 : 1 }}>
-                <ImageSlot
-                  value={event.image1}
-                  hint="Event image / home team"
-                  onChange={(img) => void api.patchEvent(event.id, { image1: img }).then(reload)}
-                />
-                <ImageSlot
-                  value={event.image2}
-                  hint="Away team (sport)"
-                  onChange={(img) => void api.patchEvent(event.id, { image2: img }).then(reload)}
-                />
+                {/* No image slots on the event any more. There were two — home
+                    and away — and they sat on the EVENT, which for a round of
+                    football is the venue and the date, not the show. The brand
+                    belongs to the run sheet, one image, on its own row below. */}
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
                     {event.name}
@@ -1107,6 +1101,11 @@ export default function AdminPage() {
                       opacity: r.archivedAt ? 0.55 : 1,
                     }}
                   >
+                    <ImageSlot
+                      value={r.brandImage}
+                      hint="Event brand — one image for this show"
+                      onChange={(img) => void api.patchRundown(r.id, { brandImage: img }).then(reload)}
+                    />
                     <span style={{ flex: 1, minWidth: 180 }}>
                       <strong style={{ fontWeight: 600 }}>{r.name}</strong>
                       {r.archivedAt && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}

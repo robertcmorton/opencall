@@ -590,14 +590,14 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             data-tip={
               liveId
                 ? "Jump back to the live cue and follow along again"
-                : "The showcaller has moved on while you were reading — jump to where they are and follow again"
+                : "Jump to the row the showcaller is on and follow along again"
             }
             onClick={() => {
               lastActiveRef.current = null;
               setFollowScroll(true);
             }}
           >
-            {liveId ? "⇣ Sync Cue" : "⇣ Out of sync — rejoin"}
+            {liveId ? "⇣ Sync Cue" : "⇣ Follow showcaller"}
           </button>
         )}
         <div

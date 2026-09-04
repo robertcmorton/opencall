@@ -2923,6 +2923,11 @@ th.col-drop-target {
     width: 42px !important;
     min-width: 0 !important;
   }
+  /* The item column takes what these leave — but NOT by being left unsized
+     here: Chrome's fixed layout did not hand it the remainder (measured: a
+     221px item column beside 222px of nothing, with `width: auto !important`
+     on it). The sheet's width maths mirrors these four numbers instead — see
+     lib/phoneColumns.ts, and the test that holds the two together. */
   /* Times and durations are read at a glance, not studied: a touch smaller
      keeps each on ONE line, which is worth more than the extra pixel of type. */
   .grid-scroll:not(.mobile-show-all) .rundown-grid .mono {

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
+import { COL_W_PHONE, PHONE_MEDIA } from "../lib/phoneColumns";
 import { useRowWindow } from "../lib/useRowWindow";
 import { Stopwatch } from "./Stopwatch";
 import { ulid } from "ulid";
@@ -334,6 +335,8 @@ const COL_WIDTHS_KEY = (rundownId: string) => `oc:colwidths:${rundownId}`;
  */
 const COL_W_WIDE = { rownum: 46, time: 120, dur: 78, extra: 118 } as const;
 const COL_W_NARROW = { rownum: 26, time: 88, dur: 58, extra: 96 } as const;
+// Below the stylesheet's phone breakpoint the widths are not ours to choose:
+// see lib/phoneColumns.ts.
 /**
  * The strip down the far left that names the period of play.
  *
@@ -1075,6 +1078,19 @@ export function RundownEditor({
    * resize or a phone turning sideways without a reload.
    */
   const [gridWidth, setGridWidth] = useState<number | null>(null);
+  /**
+   * Whether the stylesheet's phone rules are in force — the same media query,
+   * asked of the browser, so the width maths and the CSS never disagree about
+   * which side of the line the screen is on.
+   */
+  const [phoneLayout, setPhoneLayout] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_MEDIA);
+    const read = () => setPhoneLayout(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, []);
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
   /**
    * How much width the columns actually have to share.
@@ -3298,6 +3314,19 @@ export function RundownEditor({
   const widthOf = (key: string): number | null => {
     const stored = colWidths[key];
     if (stored != null) return stored;
+    // On a phone the stylesheet has already decided four of these, and hidden
+    // the countdown. Sharing the grid out by any other numbers leaves the
+    // difference as empty table down the right of every row.
+    if (phoneLayout) {
+      if (key === "rownum") return COL_W_PHONE.rownum;
+      if (key === "zero") return 0;
+      const pc = orderedColumns.find((x) => x.key === key);
+      if (!pc) return null;
+      if (pc.kind === "startTime") return COL_W_PHONE.time;
+      if (pc.kind === "duration") return COL_W_PHONE.dur;
+      if (pc.kind === "richtext") return meta.roleColumnKeys.includes(pc.key) ? COL_W_PHONE.role : (pc.width ?? COL_W.extra);
+      return titleWidth;
+    }
     if (key === "rownum") return COL_W.rownum + railW + endingsW;
     // The Zero countdown is a duration in everything but name.
     if (key === "zero") return COL_W.dur;
@@ -3385,37 +3414,56 @@ export function RundownEditor({
     const avail = gridWidth - 2;
     const base = Object.fromEntries(orderedColKeys.map((k) => [k, widthOf(k) ?? 0]));
     const px: Record<string, number> = {};
-    const pinned = new Set<string>();
-    /**
-     * On a screen too small to afford them, the floors are dropped entirely.
-     *
-     * They protect the structural columns, but held on a phone they would take
-     * half the width for a time and a duration and leave the item column — the
-     * thing actually being read — with a few characters. Better a shortened
-     * time than an unreadable sheet, and the phone layout already folds the
-     * other columns into the item cell for exactly this reason.
-     */
-    const floorTotal = orderedColKeys.reduce((sum, k) => sum + floorFor(k), 0);
-    const affordable = floorTotal <= avail * 0.5;
-    for (let pass = 0; pass < 3; pass++) {
-      const free = orderedColKeys.filter((k) => !pinned.has(k));
-      const pinnedPx = [...pinned].reduce((sum, k) => sum + px[k]!, 0);
-      const freeBase = free.reduce((sum, k) => sum + base[k]!, 0) || 1;
-      for (const k of free) px[k] = ((avail - pinnedPx) * base[k]!) / freeBase;
-      /* Unaffordable floors are dropped, not the whole allocation.
-         This loop used to be skipped entirely when they would not fit, which
-         left every width at zero — and a percentage of nothing is nothing, so
-         the table went out with `width: 0%` on every column and the item
-         column, the one being read, rendered at 0px. Measured on a 520px
-         window: the sheet's text was gone. The proportions the operator
-         dragged are still the right answer on a narrow screen; only the floors
-         are the luxury it cannot pay for. */
-      if (!affordable) break;
-      const shortfall = free.filter((k) => floorFor(k) > 0 && px[k]! < floorFor(k));
-      if (shortfall.length === 0) break;
-      for (const k of shortfall) {
-        px[k] = floorFor(k);
-        pinned.add(k);
+    const titleKey = orderedColumns.find((c) => c.kind === "title")?.key ?? "title";
+    if (phoneLayout) {
+      // On a phone the stylesheet has pinned the row number, the time, the
+      // duration and every role column to the pixel, and hidden the countdown.
+      // Scaling those by proportion, or lifting the time to its 130px floor,
+      // produces numbers the browser will not honour — and the difference
+      // between what was shared out and what was drawn is a strip of empty
+      // table down the right of every row. Measured at 740px: 152px of it.
+      // So nothing is scaled here. Every column but the item is what the
+      // stylesheet says it is, and the item column is the rest.
+      let taken = 0;
+      for (const k of orderedColKeys) {
+        if (k === titleKey) continue;
+        px[k] = base[k]!;
+        taken += px[k]!;
+      }
+      px[titleKey] = Math.max(0, avail - taken);
+    } else {
+      const pinned = new Set<string>();
+      /**
+       * On a screen too small to afford them, the floors are dropped entirely.
+       *
+       * They protect the structural columns, but held on a phone they would take
+       * half the width for a time and a duration and leave the item column — the
+       * thing actually being read — with a few characters. Better a shortened
+       * time than an unreadable sheet, and the phone layout already folds the
+       * other columns into the item cell for exactly this reason.
+       */
+      const floorTotal = orderedColKeys.reduce((sum, k) => sum + floorFor(k), 0);
+      const affordable = floorTotal <= avail * 0.5;
+      for (let pass = 0; pass < 3; pass++) {
+        const free = orderedColKeys.filter((k) => !pinned.has(k));
+        const pinnedPx = [...pinned].reduce((sum, k) => sum + px[k]!, 0);
+        const freeBase = free.reduce((sum, k) => sum + base[k]!, 0) || 1;
+        for (const k of free) px[k] = ((avail - pinnedPx) * base[k]!) / freeBase;
+        /* Unaffordable floors are dropped, not the whole allocation.
+           This loop used to be skipped entirely when they would not fit, which
+           left every width at zero — and a percentage of nothing is nothing, so
+           the table went out with `width: 0%` on every column and the item
+           column, the one being read, rendered at 0px. Measured on a 520px
+           window: the sheet's text was gone. The proportions the operator
+           dragged are still the right answer on a narrow screen; only the floors
+           are the luxury it cannot pay for. */
+        if (!affordable) break;
+        const shortfall = free.filter((k) => floorFor(k) > 0 && px[k]! < floorFor(k));
+        if (shortfall.length === 0) break;
+        for (const k of shortfall) {
+          px[k] = floorFor(k);
+          pinned.add(k);
+        }
       }
     }
     const sum = orderedColKeys.reduce((total, k) => total + (px[k] ?? 0), 0) || 1;
@@ -3995,14 +4043,24 @@ export function RundownEditor({
                         <button
                           className="btn"
                           disabled={at <= 0}
-                          onClick={() => at > 0 && channel.sendCmd("walk", walkable[at - 1]!.id)}
+                          onClick={() => {
+                            if (at <= 0) return;
+                            // A step you took yourself is one you want to see:
+                            // follow again, so this screen never tells you it
+                            // has lost track of a move you just made.
+                            setFollowScroll(true);
+                            channel.sendCmd("walk", walkable[at - 1]!.id);
+                          }}
                         >
                           {Icon.prev} Prev
                         </button>
                         <button
                           className="btn"
                           disabled={at >= walkable.length - 1}
-                          onClick={() => channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id)}
+                          onClick={() => {
+                            setFollowScroll(true);
+                            channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id);
+                          }}
                         >
                           Next {Icon.next}
                         </button>
@@ -4329,11 +4387,17 @@ export function RundownEditor({
             data-tip={
               activeRowId
                 ? "Ask the server what the cue is, jump to it, and follow along again"
-                : "The showcaller has moved on while you were reading — jump to where they are and follow again"
+                : "Jump to the row the showcaller is on and follow along again"
             }
             onClick={syncToCue}
           >
-            {activeRowId ? "⇣ Sync Cue" : "⇣ Out of sync — rejoin"}
+            {/* "Follow showcaller", not "Out of sync — rejoin". Nothing is out
+                of sync with anything: this screen stopped following when
+                somebody scrolled, and the walkthrough moved on. The button is
+                an offer to follow again, so it says so — and it said the
+                alarming thing to the showcaller too, on their own screen,
+                about a move they had just made themselves. */}
+            {activeRowId ? "⇣ Sync Cue" : "⇣ Follow showcaller"}
           </button>
         )}
         <div

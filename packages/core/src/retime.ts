@@ -62,11 +62,24 @@ const timeOfDay = (sec: number): number => ((sec % 86400) + 86400) % 86400;
  * The fixed times that change when the row at `from` is moved to `to` — the
  * index it ends up at, the way a list reorders.
  *
- * The rows it jumped over move by its length: earlier when it went down past
- * them, later when it came up past them. The moved row itself takes the time
- * its new place implies — the end of the row now above it — worked out with
- * its own old time out of the way. Rows outside the span keep their times,
- * because the running order before and after them is unchanged.
+ * One principle, everywhere: the first row that now follows a different
+ * neighbour STARTS WHEN THAT NEIGHBOUR ENDS, and the rows behind it keep
+ * their spacing. It used to be "the jumped rows shift by the moved row's
+ * length", which is the same thing only when the sheet has no holes. It had
+ * one: a row with a struck ten minutes, so the row after it sat ten minutes
+ * later than the cascade would put it. Move an hour-long row above that, and
+ * the hole came along — 5:30 plus an hour is 6:30, when the moved row ends at
+ * 6:20 and the row should start there. So the shifted block's first row is
+ * re-cascaded and the block moves by whatever that turns out to be.
+ *
+ * Live, the cue is the anchor: whatever is on air never moves, and the past
+ * is the past. A move ACROSS the cue is time leaving or joining the future —
+ * the block that moves is everything below the moved row's old place (it has
+ * left) or below its new place (it has arrived). Moving the cue itself, or
+ * moving within the past, re-times nothing.
+ *
+ * Rows outside the block keep their times; a hole the block absorbs reappears
+ * below it, so the show still ends when it ended.
  */
 export function fixedTimesAfterMove(
   rows: readonly PlanRow[],
@@ -77,58 +90,55 @@ export function fixedTimesAfterMove(
 ): FixedTime[] {
   const moved = rows[from];
   if (!moved || from === to || to < 0 || to >= rows.length) return [];
-  const changes: FixedTime[] = [];
-  const len = moved.skipped || moved.outcome ? 0 : runningLength(moved);
-  /**
-   * Live, the cue is the anchor: whatever is on air never moves, and the past
-   * is the past. So a move ACROSS the cue is not a re-ordering of the plan,
-   * it is time leaving or joining the future.
-   *
-   *   future → past: the row will now never play. Nothing at or above the cue
-   *   changes, nor anything between the cue and where the row used to be —
-   *   the row was after them already. Everything below its old place loses
-   *   its length. (Measured on show day: the plain rule pushed the LIVE cue
-   *   and the pre-record after it an hour later while the cue was on air.)
-   *
-   *   past → future: the row will now play. Everything below its new place
-   *   gains its length; the rows it passed on the way stay where they are.
-   *
-   * Moving the cue itself, or moving within the past, re-times nothing: one
-   * is not a plan change anyone can mean, the other is history.
-   */
-  const crossing = liveIndex >= 0 && (from > liveIndex) !== (to > liveIndex);
   if (liveIndex >= 0 && (from === liveIndex || (from <= liveIndex && to <= liveIndex))) return [];
+
+  const reordered: PlanRow[] = rows.slice();
+  const [row] = reordered.splice(from, 1);
+  reordered.splice(to, 0, row!);
+
+  // The block that must re-time, as indices into `reordered`, and its first row.
+  const crossing = liveIndex >= 0 && (from > liveIndex) !== (to > liveIndex);
+  let blockStart: number;
+  let blockEnd: number; // exclusive
   if (crossing) {
-    const toPast = from > liveIndex;
-    const shiftFrom = toPast ? from + 1 : to + 1;
-    const delta = toPast ? -len : len;
-    if (delta !== 0) {
-      for (const r of rows.slice(shiftFrom)) {
-        if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + delta) });
-      }
-    }
+    blockStart = from > liveIndex ? from + 1 : to + 1;
+    blockEnd = reordered.length;
+  } else if (from < to) {
+    blockStart = from; // the rows it jumped, now above it
+    blockEnd = to;
   } else {
-    const jumped = from < to ? rows.slice(from + 1, to + 1) : rows.slice(to, from);
-    const delta = from < to ? -len : len;
+    blockStart = to + 1; // the rows it jumped, now below it
+    blockEnd = from + 1;
+  }
+  const changes: FixedTime[] = [];
+  const first = reordered[blockStart];
+  // A sheet with no planned start begins where its first row began: a move
+  // that puts a flowing row at the top would otherwise have nothing to
+  // cascade from, and the whole re-timing would silently do nothing.
+  const orig = computeTiming(rows.slice(), plannedStartSec);
+  const startFrom = plannedStartSec ?? orig.rows[0]?.startSec ?? null;
+  if (first && blockStart < blockEnd) {
+    // Where the first row of the block sat, and where the cascade now puts it
+    // with the moved row and itself left to flow.
+    const before = orig.rows[rows.indexOf(first)]?.startSec ?? null;
+    const flowing = reordered.map((r) => (r.id === moved.id || r.id === first.id ? { ...r, hardStartSec: null } : r));
+    const after = computeTiming(flowing, startFrom).rows[blockStart]?.startSec ?? null;
+    const delta = before != null && after != null ? Math.round(after - before) : 0;
     if (delta !== 0) {
-      for (const r of jumped) {
+      for (const r of reordered.slice(blockStart, blockEnd)) {
         if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + delta) });
       }
     }
   }
-  // A pre-record sits at its own time wherever on the sheet it is written.
+
+  // The moved row takes the time its new place implies — a pre-record sits at
+  // its own time wherever on the sheet it is written.
   if (moved.hardStartSec == null || moved.parallel) return changes;
   const shifted = new Map(changes.map((c) => [c.id, c.hardStartSec]));
-  const trial: PlanRow[] = rows.map((r) =>
-    r.id === moved.id
-      ? { ...r, hardStartSec: null }
-      : shifted.has(r.id)
-        ? { ...r, hardStartSec: shifted.get(r.id)! }
-        : r,
+  const trial: PlanRow[] = reordered.map((r) =>
+    r.id === moved.id ? { ...r, hardStartSec: null } : shifted.has(r.id) ? { ...r, hardStartSec: shifted.get(r.id)! } : r,
   );
-  const [row] = trial.splice(from, 1);
-  trial.splice(to, 0, row!);
-  const start = computeTiming(trial, plannedStartSec).rows[to]?.startSec;
+  const start = computeTiming(trial, startFrom).rows[to]?.startSec;
   if (start == null) return changes;
   const ofDay = timeOfDay(start);
   if (ofDay !== moved.hardStartSec) changes.push({ id: moved.id, hardStartSec: ofDay });

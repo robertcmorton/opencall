@@ -92,23 +92,38 @@ describe("fixedTimesAfterMove", () => {
     expect(fixedTimesAfterMove(rows, 1, 2)).toEqual([{ id: "C", hardStartSec: T(19, 2) }]);
   });
 
-  it("a struck row moved shifts nothing — it has no length in the running order", () => {
+  it("a struck row moved: the row that followed it closes up to the row above, and the struck row takes its new place", () => {
+    // B is struck, but C still carried the 19:05 it was printed with — a
+    // three-minute hole. Once B is gone from between them, C follows A
+    // directly, and B lands after C.
     const rows = sheet();
     rows[1] = cue("B", 180, T(19, 2), { skipped: true });
-    // it still takes the time of its new place: the end of C, which follows A directly now
-    expect(fixedTimesAfterMove(rows, 1, 2)).toEqual([{ id: "B", hardStartSec: T(19, 6) }]);
+    expect(fixedTimesAfterMove(rows, 1, 2)).toEqual([
+      { id: "C", hardStartSec: T(19, 2) },
+      { id: "B", hardStartSec: T(19, 3) },
+    ]);
   });
 
-  it("a pre-record keeps its own time wherever it is put", () => {
+  it("a pre-record keeps its own time wherever it is put; the rows behind it close up to the sheet's start", () => {
+    // A pre-record takes none of the running order's time, so B at 19:02 on a
+    // sheet that starts at 19:00 was sitting two minutes into a hole. With A
+    // out of the way B starts where the sheet starts; A itself is not re-timed.
     const rows = sheet();
     rows[0] = cue("A", 120, T(19, 0), { parallel: true });
-    expect(fixedTimesAfterMove(rows, 0, 2)).toEqual([]);
+    expect(fixedTimesAfterMove(rows, 0, 2)).toEqual([
+      { id: "B", hardStartSec: T(19, 0) },
+      { id: "C", hardStartSec: T(19, 3) },
+    ]);
   });
 
-  it("a heading takes the time of its new place and moves nothing else", () => {
+  it("a heading moved: the rows behind it close up, and it takes the time of its new place", () => {
     const rows = sheet();
     rows[0] = { ...cue("A", 900, T(19, 0), { spans: true }), type: "group" };
-    expect(fixedTimesAfterMove(rows, 0, 2)).toEqual([{ id: "A", hardStartSec: T(19, 6) }]);
+    expect(fixedTimesAfterMove(rows, 0, 2)).toEqual([
+      { id: "B", hardStartSec: T(19, 0) },
+      { id: "C", hardStartSec: T(19, 3) },
+      { id: "A", hardStartSec: T(19, 4) },
+    ]);
   });
 
   it("the new time is written as a time of day when the move crosses midnight", () => {
@@ -162,6 +177,25 @@ describe("fixedTimesAfterMove", () => {
         { id: "C", hardStartSec: T(19, 9) },
       ]);
     });
+  });
+
+  it("a hole under a struck duration is absorbed, not carried: the row after the moved row starts when it ends", () => {
+    // From a real sheet. Row 2's ten minutes are struck, so row 3 sat at 5:30
+    // with a ten-minute hole after row 2's 5:20. Moving the hour-long row 5
+    // above row 3 must put row 3 at 6:20 (5:20 + 1:00), not 6:30 (5:30 + 1:00).
+    const rows: PlanRow[] = [
+      cue("r1", 5400, T(16, 0)),
+      cue("r2", 600, T(17, 20), { durationMuted: true }),
+      cue("r3", 2400, T(17, 30)),
+      cue("r4", 20, T(17, 50), { parallel: true }),
+      cue("r5", 3600, T(18, 10)),
+      cue("r6", 600, T(19, 10)),
+    ];
+    expect(fixedTimesAfterMove(rows, 4, 2)).toEqual([
+      { id: "r3", hardStartSec: T(18, 20) },
+      { id: "r4", hardStartSec: T(18, 40) },
+      { id: "r5", hardStartSec: T(17, 20) },
+    ]);
   });
 
   it("nowhere to go: same place, or off the sheet", () => {

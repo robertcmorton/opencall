@@ -1,6 +1,7 @@
 "use client";
 
-import { computeTiming, formatDuration } from "@opencall/core";
+import { absoluteNow, computeTiming, firstCueRow, formatDuration, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
+import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
@@ -11,6 +12,15 @@ import { BackLink } from "./BackLink";
  * Speaker Timer: fullscreen countdown for the active cue. Green while on time,
  * amber inside the final stretch, red counting up on overrun. Meant for
  * confidence monitors and speakers' phones.
+ *
+ * It counts only while a show is live with an item on air — that is its job.
+ * But it used to show "--:--" and NOTHING ELSE in every other state, which
+ * on show day read as broken: a show started at two o'clock for a four
+ * o'clock first cue sat on dashes for two hours with no caption at all, and
+ * a walkthrough got dashes and "standing by" as if nothing were happening.
+ * Now each state says what it is: the countdown to the first cue while the
+ * show waits for it, the item being walked and its planned length during a
+ * walkthrough, and "standing by" only when there is genuinely nothing.
  */
 export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
   useWakeLock();
@@ -23,15 +33,81 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
 
   const isLive = show?.state === "running" || show?.state === "paused";
   const active = isLive && show?.activeRowId ? rows.find((r) => r.id === show.activeRowId) : null;
+  // The row being walked, when nothing is live: the timer follows the
+  // walkthrough the way every other screen does.
+  const walkRow = !isLive && show?.walkRowId ? rows.find((r) => r.id === show.walkRowId) : null;
+
+  // Live with nothing on air yet: the show is waiting for its first cue, and
+  // the wait is worth showing. Ticked once a second, and only in that state.
+  // The channel is read through a ref because it is a fresh object every
+  // render, and an effect depending on it would never settle.
+  const channelRef = useRef(channel);
+  channelRef.current = channel;
+  const waiting = isLive && !active;
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!waiting) return;
+    const tick = () => setNowMs(channelRef.current.serverNow());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [waiting]);
+  const starts = timing.rows.map((r) => r.startSec);
+  const untilShowSec =
+    waiting && nowMs != null ? secondsUntilShow(rows, starts, absoluteNow(zoneSecondsOfDay(nowMs, channel.timezone), timing)) : null;
+  const firstCue = waiting ? firstCueRow(rows, starts) : null;
+  const firstCueRecord = firstCue ? rows.find((r) => r.id === firstCue.id) : null;
 
   const planned = active?.durationSec ?? 0;
   const remaining = live?.remainingInRowSec ?? null;
   const over = remaining != null && remaining < 0;
   const amber = !over && remaining != null && planned > 0 && remaining <= Math.min(60, planned * 0.2);
-  const color = !channel.connected ? "#777" : over ? "var(--over)" : amber ? "var(--warn)" : "var(--under)";
+  const countingDown = isLive && !!active && remaining != null;
+  const color = !channel.connected
+    ? "#777"
+    : countingDown
+      ? over
+        ? "var(--over)"
+        : amber
+          ? "var(--warn)"
+          : "var(--under)"
+      : untilShowSec != null && untilShowSec > 0
+        ? "var(--under)"
+        : "var(--text-2)";
 
-  const display =
-    remaining == null ? "--:--" : over ? `+${formatDuration(live!.rowOverSec)}` : formatDuration(remaining);
+  const display = countingDown
+    ? over
+      ? `+${formatDuration(live!.rowOverSec)}`
+      : formatDuration(remaining!)
+    : untilShowSec != null && untilShowSec > 0
+      ? formatDuration(Math.round(untilShowSec))
+      : walkRow?.durationSec != null
+        ? formatDuration(walkRow.durationSec)
+        : "--:--";
+
+  const title = active ? active.title : walkRow ? walkRow.title : waiting && firstCueRecord ? firstCueRecord.title : meta.name;
+  const caption = !channel.connected
+    ? "reconnecting…"
+    : countingDown
+      ? show?.state === "paused"
+        ? "paused"
+        : ""
+      : waiting
+        ? untilShowSec != null && untilShowSec > 0
+          ? "until the show starts"
+          : "show started — nothing on air yet"
+        : walkRow
+          ? "walkthrough — planned length, not counting"
+          : "standing by";
+
+  // What came before and what is next, around the item on air or the item
+  // being walked — the neighbours a speaker actually wants to know about.
+  const reference = active ?? walkRow ?? null;
+  const steppable = rows.filter((r) => r.type !== "group" && !r.skipped && !r.parallel);
+  const at = reference ? steppable.findIndex((r) => r.id === reference.id) : -1;
+  const name = (r: { title: string } | undefined): string | null => (r ? r.title.trim() || "(untitled)" : null);
+  const before = at > 0 ? name(steppable[at - 1]) : null;
+  const next = at >= 0 && at < steppable.length - 1 ? name(steppable[at + 1]) : null;
 
   return (
     <main
@@ -67,7 +143,7 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
           whiteSpace: "nowrap",
         }}
       >
-        {active ? active.title : meta.name}
+        {title}
       </div>
       <div
         style={{
@@ -84,23 +160,39 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
           // side of the screen, on the one surface whose entire job is being
           // readable from the back of a room. The cap keeps the familiar size
           // for ordinary times and only ever shrinks.
-          fontSize: `min(22vw, ${((96 - 8) / (Math.max(5, (isLive ? display : "--:--").length) * 0.62)).toFixed(1)}vw, 52vh)`,
+          fontSize: `min(22vw, ${((96 - 8) / (Math.max(5, display.length) * 0.62)).toFixed(1)}vw, 52vh)`,
           lineHeight: 1.05,
           color,
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        {isLive ? display : "--:--"}
+        {display}
       </div>
-      <div style={{ color: "var(--text-3)", fontSize: "min(1.6vw, 2.6vh)" }}>
-        {!channel.connected
-          ? "reconnecting…"
-          : !isLive
-            ? "standing by"
-            : show?.state === "paused"
-              ? "paused"
-              : ""}
-      </div>
+      <div style={{ color: "var(--text-3)", fontSize: "min(1.6vw, 2.6vh)" }}>{caption}</div>
+      {(before || next) && (
+        <div
+          style={{
+            display: "flex",
+            gap: "4vw",
+            color: "var(--text-3)",
+            fontSize: "min(1.6vw, 2.6vh)",
+            maxWidth: "94vw",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {before && (
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+              before · <span style={{ color: "var(--text-2)" }}>{before}</span>
+            </span>
+          )}
+          {next && (
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+              next · <span style={{ color: "var(--text-2)" }}>{next}</span>
+            </span>
+          )}
+        </div>
+      )}
     </main>
   );
 }

@@ -615,7 +615,16 @@ input.inline-edit {
 /* The transport row keeps its own padding everywhere else — inside this group
    it would stack with the group's border and push Start show down again. */
 .preshow-group .show-state {
+  /* No box of its own inside the group's box. It kept its hairline border
+     and rounded corners, so Start show sat in a frame within the frame — a
+     faint halo a pixel out from the button, and a gap to the group's edge
+     that was wider than the gap between the buttons by exactly that frame.
+     The measured fix for the padding did nothing because the padding was
+     never the extra; the border was. */
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 /* Everything in the group is built to one block.
    There were three heights in a row of four controls — Start show at 32, the

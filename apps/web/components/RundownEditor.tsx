@@ -3312,11 +3312,14 @@ export function RundownEditor({
    * 100% of the grid is the grid.
    */
   const widthOf = (key: string): number | null => {
-    const stored = colWidths[key];
-    if (stored != null) return stored;
     // On a phone the stylesheet has already decided four of these, and hidden
     // the countdown. Sharing the grid out by any other numbers leaves the
-    // difference as empty table down the right of every row.
+    // difference as empty table down the right of every row — and that
+    // includes a width somebody dragged on a desktop: it was read BEFORE this
+    // branch, so on any sheet whose columns had ever been dragged the phone
+    // layout never got a say. Measured on the production sheet: 116px of
+    // strip with the stored widths, 16px without. Stored widths still apply
+    // to the columns the stylesheet leaves alone.
     if (phoneLayout) {
       if (key === "rownum") return COL_W_PHONE.rownum;
       if (key === "zero") return 0;
@@ -3324,9 +3327,11 @@ export function RundownEditor({
       if (!pc) return null;
       if (pc.kind === "startTime") return COL_W_PHONE.time;
       if (pc.kind === "duration") return COL_W_PHONE.dur;
-      if (pc.kind === "richtext") return meta.roleColumnKeys.includes(pc.key) ? COL_W_PHONE.role : (pc.width ?? COL_W.extra);
+      if (pc.kind === "richtext") return meta.roleColumnKeys.includes(pc.key) ? COL_W_PHONE.role : (colWidths[pc.key] ?? pc.width ?? COL_W.extra);
       return titleWidth;
     }
+    const stored = colWidths[key];
+    if (stored != null) return stored;
     if (key === "rownum") return COL_W.rownum + railW + endingsW;
     // The Zero countdown is a duration in everything but name.
     if (key === "zero") return COL_W.dur;

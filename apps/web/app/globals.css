@@ -2136,7 +2136,7 @@ kbd {
      six pixels of margin pushed this box about three pixels below its
      neighbour, and the two read as misaligned. The line's spacing belongs to
      the row, not to one thing in it. */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   padding: 3px 6px;
   background: none;
   border: 1px solid var(--hairline);
@@ -2186,16 +2186,16 @@ kbd {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
+  /* The ROW may break, between its two boxes; the transport inside it may
+     not. It was the other way round: the row held its line at any width above
+     a phone while the transport was free to wrap inside its own border, so on
+     a tablet Stop dropped to a second line under LIVE and Pause with the
+     stopwatch still beside them. Now the transport stays one line and the
+     stopwatch is what moves — under the transport when there is no room. */
+  flex-wrap: wrap;
   justify-content: center;
   width: 100%;
   box-sizing: border-box;
-}
-/* Only a phone may break the line — and it has no stopwatch to break it for. */
-@media (max-width: 760px) {
-  .show-state-row {
-    flex-wrap: wrap;
-  }
 }
 .topbar-right {
   display: flex;

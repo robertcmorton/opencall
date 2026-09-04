@@ -1,0 +1,1 @@
+ALTER TABLE "rundowns" DROP COLUMN "brand_image";

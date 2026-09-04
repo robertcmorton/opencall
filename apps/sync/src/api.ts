@@ -1246,9 +1246,11 @@ export function createApiHandler(
           const sport = body.sport.trim().toLowerCase().slice(0, 40) || null;
           await db.update(schema.rundowns).set({ sport }).where(eq(schema.rundowns.id, id));
         }
-        // The show's brand: one image, on the sheet. Null clears it.
-        const brandImage = imageValue(body.brandImage);
-        if (brandImage !== undefined) await db.update(schema.rundowns).set({ brandImage }).where(eq(schema.rundowns.id, id));
+        // The two teams of this show, home and away. Null clears one.
+        const homeImage = imageValue(body.homeImage);
+        if (homeImage !== undefined) await db.update(schema.rundowns).set({ homeImage }).where(eq(schema.rundowns.id, id));
+        const awayImage = imageValue(body.awayImage);
+        if (awayImage !== undefined) await db.update(schema.rundowns).set({ awayImage }).where(eq(schema.rundowns.id, id));
         json(res, 200, { id });
         return true;
       }
@@ -1278,7 +1280,8 @@ export function createApiHandler(
           name,
           description: source.description,
           showDate: source.showDate,
-          brandImage: source.brandImage ?? null,
+          homeImage: source.homeImage ?? null,
+          awayImage: source.awayImage ?? null,
           plannedStartSec: source.plannedStartSec,
           doc: encodeDoc(doc),
           docUpdatedAt: new Date(),
@@ -1306,7 +1309,7 @@ export function createApiHandler(
             eventId: true,
             name: true,
             description: true,
-            showDate: true, brandImage: true,
+            showDate: true, homeImage: true, awayImage: true,
             archivedAt: true,
             sport: true,
             sourceName: true,
@@ -1467,7 +1470,7 @@ export function createApiHandler(
           res,
           200,
           await db.query.rundowns.findMany({
-            columns: { id: true, eventId: true, name: true, description: true, showDate: true, brandImage: true },
+            columns: { id: true, eventId: true, name: true, description: true, showDate: true, homeImage: true, awayImage: true },
           }),
         );
         return true;
@@ -2362,7 +2365,8 @@ export function createApiHandler(
           name,
           description: source.description,
           showDate: source.showDate,
-          brandImage: source.brandImage ?? null,
+          homeImage: source.homeImage ?? null,
+          awayImage: source.awayImage ?? null,
           plannedStartSec: source.plannedStartSec,
           doc: encodeDoc(doc),
           docUpdatedAt: new Date(),

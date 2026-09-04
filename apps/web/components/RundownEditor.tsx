@@ -3870,12 +3870,17 @@ export function RundownEditor({
                 tapBack ? () => router.push("/admin") : canEditContent ? () => setEditingName(true) : undefined
               }
             >
-              {channel.brandImage && (
-                <img
-                  src={channel.brandImage}
-                  alt=""
-                  style={{ height: 22, width: 22, objectFit: "contain", borderRadius: 5, verticalAlign: "-4px", marginRight: 8 }}
-                />
+              {/* The two teams, beside the name of the match they are playing. */}
+              {[channel.homeImage, channel.awayImage].map(
+                (src, i) =>
+                  src && (
+                    <img
+                      key={i}
+                      src={src}
+                      alt=""
+                      style={{ height: 22, width: 22, objectFit: "contain", borderRadius: 5, verticalAlign: "-4px", marginRight: i === 1 ? 8 : 4 }}
+                    />
+                  ),
               )}
               {meta.name || "Untitled sheet"}
             </h1>

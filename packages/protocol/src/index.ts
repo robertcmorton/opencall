@@ -106,8 +106,9 @@ export const WelcomeMsg = z.object({
    * because one match day can run two sports off two sheets).
    */
   sport: z.string().optional(),
-  /** The show's brand image (a data URL), per sheet. Additive. */
-  brandImage: z.string().nullable().optional(),
+  /** The two teams' images (data URLs), per sheet: home and away. Additive. */
+  homeImage: z.string().nullable().optional(),
+  awayImage: z.string().nullable().optional(),
   /**
    * The whole definition, when the sheet uses a type a company added rather
    * than a built-in one (additive v1.7). Sent rather than looked up so a

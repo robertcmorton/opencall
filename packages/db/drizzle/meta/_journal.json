@@ -113,6 +113,20 @@
       "when": 1788495566252,
       "tag": "0015_brand_image",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788496623876,
+      "tag": "0016_drop_brand_image",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788496624675,
+      "tag": "0017_team_images",
+      "breakpoints": true
     }
   ]
 }

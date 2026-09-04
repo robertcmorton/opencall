@@ -1011,10 +1011,14 @@ export default function AdminPage() {
                 {group.events.map((event) => (
             <section key={event.id} className="card">
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 4px", opacity: event.archivedAt ? 0.55 : 1 }}>
-                {/* No image slots on the event any more. There were two — home
-                    and away — and they sat on the EVENT, which for a round of
-                    football is the venue and the date, not the show. The brand
-                    belongs to the run sheet, one image, on its own row below. */}
+                {/* One image on the event: its brand. The two teams are not
+                    the event's — a round of football is the venue and the
+                    date — they are the run sheet's, and they sit on its row. */}
+                <ImageSlot
+                  value={event.image1}
+                  hint="Event brand — one image for the event"
+                  onChange={(img) => void api.patchEvent(event.id, { image1: img }).then(reload)}
+                />
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
                     {event.name}
@@ -1102,9 +1106,14 @@ export default function AdminPage() {
                     }}
                   >
                     <ImageSlot
-                      value={r.brandImage}
-                      hint="Event brand — one image for this show"
-                      onChange={(img) => void api.patchRundown(r.id, { brandImage: img }).then(reload)}
+                      value={r.homeImage}
+                      hint="Home team — this show's first team"
+                      onChange={(img) => void api.patchRundown(r.id, { homeImage: img }).then(reload)}
+                    />
+                    <ImageSlot
+                      value={r.awayImage}
+                      hint="Away team — this show's second team"
+                      onChange={(img) => void api.patchRundown(r.id, { awayImage: img }).then(reload)}
                     />
                     <span style={{ flex: 1, minWidth: 180 }}>
                       <strong style={{ fontWeight: 600 }}>{r.name}</strong>

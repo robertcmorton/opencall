@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type EventSummary } from "../lib/api";
-import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant } from "./AccessGrants";
+import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant, withPending } from "./AccessGrants";
 import { Icon } from "./ui";
 
 /**
@@ -25,6 +25,7 @@ export function UsersPanel({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [grants, setGrants] = useState<Grant[]>([]);
+  const [pending, setPending] = useState<Grant | null>(null);
   const [editing, setEditing] = useState<{ id: string; name: string; grants: Grant[] } | null>(null);
 
   const reload = useCallback(() => {
@@ -39,7 +40,7 @@ export function UsersPanel({
       return;
     }
     void api
-      .createUser({ name: name.trim(), email: email.trim() || undefined, password: password || undefined, grants })
+      .createUser({ name: name.trim(), email: email.trim() || undefined, password: password || undefined, grants: withPending(grants, pending) })
       .then(({ accessToken }) => {
         window.alert(
           password
@@ -91,6 +92,7 @@ export function UsersPanel({
             held={grants}
             allowAdmin
             onAdd={(g) => setGrants((all) => [...all, g])}
+            onPending={setPending}
           />
           {grants.length > 0 && (
             <GrantChips
@@ -101,7 +103,7 @@ export function UsersPanel({
             />
           )}
           <div>
-            <button className="btn btn-primary btn-sm" onClick={create} disabled={!name.trim() || grants.length === 0}>
+            <button className="btn btn-primary btn-sm" onClick={create} disabled={!name.trim() || (grants.length === 0 && !pending)}>
               Create user & issue token
             </button>
           </div>

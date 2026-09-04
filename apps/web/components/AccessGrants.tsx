@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, type EventSummary } from "../lib/api";
 import { PanelModal } from "./SharePanels";
 
@@ -114,6 +114,11 @@ export function GrantChips({
   );
 }
 
+/** The grants to send: what was added, plus a complete choice nobody added. */
+export const withPending = (grants: Grant[], pending: Grant | null): Grant[] =>
+  pending && !grants.some((g) => grantKey(g) === grantKey(pending)) ? [...grants, pending] : grants;
+
+
 /**
  * Choosing one grant: how far the reach goes, and — unless it is everything —
  * which company or event it points at.
@@ -135,6 +140,7 @@ export function GrantPicker({
   held,
   allowAdmin,
   onAdd,
+  onPending,
 }: {
   companies: Company[];
   events: EventSummary[];
@@ -151,6 +157,13 @@ export function GrantPicker({
    */
   allowAdmin: boolean;
   onAdd: (g: Grant) => void;
+  /**
+   * A choice that is complete but has not been added. Saving counts it: on
+   * production an administrator chose an event for someone, pressed Save, and
+   * nothing changed — "Add access" had never been pressed, because it was not
+   * obvious that choosing and adding were two different things.
+   */
+  onPending?: (g: Grant | null) => void;
 }) {
   const [wanted, setWanted] = useState<string>("view");
   const [target, setTarget] = useState("");
@@ -184,6 +197,14 @@ export function GrantPicker({
   const chosen: Grant = { kind, targetId: kind === "admin" ? "" : target };
   const incomplete = kind !== "admin" && !target;
   const already = !incomplete && held.some((g) => grantKey(g) === grantKey(chosen));
+  // A complete choice nobody has added yet — the thing Save must not lose.
+  const pending = !incomplete && !already && kind !== "admin" ? chosen : null;
+  const pendingKey = pending ? grantKey(pending) : null;
+  useEffect(() => {
+    onPending?.(pending);
+    // grantKey is the identity; the object itself is rebuilt every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey]);
 
   const add = () => {
     if (incomplete || already) return;
@@ -240,6 +261,10 @@ export function GrantPicker({
           pointer events, so anything hung off hover never appears — the button
           would simply go dead with no reason given. */}
       {already && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>They already have this.</span>}
+      {incomplete && (
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Choose which {kind === "company" ? "company" : "event"} first.</span>
+      )}
+      {pending && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Included when you save.</span>}
     </div>
   );
 }
@@ -287,6 +312,7 @@ export function AccessEditor({
   onSaved: () => void;
 }) {
   const [grants, setGrants] = useState<Grant[]>(person.grants);
+  const [pending, setPending] = useState<Grant | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -294,7 +320,7 @@ export function AccessEditor({
     setBusy(true);
     setError(null);
     api
-      .patchUserGrants(person.id, grants)
+      .patchUserGrants(person.id, withPending(grants, pending))
       .then(onSaved)
       .catch((e: unknown) => {
         setError(String((e as Error)?.message ?? e));
@@ -327,6 +353,7 @@ export function AccessEditor({
           held={grants}
           allowAdmin={allowAdmin}
           onAdd={(g) => setGrants([...grants, g])}
+          onPending={setPending}
         />
 
         {error && <div className="missing-fields" style={{ borderColor: "var(--over)" }}>{error}</div>}

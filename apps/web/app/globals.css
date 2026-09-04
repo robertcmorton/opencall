@@ -599,7 +599,7 @@ input.inline-edit {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--hairline);
   border-radius: var(--r-md);
   /* Padding sideways only. Vertically the border hugs the controls, so the
      first thing painted in this cell starts level with the sheet's name on the
@@ -607,10 +607,12 @@ input.inline-edit {
      cells to their tops, and any padding here is 13 pixels the middle one
      starts lower than its neighbours. The room around the buttons comes from
      the header's own spacing, not from this box. */
-  /* …and it matches the gap BETWEEN the buttons. It was 10px, so the box
-     held Start show and Next away from its edges by more than it held the
-     buttons from each other, and the ends read as loose. */
-  padding: 0 8px;
+  /* THE SAME BOX AS THE LIVE TRANSPORT — hairline, corners, and 3px by 6px
+     of padding around buttons 8px apart. This box is what the transport
+     becomes once the show starts; it should not change its clothes on the
+     way. It had a heavier border and its own padding rules, and the two
+     boxes read as different things in the same place. */
+  padding: 3px 6px;
 }
 /* The transport row keeps its own padding everywhere else — inside this group
    it would stack with the group's border and push Start show down again. */

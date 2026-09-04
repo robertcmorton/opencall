@@ -13,7 +13,8 @@ import {
   formatTimeOfDayWithDay,
   PROMPTER_TAG,
   secondsUntilRow,
-  zoneSecondsOfDay,
+  zoneSecondsOfDay,,
+  clockLinedUp
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
@@ -429,7 +430,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // is exactly the mistake this screen exists to prevent.
   const activeId = onAirId;
   const nextId = onAirId ? null : followId;
-  const clockSynced = clockFollow && !!liveId && !!clockRowId && liveId === clockRowId;
+  // The same rule as the run sheet, from the same place. This screen kept
+  // its own — "the live cue is on the clock's row" — which is false for as
+  // long as the show waits for its first cue, so the chip sat amber for hours
+  // while the sheet's own chip, two tabs over, was green.
+  const clockSynced = clockLinedUp({ clockFollow, activeRowId: liveId, clockRowId, untilShowSec });
 
   // The state of the read being followed, in the words a reader thinks in.
   const onAirNow = onAirId != null;
@@ -759,7 +764,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             }
             onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
           >
-            ◷ {clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
+            ◷ {!channel.connected && clockFollow ? "Reconnecting…" : clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
           </button>
         )}
         {/* No play/pause: the show starts the words. Space still toggles a

@@ -24,6 +24,10 @@ html {
      vanishes into it. For grouping things, not for panelling them. */
   --hairline: rgba(255, 255, 255, 0.17);
   --border-subtle: #1d222a;
+  /* The tooltip bubble. It was `var(--surface-2, #1b1f27)` with --surface-2
+     never defined, so the bubble was that dark hex in every theme while its
+     text followed the theme — dark on dark in light mode, unreadable. */
+  --surface-2: #1b1f27;
 
   /* Text */
   --text: #e7eaf0;
@@ -69,6 +73,9 @@ html {
   --r-lg: 14px;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+  /* Six rules asked for --shadow-lg and it was never defined, so none of them
+     had a shadow. It is the overlay shadow. */
+  --shadow-lg: var(--shadow-overlay);
 
   /* Type */
   --font-ui: var(--font-inter, ui-sans-serif), system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -98,6 +105,7 @@ html {
    green reads at 1.9:1 on white, which is invisible, not subtle. */
 [data-theme="light"] {
   color-scheme: light;
+  --surface-2: #ffffff;
   --hairline: rgba(20, 30, 50, 0.2);
   --text-label: #66707f;
   --under: #178a52;
@@ -3129,7 +3137,7 @@ th.col-drop-target {
     text-align: left;
     padding: 6px 9px;
     border-radius: var(--r-md);
-    background: var(--surface-2, #1b1f27);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     color: var(--text);
     font-size: var(--fs-xs);
@@ -3137,7 +3145,9 @@ th.col-drop-target {
     line-height: 1.35;
     letter-spacing: 0;
     text-transform: none;
-    box-shadow: var(--shadow-lg);
+    /* --shadow-lg was never defined either; an undefined var is an invalid
+       value, so the bubble had no shadow at all. */
+    box-shadow: var(--shadow-overlay);
   }
   /* NO POINTER. It was dropped a few rules above — "a fixed bubble is no
      longer anchored to the element's box, so an arrow drawn from that box
@@ -3534,6 +3544,23 @@ th.col-drop-target {
 }
 .import-grid .input {
   max-width: 100%;
+}
+/* The source column's name ABOVE what it maps to, not beside it. The label
+   is inline-block elsewhere (it is a drag handle in the sheet's own header),
+   so here it shared a line with the dropdown and the cell clipped whichever
+   did not fit — "DURATION" lost its dropdown entirely, "ITEM" lost half its
+   name. One per line: the name in full on its own row, the dropdown the
+   width of the column beneath it. */
+.import-grid th {
+  vertical-align: top;
+}
+.import-grid th .col-label {
+  display: block;
+  white-space: nowrap;
+}
+.import-grid th .input {
+  display: block;
+  width: 100%;
 }
 
 /* Narrow: the mapping is a list, not a grid. Ten source columns cannot be

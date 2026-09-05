@@ -256,6 +256,30 @@ export function createApiHandler(
     };
 
     /** Rundown-scoped panels/content: managers, or a caller/editor code. */
+    /**
+     * Sheet-level work: the lock, a rename, a duplicate, the original file, an
+     * update import. An `edit` grant is FOR this, and it was refused all of it
+     * — the lock most of all, so a person given "edits the sheets" opened the
+     * edit page and found every cell read-only, because the lock is what says
+     * the sheet is theirs to type in. Management (delete, archive) stays with
+     * whoever runs the event.
+     */
+    const requireRundownEdit = async (rundownId: string): Promise<boolean> => {
+      const ctx = await authContext(handle, req, rundownId);
+      const eventId = await eventIdForRundown(rundownId);
+      if (eventId && (await canEditEvent(handle, ctx, eventId))) return true;
+      if (!eventId && ctx) json(res, 404, { error: "rundown not found" });
+      else json(res, 401, { error: "editor access required" });
+      return false;
+    };
+
+    const requireEventEdit = async (eventId: string): Promise<boolean> => {
+      const ctx = await authContext(handle, req);
+      if (await canEditEvent(handle, ctx, eventId)) return true;
+      json(res, 401, { error: "editor access required" });
+      return false;
+    };
+
     const requireEditor = async (rundownId: string): Promise<boolean> => {
       const ctx = await authContext(handle, req, rundownId);
       if (ctx?.kind === "code" && ctx.rundownId === rundownId && ctx.role !== "follower") return true;
@@ -1219,7 +1243,7 @@ export function createApiHandler(
 
       if (req.method === "PATCH" && /^\/rundowns\/[^/]+$/.test(pathname)) {
         const id = pathname.split("/")[2]!;
-        if (!(await requireRundownManage(id))) return true;
+        if (!(await requireRundownEdit(id))) return true;
         const body = await readJson(req);
         if (typeof body.name === "string" && body.name.trim()) {
           const name = body.name.trim();
@@ -1266,7 +1290,7 @@ export function createApiHandler(
 
       if (req.method === "POST" && /^\/rundowns\/[^/]+\/duplicate$/.test(pathname)) {
         const sourceId = pathname.split("/")[2]!;
-        if (!(await requireRundownManage(sourceId))) return true;
+        if (!(await requireRundownEdit(sourceId))) return true;
         const source = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, sourceId) });
         if (!source?.doc) {
           json(res, 404, { error: "rundown not found" });
@@ -1481,7 +1505,7 @@ export function createApiHandler(
       if (req.method === "POST" && pathname === "/rundowns") {
         const body = await readJson(req);
         const eventId = String(body.eventId ?? "");
-        if (!(await requireEventAccess(eventId))) return true;
+        if (!(await requireEventEdit(eventId))) return true;
         const event = await db.query.events.findFirst({ where: eq(schema.events.id, eventId) });
         if (!event) {
           json(res, 404, { error: "event not found" });
@@ -1631,7 +1655,7 @@ export function createApiHandler(
        */
       if (/^\/rundowns\/[^/]+\/lock$/.test(pathname) && ["GET", "POST", "DELETE"].includes(req.method ?? "")) {
         const id = pathname.split("/")[2]!;
-        if (!(await requireRundownManage(id))) return true;
+        if (!(await requireRundownEdit(id))) return true;
         const row = await db.query.rundowns.findFirst({
           where: eq(schema.rundowns.id, id),
           columns: {
@@ -1735,7 +1759,7 @@ export function createApiHandler(
       // The stored source sheet, for Update import to re-read with the current pipeline.
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/source$/.test(pathname)) {
         const id = pathname.split("/")[2]!;
-        if (!(await requireRundownManage(id))) return true;
+        if (!(await requireRundownEdit(id))) return true;
         const row = await db.query.rundowns.findFirst({
           where: eq(schema.rundowns.id, id),
           columns: { sourceName: true, sourceFile: true },
@@ -1757,7 +1781,7 @@ export function createApiHandler(
       // onto the fresh document (identical mechanism to in-place restore).
       if (req.method === "POST" && /^\/rundowns\/[^/]+\/replace-content$/.test(pathname)) {
         const id = pathname.split("/")[2]!;
-        if (!(await requireRundownManage(id))) return true;
+        if (!(await requireRundownEdit(id))) return true;
         const body = await readJson(req);
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, id) });
         if (!rundown) {

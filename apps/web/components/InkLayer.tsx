@@ -41,13 +41,15 @@ interface Props {
   doc: InkDoc;
   mode: InkMode;
   colour: InkColour;
+  /** Marks kept but not shown — a clean sheet for a moment, nothing lost. */
+  hidden?: boolean;
   onStroke: (rowId: string, stroke: Stroke) => void;
   onErase: (rowId: string, xFrac: number, yPx: number, rowWidth: number) => void;
 }
 
 const EMPTY: Geometry = { left: 0, top: 0, width: 0, height: 0, rows: [] };
 
-export function InkLayer({ container, tbody, doc, mode, colour, onStroke, onErase }: Props) {
+export function InkLayer({ container, tbody, doc, mode, colour, hidden = false, onStroke, onErase }: Props) {
   const [geo, setGeo] = useState<Geometry>(EMPTY);
   const svgRef = useRef<SVGSVGElement>(null);
   const active = useRef<{ row: RowBox; pointerId: number; p: number[] } | null>(null);
@@ -122,11 +124,11 @@ export function InkLayer({ container, tbody, doc, mode, colour, onStroke, onEras
   }, [container, tbody, measure]);
 
   useEffect(() => {
-    if (mode === "off") {
+    if (mode === "off" || hidden) {
       active.current = null;
       setLive(null);
     }
-  }, [mode]);
+  }, [mode, hidden]);
 
   const locate = (e: ReactPointerEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -141,7 +143,7 @@ export function InkLayer({ container, tbody, doc, mode, colour, onStroke, onEras
   const inRow = (row: RowBox, x: number, y: number): [number, number] => [(x - row.left) / row.w, y - row.top];
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
-    if (mode === "off" || e.pointerType === "touch") return;
+    if (mode === "off" || hidden || e.pointerType === "touch") return;
     const hit = locate(e);
     if (!hit) return;
     e.preventDefault();
@@ -201,18 +203,18 @@ export function InkLayer({ container, tbody, doc, mode, colour, onStroke, onEras
   return (
     <svg
       ref={svgRef}
-      className={`ink-layer ${mode === "off" ? "ink-off" : `ink-${mode}`}`}
+      className={`ink-layer ${mode === "off" || hidden ? "ink-off" : `ink-${mode}`}${hidden ? " ink-hidden" : ""}`}
       style={{ left: geo.left, top: geo.top, width: geo.width, height: geo.height }}
       width={geo.width}
       height={geo.height}
       aria-hidden="true"
-      data-ink-mode={mode}
+      data-ink-mode={hidden ? "hidden" : mode}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={finish}
       onPointerCancel={finish}
     >
-      {geo.rows.map((b) => {
+      {!hidden && geo.rows.map((b) => {
         const strokes = doc[b.id];
         const drawing = live && live.rowId === b.id ? live.stroke : null;
         if (!strokes?.length && !drawing) return null;

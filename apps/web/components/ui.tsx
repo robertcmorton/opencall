@@ -235,6 +235,20 @@ export const Icon = {
       <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" {...stroke} strokeWidth={1.7} />
     </svg>
   ),
+  /** A pen, nib down: the Ink control on the run sheet. */
+  pen: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M10.5 2.5l3 3L6 13l-3.5 1 1-3.5z" {...stroke} strokeWidth={1.5} />
+      <path d="M9 4l3 3" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** A block eraser, tilted, over the line it is rubbing out. */
+  eraser: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M9.8 2.7l3.5 3.5L8 11.5H4.8L2.7 9.4z" {...stroke} strokeWidth={1.5} />
+      <path d="M6.6 5.9l3.5 3.5M4.5 13.7h9" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
   play: (
     <svg width="13" height="13" viewBox="0 0 16 16">
       <path d="M4 2.5v11l9-5.5z" fill="currentColor" />

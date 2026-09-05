@@ -3397,6 +3397,7 @@ export function RundownEditor({
   const [inkMode, setInkMode] = useState<InkMode>("off");
   const [inkColour, setInkColour] = useState<InkColour>("red");
   const [inkClearArmed, setInkClearArmed] = useState(false);
+  const [inkHidden, setInkHidden] = useState(false);
   useEffect(() => {
     if (!inkClearArmed) return;
     const t = window.setTimeout(() => setInkClearArmed(false), 3000);
@@ -4327,7 +4328,7 @@ export function RundownEditor({
             data-tip="Draw on the sheet with a pencil or the mouse. Your marks are yours alone; a finger still scrolls."
             aria-pressed={inkMode !== "off"}
           >
-            ✏ Ink{inkMode !== "off" ? " on" : ""}
+            {Icon.pen} Ink{inkMode !== "off" ? " on" : ""}
           </button>
           {inkMode !== "off" && (
             <>
@@ -4351,10 +4352,22 @@ export function RundownEditor({
                 data-tip="Rub over a mark to lift it"
                 aria-pressed={inkMode === "eraser"}
               >
-                Eraser
+                {Icon.eraser} Eraser
               </button>
               <button type="button" className="btn btn-sm" disabled={!ink.canUndo} onClick={ink.undo} data-tip="Take back the last stroke">
                 Undo
+              </button>
+              <button type="button" className="btn btn-sm" disabled={!ink.canRedo} onClick={ink.redo} data-tip="Put back what Undo took">
+                Redo
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${inkHidden ? "is-on" : ""}`}
+                onClick={() => setInkHidden((v) => !v)}
+                data-tip="A clean sheet for a moment. Nothing is lost; press again to bring the marks back."
+                aria-pressed={inkHidden}
+              >
+                {inkHidden ? "Show ink" : "Hide ink"}
               </button>
               <button
                 type="button"
@@ -5335,7 +5348,7 @@ export function RundownEditor({
             </tbody>
           </SortableContext>
         </table>
-        <InkLayer container={gridEl} tbody={tbodyRef} doc={ink.doc} mode={inkMode} colour={inkColour} onStroke={ink.addStroke} onErase={ink.erase} />
+        <InkLayer container={gridEl} tbody={tbodyRef} doc={ink.doc} mode={inkMode} colour={inkColour} hidden={inkHidden} onStroke={ink.addStroke} onErase={ink.erase} />
         </div>
         </div>
       </DndContext>

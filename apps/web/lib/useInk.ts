@@ -21,6 +21,8 @@ const SAVE_AFTER_MS = 600;
 interface State {
   doc: InkDoc;
   history: InkDoc[];
+  /** States undone and not yet overwritten: what Redo walks back into. */
+  future: InkDoc[];
 }
 
 type Action =
@@ -28,12 +30,13 @@ type Action =
   | { type: "add"; rowId: string; stroke: Stroke }
   | { type: "erase"; rowId: string; xFrac: number; yPx: number; rowWidth: number }
   | { type: "undo" }
+  | { type: "redo" }
   | { type: "clear" };
 
 function reduce(s: State, a: Action): State {
   switch (a.type) {
     case "load":
-      return { doc: a.doc, history: [] };
+      return { doc: a.doc, history: [], future: [] };
     case "add": {
       const strokes = s.doc[a.rowId] ?? [];
       return push(s, { ...s.doc, [a.rowId]: [...strokes, a.stroke] });
@@ -51,14 +54,21 @@ function reduce(s: State, a: Action): State {
     case "undo": {
       const prev = s.history[s.history.length - 1];
       if (!prev) return s;
-      return { doc: prev, history: s.history.slice(0, -1) };
+      return { doc: prev, history: s.history.slice(0, -1), future: [...s.future, s.doc] };
+    }
+    case "redo": {
+      const next = s.future[s.future.length - 1];
+      if (!next) return s;
+      return { doc: next, history: [...s.history, s.doc], future: s.future.slice(0, -1) };
     }
     case "clear":
       return countStrokes(s.doc) === 0 ? s : push(s, {});
   }
 }
 
-const push = (s: State, doc: InkDoc): State => ({ doc, history: [...s.history.slice(-(HISTORY - 1)), s.doc] });
+// A fresh edit closes the door on Redo: the states undone were on a path
+// this one has left.
+const push = (s: State, doc: InkDoc): State => ({ doc, history: [...s.history.slice(-(HISTORY - 1)), s.doc], future: [] });
 
 function readLocal(rundownId: string): InkDoc | null {
   try {
@@ -81,12 +91,14 @@ function writeLocal(rundownId: string, doc: InkDoc) {
 export function useInk(rundownId: string): {
   doc: InkDoc;
   canUndo: boolean;
+  canRedo: boolean;
   addStroke: (rowId: string, stroke: Stroke) => void;
   erase: (rowId: string, xFrac: number, yPx: number, rowWidth: number) => void;
   undo: () => void;
+  redo: () => void;
   clear: () => void;
 } {
-  const [state, dispatch] = useReducer(reduce, { doc: {}, history: [] });
+  const [state, dispatch] = useReducer(reduce, { doc: {}, history: [], future: [] });
   const stored = useRef<"server" | "local" | "unknown">("unknown");
   // Set by every edit and cleared by every save. A server answer that lands
   // after the first stroke must not wipe that stroke.
@@ -157,10 +169,14 @@ export function useInk(rundownId: string): {
     mark();
     dispatch({ type: "undo" });
   }, []);
+  const redo = useCallback(() => {
+    mark();
+    dispatch({ type: "redo" });
+  }, []);
   const clear = useCallback(() => {
     mark();
     dispatch({ type: "clear" });
   }, []);
 
-  return { doc, canUndo: state.history.length > 0, addStroke, erase, undo, clear };
+  return { doc, canUndo: state.history.length > 0, canRedo: state.future.length > 0, addStroke, erase, undo, redo, clear };
 }

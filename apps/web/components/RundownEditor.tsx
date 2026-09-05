@@ -3654,6 +3654,26 @@ export function RundownEditor({
           pinned.add(k);
         }
       }
+      /**
+       * A ceiling on the item column, on screens wide enough to hit it.
+       *
+       * Measured on a 2560px monitor: the item column took 1870px while WHO
+       * and NOTES sat at 117px each, so a long note wrapped into a tall block
+       * beside an acre of empty item. Past 900px more width does nothing for
+       * a line of text a reader's eye has to travel back across. The excess
+       * goes to the other text columns in proportion to what they had — the
+       * notes, the who, the what — never to the times, which are fixed.
+       */
+      const TITLE_MAX_PX = 900;
+      const excess = (px[titleKey] ?? 0) - TITLE_MAX_PX;
+      if (excess > 0) {
+        const others = orderedColumns.filter((c) => c.kind === "richtext" && c.key !== titleKey && !pinned.has(c.key)).map((c) => c.key);
+        const othersPx = others.reduce((sum, k) => sum + (px[k] ?? 0), 0);
+        if (others.length > 0 && othersPx > 0) {
+          px[titleKey] = TITLE_MAX_PX;
+          for (const k of others) px[k] = (px[k] ?? 0) + (excess * (px[k] ?? 0)) / othersPx;
+        }
+      }
     }
     const sum = orderedColKeys.reduce((total, k) => total + (px[k] ?? 0), 0) || 1;
     for (const k of orderedColKeys) colPct[k] = `${(((px[k] ?? 0) / sum) * 100).toFixed(4)}%`;

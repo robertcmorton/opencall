@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The endings, tested a thousand ways.** A simulated show walks a sheet with the transport's own rule while results are called the way the dock calls them, at every moment a showcaller could press them: at full time, in the holding, mid-half, after the whole period, twice, changed, reset. Sheets in every order real sheets use, with and without lose and draw branches, one game or two, and a block built at full time. A thousand seeded runs, every one checked for a row on air twice, a struck row cued, extra time replayed, or a branch played out of order. All hold. The sheet that drives it is in the repo as a fixture you can import.
 - **Clear ink sits beside the eraser** rather than at the end of the row, with the other rubbing-out tool.
 - **Two new kinds of access.** "Edits the sheets" for one event: the person writes and imports the sheets but can never press Start or step the cue; on a live sheet they see the show and edit nothing. "Everything at one company, view only": a manager sees every event and sheet at the company without a code, and changes nothing. Both are offered when inviting someone and when changing their access.
 - **The result chooser on sheets with no printed times.** A sheet that carries only durations gets its Win / Lose / Draw buttons once it has a planned start, because every row then has a time. It used to need a printed time on the full-time row.

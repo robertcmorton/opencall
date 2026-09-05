@@ -1,0 +1,21 @@
+TIME,DURATION,ITEM,WHO
+7:00:00 PM,0:10,Doors and walk-in,MC
+7:00:10 PM,0:10,Welcome,MC
+7:00:20 PM,0:10,KICK OFF — GAME 1,SC
+7:00:30 PM,0:15,First half,SC
+7:00:45 PM,0:10,HALF TIME — Sponsor A activation,MC
+7:00:55 PM,0:15,Second half,SC
+,,FULL TIME — HARBOUR WIN,SC
+,0:08,Winning song,AUDIO
+,0:08,Presentation,MC
+,,FULL TIME — HARBOUR LOSS,SC
+,0:08,Music bed only,AUDIO
+,,"FULL TIME — SCORES LEVEL, GOLDEN POINT",SC
+,0:05,HOLDING — golden point re-set,SC
+,0:08,Golden point — first half,SC
+,0:05,HOLDING — change ends,SC
+,0:08,Golden point — second half,SC
+,,"FULL TIME — DRAW, NO EXTRA TIME",SC
+,0:08,Draw wrap,MC
+7:02:30 PM,,PRESENTATION STAGE,MC
+7:02:40 PM,,VENUE CLEAR,SC

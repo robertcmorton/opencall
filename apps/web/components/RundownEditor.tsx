@@ -4847,6 +4847,15 @@ export function RundownEditor({
             style={{ position: "absolute", top: selBarTop, left: 0, right: 0, margin: "0 auto", width: "fit-content", zIndex: 6 }}
           >
             <span className="count">{selected.size} selected</span>
+            {/* Live, the bar is Strike and the colours and nothing else.
+                Duplicate, Group, Milestone and the endings builder change the
+                SHAPE of the sheet, and the show is not the moment for that —
+                an ending block added at 8:47 is a rehearsal that did not
+                happen. Strike is a call ("that is not happening"), and a
+                colour only tints a row and never moves a time, so both stay.
+                Everything else is back the moment the show is over. */}
+            {!showLive && (
+              <>
             <button className="btn btn-sm" onClick={duplicateSelected}>
               Duplicate
             </button>
@@ -4870,6 +4879,8 @@ export function RundownEditor({
             >
               Milestone
             </button>
+              </>
+            )}
             <button
               className="btn btn-sm"
               data-tip="Strike: keeps the row visible but takes it out of the timing and the transport — every printed time below moves up by its length. Press again to put it back."
@@ -4900,6 +4911,7 @@ export function RundownEditor({
                   transport's behaviour; strike describes what the crew see. */}
               Strike
             </button>
+            {!showLive && (
             <Dropdown label="Win / lose / draw rows…" className="btn btn-sm">
               <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
                 These rows only play for one game result. Pick which one they belong to — at full time you choose the
@@ -4925,6 +4937,7 @@ export function RundownEditor({
                 </button>
               ))}
             </Dropdown>
+            )}
             {ROW_HIGHLIGHTS.map(({ stored, label, css }) => (
               <button
                 key={stored}
@@ -4957,7 +4970,7 @@ export function RundownEditor({
                 here. */}
             {showLive ? (
               <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", maxWidth: 210, lineHeight: 1.35 }}>
-                Rows are struck rather than deleted once the show is on — use Strike.
+                Live: strike or colour a row. Reshaping the sheet waits for the show to end.
               </span>
             ) : (
               <button className="btn btn-sm btn-danger" onClick={deleteSelected}>

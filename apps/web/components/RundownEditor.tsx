@@ -1076,6 +1076,17 @@ export function RundownEditor({
 
   useEffect(() => {
     if (mode !== "view" || columns.length === 0) return;
+    // The link's list is the STARTING point, not the law. A viewer who ticks
+    // a column in the Columns menu keeps it across reloads — the tick used
+    // to be applied and then taken back the next time the sheet loaded,
+    // because this ran again over the top of it. A wider screen than the
+    // phone the default was shaped for has room for more, and the person
+    // holding it knows what they need to see.
+    try {
+      if (localStorage.getItem(HIDDEN_COLS_KEY(rundownId))) return;
+    } catch {
+      /* no storage: the link's list applies every time */
+    }
     const show = new Set(
       viewColumns && viewColumns.length > 0
         ? viewColumns

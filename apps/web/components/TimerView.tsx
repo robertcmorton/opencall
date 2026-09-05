@@ -1,6 +1,6 @@
 "use client";
 
-import { absoluteNow, computeTiming, firstCueRow, formatDuration, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
+import { absoluteNow, computeTiming, firstCueRow, formatDuration, nextCueRow, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
 import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
@@ -107,7 +107,15 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
   const at = reference ? steppable.findIndex((r) => r.id === reference.id) : -1;
   const name = (r: { title: string } | undefined): string | null => (r ? r.title.trim() || "(untitled)" : null);
   const before = at > 0 ? name(steppable[at - 1]) : null;
-  const next = at >= 0 && at < steppable.length - 1 ? name(steppable[at + 1]) : null;
+  // Live, "next" is what the transport will actually take: the shared rule,
+  // which skips rows already played and goes back for a called ending. In
+  // the walkthrough there is no cue and no played list, so it is the row
+  // after.
+  const next = active
+    ? name(rows.find((r) => r.id === nextCueRow(rows, active.id, new Set(channel.show?.playedRowIds ?? []))))
+    : at >= 0 && at < steppable.length - 1
+      ? name(steppable[at + 1])
+      : null;
 
   return (
     <main

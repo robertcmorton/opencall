@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The half-time band accepts a caption with words after it.** "HALF TIME — sponsor and half-time show" now gets its band. The words must follow a dash, colon, bar or bracket; "Half Time Show" on its own is still an item inside the break, not the break.
 - **A viewer's own column choices stick.** On a view-only link the link's column list is the starting point, and a column you tick in the Columns menu now stays ticked across reloads. It used to be taken back the next time the sheet loaded.
 - **The Timer screen's "next" agrees with the transport.** It skips rows already played and follows a called ending, the same rule the cue uses.
 - **A tick on every row that has been on air.** It rides the row number, and the row's words go grey, because the transport will skip it from now on. Everyone sees the ticks. To play a ticked row again, click the tick: a Confirm button appears beside it, and that is the click that clears it. Press anywhere else, or wait eight seconds, and it goes away untouched. Hover a row above the cue with no tick and "Mark as played" ticks it so it never comes back as next. Dragging a ticked row to below the cue clears its tick, since moving it forward is how you say "play this again". Start show clears every tick.

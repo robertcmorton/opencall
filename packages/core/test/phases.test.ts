@@ -399,3 +399,29 @@ describe("which row is the break", () => {
     expect(breakTitle(rows)).toBe("HALF TIME (15 mins)");
   });
 });
+
+describe("half time captioned with words after a dash", () => {
+  const row = (title: string, durationSec: number | null = null) => ({ title, durationSec });
+  it("still finds the band when the caption carries the sponsor and the show", () => {
+    const rows = [
+      row("KICK OFF", 60),
+      row("First half", 2400),
+      row("HALF TIME — Sponsor A and half-time show", 900),
+      row("Half Time Show", 600),
+      row("Second half", 2400),
+      row("FULL TIME"),
+    ];
+    const phases = findPhases(rows, [5]);
+    expect(phases.find((p) => p.kind === "half-time")).toMatchObject({ from: 2, label: "Half time" });
+  });
+  it("an item inside the break captioned the same way loses to the break itself", () => {
+    const rows = [
+      row("First half", 2400),
+      row("HALF TIME — Northbank activation", 900),
+      row("HALF TIME - Back Announce", 30),
+      row("Second half", 2400),
+      row("FULL TIME"),
+    ];
+    expect(findPhases(rows, [4]).find((p) => p.kind === "half-time")).toMatchObject({ from: 1 });
+  });
+});

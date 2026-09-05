@@ -77,15 +77,20 @@ export interface Phase {
 }
 
 /**
- * Only a bracketed aside or a short tag may follow the phrase, and it must be
- * introduced by punctuation: "HALF TIME (15 mins)" and "Second Half: NRL" are
- * the period, "Half Time Show" and "Half Time Heroes" are things inside it.
- * Twenty-eight characters is the longest real tag measured ("(15 mins)" and
- * "- 13 Minutes" are nowhere near it) and the shortest impostor it must still
- * reject is "- Back Announce", which never gets that far because the words
- * before it break the match first.
+ * Whatever follows the phrase must be introduced by punctuation: "HALF TIME
+ * (15 mins)", "Second Half: NRL" and "HALF TIME — sponsor and half-time show"
+ * are the period; "Half Time Show" and "Half Time Heroes" are things inside
+ * it, and fail because nothing separates the phrase from the words after.
+ *
+ * There used to be a 28-character cap on the tail, measured off the longest
+ * real tag seen at the time. A real sheet then captioned its break "HALF
+ * TIME — sponsor and half-time show" and lost its band. The cap bought
+ * nothing the punctuation rule did not: an item INSIDE the break captioned
+ * "HALF TIME - Back Announce" does match now, and loses anyway, because the
+ * band goes to the longest candidate, and the break is always longer than
+ * anything played during it.
  */
-const TAIL = String.raw`(?:\s*[:\-–—|(].{0,28})?\s*$`;
+const TAIL = String.raw`(?:\s*[:\-–—|(].*)?\s*$`;
 const period = (word: string) => new RegExp(String.raw`(?:^|[-–—|:]|\s)\s*${word}${TAIL}`, "i");
 
 const FIRST_HALF = period(String.raw`(?:1st|first)\s+half`);

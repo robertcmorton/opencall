@@ -4571,15 +4571,12 @@ th.col-drop-target {
   vertical-align: 1px;
   cursor: default;
 }
-button.played-tick {
-  cursor: pointer;
-}
-button.played-tick:hover {
-  outline: 1px solid var(--border);
-}
 tr.played-row td {
   color: var(--text-3);
 }
 .tn-btn.tn-played {
   color: var(--positive, #3fb950);
+}
+.tn-btn.tn-played.armed {
+  color: var(--danger, #e5484d);
 }

@@ -179,13 +179,10 @@ function SortableRow({
   onSelect,
   onRowClick,
   played = false,
-  onPlayAgain,
 }: {
   row: ProjectedRow;
   /** Has been on air and left it — see the protocol's `playedRowIds`. */
   played?: boolean;
-  /** Set for a caller: clicking the tick offers the row again. */
-  onPlayAgain?: () => void;
   /** Set when this row is one of a game's alternate endings — see `branchAt`. */
   branch?: BranchMark | null;
   /** Mirrors the source sheet's numbering on imports; sequential otherwise; blank when the sheet had none. */
@@ -292,25 +289,9 @@ function SortableRow({
             note badge does: it is about the row, not about anything in it.
             A caller can click it to have the row offered again. */}
         {played && !active ? (
-          onPlayAgain ? (
-            <button
-              type="button"
-              className="played-tick"
-              data-tip="Has been on air. Click to play it again."
-              aria-label="Played — click to play it again"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlayAgain();
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              ✓
-            </button>
-          ) : (
-            <span className="played-tick" data-tip="Has been on air">
-              ✓
-            </span>
-          )
+          <span className="played-tick" data-tip="Has been on air. To play it again, hover the row and use the strip.">
+            ✓
+          </span>
         ) : null}
         <span className="rn-num">{displayNumber}</span>
         {/* Somebody has queried this line. It rides the row number because that
@@ -683,8 +664,12 @@ function TimingNudge({
    * held, and counts up once it is.
    */
   hold?: { heldSec: number | null; onToggle: () => void };
-  /** A row above the cue with no tick: offer to tick it by hand. */
-  played?: { onMark: () => void };
+  /**
+   * The played tick, by hand. `ticked` false: a row above the cue the show
+   * stepped over — offer to tick it. `ticked` true: offer to take the tick
+   * off, which changes what the show does next, so it takes two presses.
+   */
+  played?: { ticked: boolean; onToggle: () => void };
 }) {
   // Taking an item early changes what is on air and drops what it passes, so
   // it asks once. Re-timing the live row changes nothing on air and does not.
@@ -710,6 +695,12 @@ function TimingNudge({
    * clear space either side, is the difference between reaching for -5 and
    * hitting it.
    */
+  const [armReplay, setArmReplay] = useState(false);
+  useEffect(() => {
+    if (!armReplay) return;
+    const t = window.setTimeout(() => setArmReplay(false), 3000);
+    return () => window.clearTimeout(t);
+  }, [armReplay]);
   const corrections = nudges || (hold && live) || golden || played;
   return (
     <div className="timing-nudge-group" onPointerDown={(e) => e.stopPropagation()}>
@@ -764,14 +755,31 @@ function TimingNudge({
           +{d}
         </button>
         ))}
-      {played && (
+      {played && !played.ticked && (
         <button
           type="button"
           className="tn-btn tn-played"
           data-tip="Tick this row as played, so it is never offered as next. It is above the cue and the show stepped over it."
-          onClick={played.onMark}
+          onClick={played.onToggle}
         >
           ✓ Mark as played
+        </button>
+      )}
+      {played && played.ticked && (
+        <button
+          type="button"
+          className={`tn-btn tn-played ${armReplay ? "armed" : ""}`}
+          data-tip="Take the tick off so the row is offered as next in its turn. Press twice: a tick is the show's memory of what went out."
+          onClick={() => {
+            if (!armReplay) {
+              setArmReplay(true);
+              return;
+            }
+            setArmReplay(false);
+            played.onToggle();
+          }}
+        >
+          {armReplay ? "Really play again?" : "↺ Play again"}
         </button>
       )}
       {golden && (
@@ -1695,12 +1703,8 @@ export function RundownEditor({
   // clock agree on where the show goes from here.
   const playedRowIds = useMemo(() => new Set(channel.show?.playedRowIds ?? []), [channel.show?.playedRowIds]);
   const nextRowId = activeRowId ? nextCueRow(rows, activeRowId, playedRowIds) : null;
-  /** Take the tick off: the row is offered again in its turn. Asked first, because the tick is the show's memory. */
-  const playAgain = (rowId: string): void => {
-    const title = rows.find((r) => r.id === rowId)?.title || "this row";
-    if (!window.confirm(`Play "${title}" again? It will be offered as next in its turn.`)) return;
-    channel.sendCmd("unplay", rowId);
-  };
+  /** Take the tick off: the row is offered again in its turn. Reached only through the strip's armed button. */
+  const playAgain = (rowId: string): void => channel.sendCmd("unplay", rowId);
   const markPlayed = (rowId: string): void => channel.sendCmd("mark_played", rowId);
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
@@ -4780,7 +4784,10 @@ export function RundownEditor({
           if (!showLive) return null;
           // Above the cue, on air nowhere, not yet ticked: the one case the
           // "mark as played" offer is for.
-          const behindCue = mayDrive && liveAt >= 0 && at >= 0 && at < liveAt && !playedRowIds.has(nudgeRowAt.id);
+          // The tick by hand: a ticked row anywhere but on air can be offered
+          // again; a row above the cue with no tick can be ticked.
+          const ticked = playedRowIds.has(nudgeRowAt.id);
+          const behindCue = mayDrive && liveAt >= 0 && at >= 0 && at !== liveAt && (ticked || at < liveAt);
           if (!onAir && !ahead && golden == null && !behindCue) return null;
           return (
           <div className="timing-nudge-hover" ref={measureNudge} style={{ top: nudgeTop }}>
@@ -4791,7 +4798,7 @@ export function RundownEditor({
               onCue={() => cueRow(nudgeRowAt.id)}
               skips={cueSkipCount(nudgeRowAt.id)}
               golden={golden ?? undefined}
-              played={behindCue ? { onMark: () => markPlayed(nudgeRowAt.id) } : undefined}
+              played={behindCue ? { ticked, onToggle: () => (ticked ? playAgain(nudgeRowAt.id) : markPlayed(nudgeRowAt.id)) } : undefined}
               hold={
                 // Holding an item past its end is only a thing you can do to
                 // the item that is on air. Withheld rather than disabled: a
@@ -5189,7 +5196,6 @@ export function RundownEditor({
                     runsWith={runsWith.get(rowRecord.id)}
                     onNow={onNowIds.has(rowRecord.id)}
                     played={playedRowIds.has(rowRecord.id)}
-                    onPlayAgain={showLive && mayDrive ? () => playAgain(rowRecord.id) : undefined}
                     disabled={!canEditContent}
                     /**
                      * Walking the sheet by clicking the row — ANY of it.

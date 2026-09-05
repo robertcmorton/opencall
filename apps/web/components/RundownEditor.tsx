@@ -94,7 +94,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { INK_COLOURS, type InkColour, type InkMode } from "@opencall/core";
+import { INK_COLOURS, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
@@ -862,6 +862,24 @@ export function RundownEditor({
   );
   const live = useLiveTiming(channel, timing);
   const showIsLive = channel.show?.state === "running" || channel.show?.state === "paused";
+  /**
+   * The plan freezes when the doors open.
+   *
+   * Until then "End" follows the sheet, because the sheet IS the plan while it
+   * is being written. The moment the show goes live the plan stops being a
+   * moving thing: whatever the sheet said at that moment is what the night is
+   * measured against, and the right-hand "Proj. end" does the moving from
+   * here. Set by hand earlier, it is left alone. Only someone who may edit
+   * writes it, so a room full of followers does not race to.
+   */
+  useEffect(() => {
+    if (!showIsLive || !canEditContent) return;
+    const metaMap = doc.getMap("meta");
+    if (metaMap.get("plannedEndSec") != null) return;
+    if (timing.endSec == null) return;
+    metaMap.set("plannedEndSec", timing.endSec);
+    // Once: the sheet's end at the moment of going live, not every render after.
+  }, [showIsLive]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeRowId = showIsLive ? channel.show!.activeRowId : null;
   // Pre-show walkthrough cursor — shared across every connected device.
   const walkRowId = !activeRowId ? (channel.show?.walkRowId ?? null) : null;
@@ -2219,7 +2237,9 @@ export function RundownEditor({
       if (!row) continue;
       const yRow = yRows.get(row.id);
       const fixed = yRow?.get("hardStartSec") as number | null | undefined;
-      if (fixed != null) yRow!.set("hardStartSec", fixed + deltaSec);
+      // Kept on the dial, as strike and move already do: a nudge across
+      // midnight lands at 00:05, not 24:05.
+      if (fixed != null) yRow!.set("hardStartSec", wrapTimeOfDay(fixed + deltaSec));
     }
   };
 
@@ -3011,6 +3031,7 @@ export function RundownEditor({
       widthFor: (key) => colWidths[key] ?? columns.find((c) => c.key === key)?.width,
       rows,
       timing,
+      ink: includeInk ? ink.doc : undefined,
     });
   };
 
@@ -3398,6 +3419,43 @@ export function RundownEditor({
   const [inkColour, setInkColour] = useState<InkColour>("red");
   const [inkClearArmed, setInkClearArmed] = useState(false);
   const [inkHidden, setInkHidden] = useState(false);
+  // Per device, not per sheet: whether this iPad has a pencil does not change
+  // from one show to the next.
+  const [inkTouch, setInkTouch] = useState(false);
+  // Whether the PDF and the print carry this person's ink. Per device too.
+  const [includeInk, setIncludeInk] = useState(true);
+  useEffect(() => {
+    try {
+      setInkTouch(localStorage.getItem("oc:inkfinger") === "1");
+      setIncludeInk(localStorage.getItem("oc:printink") !== "0");
+    } catch {
+      /* no storage: the defaults stand */
+    }
+  }, []);
+  const toggleInkTouch = () =>
+    setInkTouch((v) => {
+      try {
+        localStorage.setItem("oc:inkfinger", v ? "0" : "1");
+      } catch {
+        /* no storage */
+      }
+      return !v;
+    });
+  const toggleIncludeInk = () =>
+    setIncludeInk((v) => {
+      try {
+        localStorage.setItem("oc:printink", v ? "0" : "1");
+      } catch {
+        /* no storage */
+      }
+      return !v;
+    });
+  // The print dialog reads the DOM, so the choice has to be ON the DOM: a
+  // class the print stylesheet keys on.
+  useEffect(() => {
+    document.body.classList.toggle("print-no-ink", !includeInk);
+    return () => document.body.classList.remove("print-no-ink");
+  }, [includeInk]);
   useEffect(() => {
     if (!inkClearArmed) return;
     const t = window.setTimeout(() => setInkClearArmed(false), 3000);
@@ -3775,6 +3833,12 @@ export function RundownEditor({
           <span className="check" />
           Print
         </button>
+        {/* Marked-up or clean: the same sheet goes to the desk with the
+            showcaller's scribbles on it, or to the client without. */}
+        <button type="button" className="menu-item" data-keep-open onClick={toggleIncludeInk}>
+          <span className="check">{includeInk && Icon.check}</span>
+          Include my ink
+        </button>
         <button type="button" className="menu-item" onClick={exportCsv}>
           <span className="check" />
           Export CSV
@@ -3954,8 +4018,42 @@ export function RundownEditor({
             <span className="shape-key">Dur</span>
             <span className="shape-val">{formatDuration(timing.totalDurationSec)}</span>
             <span className="shape-key">End</span>
-            <span className="shape-val">
+            <span
+              className="shape-val"
+              data-tip={
+                meta.plannedEndSec != null
+                  ? canEditContent
+                    ? "The end you planned. Compare it with Proj. end on the right. Click to change it."
+                    : "The end that was planned. Compare it with Proj. end on the right."
+                  : canEditContent
+                    ? "Where the sheet ends as it stands. It freezes as the plan when the show starts; click to set it now."
+                    : undefined
+              }
+              onClick={(e) => {
+                if (!canEditContent) return;
+                e.stopPropagation();
+                const raw = window.prompt(
+                  "Planned end time",
+                  meta.plannedEndSec != null
+                    ? formatTimeOfDay(meta.plannedEndSec, true)
+                    : timing.endSec != null
+                      ? formatTimeOfDay(timing.endSec, true)
+                      : "10:00 pm",
+                );
+                if (raw === null) return;
+                const sec = parseTimeOfDay(raw.trim());
+                if (sec == null) {
+                  window.alert(`Couldn't read "${raw}" as a time — try e.g. 10:30 pm or 22:30.`);
+                  return;
+                }
+                doc.getMap("meta").set("plannedEndSec", sec);
+              }}
+            >
             {(() => {
+              // Once planned, the plan. It does not move with the running
+              // order — that is the whole point of it: the right-hand
+              // readout moves, and the distance between them is the night.
+              if (meta.plannedEndSec != null) return formatTimeOfDayWithDay(meta.plannedEndSec, meta.use24h);
               // The last timed item without a duration gets a 30-minute
               // assumption so the show still shows an approximate end.
               let lastIdx = -1;
@@ -4345,6 +4443,15 @@ export function RundownEditor({
                   }}
                 />
               ))}
+              <button
+                type="button"
+                className={`btn btn-sm ${inkTouch ? "is-on" : ""}`}
+                onClick={toggleInkTouch}
+                data-tip="Let a finger draw as well as a pencil. While it is on, a finger no longer scrolls the sheet; switch Ink off to scroll."
+                aria-pressed={inkTouch}
+              >
+                Finger
+              </button>
               <button
                 type="button"
                 className={`btn btn-sm ${inkMode === "eraser" ? "is-on" : ""}`}
@@ -5348,7 +5455,7 @@ export function RundownEditor({
             </tbody>
           </SortableContext>
         </table>
-        <InkLayer container={gridEl} tbody={tbodyRef} doc={ink.doc} mode={inkMode} colour={inkColour} hidden={inkHidden} onStroke={ink.addStroke} onErase={ink.erase} />
+        <InkLayer container={gridEl} tbody={tbodyRef} doc={ink.doc} mode={inkMode} colour={inkColour} hidden={inkHidden} touchDraws={inkTouch} onStroke={ink.addStroke} onErase={ink.erase} />
         </div>
         </div>
       </DndContext>

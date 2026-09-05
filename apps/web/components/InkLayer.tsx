@@ -43,13 +43,20 @@ interface Props {
   colour: InkColour;
   /** Marks kept but not shown — a clean sheet for a moment, nothing lost. */
   hidden?: boolean;
+  /**
+   * A finger draws too. Off by default: the hand steadying an iPad must not
+   * leave marks, and pinch-zoom has to keep working. On, for an iPad with no
+   * pencil, the layer takes every touch and nothing under it scrolls until
+   * Ink is off again.
+   */
+  touchDraws?: boolean;
   onStroke: (rowId: string, stroke: Stroke) => void;
   onErase: (rowId: string, xFrac: number, yPx: number, rowWidth: number) => void;
 }
 
 const EMPTY: Geometry = { left: 0, top: 0, width: 0, height: 0, rows: [] };
 
-export function InkLayer({ container, tbody, doc, mode, colour, hidden = false, onStroke, onErase }: Props) {
+export function InkLayer({ container, tbody, doc, mode, colour, hidden = false, touchDraws = false, onStroke, onErase }: Props) {
   const [geo, setGeo] = useState<Geometry>(EMPTY);
   const svgRef = useRef<SVGSVGElement>(null);
   const active = useRef<{ row: RowBox; pointerId: number; p: number[] } | null>(null);
@@ -143,7 +150,7 @@ export function InkLayer({ container, tbody, doc, mode, colour, hidden = false, 
   const inRow = (row: RowBox, x: number, y: number): [number, number] => [(x - row.left) / row.w, y - row.top];
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
-    if (mode === "off" || hidden || e.pointerType === "touch") return;
+    if (mode === "off" || hidden || (e.pointerType === "touch" && !touchDraws)) return;
     const hit = locate(e);
     if (!hit) return;
     e.preventDefault();
@@ -196,14 +203,14 @@ export function InkLayer({ container, tbody, doc, mode, colour, hidden = false, 
     active.current = null;
     setLive(null);
     if (mode === "eraser" || a.p.length < 2) return;
-    onStroke(a.row.id, { c: colour, p: simplify(a.p, a.row.w) });
+    onStroke(a.row.id, { c: colour, p: simplify(a.p, a.row.w), h: Math.round(a.row.h) });
   };
 
   if (!container || geo.width === 0) return null;
   return (
     <svg
       ref={svgRef}
-      className={`ink-layer ${mode === "off" || hidden ? "ink-off" : `ink-${mode}`}${hidden ? " ink-hidden" : ""}`}
+      className={`ink-layer ${mode === "off" || hidden ? "ink-off" : `ink-${mode}`}${hidden ? " ink-hidden" : ""}${touchDraws && mode !== "off" && !hidden ? " ink-touch" : ""}`}
       style={{ left: geo.left, top: geo.top, width: geo.width, height: geo.height }}
       width={geo.width}
       height={geo.height}

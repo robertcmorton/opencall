@@ -1,5 +1,6 @@
 "use client";
 
+import { nextForRole } from "../lib/nextForRole";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatDuration, zoneSecondsOfDay, type LiveShowTiming, type PlanTiming } from "@opencall/core";
 import type { ProjectedRow, RoleDef } from "@opencall/db/doc";
@@ -390,13 +391,23 @@ export function RoleBar({
 }) {
   // Declared before the early return: hooks cannot be conditional.
   const publishHeight = usePublishedBarHeight();
-  if (!live || !activeRowId || myRoles.length === 0) return null;
+  if (myRoles.length === 0) return null;
 
-  const activeIndex = rows.findIndex((r) => r.id === activeRowId);
+  /**
+   * Before the show there is no cue, but there is a clock and a sheet with
+   * times on it, and a crew member who has picked a role wants the same
+   * answer they get once it starts: what is my next item and how long until
+   * it. So the bar runs off the planned times until a cue exists, then hands
+   * over to the cue. This used to return nothing until the first cue, which
+   * read as "you have nothing" during the hour when people most want to know.
+   */
+  const running = live != null && activeRowId != null;
+  const nowSec = zoneSecondsOfDay(channel.serverNow(), channel.timezone);
+  const activeIndex = running ? rows.findIndex((r) => r.id === activeRowId) : -1;
   const activeRow = activeIndex >= 0 ? rows[activeIndex]! : null;
   const onAirRole = activeRow != null ? matchingRole(activeRow, myRoles, roleColumnKeys) : null;
 
-  if (onAirRole != null) {
+  if (onAirRole != null && live) {
     const over = live.remainingInRowSec != null && live.remainingInRowSec < 0;
     const display =
       live.remainingInRowSec == null
@@ -416,14 +427,18 @@ export function RoleBar({
 
   // Next item of mine — across ANY of my roles — after the active row.
   let next: { row: ProjectedRow; startSec: number | null; role: string } | null = null;
-  for (let i = Math.max(0, activeIndex) + 1; i < rows.length; i++) {
-    const row = rows[i]!;
-    if (row.type === "group" || row.skipped) continue;
-    const role = matchingRole(row, myRoles, roleColumnKeys);
-    if (!role) continue;
-    next = { row, startSec: timing.rows[i]!.startSec, role };
-    break;
-  }
+  // The rule lives in `nextForRole`, where it is tested: after the cue when
+  // there is one, ahead on the clock when there is not.
+  const pick = nextForRole(
+    rows.map((row, index) => ({
+      index,
+      startSec: timing.rows[index]!.startSec,
+      role: row.type === "group" || row.skipped ? null : matchingRole(row, myRoles, roleColumnKeys),
+      eligible: row.type !== "group" && !row.skipped,
+    })),
+    { running, activeIndex, nowSec },
+  );
+  if (pick) next = { row: rows[pick.index]!, startSec: pick.startSec, role: pick.role! };
 
   const rolesLabel = myRoles.length === 1 ? myRoles[0]! : `${myRoles[0]} +${myRoles.length - 1}`;
 
@@ -438,8 +453,7 @@ export function RoleBar({
 
   let countdown: number | null = null;
   if (next.startSec != null) {
-    const nowSec = zoneSecondsOfDay(channel.serverNow(), channel.timezone);
-    countdown = Math.round(next.startSec + (live.showDriftSec ?? 0) - nowSec);
+    countdown = Math.round(next.startSec + (live?.showDriftSec ?? 0) - nowSec);
   }
   const imminent = countdown != null && countdown <= 60;
 

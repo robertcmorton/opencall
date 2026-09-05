@@ -20,6 +20,13 @@ export type InkMode = "off" | "pen" | "eraser";
 export interface Stroke {
   c: InkColour;
   p: number[];
+  /**
+   * The row's height in px when the stroke was drawn. y is in px from the
+   * row's top, which a screen can use as it is; anything that lays the row
+   * out at another height — the PDF — scales y by its own row height over
+   * this one. Absent on strokes from before it was recorded.
+   */
+  h?: number;
 }
 
 /** Every stroke on a sheet, keyed by the id of the row it was drawn on. */
@@ -120,8 +127,9 @@ export function isInkDoc(v: unknown): v is InkDoc {
     if (!Array.isArray(strokes) || strokes.length > MAX_STROKES_PER_ROW) return false;
     for (const s of strokes) {
       if (!s || typeof s !== "object") return false;
-      const { c, p } = s as { c?: unknown; p?: unknown };
+      const { c, p, h } = s as { c?: unknown; p?: unknown; h?: unknown };
       if (typeof c !== "string" || !(INK_COLOURS as string[]).includes(c)) return false;
+      if (h !== undefined && (typeof h !== "number" || !Number.isFinite(h) || h <= 0)) return false;
       if (!Array.isArray(p) || p.length < 2 || p.length % 2 !== 0 || p.length > MAX_POINTS_PER_STROKE) return false;
       for (const n of p) if (typeof n !== "number" || !Number.isFinite(n)) return false;
     }

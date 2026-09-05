@@ -4534,3 +4534,21 @@ th.col-drop-target {
 @media print {
   .ink-tools { display: none; }
 }
+/* A finger drawing: the layer keeps every touch, so nothing beneath scrolls. */
+.ink-layer.ink-touch {
+  touch-action: none;
+}
+/* "Include my ink" off: the print is the clean sheet. */
+@media print {
+  .print-no-ink .ink-layer {
+    display: none;
+  }
+}
+/* The sheet's name takes the whole of its column, whatever the browser
+   thinks its natural width is. A long name was seen stopping short with an
+   ellipsis and a hand's width of nothing between it and the timer box; the
+   column had the room, the flex item had not claimed it. */
+.topbar-left > .topbar-name {
+  flex: 1 1 0;
+  min-width: 0;
+}

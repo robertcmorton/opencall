@@ -56,7 +56,9 @@ export interface FixedTime {
 }
 
 /** Fixed times are times of day; the cascade counts on past midnight. */
-const timeOfDay = (sec: number): number => ((sec % 86400) + 86400) % 86400;
+/** A clock time kept on the dial: 24:10 is 00:10, and ten minutes before midnight is 23:50. */
+export const wrapTimeOfDay = (sec: number): number => ((sec % 86400) + 86400) % 86400;
+const timeOfDay = wrapTimeOfDay;
 
 /**
  * The fixed times that change when the row at `from` is moved to `to` — the

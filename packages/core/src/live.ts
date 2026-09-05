@@ -1142,13 +1142,36 @@ export function resultCalled(rows: readonly EndingRow[]): string | null {
  * needs. Called after the period has run its length, all of it stays.
  */
 export function keepAfterResult(rows: readonly EndingRow[], chosen: string, liveIndex: number): Set<string> {
-  const underWay = extraUnderWay(rows, liveIndex);
   const keep = new Set<string>();
   for (const r of rows) {
     if (r.outcome === chosen) keep.add(r.id);
-    else if (isGolden(r) && chosen !== "golden" && underWay && r.index <= liveIndex) keep.add(r.id);
+    // A golden row that is in the running order and at or before the cue was
+    // PLAYED, and what was played stays. This used to ask `extraUnderWay`
+    // first, which reads "extra time is on" from the results being struck —
+    // true on the first press and false on the second, because the first
+    // press had just un-struck the chosen result. So pressing Win again after
+    // golden point struck the twenty minutes everyone had watched. Whether a
+    // row played is a fact about the row and the cue, not about the chooser.
+    else if (isGolden(r) && chosen !== "golden" && !r.skipped && r.index <= liveIndex) keep.add(r.id);
   }
   return keep;
+}
+
+/**
+ * The rows of the called ending that sit ABOVE the cue.
+ *
+ * Every real sheet writes its endings win / lose / golden / draw, so the
+ * result branches come BEFORE the extra period. A result called during or
+ * after golden point therefore names rows the show has already gone past —
+ * and the transport only moves forward, so nothing it offers can play them.
+ * Empty when the result was called at full time (the branch is still ahead)
+ * or when nothing has been called. The caller has to cue these by hand; this
+ * is how a screen knows to say so.
+ */
+export function endingBehindCue(rows: readonly EndingRow[], liveIndex: number): EndingRow[] {
+  const chosen = resultCalled(rows);
+  if (!chosen || liveIndex < 0) return [];
+  return rows.filter((r) => r.outcome === chosen && !r.skipped && r.index < liveIndex);
 }
 
 /**

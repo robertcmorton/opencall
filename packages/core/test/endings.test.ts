@@ -76,3 +76,65 @@ describe("what stays in the order once a result is called", () => {
     expect(ids(keepAfterResult(built(), "win", 13))).toEqual([]);
   });
 });
+
+// ── The order every real sheet uses: results written ABOVE the extra period ──
+import { endingBehindCue, keepAfterResult as keepAfter, resultCalled as called, type EndingRow as ER } from "../src/live";
+
+const realSheet = (skipped: Partial<Record<string, boolean>> = {}): ER[] => {
+  const mk = (id: string, index: number, outcome: string): ER => ({ id, index, outcome, skipped: !!skipped[id] });
+  return [
+    mk("win1", 2, "win"),
+    mk("win2", 3, "win"),
+    mk("lose1", 4, "lose"),
+    mk("gp1", 5, "golden"), // holding
+    mk("gp2", 6, "golden"), // first half
+    mk("gp3", 7, "golden"), // change ends
+    mk("gp4", 8, "golden"), // second half
+    mk("draw1", 9, "draw"),
+  ];
+};
+const applied = (rows: ER[], keep: Set<string>): ER[] => rows.map((r) => ({ ...r, skipped: !keep.has(r.id) }));
+
+describe("results written above the golden block (the real-sheet order)", () => {
+  it("at full time, Win keeps the win rows and strikes the whole extra period; the branch is still ahead", () => {
+    const rows = realSheet();
+    const after = applied(rows, keepAfter(rows, "win", 1));
+    expect(after.filter((r) => !r.skipped).map((r) => r.id)).toEqual(["win1", "win2"]);
+    expect(endingBehindCue(after, 1)).toEqual([]);
+  });
+
+  it("golden point called, then Win in the second half: the played golden rows stay and the win rows are BEHIND the cue", () => {
+    // Golden called = the three results struck; the cue has reached the second half (index 8).
+    const golden = realSheet({ win1: true, win2: true, lose1: true, draw1: true });
+    const after = applied(golden, keepAfter(golden, "win", 8));
+    expect(after.filter((r) => !r.skipped).map((r) => r.id)).toEqual(["win1", "win2", "gp1", "gp2", "gp3", "gp4"]);
+    expect(called(after)).toBe("win");
+    // The transport cannot reach these: they are above the cue.
+    expect(endingBehindCue(after, 8).map((r) => r.id)).toEqual(["win1", "win2"]);
+  });
+
+  it("a try in the first half ends it there: the rest of the period is struck, the played part stays", () => {
+    const golden = realSheet({ win1: true, win2: true, lose1: true, draw1: true });
+    const after = applied(golden, keepAfter(golden, "win", 6));
+    expect(after.filter((r) => !r.skipped).map((r) => r.id)).toEqual(["win1", "win2", "gp1", "gp2"]);
+  });
+
+  it("pressing the same result a second time changes nothing — the played golden rows do not vanish", () => {
+    const golden = realSheet({ win1: true, win2: true, lose1: true, draw1: true });
+    const first = applied(golden, keepAfter(golden, "win", 8));
+    const second = applied(first, keepAfter(first, "win", 8));
+    expect(second).toEqual(first);
+  });
+
+  it("changing the call after golden point swaps the branch and keeps what was played", () => {
+    const golden = realSheet({ win1: true, win2: true, lose1: true, draw1: true });
+    const first = applied(golden, keepAfter(golden, "win", 8));
+    const swapped = applied(first, keepAfter(first, "lose", 8));
+    expect(swapped.filter((r) => !r.skipped).map((r) => r.id)).toEqual(["lose1", "gp1", "gp2", "gp3", "gp4"]);
+    expect(endingBehindCue(swapped, 8).map((r) => r.id)).toEqual(["lose1"]);
+  });
+
+  it("nothing is behind the cue while nothing has been called", () => {
+    expect(endingBehindCue(realSheet(), 8)).toEqual([]);
+  });
+});

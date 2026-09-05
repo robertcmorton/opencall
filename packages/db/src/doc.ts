@@ -62,6 +62,12 @@ function fillFragment(fragment: Y.XmlFragment, text: string): void {
 export interface DocMeta {
   name?: string;
   plannedStartSec?: number | null;
+  /**
+   * The end the day was PLANNED to have. Frozen when the show goes live if
+   * nobody set it by hand, so the header can show the plan beside where the
+   * running order now says the day ends.
+   */
+  plannedEndSec?: number | null;
   use24h?: boolean;
   /** Free-text version label shown on headers and print ("V2", "FINAL"). */
   versionLabel?: string;
@@ -122,6 +128,7 @@ export function buildRundownDoc(
     meta.set("schemaVersion", 1);
     if (docMeta.name != null) meta.set("name", docMeta.name);
     if (docMeta.plannedStartSec != null) meta.set("plannedStartSec", docMeta.plannedStartSec);
+    if (docMeta.plannedEndSec != null) meta.set("plannedEndSec", docMeta.plannedEndSec);
     if (docMeta.use24h != null) meta.set("use24h", docMeta.use24h);
     if (docMeta.showInfo?.length) meta.set("showInfo", docMeta.showInfo);
     if (docMeta.roleColumnKey != null) meta.set("roleColumnKey", docMeta.roleColumnKey);
@@ -281,6 +288,7 @@ export function projectRundownDoc(doc: Y.Doc): {
   const meta: Required<DocMeta> = {
     name: (metaMap.get("name") as string | undefined) ?? "Untitled Rundown",
     plannedStartSec: (metaMap.get("plannedStartSec") as number | undefined) ?? null,
+    plannedEndSec: (metaMap.get("plannedEndSec") as number | undefined) ?? null,
     use24h: (metaMap.get("use24h") as boolean | undefined) ?? false,
     showInfo: (metaMap.get("showInfo") as { kind: string; lines: string[] }[] | undefined) ?? [],
     versionLabel: (metaMap.get("versionLabel") as string | undefined) ?? "",

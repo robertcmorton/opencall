@@ -73,16 +73,18 @@ export function LiveReadouts({
   live: LiveShowTiming | null;
   use24h: boolean;
   /**
-   * The time the SHEET says the day ends.
+   * The time the SHEET says the day ends, as it stands right now — with
+   * every strike, move and added row in it.
    *
-   * Shown in preference to the drift-adjusted forecast. Both are true and they
-   * disagree by however late the show is running, which read as a
-   * contradiction rather than a measurement — two numbers a few inches apart,
-   * both calling themselves the end, neither saying which kind it was. One
-   * end time, and it is the one written on the sheet everybody in the room is
-   * holding. (The forecast is still computed; `live.projectedEndSec` has it if
-   * it is ever wanted back, and the drift it comes from is on the clock chip's
-   * hover.)
+   * This is the fallback: while a row is on air the forecast — this end plus
+   * however late the show is running — is the number shown, because that is
+   * the question the readout answers: where does the show come off NOW.
+   * Between cues, and before the doors, there is no drift to measure and the
+   * sheet's own end is the best forecast there is.
+   *
+   * The end that was PLANNED lives on the left of the header, beside Start
+   * and Dur, and stays put once the show starts. The two are meant to be
+   * read against each other — that gap is how far the day has moved.
    */
   plannedEndSec?: number | null;
   /** The row the drift is measured on — see the explanation below. */
@@ -90,7 +92,12 @@ export function LiveReadouts({
   /** What the sheet says that row starts at. */
   activePlannedSec?: number | null;
 }) {
-  if (!live) return null;
+  // Not gated on `live` any more. That hid the projected end whenever no row
+  // was on air — the wait before the first cue, the gap after a Stop — and it
+  // hid it for the whole walkthrough. The sheet has an end at every one of
+  // those moments; only the drift is missing, and without drift the sheet's
+  // end IS the forecast.
+  const projectedEndSec = live?.projectedEndSec ?? plannedEndSec;
   return (
     <>
       {/* No "Item" readout here.
@@ -107,11 +114,7 @@ export function LiveReadouts({
       <div className="header-proj">
         <div className="header-label">Proj. end</div>
         <div className="header-clock mono">
-          {plannedEndSec != null
-            ? formatTimeOfDayWithDay(Math.round(plannedEndSec), use24h)
-            : live.projectedEndSec != null
-              ? formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h)
-              : "—"}
+          {projectedEndSec != null ? formatTimeOfDayWithDay(Math.round(projectedEndSec), use24h) : "—"}
         </div>
       </div>
       {/* No drift readout here any more.

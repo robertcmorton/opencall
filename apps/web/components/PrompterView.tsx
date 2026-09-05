@@ -39,6 +39,14 @@ import { BackLink } from "./BackLink";
  * the script changes height.
  */
 const CARET_AT = 0.3;
+/**
+ * The smallest the fit may make a read. It was 28 px, a size chosen when the
+ * fit was the only thing keeping a long read on one screen. Auto pace now
+ * scrolls a read through the caret whatever its length, so the fit no longer
+ * has to shrink a long one to fit — it only has to stop short of unreadable.
+ * 40 px is the floor a reader two metres from a tablet still gets.
+ */
+const FIT_MIN_PX = 40;
 
 export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
   useWakeLock();
@@ -400,7 +408,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       const room = box.clientHeight * (1 - CARET_AT) - 24;
       if (room <= 0) return;
       pass++;
-      const next = Math.round(Math.max(28, Math.min(160, fontRef.current * Math.sqrt(room / have))));
+      const next = Math.round(Math.max(FIT_MIN_PX, Math.min(160, fontRef.current * Math.sqrt(room / have))));
       if (Math.abs(next - fontRef.current) > 2) {
         setFontSize(next);
         requestAnimationFrame(fit); // measure again once it has painted

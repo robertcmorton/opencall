@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDuration, formatTimeOfDay, type PlanTiming } from "@opencall/core";
+import { formatDuration, formatTimeOfDay, INK_WIDTH, type InkColour, type InkDoc, type PlanTiming } from "@opencall/core";
 import type { ColumnDef, KeyTime, ProjectedRow } from "@opencall/db/doc";
 
 /**
@@ -17,6 +17,13 @@ export interface PdfExportInput {
   /** ALL columns to include in display order — the source sheet's order —
    *  already filtered to visible (title / startTime / duration / richtext). */
   columns: ColumnDef[];
+  /**
+   * This person's ink, when they asked for it on the page. Each stroke is
+   * anchored to a row: x as a fraction of the row's width, y in px from the
+   * row's top on the screen it was drawn on, and the row's height then — so
+   * it lands on the same row at the PDF's own row height.
+   */
+  ink?: InkDoc;
   /** Effective display width per column key (user override or imported hint). */
   widthFor: (key: string) => number | undefined;
   rows: ProjectedRow[];
@@ -33,7 +40,7 @@ function rowFill(color: string | undefined): [number, number, number] | null {
 }
 
 export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
-  const { default: JsPdf } = await import("jspdf");
+  const { default: JsPdf, GState } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
 
   const doc = new JsPdf({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -138,6 +145,20 @@ export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
       if (meta.fill) data.cell.styles.fillColor = meta.fill;
       if (meta.skipped) data.cell.styles.textColor = [175, 178, 186];
     },
+    didDrawCell: (data) => {
+      if (!input.ink || data.section !== "body" || data.column.index !== 0) return;
+      const row = input.rows[data.row.index];
+      const strokes = row ? input.ink[row.id] : undefined;
+      if (!strokes?.length) return;
+      // The first cell is drawn once per row, so it is the one place to
+      // paint the whole row's ink: from the table's left edge to its right,
+      // at this row's top, as tall as the row came out.
+      const rowX = data.cell.x;
+      const rowY = data.cell.y;
+      const rowW = pageW - margin * 2;
+      const rowH = data.cell.height;
+      drawInk(doc, GState, strokes, rowX, rowY, rowW, rowH);
+    },
     didDrawPage: () => {
       headerLines();
       doc.setFont("helvetica", "normal");
@@ -152,4 +173,54 @@ export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
   });
 
   doc.save(`${input.name.replace(/[^\w-]+/g, "_") || "rundown"}.pdf`);
+}
+
+/** Pen colours on paper. The marker is a translucent band, as on the screen. */
+const INK_RGB: Record<InkColour, [number, number, number]> = {
+  ink: [20, 20, 20],
+  red: [229, 72, 77],
+  blue: [59, 130, 246],
+  marker: [250, 204, 21],
+};
+
+/** Screen px per mm on the sheet the stroke was drawn on, near enough: the PDF's row is scaled by height, and widths are already fractions. */
+const PX_PER_MM = 3.2;
+
+function drawInk(
+  doc: import("jspdf").jsPDF,
+  GState: typeof import("jspdf").GState,
+  strokes: InkDoc[string],
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+): void {
+  for (const s of strokes) {
+    if (s.p.length < 2) continue;
+    // y scales by the row's height then and now; a stroke from before heights
+    // were recorded assumes the row it was drawn on was about as tall.
+    const yScale = h / (s.h ?? h * PX_PER_MM);
+    const pt = (i: number): [number, number] => [x0 + s.p[i]! * w, y0 + s.p[i + 1]! * yScale];
+    doc.saveGraphicsState();
+    const [r, g, b] = INK_RGB[s.c];
+    doc.setDrawColor(r, g, b);
+    doc.setLineCap("round");
+    doc.setLineJoin("round");
+    doc.setLineWidth(INK_WIDTH[s.c] / PX_PER_MM);
+    if (s.c === "marker") doc.setGState(new GState({ opacity: 0.4 }));
+    const [sx, sy] = pt(0);
+    if (s.p.length === 2) {
+      doc.line(sx, sy, sx + 0.01, sy);
+    } else {
+      const segs: [number, number][] = [];
+      let [px, py] = [sx, sy];
+      for (let i = 2; i < s.p.length; i += 2) {
+        const [nx, ny] = pt(i);
+        segs.push([nx - px, ny - py]);
+        [px, py] = [nx, ny];
+      }
+      doc.lines(segs, sx, sy, [1, 1], "S");
+    }
+    doc.restoreGraphicsState();
+  }
 }

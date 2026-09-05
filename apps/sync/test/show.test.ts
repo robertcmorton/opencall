@@ -246,3 +246,21 @@ describe("played rows", () => {
     expect(m.current.playedRowIds).toEqual([]);
   });
 });
+
+describe("played rows by hand", () => {
+  it("unplay takes the tick off, mark_played puts it on, and neither touches the cue", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "r1", 1000);
+    m.apply("next", "r2", 2000);
+    m.apply("next", "r3", 3000);
+    expect(m.current.playedRowIds).toEqual(["r1", "r2"]);
+    m.apply("unplay", "r1", 4000);
+    expect(m.current.playedRowIds).toEqual(["r2"]);
+    m.apply("mark_played", "r9", 5000);
+    expect(m.current.playedRowIds).toEqual(["r2", "r9"]);
+    m.apply("mark_played", "r3", 6000); // the cue: refused quietly
+    expect(m.current.playedRowIds).toEqual(["r2", "r9"]);
+    m.apply("stop", undefined, 7000);
+    expect(m.apply("unplay", "r2", 8000)).toBe("not live");
+  });
+});

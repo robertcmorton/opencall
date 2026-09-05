@@ -4552,3 +4552,34 @@ th.col-drop-target {
   flex: 1 1 0;
   min-width: 0;
 }
+/* The played tick: a row that has been on air and left it. Rides the row
+   number like the note badge. Grey words say the transport will skip it. */
+.played-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1;
+  background: var(--raised);
+  color: var(--positive, #3fb950);
+  vertical-align: 1px;
+  cursor: default;
+}
+button.played-tick {
+  cursor: pointer;
+}
+button.played-tick:hover {
+  outline: 1px solid var(--border);
+}
+tr.played-row td {
+  color: var(--text-3);
+}
+.tn-btn.tn-played {
+  color: var(--positive, #3fb950);
+}

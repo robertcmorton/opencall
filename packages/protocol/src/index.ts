@@ -41,6 +41,8 @@ export const PingMsg = z.object({ ...envelope, t: z.literal("ping"), t0: z.numbe
 export const CmdAction = z.enum([
   "start", "pause", "resume", "next", "prev", "jump", "stop", "fire",
   "clock_on", "clock_off", "walk",
+  // The played tick, by hand: take it off a row (play it again) or put it on.
+  "unplay", "mark_played",
 ]);
 export type CmdAction = z.infer<typeof CmdAction>;
 
@@ -66,6 +68,7 @@ export const CmdMsg = z
     atPlanned: z.boolean().optional(),
   })
   .refine((m) => m.action !== "jump" || !!m.rowId, { message: "jump requires rowId" })
+  .refine((m) => (m.action !== "unplay" && m.action !== "mark_played") || !!m.rowId, { message: "unplay and mark_played require rowId" })
   .refine((m) => m.action !== "fire" || !!m.rowId, { message: "fire requires rowId" })
   .refine((m) => m.action !== "stop" || m.confirm === true, { message: "stop requires confirm" });
 

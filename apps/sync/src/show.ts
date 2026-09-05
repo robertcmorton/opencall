@@ -155,6 +155,20 @@ export class ShowStateMachine {
       }
       // "fire" is handled by the server before the state machine — it logs to
       // the as-run record and never transitions state.
+      case "unplay": {
+        // "Play it again": the tick comes off, so Next and the clock offer the
+        // row in its turn. Live only — ticks are a thing of a running show.
+        if (s.state !== "running" && s.state !== "paused") return "not live";
+        if (!rowId || !s.playedRowIds.includes(rowId)) return s;
+        return next({ playedRowIds: s.playedRowIds.filter((id) => id !== rowId) });
+      }
+      case "mark_played": {
+        // A row the show stepped over, ticked by hand so it never comes back
+        // as "next". The cue itself cannot be ticked — it is on air.
+        if (s.state !== "running" && s.state !== "paused") return "not live";
+        if (!rowId || rowId === s.activeRowId || s.playedRowIds.includes(rowId)) return s;
+        return next({ playedRowIds: [...s.playedRowIds, rowId] });
+      }
       case "fire":
         return "fire is not a state transition";
     }

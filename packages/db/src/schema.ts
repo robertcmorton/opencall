@@ -378,6 +378,7 @@ export const showSessions = pgTable(
 export const transitionTypes = [
   "start", "pause", "resume", "next", "prev", "jump", "stop", "fire",
   "clock_on", "clock_off", "clock_hold", "clock_release",
+  "unplay", "mark_played",
 ] as const;
 
 export const showTransitions = pgTable("show_transitions", {

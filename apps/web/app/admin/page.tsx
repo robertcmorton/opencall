@@ -805,6 +805,9 @@ export default function AdminPage() {
       (g) => (g.kind === "event" && g.targetId === event.id) || (g.kind === "company" && g.targetId === event.teamId),
     );
   };
+  /** Writes the sheets of this event without running it — the `edit` grant. */
+  const canEditRow = (event: EventSummary): boolean =>
+    canManageRow(event) || (me?.role === "user" && grants.some((g) => g.kind === "edit" && g.targetId === event.id));
   /** Creating events needs company-level reach over the group being added to. */
   const canCreateEventsIn = (teamId: string | null): boolean => {
     if (me?.role === "admin" || me?.role === "company" || me?.devOpen) return true;
@@ -1148,6 +1151,15 @@ export default function AdminPage() {
                         data-tip="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
                       >
                         Open show
+                      </Link>
+                    ) : canEditRow(event) ? (
+                      <Link
+                        href={`/edit/${r.id}`}
+                        className="btn btn-sm btn-primary"
+                        style={{ textDecoration: "none" }}
+                        data-tip="Edit the sheet — your access writes the sheets of this event but never runs the show"
+                      >
+                        Edit sheet
                       </Link>
                     ) : (
                       <Link

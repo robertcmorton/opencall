@@ -4554,6 +4554,24 @@ th.col-drop-target {
 }
 /* The played tick: a row that has been on air and left it. Rides the row
    number like the note badge. Grey words say the transport will skip it. */
+.played-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+button.played-tick {
+  cursor: pointer;
+}
+button.played-tick:hover,
+button.played-tick.armed {
+  outline: 1px solid var(--border-strong, var(--border));
+}
+.played-confirm {
+  padding: 0 6px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 1;
+}
 .played-tick {
   display: inline-flex;
   align-items: center;
@@ -4576,7 +4594,4 @@ tr.played-row td {
 }
 .tn-btn.tn-played {
   color: var(--positive, #3fb950);
-}
-.tn-btn.tn-played.armed {
-  color: var(--danger, #e5484d);
 }

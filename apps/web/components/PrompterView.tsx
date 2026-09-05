@@ -81,6 +81,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const [ready, setReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<string | null>(null);
+  /** The font size the current read was placed at — a change re-places it. */
+  const placedFontRef = useRef<number>(0);
 
   // What to read, in order of how explicit the sheet was:
   //  1. rows marked "prompter" in the sheet's own cue column — set on import
@@ -210,7 +212,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   useEffect(() => {
     if (!followScroll) return;
-    if (!scrollTargetId || scrollTargetId === lastActiveRef.current) return;
+    if (!scrollTargetId || (scrollTargetId === lastActiveRef.current && placedFontRef.current === fontSize)) return;
+    placedFontRef.current = fontSize;
 
     // Getting here is not the same as having moved, and the difference is the
     // whole bug. At first paint the container is not scrollable yet — before
@@ -225,6 +228,10 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     // arrives over a websocket and is routinely slower than that, so the
     // retries expired before there was anything to scroll to and nothing ever
     // ran again. Never record this as done on a timer; only on the result.
+    // …and again when the size of the words changes under it: the fit
+    // below resizes every read after this has placed one, and a read placed
+    // at 84px and then set at 40px is not where it was put — measured with
+    // its first 200px above the top of the screen.
     let timer: ReturnType<typeof setInterval> | undefined;
     const place = (): boolean => {
       const box = containerRef.current;
@@ -257,7 +264,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [scrollTargetId, followScroll, rows.length]);
+  }, [scrollTargetId, followScroll, rows.length, fontSize]);
 
   // A hand on the script wins. Wheel and touch only — not the scroll events
   // our own placement fires, and not the auto-scroll, which IS the reader
@@ -306,6 +313,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   const liveRef = useRef(live);
   liveRef.current = live;
+  const fontRef = useRef(fontSize);
+  fontRef.current = fontSize;
   useEffect(() => {
     if (!autoPace || !onAirId || !showLive) return;
     let raf = 0;
@@ -323,12 +332,19 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       const el = document.getElementById(`prompt-${onAirId}`);
       const remain = liveRef.current?.remainingInRowSec ?? null;
       if (box && el && remain != null && remain > 0.5) {
-        const room = box.clientHeight * (1 - CARET_AT);
-        // How far past the bottom of the screen this read still runs. A read
-        // that already fits below the caret needs no movement at all — it is
-        // read where it sits, and scrolling would carry it out of view.
-        const toGo =
-          el.getBoundingClientRect().bottom - box.getBoundingClientRect().top - box.clientHeight * CARET_AT - room;
+        // How far the read's LAST LINE still has to travel to reach the caret.
+        // That is the whole read paced through the reading line over the
+        // item: first line on the caret when it starts, last line on the caret
+        // as it ends. The old target was the foot of the screen — the read
+        // stopped moving once it fitted below the caret, so a sixty-second
+        // read that had been shrunk to fit sat frozen for forty seconds with
+        // its end at the caret and its beginning scrolled off the top.
+        // Measured on 5 September: nothing moved for 15 s, one jump, then
+        // stillness. The last line's own height is left so it lands ON the
+        // caret rather than above it.
+        const caretY = box.getBoundingClientRect().top + box.clientHeight * CARET_AT;
+        const lineH = fontRef.current * 1.45;
+        const toGo = el.getBoundingClientRect().bottom - caretY - lineH;
         if (toGo > 1) {
           carry += (toGo / remain) * dt;
           const px = Math.floor(carry);
@@ -353,8 +369,6 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
    * SQUARE of the font size — fewer characters per line and taller lines —
    * so one proportional step lands close and a second settles it.
    */
-  const fontRef = useRef(fontSize);
-  fontRef.current = fontSize;
   useEffect(() => {
     if (!autoPace || !onAirId) return;
     let cancelled = false;
@@ -364,15 +378,25 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
     // further away — so the pacer below was chasing a target it was itself
     // moving, and fell behind instead of converging.
     let pass = 0;
+    // Nothing to measure yet — the script is held back until it is worth
+    // looking at, and the words have no height while it is — used to be the
+    // end of it: this returned, nothing scheduled it again, and the fit ran
+    // whenever some later change happened to re-run the effect, which on
+    // 5 September was seventeen seconds into a sixty-second read. Wait for
+    // it instead, bounded.
+    let waited = 0;
     const fit = () => {
       if (cancelled || pass >= 4) return;
       const box = containerRef.current;
       const words = document.querySelector(`[id="prompt-${onAirId}"] [data-read-body]`) as HTMLElement | null;
-      if (!box || !words || box.clientHeight === 0) return;
+      const have = words?.getBoundingClientRect().height ?? 0;
+      if (!box || !words || box.clientHeight === 0 || have <= 0) {
+        if (waited++ < 240) requestAnimationFrame(fit); // up to ~4 s
+        return;
+      }
       // The room a read may occupy: from the caret to the foot of the screen.
       const room = box.clientHeight * (1 - CARET_AT) - 24;
-      const have = words.getBoundingClientRect().height;
-      if (have <= 0 || room <= 0) return;
+      if (room <= 0) return;
       pass++;
       const next = Math.round(Math.max(28, Math.min(160, fontRef.current * Math.sqrt(room / have))));
       if (Math.abs(next - fontRef.current) > 2) {
@@ -435,6 +459,14 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // long as the show waits for its first cue, so the chip sat amber for hours
   // while the sheet's own chip, two tabs over, was green.
   const clockSynced = clockLinedUp({ clockFollow, activeRowId: liveId, clockRowId, untilShowSec });
+  // Auto pace is DOING something only while a read is on air in a live show.
+  const pacing = autoPace && showLive && !!onAirId;
+  const paceFraction = (() => {
+    const total = onAirId ? (rows.find((r) => r.id === onAirId)?.durationSec ?? 0) : 0;
+    const remain = live?.remainingInRowSec ?? null;
+    if (!pacing || total <= 0 || remain == null) return 0;
+    return Math.min(1, Math.max(0, 1 - remain / total));
+  })();
 
   // The state of the read being followed, in the words a reader thinks in.
   const onAirNow = onAirId != null;
@@ -452,7 +484,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   const cueLabel = waiting
     ? "SHOW STARTS IN"
     : onAirNow
-    ? "ON AIR"
+    ? pacing
+      ? "ON AIR · AUTO PACE"
+      : "ON AIR"
     : secondsUntilOn == null
       ? "STANDING BY"
       : secondsUntilOn <= 30
@@ -793,17 +827,39 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         </button>
         {/* Says which of the two is driving the words. Turning it back on is
             the way out of whatever you set by hand. */}
+        {/* SAYS WHAT IT IS DOING, not just that it is on. "auto pace" lit
+            green told a reader nothing about whether the words were moving,
+            waiting, or would land on time. Three states, in words: pacing to
+            the item with the time it has left, and a bar filling as that
+            time runs; on but waiting for a read to come on air; or off. */}
         <button
           className={`btn btn-sm ${autoPace ? "is-on" : ""}`}
-          style={autoPace ? { borderColor: "var(--under)", color: "var(--under)" } : undefined}
+          style={
+            autoPace && pacing
+              ? {
+                  borderColor: "var(--under)",
+                  color: "var(--under)",
+                  background: `linear-gradient(90deg, var(--under-soft) ${paceFraction * 100}%, transparent ${paceFraction * 100}%)`,
+                  fontVariantNumeric: "tabular-nums",
+                }
+              : autoPace
+                ? { borderColor: "var(--under)", color: "var(--under)", opacity: 0.75 }
+                : { borderColor: "var(--warn)", color: "var(--warn)" }
+          }
           data-tip={
             autoPace
-              ? "The words are paced to the item: sized to the time available and scrolled to finish as it ends. Press to set size and speed by hand."
+              ? pacing
+                ? "The words are paced to the item on air: they finish as its time runs out. The bar is how much of that time has gone. Press to set size and speed by hand."
+                : "Auto pace is on and waiting for a read to come on air. Press to set size and speed by hand."
               : "Size and speed are set by hand. Press to pace the words to the item again."
           }
           onClick={() => setAutoPace((a) => !a)}
         >
-          {autoPace ? "auto pace" : "manual"}
+          {autoPace
+            ? pacing
+              ? `auto pace · ${formatDuration(Math.max(0, Math.round(live?.remainingInRowSec ?? 0)))} left`
+              : "auto pace · waiting"
+            : "manual · tap for auto pace"}
         </button>
         {/* A refused command must never look like a broken button. The server
             decides whether this device may drive the show; if it says no, say

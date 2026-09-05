@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **Clear ink sits beside the eraser** rather than at the end of the row, with the other rubbing-out tool.
 - **Two new kinds of access.** "Edits the sheets" for one event: the person writes and imports the sheets but can never press Start or step the cue; on a live sheet they see the show and edit nothing. "Everything at one company, view only": a manager sees every event and sheet at the company without a code, and changes nothing. Both are offered when inviting someone and when changing their access.
 - **The result chooser on sheets with no printed times.** A sheet that carries only durations gets its Win / Lose / Draw buttons once it has a planned start, because every row then has a time. It used to need a printed time on the full-time row.
 - **The import preview flags bare-number durations.** A cell that is just "15" or "90" is read as seconds, and the preview now says so, with the numbers it found, and how to write minutes ("15m" or "15:00") if that is what they were.

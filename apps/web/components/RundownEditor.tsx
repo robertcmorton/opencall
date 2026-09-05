@@ -4598,6 +4598,19 @@ export function RundownEditor({
               >
                 {Icon.eraser} Eraser
               </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${inkClearArmed ? "btn-danger" : ""}`}
+                onClick={() => {
+                  if (inkClearArmed) {
+                    ink.clear();
+                    setInkClearArmed(false);
+                  } else setInkClearArmed(true);
+                }}
+                data-tip="Wipe every mark on this sheet. Undo brings them back."
+              >
+                {inkClearArmed ? "Really clear?" : "Clear ink"}
+              </button>
               <button type="button" className="btn btn-sm" disabled={!ink.canUndo} onClick={ink.undo} data-tip="Take back the last stroke">
                 Undo
               </button>
@@ -4612,19 +4625,6 @@ export function RundownEditor({
                 aria-pressed={inkHidden}
               >
                 {inkHidden ? "Show ink" : "Hide ink"}
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${inkClearArmed ? "btn-danger" : ""}`}
-                onClick={() => {
-                  if (inkClearArmed) {
-                    ink.clear();
-                    setInkClearArmed(false);
-                  } else setInkClearArmed(true);
-                }}
-                data-tip="Wipe every mark on this sheet. Undo brings them back."
-              >
-                {inkClearArmed ? "Really clear?" : "Clear ink"}
               </button>
             </>
           )}

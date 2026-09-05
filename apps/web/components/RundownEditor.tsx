@@ -92,6 +92,9 @@ import { useLiveTiming } from "../lib/useLiveTiming";
 import { useRundownDoc } from "../lib/useRundownDoc";
 import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
+import { useInk } from "../lib/useInk";
+import { InkLayer } from "./InkLayer";
+import { INK_COLOURS, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
@@ -329,6 +332,7 @@ const CUE_POOL_ENABLED = false;
 
 const HIDDEN_COLS_KEY = (rundownId: string) => `oc:hiddencols:${rundownId}`;
 const COL_WIDTHS_KEY = (rundownId: string) => `oc:colwidths:${rundownId}`;
+const INK_COLOUR_NAMES: Record<InkColour, string> = { red: "Red pen", blue: "Blue pen", ink: "Pen in the text colour", marker: "Highlighter" };
 
 /** What the fixed columns cost, for working out how many others still fit. */
 /**
@@ -3387,6 +3391,17 @@ export function RundownEditor({
    */
   const [notesOpen, setNotesOpen] = useState(false);
   const rowNotes = useRowNotes(rundownId, { canRead: mode !== "view", joinCode });
+  // Ink is private and needs no permission: it is this person's pen on their
+  // own copy of the sheet, whatever their role.
+  const ink = useInk(rundownId);
+  const [inkMode, setInkMode] = useState<InkMode>("off");
+  const [inkColour, setInkColour] = useState<InkColour>("red");
+  const [inkClearArmed, setInkClearArmed] = useState(false);
+  useEffect(() => {
+    if (!inkClearArmed) return;
+    const t = window.setTimeout(() => setInkClearArmed(false), 3000);
+    return () => window.clearTimeout(t);
+  }, [inkClearArmed]);
   const noteTargetId = lastSelected ?? walkRowId ?? activeRowId ?? null;
 
   const rowNumFloor = useMemo(() => {
@@ -4300,6 +4315,63 @@ export function RundownEditor({
             ✎ Notes{rowNotes.openCount > 0 ? ` ${rowNotes.openCount}` : ""}
           </button>
         )}
+        {/* Ink: the pen a showcaller runs over a printed sheet, on the screen.
+            Pencil or mouse draws once it is on; a finger keeps scrolling. The
+            marks are private — one person's own copy — so anybody who can
+            see the sheet gets the pen, in the walkthrough and the show alike. */}
+        <span className="ink-tools" role="group" aria-label="Ink">
+          <button
+            type="button"
+            className={`btn btn-sm ${inkMode !== "off" ? "is-on" : ""}`}
+            onClick={() => setInkMode((m) => (m === "off" ? "pen" : "off"))}
+            data-tip="Draw on the sheet with a pencil or the mouse. Your marks are yours alone; a finger still scrolls."
+            aria-pressed={inkMode !== "off"}
+          >
+            ✏ Ink{inkMode !== "off" ? " on" : ""}
+          </button>
+          {inkMode !== "off" && (
+            <>
+              {INK_COLOURS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`ink-swatch ink-swatch-${c} ${inkMode === "pen" && inkColour === c ? "is-on" : ""}`}
+                  aria-label={INK_COLOUR_NAMES[c]}
+                  data-tip={INK_COLOUR_NAMES[c]}
+                  onClick={() => {
+                    setInkColour(c);
+                    setInkMode("pen");
+                  }}
+                />
+              ))}
+              <button
+                type="button"
+                className={`btn btn-sm ${inkMode === "eraser" ? "is-on" : ""}`}
+                onClick={() => setInkMode((m) => (m === "eraser" ? "pen" : "eraser"))}
+                data-tip="Rub over a mark to lift it"
+                aria-pressed={inkMode === "eraser"}
+              >
+                Eraser
+              </button>
+              <button type="button" className="btn btn-sm" disabled={!ink.canUndo} onClick={ink.undo} data-tip="Take back the last stroke">
+                Undo
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${inkClearArmed ? "btn-danger" : ""}`}
+                onClick={() => {
+                  if (inkClearArmed) {
+                    ink.clear();
+                    setInkClearArmed(false);
+                  } else setInkClearArmed(true);
+                }}
+                data-tip="Wipe every mark on this sheet. Undo brings them back."
+              >
+                {inkClearArmed ? "Really clear?" : "Clear ink"}
+              </button>
+            </>
+          )}
+        </span>
         {/* And not during the walkthrough. Walking the crew through the sheet
             is planning: nobody is reading anything out, and the prompter is a
             full screen that takes whoever presses it away from the sheet they
@@ -5263,6 +5335,7 @@ export function RundownEditor({
             </tbody>
           </SortableContext>
         </table>
+        <InkLayer container={gridEl} tbody={tbodyRef} doc={ink.doc} mode={inkMode} colour={inkColour} onStroke={ink.addStroke} onErase={ink.erase} />
         </div>
         </div>
       </DndContext>

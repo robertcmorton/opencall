@@ -1,0 +1,1 @@
+ALTER TABLE "user_rundown_prefs" ADD COLUMN "ink" jsonb;

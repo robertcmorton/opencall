@@ -21,7 +21,7 @@ import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
 import { customEventTypes } from "./eventTypes";
-import { customEventTypeCode, describeLock, heldByMe, mayClaim, type EditLock } from "@opencall/core";
+import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, mayClaim, type EditLock } from "@opencall/core";
 
 /**
  * The lock as everyone else may see it.
@@ -1958,6 +1958,49 @@ export function createApiHandler(
       }
 
       /** Every note on a sheet, newest first. For whoever is calling it. */
+      // ── Ink: one person's own scribbles on a sheet ───────────────────────
+      // Private by construction: an account's ink is keyed by its user id and
+      // nobody else's request can name that key. A join code or an admin
+      // token has no user row to hang ink on, so the browser keeps it.
+      if ((req.method === "GET" || req.method === "PUT") && /^\/rundowns\/[^/]+\/ink$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        const ctx = await authContext(handle, req, rundownId);
+        if (!ctx) {
+          json(res, 401, { error: "access required" });
+          return true;
+        }
+        if (ctx.kind !== "user") {
+          json(res, 200, { stored: "local", ink: null });
+          return true;
+        }
+        if (req.method === "GET") {
+          const row = await db.query.userRundownPrefs.findFirst({
+            where: and(eq(schema.userRundownPrefs.userId, ctx.userId), eq(schema.userRundownPrefs.rundownId, rundownId)),
+          });
+          json(res, 200, { stored: "server", ink: row?.ink ?? null });
+          return true;
+        }
+        const body = (await readJson(req)) as { ink?: unknown } | null;
+        const ink = body?.ink;
+        if (!isInkDoc(ink)) {
+          json(res, 400, { error: "ink is not in the expected shape" });
+          return true;
+        }
+        if (JSON.stringify(ink).length > INK_MAX_BYTES) {
+          json(res, 413, { error: "too much ink on this sheet — clear some first" });
+          return true;
+        }
+        await db
+          .insert(schema.userRundownPrefs)
+          .values({ userId: ctx.userId, rundownId, ink, updatedAt: new Date() })
+          .onConflictDoUpdate({
+            target: [schema.userRundownPrefs.userId, schema.userRundownPrefs.rundownId],
+            set: { ink, updatedAt: new Date() },
+          });
+        json(res, 200, { stored: "server" });
+        return true;
+      }
+
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/notes$/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!;
         const ctx = await authContext(handle, req, rundownId);

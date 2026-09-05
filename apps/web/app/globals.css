@@ -4474,3 +4474,63 @@ th.col-drop-target {
 .sheet-name {
   min-width: 0;
 }
+
+/* ── Ink: scribbles on the sheet ─────────────────────────────────────────────
+   One SVG over the table body, inside the scroll box so it moves with the
+   rows. z-index 4: over the rows and their tints, under the pinned column
+   headers (5) and the nudge strip (7). Off, it takes no pointer at all, so
+   every click still lands on the sheet. On, a finger still pans and pinches
+   — only a pencil or mouse draws. */
+.ink-layer {
+  position: absolute;
+  z-index: 4;
+  overflow: visible;
+  /* The root already allows pan and pinch and nothing else (`html` above);
+     saying the same here keeps a finger scrolling and a pencil drawing. */
+  touch-action: manipulation;
+}
+.ink-layer.ink-off {
+  pointer-events: none;
+}
+.ink-layer.ink-pen {
+  cursor: crosshair;
+}
+.ink-layer.ink-eraser {
+  cursor: cell;
+}
+.ink-layer path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ink-layer .ink-ink { stroke: var(--text); }
+.ink-layer .ink-red { stroke: #e5484d; }
+.ink-layer .ink-blue { stroke: #3b82f6; }
+.ink-layer .ink-marker { stroke: rgba(250, 204, 21, 0.45); mix-blend-mode: multiply; }
+:root:not([data-theme="light"]) .ink-layer .ink-marker { mix-blend-mode: screen; }
+:root[data-theme="light"] .ink-layer .ink-marker { mix-blend-mode: multiply; }
+
+.ink-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ink-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--hairline);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--bg);
+}
+.ink-swatch.is-on {
+  border-color: var(--text);
+}
+.ink-swatch-red { background: #e5484d; }
+.ink-swatch-blue { background: #3b82f6; }
+.ink-swatch-ink { background: var(--text); }
+.ink-swatch-marker { background: #facc15; }
+@media print {
+  .ink-tools { display: none; }
+}

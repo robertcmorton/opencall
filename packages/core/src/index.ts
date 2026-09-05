@@ -12,3 +12,4 @@ export * from "./eventTypes";
 export * from "./sheetFaults";
 export * from "./phases";
 export * from "./changelog";
+export * from "./ink";

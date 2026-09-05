@@ -1,6 +1,6 @@
 "use client";
 
-import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EditLockView, type EventTypeSpec } from "@opencall/core";
+import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EditLockView, type EventTypeSpec, type InkDoc } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { resolveSyncUrl } from "./syncUrl";
 
@@ -332,6 +332,10 @@ export const api = {
     >(`/rundowns/${encodeURIComponent(rundownId)}/notes`),
   /** Dealt with. Resolved, not deleted — see the note on the endpoint. */
   resolveNote: (noteId: string) => request<{ id: string }>(`/notes/${encodeURIComponent(noteId)}/resolve`, { method: "POST" }),
+  /** A person's own ink on a sheet. `stored` says where it lives: on the server for an account, in this browser for everyone else. */
+  ink: (rundownId: string) => request<{ stored: "server" | "local"; ink: InkDoc | null }>(`/rundowns/${rundownId}/ink`),
+  saveInk: (rundownId: string, ink: InkDoc) =>
+    request<{ stored: "server" | "local" }>(`/rundowns/${rundownId}/ink`, { method: "PUT", body: JSON.stringify({ ink }) }),
   /** "This is me, on this device" — sent once a view-only link has a name. */
   recordViewer: (
     code: string,

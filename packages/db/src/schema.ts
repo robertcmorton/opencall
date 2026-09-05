@@ -412,6 +412,8 @@ export const userRundownPrefs = pgTable(
     theme: text("theme"),
     notes: jsonb("notes").$type<Record<string, string>>(),
     highlights: jsonb("highlights").$type<Record<string, string>>(),
+    // Scribbles drawn on the sheet with a pencil, keyed by row. Shape in @opencall/core ink.ts.
+    ink: jsonb("ink").$type<Record<string, { c: string; p: number[] }[]>>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.rundownId] })],

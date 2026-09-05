@@ -235,10 +235,28 @@ function InviteForm({
             </optgroup>
           )}
           {events.length > 0 && (
+            <optgroup label="One event — edits the sheets, cannot call the show">
+              {events.map((ev) => (
+                <option key={`e${ev.id}`} value={`edit:${ev.id}`}>
+                  {ev.name} (edits the sheets)
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {events.length > 0 && (
             <optgroup label="One event, view only">
               {events.map((ev) => (
                 <option key={`v${ev.id}`} value={`view:${ev.id}`}>
                   {ev.name} (view only)
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {companies.length > 0 && (
+            <optgroup label="Everything at one company, view only">
+              {companies.map((c) => (
+                <option key={`cv${c.id}`} value={`company_view:${c.id}`}>
+                  {c.name} (view only)
                 </option>
               ))}
             </optgroup>

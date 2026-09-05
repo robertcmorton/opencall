@@ -90,7 +90,7 @@ async function resolveSession(handle: DbHandle, token: string): Promise<string |
 }
 
 export interface UserGrant {
-  kind: "admin" | "company" | "event" | "view";
+  kind: "admin" | "company" | "event" | "edit" | "view" | "company_view";
   targetId: string;
 }
 
@@ -177,14 +177,25 @@ export async function canManageEvent(handle: DbHandle, ctx: AuthCtx, eventId: st
 }
 
 /** Can this context at least SEE the given event? */
+/**
+ * May this person WRITE the sheets of an event, without necessarily running
+ * it? Everyone who manages the event may; so may an `edit` grant, which is
+ * the producer who builds the sheet all week and must not be able to press
+ * Start on the night. The show channel gives that grant the `editor` role.
+ */
+export async function canEditEvent(handle: DbHandle, ctx: AuthCtx, eventId: string): Promise<boolean> {
+  if (await canManageEvent(handle, ctx, eventId)) return true;
+  return ctx?.kind === "user" && ctx.grants.some((g) => g.kind === "edit" && g.targetId === eventId);
+}
+
 export async function canSeeEvent(handle: DbHandle, ctx: AuthCtx, eventId: string, teamId: string): Promise<boolean> {
   if (ctx?.kind === "admin") return true;
   if (ctx?.kind === "company") return teamId === ctx.teamId;
   if (ctx?.kind === "user")
     return ctx.grants.some(
       (g) =>
-        (g.kind === "company" && g.targetId === teamId) ||
-        ((g.kind === "event" || g.kind === "view") && g.targetId === eventId),
+        ((g.kind === "company" || g.kind === "company_view") && g.targetId === teamId) ||
+        ((g.kind === "event" || g.kind === "edit" || g.kind === "view") && g.targetId === eventId),
     );
   return false;
 }

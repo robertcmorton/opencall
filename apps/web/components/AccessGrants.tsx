@@ -42,7 +42,9 @@ export const grantKey = (g: Grant): string => `${g.kind}:${g.targetId}`;
 const KIND_LABEL: Record<string, string> = {
   admin: "Everything on this server",
   company: "Everything at one company",
-  event: "One event only",
+  company_view: "Everything at one company, view only",
+  event: "One event — calls the show",
+  edit: "One event — edits the sheets, cannot call the show",
   view: "One event, view only",
 };
 
@@ -72,12 +74,13 @@ const KIND_LABEL: Record<string, string> = {
  */
 export function grantLabel(g: Grant, companies: Company[], events: EventSummary[]): string {
   if (g.kind === "admin") return "Everything on this server";
-  if (g.kind === "company") {
+  if (g.kind === "company" || g.kind === "company_view") {
     const name = companies.find((c) => c.id === g.targetId)?.name;
-    return name ? `Everything at ${name}` : "A whole company";
+    const whole = name ? `Everything at ${name}` : "A whole company";
+    return g.kind === "company_view" ? `${whole} (view only)` : whole;
   }
   const name = events.find((e) => e.id === g.targetId)?.name ?? "An event";
-  return g.kind === "view" ? `${name} (view only)` : name;
+  return g.kind === "view" ? `${name} (view only)` : g.kind === "edit" ? `${name} (edits the sheets)` : name;
 }
 
 /** The grants on a form, each with a way to take it off again. */
@@ -174,7 +177,7 @@ export function GrantPicker({
   // nothing saying why. The single select the people list used to carry left
   // such a group out entirely, which is the behaviour kept here.
   const kinds = Object.keys(KIND_LABEL).filter((k) =>
-    k === "admin" ? allowAdmin : k === "company" ? companies.length > 0 : events.length > 0,
+    k === "admin" ? allowAdmin : k === "company" || k === "company_view" ? companies.length > 0 : events.length > 0,
   );
   // Derived from `kinds` rather than trusted from state: both lists arrive from
   // a fetch that can land after this first renders, so a kind chosen — or
@@ -234,7 +237,7 @@ export function GrantPicker({
           </option>
         ))}
       </select>
-      {kind === "company" && (
+      {(kind === "company" || kind === "company_view") && (
         <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">Choose company…</option>
           {companies.map((c) => (
@@ -244,7 +247,7 @@ export function GrantPicker({
           ))}
         </select>
       )}
-      {(kind === "event" || kind === "view") && (
+      {(kind === "event" || kind === "edit" || kind === "view") && (
         <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">Choose event…</option>
           {events.map((e) => (
@@ -262,7 +265,7 @@ export function GrantPicker({
           would simply go dead with no reason given. */}
       {already && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>They already have this.</span>}
       {incomplete && (
-        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Choose which {kind === "company" ? "company" : "event"} first.</span>
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Choose which {kind === "company" || kind === "company_view" ? "company" : "event"} first.</span>
       )}
       {pending && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Included when you save.</span>}
     </div>

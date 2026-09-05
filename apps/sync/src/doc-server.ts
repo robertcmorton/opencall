@@ -2,7 +2,7 @@ import { Server, type Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
-import { adminToken, canManageEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth";
+import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth";
 
 /**
  * Doc names are `<rundownId>@<epoch>`. In-place restore bumps the rundown's
@@ -126,7 +126,7 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
             columns: { eventId: true },
           });
           if (rundown) {
-            if (await canManageEvent(handle, bearer, rundown.eventId)) return;
+            if (await canEditEvent(handle, bearer, rundown.eventId)) return;
             const event = await handle.db.query.events.findFirst({
               where: eq(schema.events.id, rundown.eventId),
               columns: { teamId: true },

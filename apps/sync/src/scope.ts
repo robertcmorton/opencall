@@ -67,14 +67,14 @@ export function grantInScope(scope: PeopleScope, g: Grant): boolean {
   // Only an admin makes admins. A company handing out `admin` would be a
   // company granting itself the whole installation.
   if (g.kind === "admin") return false;
-  if (g.kind === "company") return scope.teamIds.includes(g.targetId);
+  if (g.kind === "company" || g.kind === "company_view") return scope.teamIds.includes(g.targetId);
   // Named kinds only. This used to end in a bare `return scope.eventIds
   // .includes(...)`, which reads as "events" but actually means "anything that
   // is not admin or company" — so a kind nobody has written yet, or one made
   // up in a request body, was allowed the moment it quoted an event this
   // caller could reach. Refusing by default costs one line and means a new
   // kind has to be let in deliberately.
-  if (g.kind === "event" || g.kind === "view") return scope.eventIds.includes(g.targetId);
+  if (g.kind === "event" || g.kind === "edit" || g.kind === "view") return scope.eventIds.includes(g.targetId);
   return false;
 }
 

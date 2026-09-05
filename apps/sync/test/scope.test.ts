@@ -290,3 +290,13 @@ describe("which companies a caller administers people for", () => {
     expect(companiesAdministeredBy(null)).toEqual([]);
   });
 });
+
+describe("the edit and company-view grants", () => {
+  it("a company admin may hand out edit and company-view within their own scope only", () => {
+    const scope = { all: false as const, teamIds: ["t1"], eventIds: ["e1"] };
+    expect(grantInScope(scope, { kind: "edit", targetId: "e1" })).toBe(true);
+    expect(grantInScope(scope, { kind: "edit", targetId: "e9" })).toBe(false);
+    expect(grantInScope(scope, { kind: "company_view", targetId: "t1" })).toBe(true);
+    expect(grantInScope(scope, { kind: "company_view", targetId: "t2" })).toBe(false);
+  });
+});

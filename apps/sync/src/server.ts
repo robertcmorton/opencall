@@ -128,6 +128,10 @@ async function resolveAuth(
       if (rundown) {
         if (await authMod.canManageEvent(dbHandle, bearer, rundown.eventId))
           return { role: "caller", label: bearer.name };
+        // Edits the sheet, never drives it: the editor role the join codes
+        // already know, now reachable from an account.
+        if (await authMod.canEditEvent(dbHandle, bearer, rundown.eventId))
+          return { role: "editor", label: bearer.name };
         const event = await dbHandle.db.query.events.findFirst({
           where: eq(schema.events.id, rundown.eventId),
           columns: { teamId: true },

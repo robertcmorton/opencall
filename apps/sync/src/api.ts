@@ -4,6 +4,7 @@ import { ulid } from "ulid";
 import {
   authContext,
   bearerToken,
+  canEditEvent,
   canManageEvent,
   canSeeEvent,
   createSession,
@@ -137,14 +138,15 @@ async function describeGrants(
       names.push("every event on this server");
       continue;
     }
-    if (g.kind === "company") {
+    if (g.kind === "company" || g.kind === "company_view") {
       const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, g.targetId) });
-      names.push(team ? `everything at ${team.name}` : "a company");
+      const name = team ? `everything at ${team.name}` : "a company";
+      names.push(g.kind === "company_view" ? `${name} (view only)` : name);
       continue;
     }
     const event = await db.query.events.findFirst({ where: eq(schema.events.id, g.targetId) });
     const label = event ? event.name : "an event";
-    names.push(g.kind === "view" ? `${label} (view only)` : label);
+    names.push(g.kind === "view" ? `${label} (view only)` : g.kind === "edit" ? `${label} (edits the sheets)` : label);
   }
   if (names.length === 0) return "a run sheet";
   if (names.length === 1) return names[0]!;
@@ -258,7 +260,7 @@ export function createApiHandler(
       const ctx = await authContext(handle, req, rundownId);
       if (ctx?.kind === "code" && ctx.rundownId === rundownId && ctx.role !== "follower") return true;
       const eventId = await eventIdForRundown(rundownId);
-      if (eventId && (await canManageEvent(handle, ctx, eventId))) return true;
+      if (eventId && (await canEditEvent(handle, ctx, eventId))) return true;
       json(res, 401, { error: "editor access required" });
       return false;
     };
@@ -463,7 +465,7 @@ export function createApiHandler(
             name: ctx.name,
             email: row?.email ?? null,
             grants: ctx.grants,
-            canManage: ctx.grants.some((g) => g.kind !== "view"),
+            canManage: ctx.grants.some((g) => g.kind !== "view" && g.kind !== "company_view"),
           });
         } else json(res, 200, { role: null });
         return true;
@@ -733,17 +735,17 @@ export function createApiHandler(
          * whitelisted them; inviting one never did, and cast the difference
          * away on the way to the database.
          */
-        const KINDS = ["admin", "company", "event", "view"];
+        const KINDS = ["admin", "company", "event", "edit", "view", "company_view"];
         const badKind = grants.find((g) => !KINDS.includes(g.kind));
         if (badKind) {
           json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });
           return true;
         }
-        if (grants.some((g) => g.kind === "company" && !g.targetId)) {
+        if (grants.some((g) => (g.kind === "company" || g.kind === "company_view") && !g.targetId)) {
           json(res, 400, { error: "Choose which company this person may open" });
           return true;
         }
-        if (grants.some((g) => (g.kind === "event" || g.kind === "view") && !g.targetId)) {
+        if (grants.some((g) => (g.kind === "event" || g.kind === "edit" || g.kind === "view") && !g.targetId)) {
           json(res, 400, { error: "Choose which event this person may open" });
           return true;
         }
@@ -756,10 +758,10 @@ export function createApiHandler(
         // thing anyone wants to know about a link in their inbox.
         let teamId: string | null = scope.all ? (typeof body.teamId === "string" ? body.teamId : null) : scope.teamIds[0]!;
         if (!teamId) {
-          const companyGrant = grants.find((g) => g.kind === "company");
+          const companyGrant = grants.find((g) => g.kind === "company" || g.kind === "company_view");
           if (companyGrant) teamId = companyGrant.targetId;
           else {
-            const eventGrant = grants.find((g) => g.kind === "event" || g.kind === "view");
+            const eventGrant = grants.find((g) => g.kind === "event" || g.kind === "edit" || g.kind === "view");
             if (eventGrant) teamId = await teamIdForEvent(handle, eventGrant.targetId);
           }
         }
@@ -945,7 +947,7 @@ export function createApiHandler(
         const body = await readJson(req);
         const asked = Array.isArray(body.grants) ? (body.grants as { kind: unknown; targetId?: unknown }[]) : [];
         const wanted = resolveGrants(scope, asked);
-        const KINDS = ["admin", "company", "event", "view"];
+        const KINDS = ["admin", "company", "event", "edit", "view", "company_view"];
         const badKind = wanted.find((g) => !KINDS.includes(g.kind));
         if (badKind) {
           json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });

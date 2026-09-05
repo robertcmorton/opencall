@@ -87,7 +87,12 @@ export const authSessions = pgTable("auth_sessions", {
 export const teamRoles = ["owner", "admin", "editor", "viewer"] as const;
 
 /** Access grants: what a user controls. kind admin | company | event | view. */
-export const grantKinds = ["admin", "company", "event", "view"] as const;
+/**
+ * What a person may be given. `event` calls the show and manages the event;
+ * `edit` writes the sheets of an event but never drives the transport; `view`
+ * watches one event; `company_view` watches everything at a company.
+ */
+export const grantKinds = ["admin", "company", "event", "edit", "view", "company_view"] as const;
 
 export const userGrants = pgTable(
   "user_grants",

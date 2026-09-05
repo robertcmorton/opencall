@@ -65,6 +65,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // Pace the words to the item, rather than to a speed somebody guessed.
   // Touching size or speed by hand turns it off — you have said what you want.
   const [autoPace, setAutoPace] = useState(true);
+  /** A size the reader chose by hand: the fit leaves it alone, the pace does not. */
+  const userSized = useRef(false);
   /**
    * Hold the script back until it is worth looking at.
    *
@@ -370,7 +372,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
    * so one proportional step lands close and a second settles it.
    */
   useEffect(() => {
-    if (!autoPace || !onAirId) return;
+    if (!autoPace || !onAirId || userSized.current) return;
     let cancelled = false;
     // Settle ONCE per read. Keeping fontSize in the dependencies restarted
     // this on its own output: the pass counter reset every time, it never
@@ -816,10 +818,16 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             }}
           />
         </label>
-        <button className="btn btn-sm" onClick={() => { setAutoPace(false); setFontSize((f) => Math.max(20, f - 4)); }}>
+        {/* Size is not speed. Choosing bigger words used to switch auto pace
+            off, so from then on the speed slider's fixed pixels-per-second
+            applied and bigger text meant fewer words a second. Now a chosen
+            size sticks — the fit stops overriding it — and the pace is still
+            solved from the item every frame, so the words per second are the
+            item's whatever the size. Only the speed slider means manual. */}
+        <button className="btn btn-sm" onClick={() => { userSized.current = true; setFontSize((f) => Math.max(20, f - 4)); }}>
           A−
         </button>
-        <button className="btn btn-sm" onClick={() => { setAutoPace(false); setFontSize((f) => Math.min(160, f + 4)); }}>
+        <button className="btn btn-sm" onClick={() => { userSized.current = true; setFontSize((f) => Math.min(160, f + 4)); }}>
           A+
         </button>
         <button className="btn btn-sm" onClick={() => setMirror((m) => !m)}>
@@ -849,9 +857,9 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           data-tip={
             autoPace
               ? pacing
-                ? "The words are paced to the item on air: they finish as its time runs out. The bar is how much of that time has gone. Press to set size and speed by hand."
-                : "Auto pace is on and waiting for a read to come on air. Press to set size and speed by hand."
-              : "Size and speed are set by hand. Press to pace the words to the item again."
+                ? "The words are paced to the item on air: they finish as its time runs out, at any size — A+ and A− change the size, not the pace. The bar is how much of that time has gone. Press to set the speed by hand."
+                : "Auto pace is on and waiting for a read to come on air. Press to set the speed by hand."
+              : "Speed is set by hand with the slider. Press to pace the words to the item again."
           }
           onClick={() => setAutoPace((a) => !a)}
         >

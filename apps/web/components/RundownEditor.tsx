@@ -2598,9 +2598,22 @@ export function RundownEditor({
    * own, which already has the chooser.
    */
   const decisionRowIds = useMemo(() => {
-    const at = findDecisionPoints(rows.map((r) => ({ title: r.title, hardStartSec: r.hardStartSec, outcome: r.outcome, type: r.type })));
+    // The time handed to the rule is the one the sheet GIVES the row, printed
+    // or computed. A durations-only sheet prints none, but with a planned
+    // start every row has a computed one — and it used to get no chooser at
+    // all, because only the printed time was offered. Without a planned
+    // start there is still nothing, and that is right: the rule wants a
+    // moment on the clock, and such a sheet has none.
+    const at = findDecisionPoints(
+      rows.map((r, i) => ({
+        title: r.title,
+        hardStartSec: r.hardStartSec ?? timing.rows[i]?.startSec ?? null,
+        outcome: r.outcome,
+        type: r.type,
+      })),
+    );
     return new Set(at.map((i) => rows[i]?.id).filter((id): id is string => !!id));
-  }, [rows]);
+  }, [rows, timing]);
 
   /**
    * Where each game on the day finishes.

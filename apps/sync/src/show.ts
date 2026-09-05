@@ -21,6 +21,7 @@ export class ShowStateMachine {
       sessionStartedAtMs: null,
       clockFollow: false,
       walkRowId: null,
+      playedRowIds: [],
     };
   }
 
@@ -74,6 +75,7 @@ export class ShowStateMachine {
           pausedAccumMs: 0,
           sessionStartedAtMs: now,
           walkRowId: null,
+          playedRowIds: [],
         });
       }
       // Pre-show walkthrough: a shared cursor for rehearsing the sheet with
@@ -98,12 +100,20 @@ export class ShowStateMachine {
       case "prev":
       case "jump": {
         if (s.state !== "running" && s.state !== "paused") return "not live";
+        // The row leaving air has been played. Recorded as it LEAVES, not as
+        // it arrives, so the cue itself is never in the list and "played"
+        // means exactly "was on air and is no longer".
+        const leaving = s.activeRowId;
+        const target = rowId ?? s.activeRowId;
+        const playedRowIds =
+          leaving && leaving !== target && !s.playedRowIds.includes(leaving) ? [...s.playedRowIds, leaving] : s.playedRowIds;
         // Row ordering lives in the doc; the caller supplies the target row id.
         return next({
-          activeRowId: rowId ?? s.activeRowId,
+          activeRowId: target,
           activeRowStartedAtMs: startedAtMs ?? now,
           pausedAccumMs: 0,
           pausedAtMs: s.state === "paused" ? now : null,
+          playedRowIds,
         });
       }
       case "stop": {

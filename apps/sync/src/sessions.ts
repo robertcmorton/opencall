@@ -40,6 +40,7 @@ export class PersistentShowStore {
           pausedAccumMs: row.pausedAccumMs,
           sessionStartedAtMs: row.startedAt.getTime(),
           clockFollow: row.clockFollow,
+          playedRowIds: row.playedRowIds ?? [],
           walkRowId: null,
         });
       }
@@ -114,6 +115,7 @@ export class PersistentShowStore {
       endedAt: state.state === "ended" ? new Date() : null,
       seq: state.seq,
       clockFollow: state.clockFollow,
+      playedRowIds: state.playedRowIds,
     };
     /**
      * One transaction, because the two rows are one fact. The session row says

@@ -355,6 +355,8 @@ export const showSessions = pgTable(
     seq: bigint("seq", { mode: "number" }).notNull().default(0),
     /** Server-driven clock-follow: the scheduler advances this session along the TIME column, no console required. */
     clockFollow: boolean("clock_follow").notNull().default(false),
+    /** Rows that have been on air and left it, in order. See the protocol's `playedRowIds`. */
+    playedRowIds: jsonb("played_row_ids").$type<string[]>().notNull().default([]),
     /** Clock-follow is on but held: the showcaller is stepping the cue by hand. */
   },
   (t) => [

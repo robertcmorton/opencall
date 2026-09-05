@@ -11,6 +11,7 @@ import {
 import {
   absoluteNow,
   clockTargetRow as coreClockTargetRow,
+  calledEndingBehind,
   clockStep,
   rowStartedAtMs,
   followerMayMove,
@@ -651,11 +652,13 @@ async function clockTick(): Promise<void> {
         current.activeRowStartedAtMs == null
           ? 0
           : Math.max(0, (nowMs - current.activeRowStartedAtMs - current.pausedAccumMs) / 1000);
+      const played = new Set(current.playedRowIds);
       const step = clockStep(
         rows,
         rows.map((r) => r.durationSec ?? null),
         current.activeRowId,
         elapsedSec,
+        played,
       );
       if (step.kind === "hold") {
         refusedClockTarget.delete(rundownId);
@@ -709,7 +712,10 @@ async function clockTick(): Promise<void> {
        * way. A row that runs alongside the order has no place in it, so a show
        * sitting on one is not ahead of anything and the clock may take it back.
        */
-      if (!followerMayMove(rows, current.activeRowId, target)) {
+      // Going back for a called ending is the one backwards move that is not
+      // the clock misbehaving: the result was called, and the branch is above.
+      const goingBackForResult = calledEndingBehind(rows, current.activeRowId, played).some((r) => r.id === target);
+      if (!goingBackForResult && !followerMayMove(rows, current.activeRowId, target)) {
         // Once per state, not once per tick — see `reportClockRefusal`.
         if (reportClockRefusal(refusedClockTarget, rundownId, target)) {
           console.warn(

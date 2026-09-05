@@ -87,6 +87,15 @@ export const ShowStatePayload = z.object({
   clockFollow: z.boolean().default(false),
   /** Pre-show walkthrough cursor — highlighted on every device (additive v1.5). */
   walkRowId: z.string().nullable().default(null),
+  /**
+   * Rows that have been on air this session and have left it, in the order
+   * they left. Nothing the transport offers plays one again: Next and the
+   * clock step over them. Emptied by Start. This is what lets a result
+   * called after golden point be played — the show goes back UP the sheet
+   * to the winning song, and when that ends it carries on past the extra
+   * time it already played, rather than into it.
+   */
+  playedRowIds: z.array(z.string()).default([]),
 });
 export type ShowStatePayload = z.infer<typeof ShowStatePayload>;
 

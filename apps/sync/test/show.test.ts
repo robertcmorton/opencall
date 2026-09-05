@@ -226,3 +226,23 @@ describe("handing the show to the clock", () => {
     expect(m.current.clockFollow).toBe(false);
   });
 });
+
+describe("played rows", () => {
+  it("records a row as played when it leaves air, never the cue itself, and Start empties the list", () => {
+    const m = new ShowStateMachine();
+    m.apply("start", "r1", 1000);
+    expect(m.current.playedRowIds).toEqual([]);
+    m.apply("next", "r2", 2000);
+    expect(m.current.playedRowIds).toEqual(["r1"]);
+    m.apply("jump", "r2", 3000); // re-cueing the same row plays nothing
+    expect(m.current.playedRowIds).toEqual(["r1"]);
+    m.apply("prev", "r1", 4000);
+    expect(m.current.playedRowIds).toEqual(["r1", "r2"]);
+    m.apply("next", "r2", 5000); // r1 leaves again: listed once
+    expect(m.current.playedRowIds).toEqual(["r1", "r2"]);
+    m.apply("stop", undefined, 6000);
+    expect(m.current.playedRowIds).toEqual(["r1", "r2"]); // the as-run record survives Stop
+    m.apply("start", "r1", 7000);
+    expect(m.current.playedRowIds).toEqual([]);
+  });
+});

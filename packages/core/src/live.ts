@@ -324,6 +324,70 @@ export interface ClockTargetRow {
   parallel?: boolean;
   /** The row's words, for telling an open-ended period from a caption. */
   title?: string;
+  /** One of the alternate endings, and which game's — see `EndingRow`. */
+  outcome?: string | null;
+  outcomeGame?: number | null;
+}
+
+/** Somewhere the show can stand: not a heading, a deadline, a struck row or one running alongside. */
+export const canStandOn = (r: ClockTargetRow): boolean =>
+  r.type !== "group" && r.type !== "milestone" && !r.skipped && !r.parallel;
+
+/**
+ * The rows of a called ending that the show has gone past without playing.
+ *
+ * Every real sheet writes its endings win / lose / golden / draw, so a result
+ * called during or after golden point names rows ABOVE the cue. These are
+ * what the show has to go back for, and they come first in `nextCueRow`.
+ * In sheet order, so the branch plays as written.
+ */
+export function calledEndingBehind(
+  rows: readonly ClockTargetRow[],
+  activeRowId: string | null,
+  played: ReadonlySet<string> = new Set(),
+): ClockTargetRow[] {
+  if (!activeRowId) return [];
+  const at = rows.findIndex((r) => r.id === activeRowId);
+  if (at < 0) return [];
+  const games = new Set<number>();
+  rows.forEach((r) => {
+    if (r.outcome) games.add(r.outcomeGame ?? 1);
+  });
+  const out: ClockTargetRow[] = [];
+  for (const g of games) {
+    const endings: EndingRow[] = rows
+      .map((r, index) => ({ r, index }))
+      .filter(({ r }) => r.outcome && (r.outcomeGame ?? 1) === g)
+      .map(({ r, index }) => ({ id: r.id, index, outcome: r.outcome!, skipped: !!r.skipped }));
+    for (const e of endingBehindCue(endings, at)) {
+      const row = rows[e.index]!;
+      if (!played.has(row.id) && canStandOn(row)) out.push(row);
+    }
+  }
+  return out.sort((a, b) => rows.indexOf(a) - rows.indexOf(b));
+}
+
+/**
+ * The row Next takes the show to — the ONE rule, for Next, for the clock
+ * stepping an untimed row, and for every "next:" readout.
+ *
+ * First, anything a called result left behind the cue (see
+ * `calledEndingBehind`): the winning song written above the extra time that
+ * has just been played. Otherwise the first row after the cue the show can
+ * stand on that has not already been played — which is how, once the song
+ * ends, the show steps past the golden-point rows it came from instead of
+ * playing them a second time.
+ */
+export function nextCueRow(
+  rows: readonly ClockTargetRow[],
+  activeRowId: string | null,
+  played: ReadonlySet<string> = new Set(),
+): string | null {
+  const behind = calledEndingBehind(rows, activeRowId, played);
+  if (behind.length > 0) return behind[0]!.id;
+  const at = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+  const next = rows.find((r, i) => i > at && canStandOn(r) && !played.has(r.id));
+  return next?.id ?? null;
 }
 
 /**
@@ -447,6 +511,7 @@ export function clockStep(
   durations: readonly (number | null)[],
   activeRowId: string | null,
   elapsedInRowSec: number,
+  played: ReadonlySet<string> = new Set(),
 ): ClockStep {
   if (!activeRowId) return { kind: "clock" };
   const at = rows.findIndex((r) => r.id === activeRowId);
@@ -460,9 +525,10 @@ export function clockStep(
    * length that would park the show reading as overrun. An untimed row with a
    * length is none of those things.
    */
-  const playable = (r: ClockTargetRow): boolean =>
-    r.type !== "group" && r.type !== "milestone" && !r.skipped && !r.parallel;
-  const nextAt = rows.findIndex((r, i) => i > at && playable(r));
+  // Where the show goes from here is the shared rule — a called ending left
+  // behind the cue comes first, then the next unplayed row it can stand on.
+  const nextId = nextCueRow(rows, activeRowId, played);
+  const nextAt = nextId ? rows.findIndex((r) => r.id === nextId) : -1;
   const next = nextAt >= 0 ? rows[nextAt] : null;
   const onUntimed = rows[at]!.hardStartSec == null;
   // Only two situations are ours: standing ON a row the sheet never timed, or

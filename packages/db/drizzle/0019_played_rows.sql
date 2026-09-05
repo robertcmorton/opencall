@@ -1,0 +1,1 @@
+ALTER TABLE "show_sessions" ADD COLUMN "played_row_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;

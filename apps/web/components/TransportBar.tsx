@@ -378,9 +378,16 @@ export function ShowStateControls({
 export function TransportBar({
   channel,
   orderedRowIds,
+  nextRowId,
 }: {
   channel: ShowChannel;
   orderedRowIds: string[];
+  /**
+   * Where Next goes, by the shared rule (`nextCueRow`): a called ending left
+   * behind the cue first, then the next row not yet played. Prev stays a
+   * plain step back — going back is always deliberate.
+   */
+  nextRowId?: string | null;
 }) {
   const show = channel.show;
   const liveState = show?.state ?? "idle";
@@ -396,7 +403,7 @@ export function TransportBar({
       return;
     }
     const idx = orderedRowIds.indexOf(show.activeRowId);
-    const target = orderedRowIds[idx + dir];
+    const target = dir === 1 && nextRowId !== undefined ? nextRowId : orderedRowIds[idx + dir];
     if (target) channel.sendCmd(dir === 1 ? "next" : "prev", target);
   };
 

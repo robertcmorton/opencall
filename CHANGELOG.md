@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **A result called after golden point now gets played.** Every real sheet writes its endings above the extra period, so a result called during or after golden point named rows the show had already gone past, and nothing on screen could reach them. The show now remembers which rows have been on air. Next and the clock go back up the sheet for the called ending, and when it ends they step past the extra time already played instead of into it. The "next" readout says where the show is going. A show never replays a row it has played; Prev still goes back on purpose.
 - **A finger can draw too.** A Finger switch in the ink tools, for an iPad without a pencil. Off, a finger scrolls as before; on, it draws, and the sheet stops scrolling under it until Ink is off. Remembered per device.
 - **Print or export with or without your ink.** "Include my ink" in the Output menu, ticked by default. Off, the PDF and the print are the clean sheet. On, the PDF carries your marks on the rows you drew them on, scaled to its own row heights.
 - **Proj. end is always there.** It used to vanish whenever nothing was on air — the wait before the first cue, the gap after a Stop, the whole walkthrough. It now shows where the running order ends at every moment, and while a row is on air it adds however late the show is running.

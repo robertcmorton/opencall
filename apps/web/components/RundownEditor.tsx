@@ -94,7 +94,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { INK_COLOURS, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
+import { INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
@@ -1648,12 +1648,10 @@ export function RundownEditor({
    * The same filter is already used to decide what the transport may step
    * through; this used a different rule and disagreed with it.
    */
-  const nextRowId = (() => {
-    if (!activeRowId) return null;
-    const at = rows.findIndex((r) => r.id === activeRowId);
-    if (at < 0) return null;
-    return rows.slice(at + 1).find((r) => r.type === "cue" && !r.skipped && !r.parallel)?.id ?? null;
-  })();
+  // The same rule the server's clock uses, so the readout, Next and the
+  // clock agree on where the show goes from here.
+  const playedRowIds = useMemo(() => new Set(channel.show?.playedRowIds ?? []), [channel.show?.playedRowIds]);
+  const nextRowId = activeRowId ? nextCueRow(rows, activeRowId, playedRowIds) : null;
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
   /**
@@ -4249,6 +4247,7 @@ export function RundownEditor({
           <TransportBar
             channel={channel}
             orderedRowIds={rows.filter((r) => stepsOnto(r) || r.id === activeRowId).map((r) => r.id)}
+            nextRowId={nextRowId}
           />
         )}
         {isShow && showLive && mayDrive && (

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **The import preview flags bare-number durations.** A cell that is just "15" or "90" is read as seconds, and the preview now says so, with the numbers it found, and how to write minutes ("15m" or "15:00") if that is what they were.
 - **The item column stops growing at 900 px.** On a very wide monitor it took every spare pixel while the notes stayed narrow, so a long note wrapped into a tall block beside empty space. The spare width now goes to the other text columns in proportion. Nothing changes on ordinary screens.
 - **The half-time band accepts a caption with words after it.** "HALF TIME — sponsor and half-time show" now gets its band. The words must follow a dash, colon, bar or bracket; "Half Time Show" on its own is still an item inside the break, not the break.
 - **A viewer's own column choices stick.** On a view-only link the link's column list is the starting point, and a column you tick in the Columns menu now stays ticked across reloads. It used to be taken back the next time the sheet loaded.

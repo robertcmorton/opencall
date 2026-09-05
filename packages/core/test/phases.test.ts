@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findPhases, sheetFaults } from "../src";
+import { bareNumberDurations, findPhases, sheetFaults } from "../src";
 
 /**
  * Titles copied from real run sheets, because the whole detector is a claim
@@ -423,5 +423,12 @@ describe("half time captioned with words after a dash", () => {
       row("FULL TIME"),
     ];
     expect(findPhases(rows, [4]).find((p) => p.kind === "half-time")).toMatchObject({ from: 1 });
+  });
+});
+
+describe("bare-number durations on import", () => {
+  it("counts the bare numbers and keeps a few samples", () => {
+    expect(bareNumberDurations(["15", "0:30", "90", " 15 ", "2m", ""])).toEqual({ count: 3, samples: ["15", "90"] });
+    expect(bareNumberDurations(["0:30", "2m"])).toEqual({ count: 0, samples: [] });
   });
 });

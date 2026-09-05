@@ -17,12 +17,39 @@ import { parseDurationLoose } from "./import";
  * only one of the two silently stops matching the other.
  */
 export interface SheetFault {
-  kind: "no-title" | "no-time" | "no-duration" | "zero-length" | "repeated-line";
+  kind: "no-title" | "no-time" | "no-duration" | "zero-length" | "repeated-line" | "bare-durations";
   message: string;
 }
 
-export function sheetFaults(built: BuiltSheet, mapping: ColumnTarget[], totalDurationSec: number): SheetFault[] {
+/**
+ * Duration cells that are a bare number — "15", "90" — with nothing to say
+ * whether that is seconds or minutes. The importer reads them as SECONDS,
+ * which is right for "20" on a sting and wrong by sixty times for "15" on
+ * a segment, and nothing on the preview used to say which it had assumed.
+ * Counted here so the preview can flag them; the fix is in the sheet
+ * ("15m", "15:00"), because guessing at a hinge is worse than asking.
+ */
+export function bareNumberDurations(raw: readonly string[]): { count: number; samples: string[] } {
+  const bare = raw.map((v) => v.trim()).filter((v) => /^\d+$/.test(v));
+  return { count: bare.length, samples: [...new Set(bare)].slice(0, 4) };
+}
+
+export function sheetFaults(
+  built: BuiltSheet,
+  mapping: ColumnTarget[],
+  totalDurationSec: number,
+  /** The duration column's raw cells, when one was mapped — see `bareNumberDurations`. */
+  rawDurations: readonly string[] = [],
+): SheetFault[] {
   const faults: SheetFault[] = [];
+  const bare = bareNumberDurations(rawDurations);
+  if (bare.count > 0)
+    faults.push({
+      kind: "bare-durations",
+      message: `${bare.count} duration${bare.count === 1 ? "" : "s"} ${bare.count === 1 ? "is" : "are"} a bare number (${bare.samples
+        .map((s) => `“${s}”`)
+        .join(", ")}) and will be read as seconds. If they are minutes, write them as “15m” or “15:00” in the sheet first.`,
+    });
   const has = (kind: string) => mapping.some((m) => m.kind === kind);
   const cells = built.rows.flatMap((r) => Object.values(r.cells ?? {}));
 

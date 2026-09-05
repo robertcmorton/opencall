@@ -467,7 +467,9 @@ export function ImportPanel({
         outcome: r.outcome ?? null,
         outcomeGame: r.outcomeGame,
       }));
-      return sheetFaults(built, mapping, computeTiming(planRows, null).totalDurationSec);
+      const durIdx = mapping.findIndex((m) => m.kind === "duration");
+      const rawDurations = durIdx >= 0 ? rows.map((r) => grid[r.sourceIndex]?.[durIdx] ?? "") : [];
+      return sheetFaults(built, mapping, computeTiming(planRows, null).totalDurationSec, rawDurations);
     } catch {
       // A build that throws is its own, louder signal — doImport reports it.
       return [];

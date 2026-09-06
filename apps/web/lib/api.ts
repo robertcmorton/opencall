@@ -6,6 +6,13 @@ import { resolveSyncUrl } from "./syncUrl";
 
 export const API_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_HTTP_URL, "http://localhost:8787");
 
+export interface AccessPerson {
+  name: string;
+  email: string | null;
+  access: "runs the show" | "edits the sheets" | "views";
+  via: string;
+}
+
 export interface RundownSummary {
   id: string;
   eventId: string;
@@ -233,6 +240,9 @@ export const api = {
     request<Record<string, never>>("/auth/change-password", { method: "POST", body: JSON.stringify({ current, next }) }),
   setUserPassword: (id: string, password: string) =>
     request<{ id: string }>(`/users/${id}/set-password`, { method: "POST", body: JSON.stringify({ password }) }),
+  /** Everyone whose access reaches an event or a sheet, with what it lets them do. */
+  eventPeople: (eventId: string) => request<AccessPerson[]>(`/events/${eventId}/people`),
+  rundownPeople: (rundownId: string) => request<AccessPerson[]>(`/rundowns/${rundownId}/people`),
   users: () =>
     request<{ id: string; name: string; email: string; accessToken: string | null; hasPassword: boolean; grants: { kind: string; targetId: string }[] }[]>(
       "/users",

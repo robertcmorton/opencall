@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandWordmark } from "../../components/ui";
-import { api, ApiError, API_URL, copyViewOnlyLink, type EventSummary, type RundownSummary, type TemplateSummary } from "../../lib/api";
+import { api, ApiError, API_URL, copyViewOnlyLink, type AccessPerson, type EventSummary, type RundownSummary, type TemplateSummary } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
@@ -715,6 +715,21 @@ export default function AdminPage() {
   }, [locked, router]);
   // Import panel target: an event (new rundown), optionally replacing an existing rundown's content.
   const [importFor, setImportFor] = useState<{ eventId: string; replace?: { id: string; name: string } } | null>(null);
+  /** The event whose people list is open, and the list itself once it lands. */
+  const [peopleFor, setPeopleFor] = useState<string | null>(null);
+  const [people, setPeople] = useState<AccessPerson[] | null>(null);
+  useEffect(() => {
+    if (!peopleFor) return;
+    setPeople(null);
+    let alive = true;
+    api
+      .eventPeople(peopleFor)
+      .then((list) => alive && setPeople(list))
+      .catch(() => alive && setPeople([]));
+    return () => {
+      alive = false;
+    };
+  }, [peopleFor]);
   const [me, setMe] = useState<{
     role: "admin" | "company" | "user" | null;
     devOpen?: boolean;
@@ -1045,6 +1060,13 @@ export default function AdminPage() {
                 </div>
                 <span style={{ flex: 1 }} />
                 <span className="hide-mobile" style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  className={`btn btn-sm ${peopleFor === event.id ? "is-on" : "btn-ghost"}`}
+                  data-tip="Everyone whose access reaches this event — through the server, the company or the event itself"
+                  onClick={() => setPeopleFor(peopleFor === event.id ? null : event.id)}
+                >
+                  People
+                </button>
                 <button className="btn btn-sm btn-ghost" onClick={() => rename("event", event.id, event.name)}>
                   Rename
                 </button>
@@ -1102,6 +1124,30 @@ export default function AdminPage() {
                   </div>
                 </MobileActions>
               </div>
+              {peopleFor === event.id && (
+                <div className="panel" style={{ margin: "6px 0 10px", padding: "8px 12px" }}>
+                  <strong style={{ fontSize: "var(--fs-sm)" }}>Who can open this event</strong>
+                  {people == null ? (
+                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Looking…</span>
+                  ) : people.length === 0 ? (
+                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Nobody but the administrator.</span>
+                  ) : (
+                    <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0, display: "grid", gap: 3, fontSize: "var(--fs-sm)" }}>
+                      {people.map((p) => (
+                        <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                          <strong style={{ minWidth: 140 }}>{p.name}</strong>
+                          {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
+                          <span className="chip">{p.access}</span>
+                          <span style={{ color: "var(--text-3)" }}>via {p.via}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: 4 }}>
+                    Join codes and guest passes are listed on each sheet, under View-only links. The whole company is on Users &amp; access.
+                  </span>
+                </div>
+              )}
               <ul style={{ listStyle: "none", padding: "0 6px", margin: "6px 0 0" }}>
                 {event.rundowns.map((r) => (
                   <li

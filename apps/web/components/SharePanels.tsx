@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, API_URL, copyViewOnlyLink, type SnapshotSummary } from "../lib/api";
+import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary } from "../lib/api";
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
 
@@ -132,11 +132,13 @@ export function JoinCodesPanel({
   >([]);
   const [editingCols, setEditingCols] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
+  const [people, setPeople] = useState<AccessPerson[]>([]);
   /** The URL just copied, so the panel can say so. */
   const [copied, setCopied] = useState<string | null>(null);
   const reload = () => {
     void api.joinCodes(rundownId).then(setCodes);
     void api.viewers(rundownId).then(setViewers).catch(() => setViewers([]));
+    void api.rundownPeople(rundownId).then(setPeople).catch(() => setPeople([]));
   };
   useEffect(reload, [rundownId]);
 
@@ -298,6 +300,24 @@ export function JoinCodesPanel({
             </ul>
           </div>
         )}
+
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <strong>Who can open this sheet with an account</strong>
+          {people.length === 0 ? (
+            <span style={{ display: "block", color: "var(--text-3)" }}>Only the administrator.</span>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              {people.map((p) => (
+                <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+                  <strong style={{ minWidth: 120 }}>{p.name}</strong>
+                  {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
+                  <span className="chip">{p.access}</span>
+                  <span style={{ color: "var(--text-3)" }}>via {p.via}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <strong>Who has it open</strong>

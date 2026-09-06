@@ -282,6 +282,47 @@ export function createApiHandler(
       return false;
     };
 
+    /**
+     * Everyone whose access reaches this event, with what it lets them do.
+     *
+     * Access is granted at three levels — the server, a company, an event —
+     * and a person holding it at any of them can open the event's sheets. So
+     * "who can open this" has to be answered by walking all three, and it is
+     * answered in one place: the dashboard asks per event, the sheet's share
+     * panel asks per sheet, and both get the same list.
+     */
+    const peopleWithAccess = async (
+      eventId: string,
+    ): Promise<{ name: string; email: string | null; access: "runs the show" | "edits the sheets" | "views"; via: string }[]> => {
+      const event = await db.query.events.findFirst({ where: eq(schema.events.id, eventId), columns: { teamId: true } });
+      if (!event) return [];
+      const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, event.teamId), columns: { name: true, companyToken: true } });
+      const grants = await db.query.userGrants.findMany();
+      const users = await db.query.users.findMany({ columns: { id: true, name: true, email: true } });
+      const byUser = new Map<string, { access: "runs the show" | "edits the sheets" | "views"; via: string; rank: number }>();
+      const consider = (userId: string, access: "runs the show" | "edits the sheets" | "views", via: string, rank: number) => {
+        const prev = byUser.get(userId);
+        if (!prev || rank < prev.rank) byUser.set(userId, { access, via, rank });
+      };
+      for (const g of grants) {
+        if (g.kind === "admin") consider(g.userId, "runs the show", "everything on this server", 0);
+        else if (g.kind === "company" && g.targetId === event.teamId) consider(g.userId, "runs the show", "the whole company", 1);
+        else if (g.kind === "event" && g.targetId === eventId) consider(g.userId, "runs the show", "this event", 2);
+        else if (g.kind === "edit" && g.targetId === eventId) consider(g.userId, "edits the sheets", "this event", 3);
+        else if (g.kind === "company_view" && g.targetId === event.teamId) consider(g.userId, "views", "the whole company, view only", 4);
+        else if (g.kind === "view" && g.targetId === eventId) consider(g.userId, "views", "this event, view only", 5);
+      }
+      const people: { name: string; email: string | null; access: "runs the show" | "edits the sheets" | "views"; via: string }[] = users
+        .filter((u) => byUser.has(u.id))
+        .map((u) => ({ name: u.name, email: u.email, ...byUser.get(u.id)! }))
+        .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+        .map(({ rank: _rank, ...p }) => p);
+      // The company's own token signs in as the company: whoever holds it runs
+      // every show the company has. It is a way in, so it is listed as one.
+      if (team?.companyToken) people.push({ name: `${team.name} (company token)`, email: null, access: "runs the show", via: "the company's own token" });
+      return people;
+    };
+
     const requireEditor = async (rundownId: string): Promise<boolean> => {
       const ctx = await authContext(handle, req, rundownId);
       if (ctx?.kind === "code" && ctx.rundownId === rundownId && ctx.role !== "follower") return true;
@@ -2193,6 +2234,21 @@ export function createApiHandler(
       }
 
       /** Who has this run sheet open on a view-only link — managers only. */
+      if (req.method === "GET" && /^\/events\/[^/]+\/people$/.test(pathname)) {
+        const eventId = pathname.split("/")[2]!;
+        if (!(await requireEventEdit(eventId))) return true;
+        json(res, 200, await peopleWithAccess(eventId));
+        return true;
+      }
+
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/people$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const eventId = await eventIdForRundown(rundownId);
+        json(res, 200, eventId ? await peopleWithAccess(eventId) : []);
+        return true;
+      }
+
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/viewers$/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!;
         if (!(await requireEditor(rundownId))) return true;

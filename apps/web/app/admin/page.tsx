@@ -1282,8 +1282,8 @@ export default function AdminPage() {
                         <div className="menu-sep" />
                         <div data-keep-open style={{ padding: "4px 9px" }}>
                           <DangerButton
-                            label="Delete run sheet"
-                            confirmLabel="Really delete this run sheet?"
+                            label="Delete show"
+                            confirmLabel="Really delete this show?"
                             onConfirm={() => api.deleteRundown(r.id).then(reload)}
                           />
                         </div>
@@ -1331,8 +1331,8 @@ export default function AdminPage() {
                       <div className="menu-sep" />
                       <div data-keep-open style={{ padding: "4px 9px" }}>
                         <DangerButton
-                          label="Delete run sheet"
-                          confirmLabel="Really delete this run sheet?"
+                          label="Delete show"
+                          confirmLabel="Really delete this show?"
                           onConfirm={() => api.deleteRundown(r.id).then(reload)}
                         />
                       </div>

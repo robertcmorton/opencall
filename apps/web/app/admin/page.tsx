@@ -945,7 +945,7 @@ export default function AdminPage() {
                 ? "\u00a0"
                 : me.role === "company"
                   ? "Your company's events and shows. Only your own data is visible here."
-                  : "Every event company, event, and show. Admin sees everything."}
+                  : "One run sheet that calls the show — every screen follows, and the night stays on time."}
             </p>
           </div>
           {me?.role === "admin" && <CreateCompanyForm onCreated={reload} />}

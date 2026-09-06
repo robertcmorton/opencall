@@ -4670,3 +4670,13 @@ tr.played-row td {
     max-width: none;
   }
 }
+/* A chip that is also a menu trigger (the kind of show on a sheet row). */
+.chip-btn {
+  cursor: pointer;
+  border-color: var(--border-strong, var(--border));
+  color: var(--text);
+}
+.chip-warn {
+  color: var(--warn, #f5b83d);
+  border-color: color-mix(in srgb, var(--warn, #f5b83d) 50%, transparent);
+}

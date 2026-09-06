@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandWordmark } from "../../components/ui";
@@ -1074,6 +1074,14 @@ export default function AdminPage() {
                     <span className="check" />
                     {event.archivedAt ? "Unarchive" : "Archive"}
                   </button>
+                  <div className="menu-sep" />
+                  <div data-keep-open style={{ padding: "4px 9px" }}>
+                    <DangerButton
+                      label="Delete event"
+                      confirmLabel="Delete event + run sheets?"
+                      onConfirm={() => api.deleteEvent(event.id).then(reload)}
+                    />
+                  </div>
                 </Dropdown>
                 {datesFor === event.id && (
                   <DatesEditor
@@ -1087,11 +1095,6 @@ export default function AdminPage() {
                     }}
                   />
                 )}
-                <DangerButton
-                  label="Delete event"
-                  confirmLabel="Delete event + run sheets?"
-                  onConfirm={() => api.deleteEvent(event.id).then(reload)}
-                />
               </div>
               {peopleFor === event.id && (
                 <div className="panel" style={{ margin: "6px 0 10px", padding: "8px 12px" }}>
@@ -1128,217 +1131,210 @@ export default function AdminPage() {
                 {event.rundowns.map((r) => (
                   <li key={r.id} className="sheet-row" style={{ opacity: r.archivedAt ? 0.55 : 1 }}>
                     <div className="sr-images">
-                    <ImageSlot
-                      value={r.homeImage}
-                      hint="Home team — this show's first team"
-                      onChange={(img) => void api.patchRundown(r.id, { homeImage: img }).then(reload)}
-                    />
-                    <ImageSlot
-                      value={r.awayImage}
-                      hint="Away team — this show's second team"
-                      onChange={(img) => void api.patchRundown(r.id, { awayImage: img }).then(reload)}
-                    />
+                      <ImageSlot
+                        value={r.homeImage}
+                        hint="Home team — this show's first team"
+                        onChange={(img) => void api.patchRundown(r.id, { homeImage: img }).then(reload)}
+                      />
+                      <ImageSlot
+                        value={r.awayImage}
+                        hint="Away team — this show's second team"
+                        onChange={(img) => void api.patchRundown(r.id, { awayImage: img }).then(reload)}
+                      />
                     </div>
                     <div className="sr-main">
                       <div className="sr-title">
                         <strong style={{ fontWeight: 600 }}>{r.name}</strong>
-                        {r.archivedAt && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}
-                        <LiveChip session={live.get(r.id)} />
                       </div>
+                      {/* One quiet line of chips under the name: the kind of show
+                          (click to change), the date, and the state when there is
+                          one. Read at a glance; nothing here is a control that
+                          needs width. */}
                       <div className="sr-meta">
-                      <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-                        {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
-                      </span>
+                        {canManageRow(event) ? (
+                          <Dropdown
+                            label={(() => {
+                              const spec = resolveEventType(r.sport ?? event.sport, customTypes);
+                              return `${spec ? eventTypeLabel(spec) : "Kind of show…"} ▾`;
+                            })()}
+                            className="chip chip-btn"
+                          >
+                            <div className="menu-heading">Kind of show</div>
+                            <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "2px 9px 6px", maxWidth: 240, lineHeight: 1.4 }}>
+                              Decides what the live result chooser offers — a rugby league match ends differently from a product launch.
+                            </div>
+                            {(["Sport", "Production"] as const).map((g) => (
+                              <Fragment key={g}>
+                                <div className="menu-heading">{g}</div>
+                                {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    className="menu-item"
+                                    disabled={t.provisional}
+                                    onClick={() => void api.patchRundown(r.id, { sport: t.id }).then(reload)}
+                                  >
+                                    <span className="check">{(r.sport ?? event.sport) === t.id && Icon.check}</span>
+                                    {eventTypeLabel(t)}
+                                  </button>
+                                ))}
+                              </Fragment>
+                            ))}
+                            {customTypes.length > 0 && (
+                              <>
+                                <div className="menu-heading">Yours</div>
+                                {customTypes.map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    className="menu-item"
+                                    onClick={() => void api.patchRundown(r.id, { sport: t.id }).then(reload)}
+                                  >
+                                    <span className="check">{(r.sport ?? event.sport) === t.id && Icon.check}</span>
+                                    {t.label}
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </Dropdown>
+                        ) : (
+                          (() => {
+                            const spec = resolveEventType(r.sport ?? event.sport, customTypes);
+                            return spec ? <span className="chip">{eventTypeLabel(spec)}</span> : null;
+                          })()
+                        )}
+                        {r.showDate && <span className="chip">{r.showDate}</span>}
+                        {r.description && <span className="chip">{r.description}</span>}
+                        <LiveChip session={live.get(r.id)} />
+                        {r.viewingClosed && (
+                          <span className="chip chip-warn" data-tip="View-only links and read-only accounts are shut out. Reopen from the ⋯ menu.">
+                            Event ended
+                          </span>
+                        )}
+                        {r.archivedAt && <span className="chip">archived</span>}
                       </div>
-                      {/* The kind of show belongs to the SHEET: a match day can
-                          run netball off one and rugby league off the next, and
-                          they do not end the same way. */}
-                      {canManageRow(event) && (
-                        <div className="sr-kind">
-                          <EventTypeSelect
-                            compact
-                            custom={customTypes}
-                            value={r.sport ?? event.sport}
-                            placeholder="Kind of show…"
-                            onChange={(v) => void api.patchRundown(r.id, { sport: v }).then(reload)}
-                          />
-                        </div>
-                      )}
                     </div>
+                    {/* One primary action and one menu, at every width. The row
+                        was a toolbar of five buttons and a select, and a toolbar
+                        finds a new place to break at every window size. */}
                     <div className="sr-actions">
-                    {/* One button, decided by YOUR access: managers open the
-                        console; view-only access opens the read-only view.
-                        The other surfaces live in the ⋯ menu. */}
-                    {canManageRow(event) ? (
-                      <Link
-                        href={`/show/${r.id}`}
-                        className="btn btn-sm btn-primary"
-                        style={{ textDecoration: "none" }}
-                        data-tip="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
-                      >
-                        Open show
-                      </Link>
-                    ) : canEditRow(event) ? (
-                      <Link
-                        href={`/edit/${r.id}`}
-                        className="btn btn-sm btn-primary"
-                        style={{ textDecoration: "none" }}
-                        data-tip="Edit the sheet — your access writes the sheets of this event but never runs the show"
-                      >
-                        Edit sheet
-                      </Link>
-                    ) : (
-                      <Link
-                        href={`/view/${r.id}`}
-                        className="btn btn-sm btn-primary"
-                        style={{ textDecoration: "none" }}
-                        data-tip="Read-only: follows the live show — your access level for this event"
-                      >
-                        View
-                      </Link>
-                    )}
-                    {(
-                      [
-                        ["timer", "Full-screen timer for phones and confidence monitors — the item on air, what came before it and what is next"],
-                        ["prompter", "Script prompter — large scrolling script that follows the caller"],
-                      ] as const
-                    ).map(([view, hint]) => (
-                      <Link key={view} href={`/${view}/${r.id}`} className="btn btn-sm" style={{ textDecoration: "none" }} data-tip={hint}>
-                        {view}
-                      </Link>
-                    ))}
-                    {/* The event is over — a show on it has ended, or its day
-                        has passed — so ending it is the next thing to do, and
-                        the button stays here until it is done, then turns into
-                        the way back. One of the row's actions, sized like them. */}
-                    {canManageRow(event) && eventOver(r) && (
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        data-tip={
-                          r.viewingClosed
-                            ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
-                            : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
-                        }
-                        onClick={() => {
-                          if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
-                          void api.setViewing(r.id, !r.viewingClosed).then(reload);
-                        }}
-                      >
-                        {r.viewingClosed ? "Event ended — reopen" : "End event"}
-                      </button>
-                    )}
-
-                    {canManageRow(event) && (
-                    <span className="hide-mobile">
-                      <Dropdown label="⋯" className="btn btn-sm btn-ghost">
-                        <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Edit the sheet with no transport controls — safe while preparing content">
-                          <span className="check" />
-                          Edit content
+                      {canManageRow(event) ? (
+                        <Link
+                          href={`/show/${r.id}`}
+                          className="btn btn-sm btn-primary"
+                          style={{ textDecoration: "none" }}
+                          data-tip="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
+                        >
+                          Open show
                         </Link>
-                        <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Read-only: follows the live show, nothing can be changed">
-                          <span className="check" />
-                          Read-only view
+                      ) : canEditRow(event) ? (
+                        <Link
+                          href={`/edit/${r.id}`}
+                          className="btn btn-sm btn-primary"
+                          style={{ textDecoration: "none" }}
+                          data-tip="Edit the sheet — your access writes the sheets of this event but never runs the show"
+                        >
+                          Edit sheet
                         </Link>
-                        <div className="menu-sep" />
-                        <button
-                          type="button"
-                          className="menu-item"
-                          data-tip="Copy a URL that opens this rundown read-only — for camera operators and crew"
-                          onClick={() =>
-                            void copyViewOnlyLink(r.id).then((url) =>
-                              window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this rundown live.`),
-                            )
-                          }
+                      ) : (
+                        <Link
+                          href={`/view/${r.id}`}
+                          className="btn btn-sm btn-primary"
+                          style={{ textDecoration: "none" }}
+                          data-tip="Read-only: follows the live show — your access level for this event"
                         >
+                          View
+                        </Link>
+                      )}
+                      <Dropdown label="⋯" align="right" className="btn btn-sm">
+                        <Link href={`/timer/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Full-screen timer for phones and confidence monitors — the item on air, what came before it and what is next">
                           <span className="check" />
-                          Copy view link
-                        </button>
-                        <button
-                          type="button"
-                          className="menu-item"
-                          data-tip="Re-import from the stored run sheet with the latest import quality — links and codes keep working"
-                          onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
-                        >
+                          Timer
+                        </Link>
+                        <Link href={`/prompter/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Script prompter — large scrolling script that follows the caller">
                           <span className="check" />
-                          Update import…
-                        </button>
-                        <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)}>
-                          <span className="check" />
-                          Rename
-                        </button>
-                        <button type="button" className="menu-item" onClick={() => void api.duplicateRundown(r.id).then(reload)}>
-                          <span className="check" />
-                          Duplicate
-                        </button>
-                        <button
-                          type="button"
-                          className="menu-item"
-                          onClick={() => void api.archiveRundown(r.id, !r.archivedAt).then(reload)}
-                        >
-                          <span className="check" />
-                          {r.archivedAt ? "Unarchive" : "Archive"}
-                        </button>
-                        <div className="menu-sep" />
-                        <div data-keep-open style={{ padding: "4px 9px" }}>
-                          <DangerButton
-                            label="Delete show"
-                            confirmLabel="Really delete this show?"
-                            onConfirm={() => api.deleteRundown(r.id).then(reload)}
-                          />
-                        </div>
+                          Prompter
+                        </Link>
+                        {canManageRow(event) && (
+                          <>
+                            <div className="menu-sep" />
+                            {eventOver(r) && (
+                              <button
+                                type="button"
+                                className="menu-item"
+                                data-tip={
+                                  r.viewingClosed
+                                    ? "View-only links and read-only accounts are shut out. Let them open this sheet again."
+                                    : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
+                                }
+                                onClick={() => {
+                                  if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
+                                  void api.setViewing(r.id, !r.viewingClosed).then(reload);
+                                }}
+                              >
+                                <span className="check" />
+                                {r.viewingClosed ? "Reopen to viewers" : "End event"}
+                              </button>
+                            )}
+                            <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Edit the sheet with no transport controls — safe while preparing content">
+                              <span className="check" />
+                              Edit content
+                            </Link>
+                            <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Read-only: follows the live show, nothing can be changed">
+                              <span className="check" />
+                              Read-only view
+                            </Link>
+                            <button
+                              type="button"
+                              className="menu-item"
+                              data-tip="Copy a URL that opens this rundown read-only — for camera operators and crew"
+                              onClick={() =>
+                                void copyViewOnlyLink(r.id).then((url) =>
+                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this rundown live.`),
+                                )
+                              }
+                            >
+                              <span className="check" />
+                              Copy view link
+                            </button>
+                            <div className="menu-sep" />
+                            <button
+                              type="button"
+                              className="menu-item"
+                              data-tip="Re-import from the stored run sheet with the latest import quality — links and codes keep working"
+                              onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
+                            >
+                              <span className="check" />
+                              Update import…
+                            </button>
+                            <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)}>
+                              <span className="check" />
+                              Rename
+                            </button>
+                            <button type="button" className="menu-item" onClick={() => void api.duplicateRundown(r.id).then(reload)}>
+                              <span className="check" />
+                              Duplicate
+                            </button>
+                            <button
+                              type="button"
+                              className="menu-item"
+                              onClick={() => void api.archiveRundown(r.id, !r.archivedAt).then(reload)}
+                            >
+                              <span className="check" />
+                              {r.archivedAt ? "Unarchive" : "Archive"}
+                            </button>
+                            <div className="menu-sep" />
+                            <div data-keep-open style={{ padding: "4px 9px" }}>
+                              <DangerButton
+                                label="Delete show"
+                                confirmLabel="Really delete this show?"
+                                onConfirm={() => api.deleteRundown(r.id).then(reload)}
+                              />
+                            </div>
+                          </>
+                        )}
                       </Dropdown>
-                    </span>
-                    )}
-                    {canManageRow(event) && (
-                    <MobileActions>
-                      <button
-                        type="button"
-                        className="menu-item"
-                        onClick={() =>
-                          void copyViewOnlyLink(r.id).then((url) =>
-                            window.alert(`View-only link copied:\n\n${url}`),
-                          )
-                        }
-                      >
-                        <span className="check" />
-                        Copy view link
-                      </button>
-                      <button
-                        type="button"
-                        className="menu-item"
-                        onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
-                      >
-                        <span className="check" />
-                        Update import…
-                      </button>
-                      <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)}>
-                        <span className="check" />
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        className="menu-item"
-                        onClick={() => void api.archiveRundown(r.id, !r.archivedAt).then(reload)}
-                      >
-                        <span className="check" />
-                        {r.archivedAt ? "Unarchive" : "Archive"}
-                      </button>
-                      <button type="button" className="menu-item" onClick={() => void api.duplicateRundown(r.id).then(reload)}>
-                        <span className="check" />
-                        Duplicate
-                      </button>
-                      <div className="menu-sep" />
-                      <div data-keep-open style={{ padding: "4px 9px" }}>
-                        <DangerButton
-                          label="Delete show"
-                          confirmLabel="Really delete this show?"
-                          onConfirm={() => api.deleteRundown(r.id).then(reload)}
-                        />
-                      </div>
-                    </MobileActions>
-                    )}
-                  </div>
+                    </div>
                   </li>
                 ))}
                 {event.rundowns.length === 0 && (

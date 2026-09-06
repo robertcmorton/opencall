@@ -576,10 +576,13 @@ function DangerButton({
   label,
   confirmLabel,
   onConfirm,
+  asMenuItem = false,
 }: {
   label: string;
   confirmLabel: string;
   onConfirm: () => void | Promise<unknown>;
+  /** Inside a ⋯ menu: a red row like the items above it, not a boxed button. Same two presses. */
+  asMenuItem?: boolean;
 }) {
   const [armed, setArmed] = useState(false);
   const [gone, setGone] = useState(false);
@@ -588,7 +591,9 @@ function DangerButton({
   return (
     <>
       <button
-        className={`btn btn-sm btn-danger ${armed ? "is-on" : ""}`}
+        type="button"
+        data-keep-open={asMenuItem ? true : undefined}
+        className={asMenuItem ? `menu-item menu-item-danger ${armed ? "is-armed" : ""}` : `btn btn-sm btn-danger ${armed ? "is-on" : ""}`}
         onClick={() => {
           if (!armed) {
             setArmed(true);
@@ -1075,13 +1080,12 @@ export default function AdminPage() {
                     {event.archivedAt ? "Unarchive" : "Archive"}
                   </button>
                   <div className="menu-sep" />
-                  <div data-keep-open style={{ padding: "4px 9px" }}>
-                    <DangerButton
+                                      <DangerButton
+                              asMenuItem
                       label="Delete event"
                       confirmLabel="Delete event + run sheets?"
                       onConfirm={() => api.deleteEvent(event.id).then(reload)}
                     />
-                  </div>
                 </Dropdown>
                 {datesFor === event.id && (
                   <DatesEditor
@@ -1324,13 +1328,12 @@ export default function AdminPage() {
                               {r.archivedAt ? "Unarchive" : "Archive"}
                             </button>
                             <div className="menu-sep" />
-                            <div data-keep-open style={{ padding: "4px 9px" }}>
-                              <DangerButton
+                                                          <DangerButton
+                              asMenuItem
                                 label="Delete show"
                                 confirmLabel="Really delete this show?"
                                 onConfirm={() => api.deleteRundown(r.id).then(reload)}
                               />
-                            </div>
                           </>
                         )}
                       </Dropdown>

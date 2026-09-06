@@ -39,13 +39,16 @@ export const grantKey = (g: Grant): string => `${g.kind}:${g.targetId}`;
  * this picker only appeared on the account database; it is now also on the
  * company-facing people list, where "& below" is jargon for the reader.
  */
+/**
+ * The five names, as they are offered. Viewer (a whole company, read-only)
+ * still works for anyone who holds it but is no longer offered here.
+ */
 const KIND_LABEL: Record<string, string> = {
-  admin: "Everything on this server",
-  company: "Everything at one company",
-  company_view: "Everything at one company, view only",
-  event: "One event — calls the show",
-  edit: "One event — edits the sheets, cannot call the show",
-  view: "One event, view only",
+  admin: "System Administrator — everything on this server",
+  company: "Showcaller — every event at one company",
+  event: "Showcaller — one event",
+  edit: "Producer — builds the sheets of one event, never presses Start",
+  view: "Crew — follows one event",
 };
 
 /**
@@ -73,14 +76,13 @@ const KIND_LABEL: Record<string, string> = {
  * reader looking for a fault that is not there.
  */
 export function grantLabel(g: Grant, companies: Company[], events: EventSummary[]): string {
-  if (g.kind === "admin") return "Everything on this server";
+  if (g.kind === "admin") return "System Administrator";
   if (g.kind === "company" || g.kind === "company_view") {
-    const name = companies.find((c) => c.id === g.targetId)?.name;
-    const whole = name ? `Everything at ${name}` : "A whole company";
-    return g.kind === "company_view" ? `${whole} (view only)` : whole;
+    const name = companies.find((c) => c.id === g.targetId)?.name ?? "a company";
+    return g.kind === "company_view" ? `Viewer · ${name}` : `Showcaller · ${name}`;
   }
-  const name = events.find((e) => e.id === g.targetId)?.name ?? "An event";
-  return g.kind === "view" ? `${name} (view only)` : g.kind === "edit" ? `${name} (edits the sheets)` : name;
+  const name = events.find((e) => e.id === g.targetId)?.name ?? "an event";
+  return g.kind === "view" ? `Crew · ${name}` : g.kind === "edit" ? `Producer · ${name}` : `Showcaller · ${name}`;
 }
 
 /** The grants on a form, each with a way to take it off again. */

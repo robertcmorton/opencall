@@ -215,7 +215,7 @@ function InviteForm({
               id was not refused: it was written down as a grant that matches
               nothing, or failed the invitation outright. */}
           {companies.length > 0 ? (
-            <optgroup label="Everything at one company">
+            <optgroup label="Showcaller — every event at one company">
               {companies.map((c) => (
                 <option key={c.id} value={`company:${c.id}`}>
                   {c.name}
@@ -226,7 +226,7 @@ function InviteForm({
             <option value="company:">Everything at this company</option>
           )}
           {events.length > 0 && (
-            <optgroup label="One event only">
+            <optgroup label="Showcaller — one event">
               {events.map((ev) => (
                 <option key={ev.id} value={`event:${ev.id}`}>
                   {ev.name}
@@ -235,28 +235,19 @@ function InviteForm({
             </optgroup>
           )}
           {events.length > 0 && (
-            <optgroup label="One event — edits the sheets, cannot call the show">
+            <optgroup label="Producer — builds the sheets of one event, never presses Start">
               {events.map((ev) => (
                 <option key={`e${ev.id}`} value={`edit:${ev.id}`}>
-                  {ev.name} (edits the sheets)
+                  {ev.name} — Producer
                 </option>
               ))}
             </optgroup>
           )}
           {events.length > 0 && (
-            <optgroup label="One event, view only">
+            <optgroup label="Crew — follows one event">
               {events.map((ev) => (
                 <option key={`v${ev.id}`} value={`view:${ev.id}`}>
-                  {ev.name} (view only)
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {companies.length > 0 && (
-            <optgroup label="Everything at one company, view only">
-              {companies.map((c) => (
-                <option key={`cv${c.id}`} value={`company_view:${c.id}`}>
-                  {c.name} (view only)
+                  {ev.name} — Crew
                 </option>
               ))}
             </optgroup>

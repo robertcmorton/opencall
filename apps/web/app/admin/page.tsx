@@ -1139,7 +1139,7 @@ export default function AdminPage() {
                           <strong style={{ minWidth: 140 }}>{p.name}</strong>
                           {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
                           <span className="chip">{p.access}</span>
-                          <span style={{ color: "var(--text-3)" }}>via {p.via}</span>
+                          <span style={{ color: "var(--text-3)" }}>{p.via}</span>
                         </li>
                       ))}
                     </ul>

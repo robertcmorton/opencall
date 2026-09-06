@@ -9,7 +9,7 @@ export const API_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_HTTP_URL, "ht
 export interface AccessPerson {
   name: string;
   email: string | null;
-  access: "runs the show" | "edits the sheets" | "views";
+  access: "System Administrator" | "Showcaller" | "Producer" | "Crew" | "Viewer";
   via: string;
 }
 

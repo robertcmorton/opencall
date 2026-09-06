@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **Five names for access, the same everywhere.** System Administrator (the server), Showcaller (runs the show, for one event or every event at a company), Producer (builds the sheets of an event, never presses Start), Crew (follows an event and raises notes), Guest (opens a read-only copy from a link). They appear on the Users page, in the invite menu, in the invitation, and in the People lists on events and sheets. Company-wide view-only access still works for anyone who has it, labelled Viewer, but is no longer offered.
 - **The side bar follows the same rules as the menus.** Views first, then Endings, Output and Show settings; sections divided by a rule; End event last in its section behind a separator, and "Reopen to viewers" once pressed.
 - **"Add a show" is its own section** at the foot of each event, under a rule with a small heading, rather than reading as part of the last row.
 - **Delete buttons say what they delete.** "Delete event" on an event, "Delete show" in a show's menu, "Delete company" as before.

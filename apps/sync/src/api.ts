@@ -141,12 +141,12 @@ async function describeGrants(
     if (g.kind === "company" || g.kind === "company_view") {
       const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, g.targetId) });
       const name = team ? `everything at ${team.name}` : "a company";
-      names.push(g.kind === "company_view" ? `${name} (view only)` : name);
+      names.push(g.kind === "company_view" ? `${name} as a Viewer` : `${name} as a Showcaller`);
       continue;
     }
     const event = await db.query.events.findFirst({ where: eq(schema.events.id, g.targetId) });
     const label = event ? event.name : "an event";
-    names.push(g.kind === "view" ? `${label} (view only)` : g.kind === "edit" ? `${label} (edits the sheets)` : label);
+    names.push(g.kind === "view" ? `${label} as Crew` : g.kind === "edit" ? `${label} as a Producer` : `${label} as a Showcaller`);
   }
   if (names.length === 0) return "a run sheet";
   if (names.length === 1) return names[0]!;
@@ -291,35 +291,44 @@ export function createApiHandler(
      * answered in one place: the dashboard asks per event, the sheet's share
      * panel asks per sheet, and both get the same list.
      */
+    /**
+     * The five names for what a person may do, the same words on every
+     * surface: System Administrator (the server), Showcaller (runs the show,
+     * for one event or a whole company), Producer (builds the sheets, never
+     * presses Start), Crew (follows and raises notes), Viewer (a whole
+     * company, read-only — kept working, not offered). Guests hold a link,
+     * not a grant, and are named on the sheet.
+     */
+    type AccessName = "System Administrator" | "Showcaller" | "Producer" | "Crew" | "Viewer";
     const peopleWithAccess = async (
       eventId: string,
-    ): Promise<{ name: string; email: string | null; access: "runs the show" | "edits the sheets" | "views"; via: string }[]> => {
+    ): Promise<{ name: string; email: string | null; access: AccessName; via: string }[]> => {
       const event = await db.query.events.findFirst({ where: eq(schema.events.id, eventId), columns: { teamId: true } });
       if (!event) return [];
       const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, event.teamId), columns: { name: true, companyToken: true } });
       const grants = await db.query.userGrants.findMany();
       const users = await db.query.users.findMany({ columns: { id: true, name: true, email: true } });
-      const byUser = new Map<string, { access: "runs the show" | "edits the sheets" | "views"; via: string; rank: number }>();
-      const consider = (userId: string, access: "runs the show" | "edits the sheets" | "views", via: string, rank: number) => {
+      const byUser = new Map<string, { access: AccessName; via: string; rank: number }>();
+      const consider = (userId: string, access: AccessName, via: string, rank: number) => {
         const prev = byUser.get(userId);
         if (!prev || rank < prev.rank) byUser.set(userId, { access, via, rank });
       };
       for (const g of grants) {
-        if (g.kind === "admin") consider(g.userId, "runs the show", "everything on this server", 0);
-        else if (g.kind === "company" && g.targetId === event.teamId) consider(g.userId, "runs the show", "the whole company", 1);
-        else if (g.kind === "event" && g.targetId === eventId) consider(g.userId, "runs the show", "this event", 2);
-        else if (g.kind === "edit" && g.targetId === eventId) consider(g.userId, "edits the sheets", "this event", 3);
-        else if (g.kind === "company_view" && g.targetId === event.teamId) consider(g.userId, "views", "the whole company, view only", 4);
-        else if (g.kind === "view" && g.targetId === eventId) consider(g.userId, "views", "this event, view only", 5);
+        if (g.kind === "admin") consider(g.userId, "System Administrator", "everything on this server", 0);
+        else if (g.kind === "company" && g.targetId === event.teamId) consider(g.userId, "Showcaller", "the whole company", 1);
+        else if (g.kind === "event" && g.targetId === eventId) consider(g.userId, "Showcaller", "this event", 2);
+        else if (g.kind === "edit" && g.targetId === eventId) consider(g.userId, "Producer", "this event", 3);
+        else if (g.kind === "company_view" && g.targetId === event.teamId) consider(g.userId, "Viewer", "the whole company", 4);
+        else if (g.kind === "view" && g.targetId === eventId) consider(g.userId, "Crew", "this event", 5);
       }
-      const people: { name: string; email: string | null; access: "runs the show" | "edits the sheets" | "views"; via: string }[] = users
+      const people: { name: string; email: string | null; access: AccessName; via: string }[] = users
         .filter((u) => byUser.has(u.id))
         .map((u) => ({ name: u.name, email: u.email, ...byUser.get(u.id)! }))
         .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
         .map(({ rank: _rank, ...p }) => p);
       // The company's own token signs in as the company: whoever holds it runs
       // every show the company has. It is a way in, so it is listed as one.
-      if (team?.companyToken) people.push({ name: `${team.name} (company token)`, email: null, access: "runs the show", via: "the company's own token" });
+      if (team?.companyToken) people.push({ name: `${team.name} (company token)`, email: null, access: "Showcaller", via: "the company's own token" });
       return people;
     };
 

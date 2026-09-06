@@ -257,7 +257,7 @@ export function JoinCodesPanel({
               {guests.map((c) => (
                 <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                   <span style={{ color: "var(--text-2)", minWidth: 120 }}>
-                    {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed guest pass</span>}
+                    {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed Guest</span>}
                   </span>
                   {c.token && (
                     <button
@@ -312,7 +312,7 @@ export function JoinCodesPanel({
                   <strong style={{ minWidth: 120 }}>{p.name}</strong>
                   {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
                   <span className="chip">{p.access}</span>
-                  <span style={{ color: "var(--text-3)" }}>via {p.via}</span>
+                  <span style={{ color: "var(--text-3)" }}>{p.via}</span>
                 </li>
               ))}
             </ul>

@@ -948,6 +948,24 @@ export function RundownEditor({
   const live = useLiveTiming(channel, timing);
   const showIsLive = channel.show?.state === "running" || channel.show?.state === "paused";
   /**
+   * Is the event over? A show on this sheet has ENDED (Stop after a run), or
+   * the clock is half an hour past the sheet's last item. Re-read every half
+   * minute so the dock appears on its own once the day has gone by.
+   */
+  const [clockPastEnd, setClockPastEnd] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      if (timing.endSec == null) return setClockPastEnd(false);
+      const nowSec = zoneSecondsOfDay(channel.serverNow(), channel.timezone);
+      setClockPastEnd(absoluteNow(nowSec, timing) > timing.endSec + 30 * 60);
+    };
+    check();
+    const t = window.setInterval(check, 30_000);
+    return () => window.clearInterval(t);
+  }, [timing, channel]);
+  // Never while a show is on air: a match running late is still a match.
+  const eventOver = !showIsLive && (channel.show?.state === "ended" || clockPastEnd);
+  /**
    * The plan freezes when the doors open.
    *
    * Until then "End" follows the sheet, because the sheet IS the plan while it
@@ -5687,6 +5705,25 @@ export function RundownEditor({
           see `goldenPrompt`. Never both docks at once: this one exists only
           where nothing is tagged, and that is exactly when `activeGame` is
           null. */}
+      {/* The event is over — the show ended, or the clock is well past the
+          sheet's end — so ending it is the next thing to do. Docked at the
+          foot like the result chooser, for the caller only, and it stays
+          until it is done: afterwards it is the way to reopen. */}
+      {isShow && mayDrive && eventOver && (
+        <div className="outcome-dock end-event-dock no-print" style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
+          <span className="od-what">
+            <span className="od-stage od-soon">{viewingClosed ? "Event ended" : "Show over"}</span>
+            <span className="od-hint">
+              {viewingClosed
+                ? "View-only links and read-only accounts are shut out. Reopen if somebody still needs the sheet."
+                : "Ending the event shuts out view-only links and read-only accounts. You and anyone who can edit keep your access."}
+            </span>
+          </span>
+          <button type="button" className={`btn btn-sm ${viewingClosed ? "" : "btn-danger"}`} onClick={() => setViewing(!viewingClosed)}>
+            {viewingClosed ? "Reopen" : "End event"}
+          </button>
+        </div>
+      )}
       {isShow && activeGame == null && goldenPrompt && (
         <div
           ref={publishOutcomeHeight}

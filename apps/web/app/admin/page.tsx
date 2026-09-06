@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandWordmark } from "../../components/ui";
-import { api, ApiError, API_URL, copyViewOnlyLink, type EventSummary, type TemplateSummary } from "../../lib/api";
+import { api, ApiError, API_URL, copyViewOnlyLink, type EventSummary, type RundownSummary, type TemplateSummary } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
@@ -805,6 +805,17 @@ export default function AdminPage() {
       (g) => (g.kind === "event" && g.targetId === event.id) || (g.kind === "company" && g.targetId === event.teamId),
     );
   };
+  /**
+   * Is this sheet's event over? A show on it has ended, or its day has gone
+   * by. Either is the moment "End event" belongs on the row.
+   */
+  const eventOver = (r: RundownSummary): boolean => {
+    if (r.lastEndedAt) return true;
+    if (!r.showDate) return false;
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    return r.showDate < iso;
+  };
   /** Writes the sheets of this event without running it — the `edit` grant. */
   const canEditRow = (event: EventSummary): boolean =>
     canManageRow(event) || (me?.role === "user" && grants.some((g) => g.kind === "edit" && g.targetId === event.id));
@@ -1125,6 +1136,28 @@ export default function AdminPage() {
                       <span style={{ color: "var(--text-3)", marginLeft: 10, fontSize: "var(--fs-sm)" }}>
                         {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
                       </span>
+                      {/* The event is over — a show on it has ended, or its day
+                          has passed — so ending it is the next thing to do, and
+                          the button stays here until it is done, then turns
+                          into the way back. */}
+                      {canManageRow(event) && eventOver(r) && !live.get(r.id) && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${r.viewingClosed ? "btn-ghost" : "btn-danger"}`}
+                          style={{ marginLeft: 10 }}
+                          data-tip={
+                            r.viewingClosed
+                              ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
+                              : "The event is done: shut out view-only links and read-only accounts. You keep yours."
+                          }
+                          onClick={() => {
+                            if (!r.viewingClosed && !window.confirm(`End "${r.name}"? View-only links and read-only accounts will stop opening it.`)) return;
+                            void api.setViewing(r.id, !r.viewingClosed).then(reload);
+                          }}
+                        >
+                          {r.viewingClosed ? "Event ended — reopen" : "End event"}
+                        </button>
+                      )}
                     </span>
                     {/* The kind of show belongs to the SHEET: a match day can
                         run netball off one and rugby league off the next, and

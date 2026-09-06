@@ -4595,3 +4595,8 @@ tr.played-row td {
 .tn-btn.tn-played {
   color: var(--positive, #3fb950);
 }
+/* The End event dock sits one step under the result chooser, so a chooser
+   that is still open (a result not yet called) wins the foot of the sheet. */
+.end-event-dock {
+  z-index: 61;
+}

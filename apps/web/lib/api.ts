@@ -13,6 +13,10 @@ export interface RundownSummary {
   description: string | null;
   showDate: string | null;
   archivedAt: string | null;
+  /** View-only links and read-only accounts are shut out — "End event" was pressed. */
+  viewingClosed?: boolean;
+  /** When a show on this sheet last ended, or null if none has. */
+  lastEndedAt?: string | null;
   /**
    * What kind of show THIS sheet is. Null inherits the event's default — one
    * match day can run two sports, so the answer lives here rather than there.

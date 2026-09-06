@@ -1339,16 +1339,33 @@ export function createApiHandler(
             archivedAt: true,
             sport: true,
             sourceName: true,
+            viewingClosedAt: true,
           },
         });
+        // When a show on each sheet last ENDED — the dashboard's sign that the
+        // event is over and "End event" belongs on the row. One query for all.
+        const ended = await db.query.showSessions.findMany({
+          where: eq(schema.showSessions.state, "ended"),
+          columns: { rundownId: true, endedAt: true },
+        });
+        const lastEnded = new Map<string, Date>();
+        for (const s of ended) {
+          if (!s.endedAt) continue;
+          const prev = lastEnded.get(s.rundownId);
+          if (!prev || s.endedAt > prev) lastEnded.set(s.rundownId, s.endedAt);
+        }
         json(
           res,
           200,
           events.map((event) => ({
             ...event,
-            rundowns: rundowns.filter(
-              (r) => r.eventId === event.id && (includeArchived || !r.archivedAt),
-            ),
+            rundowns: rundowns
+              .filter((r) => r.eventId === event.id && (includeArchived || !r.archivedAt))
+              .map(({ viewingClosedAt, ...r }) => ({
+                ...r,
+                viewingClosed: viewingClosedAt != null,
+                lastEndedAt: lastEnded.get(r.id)?.toISOString() ?? null,
+              })),
           })),
         );
         return true;

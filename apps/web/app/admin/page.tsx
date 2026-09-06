@@ -735,6 +735,25 @@ export default function AdminPage() {
   const [peopleFor, setPeopleFor] = useState<string | null>(null);
   /** The event whose dates are being edited inline, opened from its ⋯ menu. */
   const [datesFor, setDatesFor] = useState<string | null>(null);
+  /** The heading's word: the last one this browser saw until /me answers, then the truth. */
+  const [whoLabel, setWhoLabel] = useState("");
+  useEffect(() => {
+    try {
+      setWhoLabel(localStorage.getItem("oc:wholabel") ?? "");
+    } catch {
+      /* no storage */
+    }
+  }, []);
+  useEffect(() => {
+    if (!me) return;
+    const word = me.role === "company" ? (me.teamName ?? "") : me.role === "user" ? (me.name ?? "") : "admin";
+    setWhoLabel(word);
+    try {
+      localStorage.setItem("oc:wholabel", word);
+    } catch {
+      /* no storage */
+    }
+  }, [me]);
   const [people, setPeople] = useState<AccessPerson[] | null>(null);
   useEffect(() => {
     if (!peopleFor) return;
@@ -915,14 +934,18 @@ export default function AdminPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
               <BrandWordmark size={22} />{" "}
-              <span style={{ color: "var(--text-3)", fontWeight: 500 }}>
-                {me?.role === "company" ? me.teamName : me?.role === "user" ? me.name : "admin"}
-              </span>
+              {/* Who this is for. Until the server has answered, the word is
+                  whatever it was last time in this browser — a refresh used
+                  to flash "admin" for the moment before a company's name
+                  arrived. With no memory it shows nothing rather than a guess. */}
+              <span style={{ color: "var(--text-3)", fontWeight: 500 }}>{whoLabel}</span>
             </h1>
             <p style={{ color: "var(--text-2)", margin: "2px 0 0", fontSize: "var(--fs-sm)" }}>
-              {me?.role === "company"
-                ? "Your company's events and shows. Only your own data is visible here."
-                : "Every event company, event, and show. Admin sees everything."}
+              {me == null
+                ? "\u00a0"
+                : me.role === "company"
+                  ? "Your company's events and shows. Only your own data is visible here."
+                  : "Every event company, event, and show. Admin sees everything."}
             </p>
           </div>
           {me?.role === "admin" && <CreateCompanyForm onCreated={reload} />}

@@ -1367,6 +1367,11 @@ export default function AdminPage() {
                   }}
                 />
               ) : null}
+              {/* Adding a show is a different act from the list of shows above
+                  it, and it read as part of the last row. A rule and a small
+                  heading make it its own section of the event. */}
+              <div className="event-add">
+                <div className="event-add-heading">Add a show</div>
               <CreateRundownForm
                 eventId={event.id}
                 templates={templates}
@@ -1384,6 +1389,7 @@ export default function AdminPage() {
                   ) : undefined
                 }
               />
+              </div>
             </section>
                 ))}
                 {group.events.length === 0 && (

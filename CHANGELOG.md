@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **"Add a show" is its own section** at the foot of each event, under a rule with a small heading, rather than reading as part of the last row.
 - **Delete buttons say what they delete.** "Delete event" on an event, "Delete show" in a show's menu, "Delete company" as before.
 - **Sheet rows on the dashboard: one shape, one button, one menu.** Each row is the team images, the name with a quiet line of chips under it (the kind of show, which you click to change; the date; Live, Event ended or archived when they apply), then Open show and a ⋯ menu. Timer, Prompter, End event or Reopen, Edit content, Read-only view, Copy view link, Update import, Rename, Duplicate, Archive and Delete show live in the menu. The event header follows the same rule, with Delete event at the bottom of its menu. Nothing moves as the window changes; on a phone the two buttons sit under the name.
 - **Tidier dashboard headers.** An event's People, Rename, Dates, Event location and Archive now sit in one ⋯ menu; so do a company's Rename, Logo, Copy token and Rotate token. Delete stays visible on its own. Dates still opens the inline date picker.

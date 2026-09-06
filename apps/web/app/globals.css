@@ -4680,3 +4680,16 @@ tr.played-row td {
   color: var(--warn, #f5b83d);
   border-color: color-mix(in srgb, var(--warn, #f5b83d) 50%, transparent);
 }
+/* The "add a show" section at the foot of an event: its own thing, under a rule. */
+.event-add {
+  margin: 10px 6px 0;
+  padding: 10px 8px 4px;
+  border-top: 1px solid var(--border);
+}
+.event-add-heading {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}

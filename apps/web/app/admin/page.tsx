@@ -1117,23 +1117,17 @@ export default function AdminPage() {
                   </span>
                 </div>
               )}
+              {/* Each sheet's row is a fixed shape, whatever the width: images |
+                  name block | actions. It was one wrapping flex line of eleven
+                  things, and every width found a different place to break it —
+                  the End event button once landed in the middle of the title.
+                  The name block holds the title, the status line and the kind
+                  of show; the actions are one group that never breaks apart, and
+                  drop under the name as a whole below tablet width. */}
               <ul style={{ listStyle: "none", padding: "0 6px", margin: "6px 0 0" }}>
                 {event.rundowns.map((r) => (
-                  <li
-                    key={r.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      // 14px on the right, not 10: the sheet's last control
-                      // then finishes on the same line as the event's and the
-                      // company's above it, instead of 4px outside them.
-                      padding: "9px 14px 9px 10px",
-                      borderTop: "1px solid var(--border-subtle)",
-                      flexWrap: "wrap",
-                      opacity: r.archivedAt ? 0.55 : 1,
-                    }}
-                  >
+                  <li key={r.id} className="sheet-row" style={{ opacity: r.archivedAt ? 0.55 : 1 }}>
+                    <div className="sr-images">
                     <ImageSlot
                       value={r.homeImage}
                       hint="Home team — this show's first team"
@@ -1144,11 +1138,15 @@ export default function AdminPage() {
                       hint="Away team — this show's second team"
                       onChange={(img) => void api.patchRundown(r.id, { awayImage: img }).then(reload)}
                     />
-                    <span style={{ flex: 1, minWidth: 180 }}>
-                      <strong style={{ fontWeight: 600 }}>{r.name}</strong>
-                      {r.archivedAt && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}
-                      <LiveChip session={live.get(r.id)} />
-                      <span style={{ color: "var(--text-3)", marginLeft: 10, fontSize: "var(--fs-sm)" }}>
+                    </div>
+                    <div className="sr-main">
+                      <div className="sr-title">
+                        <strong style={{ fontWeight: 600 }}>{r.name}</strong>
+                        {r.archivedAt && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}
+                        <LiveChip session={live.get(r.id)} />
+                      </div>
+                      <div className="sr-meta">
+                      <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
                         {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
                       </span>
                       {/* The event is over — a show on it has ended, or its day
@@ -1159,7 +1157,6 @@ export default function AdminPage() {
                         <button
                           type="button"
                           className={`btn btn-sm ${r.viewingClosed ? "btn-ghost" : "btn-danger"}`}
-                          style={{ marginLeft: 10 }}
                           data-tip={
                             r.viewingClosed
                               ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
@@ -1173,21 +1170,23 @@ export default function AdminPage() {
                           {r.viewingClosed ? "Event ended — reopen" : "End event"}
                         </button>
                       )}
-                    </span>
-                    {/* The kind of show belongs to the SHEET: a match day can
-                        run netball off one and rugby league off the next, and
-                        they do not end the same way. */}
-                    {canManageRow(event) && (
-                      <span className="hide-mobile">
-                        <EventTypeSelect
-                          compact
-                          custom={customTypes}
-                          value={r.sport ?? event.sport}
-                          placeholder="Kind of show…"
-                          onChange={(v) => void api.patchRundown(r.id, { sport: v }).then(reload)}
-                        />
-                      </span>
-                    )}
+                      </div>
+                      {/* The kind of show belongs to the SHEET: a match day can
+                          run netball off one and rugby league off the next, and
+                          they do not end the same way. */}
+                      {canManageRow(event) && (
+                        <div className="sr-kind hide-mobile">
+                          <EventTypeSelect
+                            compact
+                            custom={customTypes}
+                            value={r.sport ?? event.sport}
+                            placeholder="Kind of show…"
+                            onChange={(v) => void api.patchRundown(r.id, { sport: v }).then(reload)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="sr-actions">
                     {/* One button, decided by YOUR access: managers open the
                         console; view-only access opens the read-only view.
                         The other surfaces live in the ⋯ menu. */}
@@ -1338,6 +1337,7 @@ export default function AdminPage() {
                       </div>
                     </MobileActions>
                     )}
+                  </div>
                   </li>
                 ))}
                 {event.rundowns.length === 0 && (

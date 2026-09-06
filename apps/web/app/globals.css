@@ -4600,3 +4600,63 @@ tr.played-row td {
 .end-event-dock {
   z-index: 61;
 }
+
+/* ── A sheet's row on the dashboard ─────────────────────────────────────────
+   images | name block | actions. Three areas that keep their places; only
+   the actions move, and they move as one group. */
+.sheet-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "images main actions";
+  gap: 6px 14px;
+  align-items: start;
+  padding: 9px 14px 9px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.sheet-row .sr-images {
+  grid-area: images;
+  display: flex;
+  gap: 8px;
+}
+.sheet-row .sr-main {
+  grid-area: main;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sheet-row .sr-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sheet-row .sr-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sheet-row .sr-kind {
+  max-width: 380px;
+}
+.sheet-row .sr-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .sheet-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "images main"
+      "actions actions";
+  }
+  .sheet-row .sr-actions {
+    flex-wrap: wrap;
+  }
+}

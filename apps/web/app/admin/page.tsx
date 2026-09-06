@@ -611,6 +611,8 @@ function DangerButton({
           });
         }}
       >
+        {/* The same leading spacer every menu item has, so the label lines up. */}
+        {asMenuItem && <span className="check" />}
         {armed ? confirmLabel : label}
       </button>
       {error && (

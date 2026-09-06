@@ -1149,33 +1149,12 @@ export default function AdminPage() {
                       <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
                         {r.description ?? ""} {r.showDate ? `· ${r.showDate}` : ""}
                       </span>
-                      {/* The event is over — a show on it has ended, or its day
-                          has passed — so ending it is the next thing to do, and
-                          the button stays here until it is done, then turns
-                          into the way back. */}
-                      {canManageRow(event) && eventOver(r) && (
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${r.viewingClosed ? "btn-ghost" : "btn-danger"}`}
-                          data-tip={
-                            r.viewingClosed
-                              ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
-                              : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
-                          }
-                          onClick={() => {
-                            if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
-                            void api.setViewing(r.id, !r.viewingClosed).then(reload);
-                          }}
-                        >
-                          {r.viewingClosed ? "Event ended — reopen" : "End event"}
-                        </button>
-                      )}
                       </div>
                       {/* The kind of show belongs to the SHEET: a match day can
                           run netball off one and rugby league off the next, and
                           they do not end the same way. */}
                       {canManageRow(event) && (
-                        <div className="sr-kind hide-mobile">
+                        <div className="sr-kind">
                           <EventTypeSelect
                             compact
                             custom={customTypes}
@@ -1224,10 +1203,32 @@ export default function AdminPage() {
                         ["prompter", "Script prompter — large scrolling script that follows the caller"],
                       ] as const
                     ).map(([view, hint]) => (
-                      <Link key={view} href={`/${view}/${r.id}`} className="chip" style={{ textDecoration: "none" }} data-tip={hint}>
+                      <Link key={view} href={`/${view}/${r.id}`} className="btn btn-sm" style={{ textDecoration: "none" }} data-tip={hint}>
                         {view}
                       </Link>
                     ))}
+                    {/* The event is over — a show on it has ended, or its day
+                        has passed — so ending it is the next thing to do, and
+                        the button stays here until it is done, then turns into
+                        the way back. One of the row's actions, sized like them. */}
+                    {canManageRow(event) && eventOver(r) && (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        data-tip={
+                          r.viewingClosed
+                            ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
+                            : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
+                        }
+                        onClick={() => {
+                          if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
+                          void api.setViewing(r.id, !r.viewingClosed).then(reload);
+                        }}
+                      >
+                        {r.viewingClosed ? "Event ended — reopen" : "End event"}
+                      </button>
+                    )}
+
                     {canManageRow(event) && (
                     <span className="hide-mobile">
                       <Dropdown label="⋯" className="btn btn-sm btn-ghost">

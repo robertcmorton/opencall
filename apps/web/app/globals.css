@@ -4641,6 +4641,13 @@ tr.played-row td {
 .sheet-row .sr-kind {
   max-width: 380px;
 }
+/* The select fits its box: at phone width its own natural size ran 120px past the screen. */
+.sheet-row .sr-kind select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
 .sheet-row .sr-actions {
   grid-area: actions;
   display: flex;
@@ -4658,5 +4665,8 @@ tr.played-row td {
   }
   .sheet-row .sr-actions {
     flex-wrap: wrap;
+  }
+  .sheet-row .sr-kind {
+    max-width: none;
   }
 }

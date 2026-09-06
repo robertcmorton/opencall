@@ -482,8 +482,12 @@ input.inline-edit {
 }
 .menu-sep {
   height: 1px;
-  background: var(--border-subtle);
-  margin: 5px 4px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+/* A danger item armed for its second press says so in the row itself. */
+.menu-item.menu-item-danger.is-armed {
+  background: var(--over-soft);
 }
 .menu-heading {
   color: var(--text-3);

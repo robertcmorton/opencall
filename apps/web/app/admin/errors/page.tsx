@@ -45,7 +45,7 @@ export default function AdminErrorsPage() {
             </p>
           </header>
           {me != null && me.role !== "admin" ? (
-            <div className="panel" style={{ color: "var(--text-2)" }}>Admins only.</div>
+            <div className="panel" style={{ color: "var(--text-2)" }}>System Administrators only.</div>
           ) : (
             <ErrorLogPanel onClose={() => router.push("/admin")} />
           )}

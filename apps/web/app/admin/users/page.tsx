@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
               tokens and passwords, which is a different and larger thing. */}
           {me != null && me.role !== "admin" && me.role !== "company" && !me.canManage ? (
             <div className="panel" style={{ color: "var(--text-2)" }}>
-              You do not administer anybody. Ask whoever runs your company to give you access.
+              You do not manage anyone here. Ask whoever runs your company to give you access.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>

@@ -3196,7 +3196,7 @@ export function RundownEditor({
   const saveAsTemplate = (): void => {
     const name = window.prompt("Template name", `${meta.name} template`);
     if (!name) return;
-    void api.saveTemplate({ rundownId, name }).then(() => window.alert(`Saved template "${name}".`));
+    void api.saveTemplate({ rundownId, name }).then(() => window.alert(`Template "${name}" saved.`));
   };
 
   const onDragEnd = (event: DragEndEvent): void => {
@@ -3899,7 +3899,7 @@ export function RundownEditor({
               <button
                 type="button"
                 className={`btn btn-sm ${rowRecord.durationMuted ? "is-on" : ""}`}
-                data-tip="Exclude this duration from the running-order math"
+                data-tip="Leave this duration out of the running order"
                 onClick={() => setRowField(rowRecord.id, "durationMuted", !rowRecord.durationMuted)}
               >
                 Mute
@@ -4395,7 +4395,7 @@ export function RundownEditor({
               the row of clocks so the eye can skip them until something goes
               red, which is the only time they matter. */}
           <div className="header-dots hide-mobile">
-            <span className={`status-dot ${connected ? "ok" : ""}`}>doc</span>
+            <span className={`status-dot ${connected ? "ok" : ""}`}>sheet</span>
             <span className={`status-dot ${channel.connected ? "ok" : ""}`}>show</span>
           </div>
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />
@@ -4471,7 +4471,7 @@ export function RundownEditor({
             data-tip="Add rows and redo changes while the show is running"
             onClick={() => setEditTools((v) => !v)}
           >
-            {editTools ? "✕ Editing" : "✎ Edit sheet"}
+            {editTools ? "✕ Editing" : "✎ Edit run sheet"}
           </button>
         )}
         {canEditContent && (!showLive || editTools) && (
@@ -5012,7 +5012,7 @@ export function RundownEditor({
               Strike
             </button>
             {!showLive && (
-            <Dropdown label="Win / lose / draw rows…" className="btn btn-sm">
+            <Dropdown label="Result rows…" className="btn btn-sm">
               <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
                 These rows only play for one game result. Pick which one they belong to — at full time you choose the
                 real result with the buttons at the top, and the rest skip themselves. Imports usually set this for you.
@@ -5981,7 +5981,7 @@ export function RundownEditor({
         ) : synced ? (
           <div className="empty">
             <div className="glyph">◴</div>
-            <div>Empty rundown — add your first row above.</div>
+            <div>Empty run sheet — add your first row above.</div>
           </div>
         ) : (
           <div className="empty">

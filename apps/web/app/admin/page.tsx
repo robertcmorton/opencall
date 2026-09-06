@@ -173,7 +173,7 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
         <strong>Company created</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          Its showcaller token is below. It is shown once — copy it somewhere safe before closing this.
+          Its access token is below. It is shown once — copy it somewhere safe before closing this.
         </span>
         <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
           {token}
@@ -412,11 +412,11 @@ function CreateRundownForm({
       }}
     >
       {leading && <div style={{ flexBasis: "100%", marginBottom: 2 }}>{leading}</div>}
-      <input className="input" placeholder="New rundown name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input" placeholder="Show name" value={name} onChange={(e) => setName(e.target.value)} />
       {templates.length > 0 && (
         <select
           className="input"
-          data-tip="Start the new rundown empty, or copy a saved template"
+          data-tip="Start the new show empty, or copy a saved template"
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
         >
@@ -1025,7 +1025,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             className="menu-item"
-                            data-tip="Copy this company's showcaller credential"
+                            data-tip="Copy this company's access token"
                             onClick={() => void navigator.clipboard.writeText(group.companyToken!)}
                           >
                             <span className="check" />
@@ -1034,12 +1034,12 @@ export default function AdminPage() {
                         )}
                         <button type="button" className="menu-item" onClick={rotate}>
                           <span className="check" />
-                          Rotate token
+                          New token…
                         </button>
                       </Dropdown>
                       <DangerButton
                         label="Delete company"
-                        confirmLabel={`Delete company + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
+                        confirmLabel={`Delete this company and its ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
                         onConfirm={() => api.deleteCompany(group.id).then(reload)}
                       />
                     </>
@@ -1108,7 +1108,7 @@ export default function AdminPage() {
                                       <DangerButton
                               asMenuItem
                       label="Delete event"
-                      confirmLabel="Delete event + run sheets?"
+                      confirmLabel="Delete this event and its shows?"
                       onConfirm={() => api.deleteEvent(event.id).then(reload)}
                     />
                 </Dropdown>
@@ -1131,7 +1131,7 @@ export default function AdminPage() {
                   {people == null ? (
                     <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Looking…</span>
                   ) : people.length === 0 ? (
-                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Nobody but the administrator.</span>
+                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Only the System Administrator.</span>
                   ) : (
                     <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0, display: "grid", gap: 3, fontSize: "var(--fs-sm)" }}>
                       {people.map((p) => (
@@ -1261,9 +1261,9 @@ export default function AdminPage() {
                           href={`/edit/${r.id}`}
                           className="btn btn-sm btn-primary"
                           style={{ textDecoration: "none" }}
-                          data-tip="Edit the sheet — your access writes the sheets of this event but never runs the show"
+                          data-tip="Edit the run sheet — your access changes the sheets of this event but never runs the show"
                         >
-                          Edit sheet
+                          Edit run sheet
                         </Link>
                       ) : (
                         <Link
@@ -1307,7 +1307,7 @@ export default function AdminPage() {
                             )}
                             <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Edit the sheet with no transport controls — safe while preparing content">
                               <span className="check" />
-                              Edit content
+                              Edit run sheet
                             </Link>
                             <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Read-only: follows the live show, nothing can be changed">
                               <span className="check" />
@@ -1316,25 +1316,25 @@ export default function AdminPage() {
                             <button
                               type="button"
                               className="menu-item"
-                              data-tip="Copy a URL that opens this rundown read-only — for camera operators and crew"
+                              data-tip="Copy a link that opens this run sheet read-only — for camera operators and crew"
                               onClick={() =>
                                 void copyViewOnlyLink(r.id).then((url) =>
-                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this rundown live.`),
+                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this show live.`),
                                 )
                               }
                             >
                               <span className="check" />
-                              Copy view link
+                              Copy view-only link
                             </button>
                             <div className="menu-sep" />
                             <button
                               type="button"
                               className="menu-item"
-                              data-tip="Re-import from the stored run sheet with the latest import quality — links and codes keep working"
+                              data-tip="Read the stored file again with the latest import rules — links and codes keep working"
                               onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
                             >
                               <span className="check" />
-                              Update import…
+                              Re-import file…
                             </button>
                             <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)}>
                               <span className="check" />
@@ -1356,7 +1356,7 @@ export default function AdminPage() {
                                                           <DangerButton
                               asMenuItem
                                 label="Delete show"
-                                confirmLabel="Really delete this show?"
+                                confirmLabel="Delete this show?"
                                 onConfirm={() => api.deleteRundown(r.id).then(reload)}
                               />
                           </>
@@ -1367,7 +1367,7 @@ export default function AdminPage() {
                 ))}
                 {event.rundowns.length === 0 && (
                   <li style={{ padding: "8px 10px", color: "var(--text-3)", fontSize: "var(--fs-sm)", borderTop: "1px solid var(--border-subtle)" }}>
-                    No rundowns yet.
+                    No shows yet.
                   </li>
                 )}
               </ul>
@@ -1409,7 +1409,7 @@ export default function AdminPage() {
                     <button
                       type="button"
                       className="btn btn-import"
-                      data-tip="Create a rundown from an XLSX, CSV, or PDF run sheet"
+                      data-tip="Create a show from an XLSX, CSV or PDF run sheet"
                       onClick={() => setImportFor({ eventId: event.id })}
                     >
                       ⤒ Import run sheet…

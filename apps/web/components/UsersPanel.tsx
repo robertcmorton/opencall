@@ -104,7 +104,7 @@ export function UsersPanel({
           )}
           <div>
             <button className="btn btn-primary btn-sm" onClick={create} disabled={!name.trim() || (grants.length === 0 && !pending)}>
-              Create user & issue token
+              Create user and issue token
             </button>
           </div>
         </div>
@@ -151,7 +151,7 @@ export function UsersPanel({
                 })
               }
             >
-              Rotate
+              New token
             </button>
             <button
               className="btn btn-sm btn-ghost"

@@ -190,7 +190,7 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
             className="field-label"
             data-tip="Words as they appear on your run sheets. The chooser appears in the last 30 seconds of the item before the endings — this stops it appearing before the match has reached the period where a result is possible at all."
           >
-            No result before (optional)
+            Hold the result chooser until (optional)
           </label>
           <input
             className="input"

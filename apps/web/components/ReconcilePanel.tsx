@@ -82,7 +82,7 @@ export function ReconcilePanel({
     return (
       <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <strong>✓ Timings reconciled</strong>
+          <strong>✓ Timings agree</strong>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1 }}>
             Every anchored time now agrees with the durations between them
             {ignored.length > 0 && ", apart from the holds you have said are deliberate"}.

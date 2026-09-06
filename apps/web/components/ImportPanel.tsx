@@ -611,8 +611,8 @@ export function ImportPanel({
 
       {autoLoaded && grid && (
         <div style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          Re-read the stored sheet <strong>{autoLoaded}</strong> with the current pipeline — review below, then
-          update. Or drop a newer file via “Different file”.
+          Read the stored file <strong>{autoLoaded}</strong> again with the latest import rules — review below, then
+          update. Or drop a newer file with Different file.
         </div>
       )}
 
@@ -666,7 +666,7 @@ export function ImportPanel({
           {faults.length > 0 && (
             <div className="panel import-faults">
               <strong style={{ fontSize: "var(--fs-sm)" }}>
-                This does not look like a run sheet has been read correctly
+                This file may not have been read correctly
               </strong>
               <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
                 {faults.map((f) => (
@@ -681,7 +681,7 @@ export function ImportPanel({
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
             {!replaceRundown && (
               <div>
-                <label className="field-label">Rundown name</label>
+                <label className="field-label">Show name</label>
                 <input
                   className={"input " + (tried && !name.trim() ? "field-missing" : "")}
                   value={name}

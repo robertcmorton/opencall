@@ -64,9 +64,8 @@ export default function AccountPage() {
       </div>
 
       <div className="panel" style={{ display: "grid", gap: 6 }}>
-        <strong>Who I am</strong>
         <div style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          {me.role === "user" ? `${me.name}${me.email ? ` · ${me.email}` : ""}` : me.role === "company" ? me.teamName : me.role === "admin" ? "Server administrator" : "—"}
+          {me.role === "user" ? `${me.name}${me.email ? ` · ${me.email}` : ""}` : me.role === "company" ? me.teamName : me.role === "admin" ? "System Administrator" : "—"}
         </div>
         <div style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>{access}</div>
       </div>

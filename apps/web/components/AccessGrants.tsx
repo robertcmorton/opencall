@@ -108,7 +108,7 @@ export function GrantChips({
           <button
             className="btn btn-sm btn-ghost"
             style={{ marginLeft: 6, height: 18, padding: "0 4px" }}
-            data-tip="Take this away"
+            data-tip="Remove this access"
             onClick={() => onRemove(g)}
           >
             ✕

@@ -285,7 +285,7 @@ export function JoinCodesPanel({
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
             <strong style={{ color: "var(--warn)" }}>No longer working</strong>
             <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)", marginBottom: 6 }}>
-              Caller and editor codes have been withdrawn. Anyone holding one is told to sign in. Revoke them to tidy up.
+              Showcaller and Producer codes have been withdrawn. Anyone holding one is told to sign in. Revoke them to tidy up.
             </span>
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               {withdrawn.map((c) => (
@@ -304,7 +304,7 @@ export function JoinCodesPanel({
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
           <strong>Who can open this sheet with an account</strong>
           {people.length === 0 ? (
-            <span style={{ display: "block", color: "var(--text-3)" }}>Only the administrator.</span>
+            <span style={{ display: "block", color: "var(--text-3)" }}>Only the System Administrator.</span>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               {people.map((p) => (
@@ -361,7 +361,7 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   return (
     <button
       className={`btn btn-sm ${armed ? "btn-danger is-on" : ""}`}
-      data-tip="Replace this rundown's content with this version (a 'Before restore' snapshot is saved first)"
+      data-tip="Replace this run sheet's content with this version (a 'Before restore' snapshot is saved first)"
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -428,7 +428,7 @@ export function HistoryPanel({ rundownId, onClose }: { rundownId: string; onClos
               <RestoreHereButton snapshotId={s.id} />
               <button
                 className="btn btn-sm"
-                data-tip="Copy this version into a NEW rundown, leaving the current one untouched"
+                data-tip="Copy this version into a new show, leaving this one untouched"
                 onClick={() =>
                   void api
                     .restoreSnapshot(s.id)

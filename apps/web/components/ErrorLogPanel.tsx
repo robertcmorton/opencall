@@ -66,7 +66,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
 
       {failed && (
         <p style={{ color: "var(--over)", fontSize: "var(--fs-sm)", margin: "10px 0 0" }}>
-          Couldn’t load the error log — is the sync server reachable (and are you admin)?
+          Couldn’t load the error log — is the sync server reachable (and are you a System Administrator)?
         </p>
       )}
       {rows != null && rows.length === 0 && !failed && (

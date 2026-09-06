@@ -118,7 +118,7 @@ export default function Landing() {
           <BrandWordmark size={32} />
         </h1>
         <p style={{ color: "var(--text-2)", margin: "6px 0 0" }}>
-          Rundowns, show calling, and companion screens for live events.
+          One run sheet that calls the show — every screen follows, and the night stays on time.
         </p>
       </div>
 
@@ -184,7 +184,7 @@ export default function Landing() {
           {loginBusy ? "Signing in…" : "Sign in"}
         </button>
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
-          Accounts are created by your admin. No password yet? Your personal access token works in the box above.
+          Accounts are created by your System Administrator. No password yet? Your personal access token works in the box above.
         </p>
       </form>
 

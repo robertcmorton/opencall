@@ -1565,6 +1565,11 @@ kbd {
 .sidenav-section {
   margin-bottom: 10px;
 }
+/* Sections read as separate things: a rule between them, as in the ⋯ menus. */
+.sidenav-section + .sidenav-section {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
 .sidenav .menu-item {
   font-size: var(--fs-sm);
 }

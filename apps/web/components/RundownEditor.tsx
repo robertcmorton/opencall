@@ -3937,6 +3937,23 @@ export function RundownEditor({
 
   const settings = (
     <>
+      <SideNavSection heading="Views">
+        {/* Two companion screens, not three. The follower screen showed the
+            current item, a countdown and the next one — which is the timer's
+            job with more context, so the timer now carries the item before and
+            after and the follower has gone. One fewer thing to explain to a
+            crew, and one fewer screen to be looking at the wrong one of. */}
+        {(["timer", "prompter"] as const).map((view) => (
+          <a
+            key={view}
+            className="menu-item"
+            href={`/${view}/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
+          >
+            <span className="check" />
+            {view[0]!.toUpperCase() + view.slice(1)}
+          </a>
+        ))}
+      </SideNavSection>
       {/* Only worth showing on a sheet that HAS alternate endings — on a
           corporate day it is a setting for something that never happens. */}
       {outcomeGames.length > 0 && (
@@ -3961,23 +3978,6 @@ export function RundownEditor({
           </button>
         </SideNavSection>
       )}
-      <SideNavSection heading="Views">
-        {/* Two companion screens, not three. The follower screen showed the
-            current item, a countdown and the next one — which is the timer's
-            job with more context, so the timer now carries the item before and
-            after and the follower has gone. One fewer thing to explain to a
-            crew, and one fewer screen to be looking at the wrong one of. */}
-        {(["timer", "prompter"] as const).map((view) => (
-          <a
-            key={view}
-            className="menu-item"
-            href={`/${view}/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
-          >
-            <span className="check" />
-            {view[0]!.toUpperCase() + view.slice(1)}
-          </a>
-        ))}
-      </SideNavSection>
       <SideNavSection heading="Output">
         <button type="button" className="menu-item" onClick={exportPdf}>
           <span className="check" />
@@ -4004,19 +4004,6 @@ export function RundownEditor({
           dead "End event" is a bad thing to put in front of a crew member. */}
       {isShow && mayDrive && (
         <SideNavSection heading="Show settings">
-          <button
-            type="button"
-            className={`menu-item ${viewingClosed ? "" : "menu-item-danger"}`}
-            data-tip={
-              viewingClosed
-                ? "Let view-only links and read-only accounts open this sheet again"
-                : "The event is done: view-only links and read-only accounts stop opening this sheet. You keep yours, and you can reopen it from here."
-            }
-            onClick={() => setViewing(!viewingClosed)}
-          >
-            <span className={`check ${viewingClosed ? "on" : ""}`} />
-            {viewingClosed ? "Event ended — reopen" : "End event"}
-          </button>
           <button type="button" className="menu-item" onClick={saveAsTemplate}>
             <span className="check" />
             Save as template
@@ -4034,6 +4021,23 @@ export function RundownEditor({
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "join" ? null : "join")}>
             <span className="check" />
             View-only links
+          </button>
+          {/* Last, behind a rule, like Delete in the dashboard menus: the one
+              item here that changes the night, kept away from the ones that
+              only open a panel. */}
+          <div className="menu-sep" />
+          <button
+            type="button"
+            className={`menu-item ${viewingClosed ? "" : "menu-item-danger"}`}
+            data-tip={
+              viewingClosed
+                ? "Let view-only links and read-only accounts open this sheet again"
+                : "The event is done: the show stops if it is running, and view-only links and read-only accounts stop opening this sheet. You keep yours, and you can reopen it from here."
+            }
+            onClick={() => setViewing(!viewingClosed)}
+          >
+            <span className="check" />
+            {viewingClosed ? "Reopen to viewers" : "End event"}
           </button>
         </SideNavSection>
       )}

@@ -3183,7 +3183,7 @@ export function RundownEditor({
     if (
       closed &&
       !window.confirm(
-        "End this event?\n\nView-only links and read-only accounts will stop opening this run sheet. You and anyone who can edit it keep their access, and you can reopen it from here.",
+        "End this event?\n\nThe show stops if it is running. View-only links and read-only accounts will stop opening this run sheet. You and anyone who can edit it keep their access, and you can reopen it from here.",
       )
     )
       return;
@@ -5716,7 +5716,7 @@ export function RundownEditor({
             <span className="od-hint">
               {viewingClosed
                 ? "View-only links and read-only accounts are shut out. Reopen if somebody still needs the sheet."
-                : "Ending the event shuts out view-only links and read-only accounts. You and anyone who can edit keep your access."}
+                : "Ending the event stops the show if it is running and shuts out view-only links and read-only accounts. You and anyone who can edit keep your access."}
             </span>
           </span>
           <button type="button" className={`btn btn-sm ${viewingClosed ? "" : "btn-danger"}`} onClick={() => setViewing(!viewingClosed)}>

@@ -225,7 +225,16 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 const docServer = createDocServer(dbHandle);
 
 // HTTP: JSON API for the web app.
-const handleApi = createApiHandler(dbHandle, docServer);
+const handleApi = createApiHandler(dbHandle, docServer, {
+  // "End event" from the sheet or the dashboard: the show stops with it.
+  stopShow: async (rundownId) => {
+    const machine = await showStore.get(rundownId);
+    const result = machine.apply("stop", undefined, Date.now());
+    if (typeof result === "string") return; // not live: nothing to stop
+    broadcast(rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
+    showStore.persist(rundownId, result, "stop");
+  },
+});
 const httpServer = createServer(async (req, res) => {
   try {
     const handled = await handleApi(req, res);

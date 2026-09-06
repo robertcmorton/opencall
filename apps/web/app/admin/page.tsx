@@ -1140,7 +1140,7 @@ export default function AdminPage() {
                           has passed — so ending it is the next thing to do, and
                           the button stays here until it is done, then turns
                           into the way back. */}
-                      {canManageRow(event) && eventOver(r) && !live.get(r.id) && (
+                      {canManageRow(event) && eventOver(r) && (
                         <button
                           type="button"
                           className={`btn btn-sm ${r.viewingClosed ? "btn-ghost" : "btn-danger"}`}
@@ -1148,10 +1148,10 @@ export default function AdminPage() {
                           data-tip={
                             r.viewingClosed
                               ? "View-only links and read-only accounts are shut out. Press to let them open this sheet again."
-                              : "The event is done: shut out view-only links and read-only accounts. You keep yours."
+                              : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
                           }
                           onClick={() => {
-                            if (!r.viewingClosed && !window.confirm(`End "${r.name}"? View-only links and read-only accounts will stop opening it.`)) return;
+                            if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
                             void api.setViewing(r.id, !r.viewingClosed).then(reload);
                           }}
                         >

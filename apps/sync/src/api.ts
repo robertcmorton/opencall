@@ -157,6 +157,8 @@ export function createApiHandler(
   handle: DbHandle,
   /** The live doc server, so in-place restore can kick stale connections. */
   docServer?: { closeConnections: (documentName?: string) => void; documents: Map<string, unknown> },
+  /** Ways into the show channel the API has no handle on itself. */
+  hooks: { stopShow?: (rundownId: string) => Promise<void> } = {},
 ) {
   const { db } = handle;
 
@@ -1882,6 +1884,10 @@ export function createApiHandler(
         if (!(await requireEditor(rundownId))) return true;
         const body = await readJson(req);
         const closed = (body as { closed?: unknown }).closed !== false;
+        // Ending the event ends the show with it. "The event is over" and "the
+        // show is still running" cannot both be true, and a show left running
+        // on a closed sheet is the stray session the dashboard nags about.
+        if (closed) await hooks.stopShow?.(rundownId);
         await db
           .update(schema.rundowns)
           .set({ viewingClosedAt: closed ? new Date() : null, updatedAt: new Date() })
@@ -2119,9 +2125,40 @@ export function createApiHandler(
         // record kept for the showcaller's own eyes — it is not a credential.
         const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",")[0]?.trim();
         const ip = forwarded || req.socket.remoteAddress || null;
-        const existing = await db.query.shareViews.findFirst({
+        let existing = await db.query.shareViews.findFirst({
           where: and(eq(schema.shareViews.shareTokenId, resolved.tokenId), eq(schema.shareViews.deviceId, deviceId)),
         });
+        /**
+         * A device id the server has not seen is not always a new device.
+         * Safari in Private Browsing throws its storage away, so the same
+         * Mac minted a fresh id on every visit and appeared twice in "who has
+         * it open" within one minute; two tabs opened together do the same.
+         * When everything else about the visit matches a row seen in the
+         * last ten minutes — the link, the name, the browser, the screen, the
+         * address — it is that row, and the new id is adopted onto it rather
+         * than a second person invented.
+         */
+        if (!existing) {
+          const recent = new Date(Date.now() - 10 * 60_000);
+          const candidates = await db.query.shareViews.findMany({
+            where: eq(schema.shareViews.shareTokenId, resolved.tokenId),
+            orderBy: [desc(schema.shareViews.lastSeenAt)],
+            limit: 20,
+          });
+          const twin = candidates.find(
+            (t) =>
+              t.lastSeenAt >= recent &&
+              t.name === name &&
+              t.ip === ip &&
+              t.browser === str(body.browser, 60) &&
+              t.os === str(body.os, 40) &&
+              t.screen === str(body.screen, 20),
+          );
+          if (twin) {
+            await db.update(schema.shareViews).set({ deviceId }).where(eq(schema.shareViews.id, twin.id));
+            existing = { ...twin, deviceId };
+          }
+        }
         // Roles are sent every time the viewer changes them, so a null here
         // means "not mentioned" and must not wipe what they already said.
         const roles = body.roles === undefined ? undefined : str(Array.isArray(body.roles) ? body.roles.join(", ") : body.roles, 120);

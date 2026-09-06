@@ -735,25 +735,6 @@ export default function AdminPage() {
   const [peopleFor, setPeopleFor] = useState<string | null>(null);
   /** The event whose dates are being edited inline, opened from its ⋯ menu. */
   const [datesFor, setDatesFor] = useState<string | null>(null);
-  /** The heading's word: the last one this browser saw until /me answers, then the truth. */
-  const [whoLabel, setWhoLabel] = useState("");
-  useEffect(() => {
-    try {
-      setWhoLabel(localStorage.getItem("oc:wholabel") ?? "");
-    } catch {
-      /* no storage */
-    }
-  }, []);
-  useEffect(() => {
-    if (!me) return;
-    const word = me.role === "company" ? (me.teamName ?? "") : me.role === "user" ? (me.name ?? "") : "admin";
-    setWhoLabel(word);
-    try {
-      localStorage.setItem("oc:wholabel", word);
-    } catch {
-      /* no storage */
-    }
-  }, [me]);
   const [people, setPeople] = useState<AccessPerson[] | null>(null);
   useEffect(() => {
     if (!peopleFor) return;
@@ -776,6 +757,25 @@ export default function AdminPage() {
     canManage?: boolean;
     grants?: { kind: string; targetId: string }[];
   } | null>(null);
+  /** The heading's word: the last one this browser saw until /me answers, then the truth. */
+  const [whoLabel, setWhoLabel] = useState("");
+  useEffect(() => {
+    try {
+      setWhoLabel(localStorage.getItem("oc:wholabel") ?? "");
+    } catch {
+      /* no storage */
+    }
+  }, []);
+  useEffect(() => {
+    if (!me) return;
+    const word = me.role === "company" ? (me.teamName ?? "") : me.role === "user" ? (me.name ?? "") : "admin";
+    setWhoLabel(word);
+    try {
+      localStorage.setItem("oc:wholabel", word);
+    } catch {
+      /* no storage */
+    }
+  }, [me]);
   const [showArchived, setShowArchived] = useState(false);
   const [companies, setCompanies] = useState<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>([]);
   /** Kinds of show this company added for itself, offered beside the built-ins. */

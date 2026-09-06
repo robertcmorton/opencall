@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **Tidier dashboard headers.** An event's People, Rename, Dates, Event location and Archive now sit in one ⋯ menu; so do a company's Rename, Logo, Copy token and Rotate token. Delete stays visible on its own. Dates still opens the inline date picker.
 - **Who can open what, at every level.** Access is given at the server, a company or an event, so each level now has its own list of names. The company: Users & access, as before. The event: a People button on the dashboard's event header, listing everyone whose access reaches it, what they can do (runs the show, edits the sheets, views) and where the access comes from. The sheet: the View-only links panel now starts with the accounts that can open it, above the join-code viewers. The company's own token is listed as a way in too.
 - **End event stops the show.** Pressing End event on a sheet or on the dashboard now stops a show that is still running, then shuts out the view-only links and read-only accounts. The dashboard offers it on a sheet whose day has passed even if a show was left running on it.
 - **"Who has it open" no longer counts one person twice.** Safari's Private Browsing forgets the id the app leaves in the browser, so the same Mac appeared as two viewers a minute apart. A visit that matches a recent one on everything else now updates that row.

@@ -449,17 +449,26 @@ function CreateRundownForm({
 function DatesEditor({
   event,
   onSaved,
+  autoOpen = false,
+  onClose,
 }: {
   event: { id: string; startDate: string; endDate: string };
   onSaved: () => void;
+  /** Opened from a menu item rather than its own button: starts open, and renders nothing once closed. */
+  autoOpen?: boolean;
+  onClose?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
+  const close = () => {
+    setOpen(false);
+    onClose?.();
+  };
   const [start, setStart] = useState(event.startDate);
   const [end, setEnd] = useState(event.endDate);
   const [error, setError] = useState<string | null>(null);
 
   if (!open)
-    return (
+    return autoOpen ? null : (
       <button className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>
         Dates…
       </button>
@@ -501,7 +510,7 @@ function DatesEditor({
           void api
             .patchEvent(event.id, { startDate: start, endDate: end })
             .then(() => {
-              setOpen(false);
+              close();
               setError(null);
               onSaved();
             })
@@ -510,7 +519,7 @@ function DatesEditor({
       >
         Save
       </button>
-      <button className="btn btn-sm btn-ghost" onClick={() => setOpen(false)}>
+      <button className="btn btn-sm btn-ghost" onClick={close}>
         ✕
       </button>
       {error && <span style={{ color: "var(--over)", fontSize: "var(--fs-xs)" }}>{error}</span>}
@@ -717,6 +726,8 @@ export default function AdminPage() {
   const [importFor, setImportFor] = useState<{ eventId: string; replace?: { id: string; name: string } } | null>(null);
   /** The event whose people list is open, and the list itself once it lands. */
   const [peopleFor, setPeopleFor] = useState<string | null>(null);
+  /** The event whose dates are being edited inline, opened from its ⋯ menu. */
+  const [datesFor, setDatesFor] = useState<string | null>(null);
   const [people, setPeople] = useState<AccessPerson[] | null>(null);
   useEffect(() => {
     if (!peopleFor) return;
@@ -971,41 +982,12 @@ export default function AdminPage() {
                     });
                   return (
                     <>
-                      <span className="hide-mobile" style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                        <button className="btn btn-sm btn-ghost" onClick={renameCompany}>
-                          Rename
-                        </button>
-                        <button
-                          className="btn btn-sm btn-ghost"
-                          data-tip="Company logo — shown beside the company and on its events"
-                          onClick={pickLogo}
-                        >
-                          Logo
-                        </button>
-                        {group.companyToken && (
-                          <button
-                            className="btn btn-sm"
-                            data-tip="Copy this company's showcaller credential"
-                            onClick={() => void navigator.clipboard.writeText(group.companyToken!)}
-                          >
-                            Copy token
-                          </button>
-                        )}
-                        <button className="btn btn-sm btn-ghost" onClick={rotate}>
-                          Rotate
-                        </button>
-                        <DangerButton
-                          label="Delete company"
-                          confirmLabel={`Delete company + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
-                          onConfirm={() => api.deleteCompany(group.id).then(reload)}
-                        />
-                      </span>
-                      <MobileActions>
+                      <Dropdown label="⋯" align="right" className="btn btn-sm">
                         <button type="button" className="menu-item" onClick={renameCompany}>
                           <span className="check" />
                           Rename
                         </button>
-                        <button type="button" className="menu-item" onClick={pickLogo}>
+                        <button type="button" className="menu-item" onClick={pickLogo} data-tip="Company logo — shown beside the company and on its events">
                           <span className="check" />
                           Logo…
                         </button>
@@ -1013,6 +995,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             className="menu-item"
+                            data-tip="Copy this company's showcaller credential"
                             onClick={() => void navigator.clipboard.writeText(group.companyToken!)}
                           >
                             <span className="check" />
@@ -1023,15 +1006,12 @@ export default function AdminPage() {
                           <span className="check" />
                           Rotate token
                         </button>
-                        <div className="menu-sep" />
-                        <div data-keep-open style={{ padding: "4px 9px" }}>
-                          <DangerButton
-                            label="Delete company"
-                            confirmLabel={`Delete + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
-                            onConfirm={() => api.deleteCompany(group.id).then(reload)}
-                          />
-                        </div>
-                      </MobileActions>
+                      </Dropdown>
+                      <DangerButton
+                        label="Delete company"
+                        confirmLabel={`Delete company + ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
+                        onConfirm={() => api.deleteCompany(group.id).then(reload)}
+                      />
                     </>
                   );
                 })()}
@@ -1059,50 +1039,30 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <span style={{ flex: 1 }} />
-                <span className="hide-mobile" style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button
-                  className={`btn btn-sm ${peopleFor === event.id ? "is-on" : "btn-ghost"}`}
-                  data-tip="Everyone whose access reaches this event — through the server, the company or the event itself"
-                  onClick={() => setPeopleFor(peopleFor === event.id ? null : event.id)}
-                >
-                  People
-                </button>
-                <button className="btn btn-sm btn-ghost" onClick={() => rename("event", event.id, event.name)}>
-                  Rename
-                </button>
-                <DatesEditor key={`${event.startDate}${event.endDate}`} event={event} onSaved={reload} />
-                {/* The kind of show is set per run sheet, on the sheet's own
-                    row — an event can host two sports at once and one setting
-                    up here could only ever describe one of them. */}
-                <button
-                  className="btn btn-sm btn-ghost"
-                  data-tip="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
-                  onClick={() => setLocEvent(event)}
-                >
-                  Event location…
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => void api.archiveEvent(event.id, !event.archivedAt).then(reload)}
-                >
-                  {event.archivedAt ? "Unarchive" : "Archive"}
-                </button>
-                <DangerButton
-                  label="Delete"
-                  confirmLabel="Delete event + rundowns?"
-                  onConfirm={() => api.deleteEvent(event.id).then(reload)}
-                />
-                </span>
-                <MobileActions>
+                <Dropdown label="⋯" align="right" className="btn btn-sm">
+                  <button
+                    type="button"
+                    className="menu-item"
+                    data-tip="Everyone whose access reaches this event — through the server, the company or the event itself"
+                    onClick={() => setPeopleFor(peopleFor === event.id ? null : event.id)}
+                  >
+                    <span className="check">{peopleFor === event.id && Icon.check}</span>
+                    People
+                  </button>
                   <button type="button" className="menu-item" onClick={() => rename("event", event.id, event.name)}>
                     <span className="check" />
                     Rename
                   </button>
-                  <button type="button" className="menu-item" onClick={() => promptDates(event, reload)}>
+                  <button type="button" className="menu-item" onClick={() => setDatesFor(event.id)}>
                     <span className="check" />
                     Dates…
                   </button>
-                  <button type="button" className="menu-item" onClick={() => setLocEvent(event)}>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    data-tip="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
+                    onClick={() => setLocEvent(event)}
+                  >
                     <span className="check" />
                     Event location…
                   </button>
@@ -1114,15 +1074,24 @@ export default function AdminPage() {
                     <span className="check" />
                     {event.archivedAt ? "Unarchive" : "Archive"}
                   </button>
-                  <div className="menu-sep" />
-                  <div data-keep-open style={{ padding: "4px 9px" }}>
-                    <DangerButton
-                      label="Delete event"
-                      confirmLabel="Delete event + rundowns?"
-                      onConfirm={() => api.deleteEvent(event.id).then(reload)}
-                    />
-                  </div>
-                </MobileActions>
+                </Dropdown>
+                {datesFor === event.id && (
+                  <DatesEditor
+                    key={`${event.startDate}${event.endDate}`}
+                    event={event}
+                    autoOpen
+                    onClose={() => setDatesFor(null)}
+                    onSaved={() => {
+                      setDatesFor(null);
+                      reload();
+                    }}
+                  />
+                )}
+                <DangerButton
+                  label="Delete"
+                  confirmLabel="Delete event + rundowns?"
+                  onConfirm={() => api.deleteEvent(event.id).then(reload)}
+                />
               </div>
               {peopleFor === event.id && (
                 <div className="panel" style={{ margin: "6px 0 10px", padding: "8px 12px" }}>

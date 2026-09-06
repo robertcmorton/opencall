@@ -17,3 +17,6 @@ DEVLOG.md
 Example Cue Sheets/
 apps/web/public/_*
 apps/web/scripts/_*
+
+# Competitor material (vendor-identifying) — never commit
+competitors/

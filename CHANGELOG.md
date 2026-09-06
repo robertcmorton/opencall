@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **Delete buttons say what they delete.** "Delete event" on an event, "Delete run sheet" in a sheet's menu, "Delete company" as before.
 - **Sheet rows on the dashboard keep their shape at every width.** Images, then the name with its status line and kind of show underneath, then the actions as one group on the right: Open show, timer, prompter, End event and the ⋯ menu, all the same size. Below tablet width the actions drop under the name together, and the kind-of-show select stays, full width, on a phone. Nothing jumps between places as the window changes.
 - **Tidier dashboard headers.** An event's People, Rename, Dates, Event location and Archive now sit in one ⋯ menu; so do a company's Rename, Logo, Copy token and Rotate token. Delete stays visible on its own. Dates still opens the inline date picker.
 - **Who can open what, at every level.** Access is given at the server, a company or an event, so each level now has its own list of names. The company: Users & access, as before. The event: a People button on the dashboard's event header, listing everyone whose access reaches it, what they can do (runs the show, edits the sheets, views) and where the access comes from. The sheet: the View-only links panel now starts with the accounts that can open it, above the join-code viewers. The company's own token is listed as a way in too.

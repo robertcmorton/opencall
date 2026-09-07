@@ -1767,7 +1767,15 @@ export function RundownEditor({
   const playedRowIds = useMemo(() => new Set(channel.show?.playedRowIds ?? []), [channel.show?.playedRowIds]);
   const nextRowId = activeRowId ? nextCueRow(rows, activeRowId, playedRowIds) : null;
   /** Take the tick off: the row is offered again in its turn. Reached only through the strip's armed button. */
-  const playAgain = (rowId: string): void => channel.sendCmd("unplay", rowId);
+  /** Rows whose tick a MOVE took off (dragged below the cue). Undo puts the
+   *  row back but cannot reach the tick, which lives on the server, so the
+   *  undo handler below re-ticks these — and only these. A tick taken off by
+   *  hand (Confirm) leaves the list: that was a decision, not a move. */
+  const untickedByMove = useRef<string[]>([]);
+  const playAgain = (rowId: string): void => {
+    untickedByMove.current = untickedByMove.current.filter((id) => id !== rowId);
+    channel.sendCmd("unplay", rowId);
+  };
   const markPlayed = (rowId: string): void => channel.sendCmd("mark_played", rowId);
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
@@ -2018,6 +2026,28 @@ export function RundownEditor({
       undoMgr.destroy();
     };
   }, [undoMgr]);
+  // Undo of a move that unticked a row puts the tick back; redo takes it off
+  // again. The doc has already changed when the event fires and React has not
+  // re-rendered, so the order is read from the array, not from `rows`.
+  const undoTickRef = useRef({ activeRowId, mayDrive, sendCmd: channel.sendCmd });
+  undoTickRef.current = { activeRowId, mayDrive, sendCmd: channel.sendCmd };
+  useEffect(() => {
+    const onPopped = (e: { type: "undo" | "redo" }) => {
+      const { activeRowId, mayDrive, sendCmd } = undoTickRef.current;
+      if (!mayDrive || !activeRowId || untickedByMove.current.length === 0) return;
+      const order = yOrder.toArray();
+      const liveIdx = order.indexOf(activeRowId);
+      if (liveIdx < 0) return;
+      for (const id of untickedByMove.current) {
+        const at = order.indexOf(id);
+        if (at < 0) continue;
+        if (e.type === "undo" && at < liveIdx) sendCmd("mark_played", id);
+        if (e.type === "redo" && at > liveIdx) sendCmd("unplay", id);
+      }
+    };
+    undoMgr.on("stack-item-popped", onPopped);
+    return () => undoMgr.off("stack-item-popped", onPopped);
+  }, [undoMgr, yOrder]);
   useEffect(() => {
     if (!canEditContent) return;
     const onKey = (e: KeyboardEvent) => {
@@ -3222,7 +3252,9 @@ export function RundownEditor({
       // again — that is what moving it forward says — so its tick comes off.
       // Moved but still above the cue, nothing about it has changed.
       if (liveIdx >= 0 && to > liveIdx && playedRowIds.has(String(active.id)) && mayDrive) {
-        channel.sendCmd("unplay", String(active.id));
+        const id = String(active.id);
+        untickedByMove.current = [...untickedByMove.current.filter((x) => x !== id), id].slice(-20);
+        channel.sendCmd("unplay", id);
       }
     });
   };

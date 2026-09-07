@@ -9,7 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Undo puts a played tick back.** Dragging a played row below the cue takes its tick off, because moving it forward says it is to be played again. Undoing that drag put the row back but left it unticked, so it came up as next. Undo now restores the tick and redo takes it off again. A tick removed by hand with Confirm is a decision, not a move, and undo leaves it alone.
+
 ### Added
+- **A list of feature ideas held for later**, in docs/FEATURE-IDEAS.md: twenty-three things seen elsewhere, each described by what it would do for a showcaller here, with a suggested order and a note of what OpenCall already has.
 - **Five names for access, the same everywhere.** System Administrator (the server), Showcaller (runs the show, for one event or every event at a company), Producer (builds the sheets of an event, never presses Start), Crew (follows an event and raises notes), Guest (opens a read-only copy from a link). They appear on the Users page, in the invite menu, in the invitation, and in the People lists on events and sheets. Company-wide view-only access still works for anyone who has it, labelled Viewer, but is no longer offered.
 - **The side bar follows the same rules as the menus.** Views first, then Endings, Output and Show settings; sections divided by a rule; End event last in its section behind a separator, and "Reopen to viewers" once pressed.
 - **"Add a show" is its own section** at the foot of each event, under a rule with a small heading, rather than reading as part of the last row.

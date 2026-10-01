@@ -722,6 +722,23 @@ input.inline-edit {
 .status-dot.ok::before {
   background: var(--under);
 }
+.status-dot.pending::before {
+  background: var(--warn);
+}
+/* Edits waiting for the server. Amber, not red: nothing is lost yet. */
+.unsaved-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---------- Empty states & skeletons ---------- */
 
@@ -949,6 +966,36 @@ tr:hover .row-number {
 }
 .format-bar button:hover {
   background: var(--raised);
+  color: var(--text);
+}
+/* Word count and read time under a cell long enough to be read aloud. */
+.read-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.read-time-words {
+  margin-right: 2px;
+}
+.read-time button,
+.read-time span:not(.read-time-words) {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+}
+.read-time button {
+  cursor: pointer;
+}
+.read-time button:hover {
+  border-color: var(--text-2);
   color: var(--text);
 }
 .format-bar button.is-on {

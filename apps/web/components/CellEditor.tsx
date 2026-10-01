@@ -5,6 +5,7 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import Highlight from "@tiptap/extension-highlight";
+import { CharacterCount } from "@tiptap/extensions";
 import type * as Y from "yjs";
 
 function FormatButton({
@@ -78,16 +79,77 @@ function FormatBar({ editor, suppressBlur }: { editor: Editor; suppressBlur: Mut
   );
 }
 
+/**
+ * Read-aloud speeds, in words a minute. Presenters reading to a crowd or a
+ * camera land around 150; the outer two cover a slow, deliberate read and a
+ * quick one. Shown as times, not speeds — the duration is what gets typed.
+ */
+const READ_SPEEDS = [
+  { label: "Slow", wpm: 130 },
+  { label: "Normal", wpm: 150 },
+  { label: "Fast", wpm: 170 },
+] as const;
+/** Below this a cell is a note, not a script, and a read time is noise. */
+const READ_TIME_MIN_WORDS = 8;
+
+const clock = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+/**
+ * Word count and read time for a cell long enough to be read aloud, with each
+ * time offered as the row's duration where the row has one to set.
+ */
+function ReadTime({ editor, onUseReadTime }: { editor: Editor; onUseReadTime?: (sec: number) => void }) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const update = () => bump((n) => n + 1);
+    editor.on("update", update);
+    return () => {
+      editor.off("update", update);
+    };
+  }, [editor]);
+  const words = (editor.storage.characterCount as { words: () => number }).words();
+  if (words < READ_TIME_MIN_WORDS) return null;
+  return (
+    <div className="read-time" aria-live="polite">
+      <span className="read-time-words">{words} words</span>
+      {READ_SPEEDS.map(({ label, wpm }) => {
+        const sec = Math.max(1, Math.ceil((words / wpm) * 60));
+        return onUseReadTime ? (
+          <button
+            key={label}
+            type="button"
+            data-tip={`Set this item's duration to ${clock(sec)} (${label.toLowerCase()} read, ${wpm} words a minute)`}
+            // mousedown so the cell keeps its focus, like the format buttons
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onUseReadTime(sec);
+            }}
+          >
+            {label} {clock(sec)}
+          </button>
+        ) : (
+          <span key={label}>
+            {label} {clock(sec)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 /** TipTap editor bound to one cell's Y.XmlFragment. Mounted only for the active cell. */
 export function CellEditor({
   fragment,
   onDone,
   chips,
+  onUseReadTime,
 }: {
   fragment: Y.XmlFragment;
   onDone: () => void;
   /** Quick-insert vocabulary (cue-type columns) — free text stays possible. */
   chips?: string[];
+  /** Set the row's duration from the read time; absent where there is none to set. */
+  onUseReadTime?: (sec: number) => void;
 }) {
   const suppressBlur = useRef(false);
   const editor = useEditor({
@@ -99,6 +161,7 @@ export function CellEditor({
       // undo takes back this person's edits and not somebody else's.
       StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
       Highlight,
+      CharacterCount,
       Collaboration.configure({ fragment }),
     ],
     onBlur: () => {
@@ -136,6 +199,7 @@ export function CellEditor({
         </div>
       )}
       <EditorContent editor={editor} />
+      {editor && <ReadTime editor={editor} onUseReadTime={onUseReadTime} />}
     </div>
   );
 }

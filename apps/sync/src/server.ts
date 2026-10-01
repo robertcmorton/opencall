@@ -25,7 +25,7 @@ import type { ProjectedRow } from "@opencall/db/doc";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
-import { createDocServer } from "./doc-server";
+import { createDocServer, docStoresSettled } from "./doc-server";
 import { createApiHandler, logServerError } from "./api";
 import { customEventTypeSpec } from "./eventTypes";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions";
@@ -52,11 +52,12 @@ const PORT_IN_USE = await new Promise<boolean>((resolve) => {
   const probe = createServer();
   probe.once("error", (err: NodeJS.ErrnoException) => resolve(err.code === "EADDRINUSE"));
   probe.once("listening", () => probe.close(() => resolve(false)));
-  probe.listen(Number(process.env.PORT ?? 8787));
+  // The same port the server will listen on: PORT, else SYNC_PORT, else 8787.
+  probe.listen(PORT);
 });
 if (PORT_IN_USE) {
   console.error(
-    `[sync] port ${process.env.PORT ?? 8787} is already in use — another sync server is running.\n` +
+    `[sync] port ${PORT} is already in use — another sync server is running.\n` +
       `       Stop it first (Ctrl-C, or kill -INT <pid>) so it can close its database cleanly.\n` +
       `       Nothing has been opened, so nothing is at risk.`,
   );
@@ -210,8 +211,19 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
      * to avoid. Two seconds is far longer than a handful of row writes and far
      * shorter than any grace period.
      */
+    // Sheet edits wait a moment before they are written (the document
+    // server debounces its saves), so a deploy landing inside that moment
+    // used to drop them. Writing them now is safe whatever their state: each
+    // store checks the sheet's epoch before it touches the row.
+    // During startup the document server may not exist yet; nothing is
+    // pending then, so there is nothing to write.
+    try {
+      docServer.flushPendingStores();
+    } catch {
+      /* not created yet */
+    }
     const settled = Promise.race([
-      showStore.flush(),
+      Promise.all([showStore.flush(), docStoresSettled()]),
       new Promise<void>((resolve) => setTimeout(resolve, 2000).unref?.()),
     ]);
     void settled

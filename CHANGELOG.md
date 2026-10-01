@@ -10,9 +10,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **A deploy no longer drops the last few seconds of sheet edits.** Sheet changes are written to the database a moment after they are made. A server restart landing inside that moment, with somebody still connected, lost them. They are now written before the server stops. Tested by stopping a server 300 ms after an edit: lost before, kept after.
+- **A second sync server could not start while the first was running, even on its own port.** The startup check looked at the wrong port setting. This blocked the access-control test whenever the development server was up.
 - **Undo puts a played tick back.** Dragging a played row below the cue takes its tick off, because moving it forward says it is to be played again. Undoing that drag put the row back but left it unticked, so it came up as next. Undo now restores the tick and redo takes it off again. A tick removed by hand with Confirm is a decision, not a move, and undo leaves it alone.
 
 ### Added
+- **Read time in script cells.** A text cell of eight words or more shows its word count and how long it takes to read aloud at a slow, normal and fast pace. On a timed item, pressing one of those times sets the item's duration to it. One undo puts the old duration back.
+- **Import Apple Numbers files.** A run sheet kept in Numbers can be imported directly, the same way as an Excel file, without exporting it first.
+- **The sheet says when your changes have not reached the server.** After a moment of waiting, an amber "Saving…" appears in the header, or "Offline · changes kept here" when the connection has dropped. It shows on phones too. Closing the tab while changes are still waiting asks first.
 - **A list of feature ideas held for later**, in docs/FEATURE-IDEAS.md: twenty-three things seen elsewhere, each described by what it would do for a showcaller here, with a suggested order and a note of what OpenCall already has.
 - **Five names for access, the same everywhere.** System Administrator (the server), Showcaller (runs the show, for one event or every event at a company), Producer (builds the sheets of an event, never presses Start), Crew (follows an event and raises notes), Guest (opens a read-only copy from a link). They appear on the Users page, in the invite menu, in the invitation, and in the People lists on events and sheets. Company-wide view-only access still works for anyone who has it, labelled Viewer, but is no longer offered.
 - **The side bar follows the same rules as the menus.** Views first, then Endings, Output and Show settings; sections divided by a rule; End event last in its section behind a separator, and "Reopen to viewers" once pressed.

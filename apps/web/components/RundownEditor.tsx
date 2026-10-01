@@ -900,6 +900,29 @@ export function RundownEditor({
   const canEditContent = mode === "show" ? mayEditShow(channel.role) : mayEditSheet ? lock.mine : false;
   const { doc, revision, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode, initialEpoch);
   /**
+   * Edits the server has not confirmed yet, shown only once they have been
+   * waiting a moment. Every keystroke is "unsaved" for a few milliseconds, and
+   * a chip that flickered on each one would teach people to ignore it.
+   */
+  const [unsavedShown, setUnsavedShown] = useState(false);
+  useEffect(() => {
+    if (docStatus.unsynced === 0) {
+      setUnsavedShown(false);
+      return;
+    }
+    const t = window.setTimeout(() => setUnsavedShown(true), 1500);
+    return () => window.clearTimeout(t);
+  }, [docStatus.unsynced]);
+  // Closing the tab with edits still waiting asks first. They are not lost
+  // (this device keeps them and sends them next time the sheet opens here),
+  // but the person closing it may be handing the laptop to somebody else.
+  useEffect(() => {
+    if (docStatus.unsynced === 0) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [docStatus.unsynced]);
+  /**
    * Read the whole document once per CHANGE, not once per render.
    *
    * These two lines used to run bare in the render body, on the reasoning that
@@ -3308,7 +3331,9 @@ export function RundownEditor({
    *  duration and the whole ripple together. */
   const commitDuration = (rowId: string, raw: string): void => {
     const trimmed = raw.trim();
-    const newSec = trimmed === "" ? null : parseDurationShorthand(trimmed);
+    setDuration(rowId, trimmed === "" ? null : parseDurationShorthand(trimmed));
+  };
+  const setDuration = (rowId: string, newSec: number | null): void => {
     const yRow = yRows.get(rowId);
     const oldSec = (yRow?.get("durationSec") as number | null | undefined) ?? null;
     // Muted and skipped rows sit outside the running order — no ripple.
@@ -3823,6 +3848,8 @@ export function RundownEditor({
               fragment={fragment}
               onDone={() => setActiveCell(null)}
               chips={/^(cue\s*)?type$/i.test(column.title) ? CUE_TYPE_CHIPS : undefined}
+              // Only a timed item has a duration to set from its read time.
+              onUseReadTime={rowRecord.type === "cue" ? (sec) => setDuration(rowRecord.id, sec) : undefined}
             />
           </td>
         );
@@ -4427,9 +4454,26 @@ export function RundownEditor({
               the row of clocks so the eye can skip them until something goes
               red, which is the only time they matter. */}
           <div className="header-dots hide-mobile">
-            <span className={`status-dot ${connected ? "ok" : ""}`}>sheet</span>
+            <span className={`status-dot ${unsavedShown ? "pending" : connected ? "ok" : ""}`}>sheet</span>
             <span className={`status-dot ${channel.connected ? "ok" : ""}`}>show</span>
           </div>
+          {/* Shown on every screen size: the dots are hidden on a phone, and a
+              phone on venue wifi is the screen most likely to need this. */}
+          {unsavedShown && (
+            <span
+              className="unsaved-chip"
+              role="status"
+              data-tip={
+                connected
+                  ? "Sending your changes to the server. They are kept on this device until it confirms."
+                  : "Not connected. Your changes are kept on this device and go to the server when it reconnects; leaving this tab now keeps them here for next time."
+              }
+            >
+              {/* No count: while it reconnects the client reports one pending
+                  change whether or not anybody edited anything. */}
+              {connected ? "Saving…" : "Offline · changes kept here"}
+            </span>
+          )}
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />
         </div>
       </header>

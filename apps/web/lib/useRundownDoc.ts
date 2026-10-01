@@ -38,6 +38,12 @@ export interface DocStatus {
    * surface must say what is wrong instead of spinning forever.
    */
   blocked: DocBlock | null;
+  /**
+   * Edits made on this screen that the server has not confirmed yet. Zero
+   * almost all the time; it climbs while the connection is slow or down, and
+   * that is the moment somebody needs telling.
+   */
+  unsynced: number;
 }
 
 /** A refusal the server explained, resolved against who the credential turned out to be. */
@@ -134,6 +140,7 @@ export function useRundownDoc(
   const [lastError, setLastError] = useState<string | null>(null);
   const [tokenKind, setTokenKind] = useState("none");
   const [blocked, setBlocked] = useState<DocBlock | null>(null);
+  const [unsynced, setUnsynced] = useState(0);
   /**
    * How many times the document has changed.
    *
@@ -350,6 +357,7 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
         setConnected(true);
         setPhase("connected, waiting for content");
       },
+      onUnsyncedChanges: ({ number }: { number: number }) => setUnsynced(number),
       onSynced: () => {
         setSynced(true);
         setPhase("synced");
@@ -401,7 +409,7 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
     revision,
     connected,
     synced,
-    status: { connected, synced, phase, authFailed, attempts, epoch, url: DOC_WS_URL, tokenKind, lastError, blocked },
+    status: { connected, synced, phase, authFailed, attempts, epoch, url: DOC_WS_URL, tokenKind, lastError, blocked, unsynced },
   };
 }
 

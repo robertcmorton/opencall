@@ -1,0 +1,16 @@
+#!/bin/sh
+# Every package type-checks before anything leaves this machine.
+#
+# Production deploys straight from main, so a type error pushed is a type
+# error deployed. It takes about a second (TypeScript 7), which is why this
+# runs on every push rather than being left to memory. Skip it once, on
+# purpose, with `git push --no-verify`.
+#
+# Turned on per clone by `pnpm install` (the root "prepare" script points
+# git at this folder).
+echo "pre-push: type-checking every package…"
+if ! pnpm -r --parallel exec tsc --noEmit -p . ; then
+  echo ""
+  echo "pre-push: type errors above — push stopped. Fix them, or push with --no-verify to override."
+  exit 1
+fi

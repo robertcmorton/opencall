@@ -1409,7 +1409,7 @@ export default function AdminPage() {
                     <button
                       type="button"
                       className="btn btn-import"
-                      data-tip="Create a show from an XLSX, CSV or PDF run sheet"
+                      data-tip="Create a show from an Excel, Numbers, CSV or PDF run sheet"
                       onClick={() => setImportFor({ eventId: event.id })}
                     >
                       ⤒ Import run sheet…

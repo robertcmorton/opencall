@@ -61,6 +61,20 @@ export type DocRefusal =
   | "viewing-closed"
   | "code-is-view-only";
 
+/**
+ * Sheet saves still being written. Shutdown waits on these: Hocuspocus can be
+ * told to run its pending saves at once, but it does not hand back anything to
+ * wait on, and closing the database under a save in flight loses it.
+ */
+const storesInFlight = new Set<Promise<unknown>>();
+export async function docStoresSettled(): Promise<void> {
+  // A flush starts its saves on a later tick, through the hook chain, so the
+  // set is still empty at the moment the flush returns. Give it that tick,
+  // then wait until nothing is left — a save can start while another ends.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  while (storesInFlight.size > 0) await Promise.allSettled([...storesInFlight]);
+}
+
 export function createDocServer(handle: DbHandle): Hocuspocus {
   const currentEpoch = async (rundownId: string): Promise<number | null> => {
     const row = await handle.db.query.rundowns.findFirst({
@@ -165,13 +179,21 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
       return document;
     },
     async onStoreDocument({ documentName, document }) {
-      const { rundownId, epoch } = parseDocName(documentName);
-      // A store from a pre-restore document must never clobber the restored doc.
-      if ((await currentEpoch(rundownId)) !== epoch) return;
-      await handle.db
-        .update(schema.rundowns)
-        .set({ doc: Y.encodeStateAsUpdate(document), docUpdatedAt: new Date(), updatedAt: new Date() })
-        .where(eq(schema.rundowns.id, rundownId));
+      const write = (async () => {
+        const { rundownId, epoch } = parseDocName(documentName);
+        // A store from a pre-restore document must never clobber the restored doc.
+        if ((await currentEpoch(rundownId)) !== epoch) return;
+        await handle.db
+          .update(schema.rundowns)
+          .set({ doc: Y.encodeStateAsUpdate(document), docUpdatedAt: new Date(), updatedAt: new Date() })
+          .where(eq(schema.rundowns.id, rundownId));
+      })();
+      storesInFlight.add(write);
+      try {
+        await write;
+      } finally {
+        storesInFlight.delete(write);
+      }
     },
   });
 }

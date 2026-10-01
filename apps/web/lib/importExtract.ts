@@ -36,9 +36,12 @@ export type PdfjsLoader = () => Promise<typeof import("pdfjs-dist")>;
 export async function extractGrid(file: File, pdfjsLoader?: PdfjsLoader): Promise<ExtractedSheet> {
   const name = file.name.toLowerCase();
   if (name.endsWith(".csv")) return { grid: parseCsv(await file.text()), widths: [] };
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) return extractXlsx(await file.arrayBuffer());
+  // Apple Numbers files go through the same reader: it opens them natively,
+  // so a run sheet kept in Numbers needs no export to Excel first.
+  if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".numbers"))
+    return extractXlsx(await file.arrayBuffer());
   if (name.endsWith(".pdf")) return extractPdf(await file.arrayBuffer(), pdfjsLoader);
-  throw new Error("Unsupported file type — use .xlsx, .xls, .csv, or .pdf");
+  throw new Error("Unsupported file type — use .xlsx, .xls, .numbers, .csv, or .pdf");
 }
 
 async function extractXlsx(buffer: ArrayBuffer): Promise<ExtractedSheet> {

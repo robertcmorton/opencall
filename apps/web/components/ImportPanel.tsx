@@ -641,7 +641,7 @@ export function ImportPanel({
         >
           <input
             type="file"
-            accept=".xlsx,.xls,.csv,.pdf"
+            accept=".xlsx,.xls,.numbers,.csv,.pdf"
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

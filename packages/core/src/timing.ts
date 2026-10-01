@@ -1,4 +1,4 @@
-import type { PlanRow, PlanTiming, TimedRow } from "./types";
+import type { PlanRow, PlanTiming, TimedRow } from "./types.ts";
 
 const effDur = (row: PlanRow): number =>
   row.skipped || row.durationMuted || row.durationSec == null ? 0 : Math.max(0, row.durationSec);

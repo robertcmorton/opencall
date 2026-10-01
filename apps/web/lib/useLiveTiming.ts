@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { computeLiveTiming, zoneSecondsOfDay, type LiveShowTiming, type PlanTiming } from "@opencall/core";
 import type { ShowChannel } from "./showChannel";
 
@@ -37,39 +37,44 @@ function shownValues(t: LiveShowTiming | null): string {
 
 export function useLiveTiming(channel: ShowChannel, timing: PlanTiming): LiveShowTiming | null {
   const [live, setLive] = useState<LiveShowTiming | null>(null);
-  const channelRef = useRef(channel);
-  const timingRef = useRef(timing);
   const shownRef = useRef<string>("none");
-  channelRef.current = channel;
-  timingRef.current = timing;
 
-  useEffect(() => {
-    const publish = (next: LiveShowTiming | null) => {
-      const shown = shownValues(next);
-      if (shown === shownRef.current) return;
-      shownRef.current = shown;
-      setLive(next);
-    };
-    const compute = () => {
-      const show = channelRef.current.show;
+  const publish = (next: LiveShowTiming | null) => {
+    const shown = shownValues(next);
+    if (shown === shownRef.current) return;
+    shownRef.current = shown;
+    setLive(next);
+  };
+  /**
+   * Reads the CURRENT channel and timing every time the interval fires.
+   *
+   * An Effect Event, not a dependency: `channel` is a fresh object on every
+   * render, so an interval that depended on it would be torn down and rebuilt
+   * constantly. This used to be done by copying both into refs during render,
+   * which React does not promise to keep working; this is the supported way.
+   */
+  const compute = useEffectEvent(() => {
+      const show = channel.show;
       if (!show || show.state === "idle" || show.state === "ended" || !show.activeRowId || show.activeRowStartedAtMs == null) {
         publish(null);
         return;
       }
       publish(
         computeLiveTiming({
-          timing: timingRef.current,
+          timing,
           activeRowId: show.activeRowId,
           activeRowStartedAtMs: show.activeRowStartedAtMs,
           pausedAccumMs: show.pausedAccumMs,
           pausedAtMs: show.pausedAtMs,
-          nowMs: channelRef.current.serverNow(),
-          toSecondsOfDay: (ms) => zoneSecondsOfDay(ms, channelRef.current.timezone),
+          nowMs: channel.serverNow(),
+          toSecondsOfDay: (ms) => zoneSecondsOfDay(ms, channel.timezone),
         }),
       );
-    };
+  });
+
+  useEffect(() => {
     compute();
-    const timer = setInterval(compute, 250);
+    const timer = setInterval(() => compute(), 250);
     return () => clearInterval(timer);
   }, []);
 

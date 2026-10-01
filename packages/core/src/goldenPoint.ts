@@ -1,4 +1,4 @@
-import { FULL_TIME_WORDS, NOT_EXTRA_TIME, NOT_THE_SIREN } from "./phases";
+import { FULL_TIME_WORDS, NOT_EXTRA_TIME, NOT_THE_SIREN } from "./phases.ts";
 /**
  * Extra time the sheet never mentioned.
  *

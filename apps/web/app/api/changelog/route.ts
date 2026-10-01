@@ -6,7 +6,7 @@ import { parseChangelog } from "@opencall/core";
 /**
  * What changed, for whoever is running the show rather than writing the app.
  *
- * Read from the repository's own CHANGELOG.md at request time rather than
+ * Read from the repository's own CHANGELOG.md when the app is built rather than
  * copied into a second list somewhere. A summary kept beside the real thing
  * is a summary that stops matching it, usually about two releases in, and
  * then it is worse than nothing because people believe it.
@@ -16,7 +16,10 @@ import { parseChangelog } from "@opencall/core";
  * both are tried rather than one being assumed correct and failing silently
  * in whichever case nobody tested.
  */
-export const dynamic = "force-dynamic";
+// Built once per deploy, not read on every request: the changelog only ever
+// changes with a new build, and the build runs in the full checkout, so the
+// file is there to read. Every request after that is served as-is.
+export const dynamic = "force-static";
 
 const CANDIDATES = ["CHANGELOG.md", join("..", "..", "CHANGELOG.md")];
 

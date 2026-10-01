@@ -1,10 +1,10 @@
 import { fileURLToPath } from "node:url";
 import { ulid } from "ulid";
 import { computeTiming, formatDuration, formatTimeOfDay } from "@opencall/core";
-import { createDb } from "./client";
-import { ensureSchema } from "./migrate";
-import { buildRundownDoc, decodeDoc, encodeDoc, projectRundownDoc, type SeedRow } from "./doc";
-import { events, rundowns, teamMembers, teams, users } from "./schema";
+import { createDb } from "./client.ts";
+import { ensureSchema } from "./migrate.ts";
+import { buildRundownDoc, decodeDoc, encodeDoc, projectRundownDoc, type SeedRow } from "./doc.ts";
+import { events, rundowns, teamMembers, teams, users } from "./schema.ts";
 
 const NINE_AM = 9 * 3600;
 

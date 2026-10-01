@@ -1,7 +1,7 @@
 "use client";
 
 import { absoluteNow, computeTiming, firstCueRow, formatDuration, nextCueRow, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
@@ -39,17 +39,15 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
 
   // Live with nothing on air yet: the show is waiting for its first cue, and
   // the wait is worth showing. Ticked once a second, and only in that state.
-  // The channel is read through a ref because it is a fresh object every
+  // An Effect Event reads the current channel: it is a fresh object every
   // render, and an effect depending on it would never settle.
-  const channelRef = useRef(channel);
-  channelRef.current = channel;
   const waiting = isLive && !active;
   const [nowMs, setNowMs] = useState<number | null>(null);
+  const tick = useEffectEvent(() => setNowMs(channel.serverNow()));
   useEffect(() => {
     if (!waiting) return;
-    const tick = () => setNowMs(channelRef.current.serverNow());
     tick();
-    const id = window.setInterval(tick, 1000);
+    const id = window.setInterval(() => tick(), 1000);
     return () => window.clearInterval(id);
   }, [waiting]);
   const starts = timing.rows.map((r) => r.startSec);

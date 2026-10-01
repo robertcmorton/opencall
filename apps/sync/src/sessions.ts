@@ -2,7 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { CmdAction, ShowStatePayload } from "@opencall/protocol";
 import { schema, type DbHandle } from "@opencall/db";
-import { ShowStateMachine } from "./show";
+import { ShowStateMachine } from "./show.ts";
 
 /**
  * Show-state machines with Postgres write-through: every accepted command
@@ -16,7 +16,10 @@ export class PersistentShowStore {
   private loaded = new Set<string>();
   private writeChains = new Map<string, Promise<void>>();
 
-  constructor(private handle: DbHandle) {}
+  private handle: DbHandle;
+  constructor(handle: DbHandle) {
+    this.handle = handle;
+  }
 
   async get(rundownId: string): Promise<ShowStateMachine> {
     let machine = this.machines.get(rundownId);

@@ -1,5 +1,5 @@
-import type { BuiltSheet, ColumnTarget } from "./import";
-import { parseDurationLoose } from "./import";
+import type { BuiltSheet, ColumnTarget } from "./import.ts";
+import { parseDurationLoose } from "./import.ts";
 
 /**
  * Something structurally wrong with what a document became, stated in the

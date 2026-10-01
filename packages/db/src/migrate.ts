@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
-import type { Db } from "./client";
+import type { Db } from "./client.ts";
 
 /**
  * The pre-migration bootstrap DDL (idempotent). Kept ONLY to baseline

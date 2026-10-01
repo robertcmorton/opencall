@@ -1,5 +1,5 @@
-import { parseDurationShorthand, parseTimeOfDay } from "./format";
-import { isExtraTimeRow } from "./phases";
+import { parseDurationShorthand, parseTimeOfDay } from "./format.ts";
+import { isExtraTimeRow } from "./phases.ts";
 
 /**
  * Run-sheet import: turn an extracted text grid (from XLSX/XLS/CSV/PDF) into

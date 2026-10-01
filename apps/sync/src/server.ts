@@ -25,11 +25,11 @@ import type { ProjectedRow } from "@opencall/db/doc";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
-import { createDocServer, docStoresSettled } from "./doc-server";
-import { createApiHandler, logServerError } from "./api";
-import { customEventTypeSpec } from "./eventTypes";
-import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions";
-import * as authMod from "./auth";
+import { createDocServer, docStoresSettled } from "./doc-server.ts";
+import { createApiHandler, logServerError } from "./api.ts";
+import { customEventTypeSpec } from "./eventTypes.ts";
+import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
+import * as authMod from "./auth.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.

@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts",
     "test": "vitest run"
   },
   "dependencies": {

@@ -7,7 +7,7 @@
  * Usage (from repo root). PGLITE_DIR gives the test instance its own database,
  * so the dev server can keep running on the repo's .pglite:
  *   cd apps/sync && PGLITE_DIR=/tmp/matrix.pglite ADMIN_TOKEN=oc_test_admin \
- *     ALLOW_DEV_JOIN=0 SYNC_PORT=8899 npx tsx src/server.ts &
+ *     ALLOW_DEV_JOIN=0 SYNC_PORT=8899 node src/server.ts &
  *   cd apps/web  && ../sync/node_modules/.bin/tsx scripts/auth-matrix.mts
  *
  * Creates its own fixtures (companies/events/users prefixed "Matrix") and

@@ -2,7 +2,7 @@ import { Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
-import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth";
+import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth.ts";
 
 /**
  * Doc names are `<rundownId>@<epoch>`. In-place restore bumps the rundown's

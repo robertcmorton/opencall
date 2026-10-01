@@ -1154,12 +1154,17 @@ kbd {
 /* The live row's progress sweeps the full cell height as a translucent wash
    (inset past the cue rails) with a bright leading edge. */
 .row-progress {
+  /* Colours as variables so the sliding inner layer of a running bar (see
+     .bar-sweep-fill) paints with whatever this variant says. */
+  --fill: rgba(44, 100, 208, 0.42);
+  --edge: var(--accent);
+  --edge-w: 2px;
   position: absolute;
   left: 0;
   top: 3px;
   bottom: 3px;
-  background: rgba(44, 100, 208, 0.42);
-  border-right: 2px solid var(--accent);
+  background: var(--fill);
+  border-right: var(--edge-w) solid var(--edge);
   /* This transition is now only the FALLBACK — a paused row, or one in
      overrun, where there is nothing left to sweep towards. While a row is
      running the fill is driven by the `bar-sweep` animation instead, which
@@ -1176,8 +1181,8 @@ kbd {
   pointer-events: none;
 }
 .row-progress.over {
-  background: rgba(255, 98, 89, 0.28);
-  border-right-color: var(--over);
+  --fill: rgba(255, 98, 89, 0.28);
+  --edge: var(--over);
 }
 /* Outcome branches: rows tagged win / lose / golden point wear a small chip
    in the number column; non-chosen branches skip themselves at full time. */
@@ -1850,27 +1855,51 @@ kbd {
 /* One animation for the whole row, started partway through with a negative
    delay — see `BarFill`. The compositor runs it, so it is smooth at whatever
    the display refreshes at rather than at whatever rate React re-renders. */
+/* A RUNNING BAR MOVES BY TRANSFORM, NEVER BY WIDTH.
+   It used to animate `width`, which made the browser lay the page out again
+   on every frame — measured on the showcaller console with a show running:
+   157 ms of main-thread work a second with the bars moving, 8 ms with them
+   paused, about 95% of everything the page did. The bar box now stays full
+   width and clips; the fill inside slides in from the left, which the
+   compositor does on its own without layout or repaint. */
 @keyframes bar-sweep {
   from {
-    width: 0%;
+    transform: translateX(-100%);
   }
   to {
-    width: 100%;
+    transform: translateX(0);
   }
+}
+/* The box of a running bar: full width, paints nothing itself, clips the
+   fill. !important because the variants above set background and border on
+   selectors of every specificity, and while sweeping none of them may paint. */
+.bar-sweeping {
+  background: none !important;
+  border-right-width: 0 !important;
+  overflow: hidden;
+}
+.bar-sweep-fill {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--fill);
+  border-right: var(--edge-w, 0px) solid var(--edge, transparent);
+  will-change: transform;
 }
 
 .bt-bar > div {
+  --fill: var(--under);
   height: 100%;
-  background: var(--under);
+  background: var(--fill);
   /* Fallback only: a paused or overrunning row, where there is nothing left
      to sweep towards. A running row is drawn by `bar-sweep` — see `BarFill`. */
   transition: width 250ms linear;
 }
 .big-timer.amber .bt-bar > div {
-  background: var(--warn);
+  --fill: var(--warn);
 }
 .big-timer.over .bt-bar > div {
-  background: var(--over);
+  --fill: var(--over);
 }
 
 /* Floats top-centre of the grid (auto margins, not transform — the menu-in
@@ -2029,8 +2058,8 @@ kbd {
    showcaller has looked at it, and if it overruns the presenter is standing
    in the wrong place. Full strength, in the recording red. */
 .row-progress.alongside {
-  background: var(--rec-soft);
-  border-right: 2px solid var(--rec);
+  --fill: var(--rec-soft);
+  --edge: var(--rec);
   opacity: 1;
 }
 /* The row itself carries a hard red edge while it is rolling, so it is visible

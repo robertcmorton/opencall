@@ -1,6 +1,6 @@
 import { drizzle as drizzlePg, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { drizzle as drizzlePglite, type PgliteDatabase } from "drizzle-orm/pglite";
-import * as schema from "./schema";
+import * as schema from "./schema.ts";
 
 export type Db = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
 

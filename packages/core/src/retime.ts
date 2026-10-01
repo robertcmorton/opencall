@@ -1,5 +1,5 @@
-import { computeTiming } from "./timing";
-import type { PlanRow } from "./types";
+import { computeTiming } from "./timing.ts";
+import type { PlanRow } from "./types.ts";
 
 /**
  * Re-timing the sheet when its shape changes: a row struck out, a row moved.

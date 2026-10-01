@@ -106,9 +106,20 @@ export const setActiveJoinCode = (code: string | null): void => {
 };
 
 export class ApiError extends Error {
+  status: number;
+  /**
+   * The whole of what happened: method, path, status and the raw body.
+   *
+   * `message` is written for the person looking at the screen, so it throws
+   * all of that away. Anything diagnosing a fault wants it back — the error
+   * journal, a console, a bug report — and this is where it survives.
+   *
+   * Defaults to `message` so an ApiError thrown by hand is never empty here.
+   */
+  detail: string;
   constructor(
     message: string,
-    public status: number,
+    status: number,
     /**
      * The whole of what happened: method, path, status and the raw body.
      *
@@ -118,9 +129,11 @@ export class ApiError extends Error {
      *
      * Defaults to `message` so an ApiError thrown by hand is never empty here.
      */
-    public detail: string = message,
+    detail: string = message,
   ) {
     super(message);
+    this.status = status;
+    this.detail = detail;
   }
 }
 

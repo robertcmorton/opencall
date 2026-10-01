@@ -20,3 +20,6 @@ apps/web/scripts/_*
 
 # Competitor material (vendor-identifying) — never commit
 competitors/
+
+# vitest browser-mode run artifacts
+apps/web/.vitest/

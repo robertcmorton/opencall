@@ -27,8 +27,8 @@ Sync service variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}` (PORT is Railw
 ## Operational notes
 
 - **Watch paths** mean changes outside `/apps/<service>/**` (e.g. `packages/*`, the root lockfile) do **not** trigger that service's rebuild — push a touch inside the service dir or redeploy manually. Railway's "Redeploy" reuses the *same commit*; it does not pick up new pushes.
-- Deploys use Railway's Railpack builder (tsx runtime), not the repo Dockerfiles; the Dockerfiles remain for self-hosting via `docker-compose.yml`.
-- Railpack takes the Node version from `.node-version` (and `engines.node` in the root `package.json`) and pnpm from the `packageManager` field. Change all three together with the Dockerfiles' `FROM` and `pnpm@` lines.
+- Deploys use Railway's Railpack builder, not the repo Dockerfiles. The sync server runs its TypeScript directly on Node 26 (no tsx), which is why the Node pin below matters: an older Node cannot start it. the Dockerfiles remain for self-hosting via `docker-compose.yml`.
+- Railpack takes the Node version from `.node-version` (and `engines.node`, pinned to `26.x`, in the root `package.json`) and pnpm from the `packageManager` field. Change all three together with the Dockerfiles' `FROM` and `pnpm@` lines.
 - pnpm 12 refuses packages published less than a day ago and runs install scripts only for packages listed under `allowBuilds` in `pnpm-workspace.yaml`. A brand-new release therefore cannot be installed the day it comes out; wait a day rather than adding an exception.
 - Costs: Railway trial credit first, then roughly $5–10/mo for the three services at hobby usage.
 

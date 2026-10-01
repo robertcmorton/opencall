@@ -17,11 +17,11 @@ import {
   teamIdForEvent,
   teamIdForRundown,
   verifyPassword,
-} from "./auth";
+} from "./auth.ts";
 import { serializeCsv } from "@opencall/core";
-import { inviteEmail, mailConfigured, sendMail } from "./mail";
-import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope";
-import { customEventTypes } from "./eventTypes";
+import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
+import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
+import { customEventTypes } from "./eventTypes.ts";
 import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, mayClaim, type EditLock } from "@opencall/core";
 
 /**

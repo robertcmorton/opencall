@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
-import { useCallback, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Activity, useCallback, Fragment, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as Y from "yjs";
 import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
 import { highlightCss, ROW_HIGHLIGHTS } from "../lib/highlights";
@@ -96,6 +96,7 @@ import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
 import { INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
+import { BarFill } from "./BarFill";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -513,83 +514,22 @@ const clampBelowHeader = (scroller: HTMLElement, rowTop: number): number => {
 };
 
 /**
- * Progress-bar fill that only ever animates forwards.
+ * A panel that, once opened, stays mounted while closed.
  *
- * Chrome will start the CSS width transition from the previous fill's value
- * even across a remount, so on a row change the bar visibly receded instead of
- * snapping to zero — the transition is disabled inline whenever the fraction
- * shrinks (and on first paint), which prevents any width transition from
- * starting.
- *
- * `sweep` is the difference between a bar that STEPS and one that MOVES.
- *
- * The numbers behind these bars are published once a second, deliberately:
- * `useLiveTiming` samples four times a second but only re-renders when a
- * value ROUNDED TO WHOLE SECONDS changes, which is what keeps a 3,000-row
- * sheet from rebuilding itself four times a second. That is right for the
- * readouts, which show whole seconds anyway, and wrong for a bar, which is
- * the one thing on screen whose whole job is to be continuous. Interpolating
- * between the steps with a transition was the old answer and it never really
- * worked: too short and the bar lurches then waits, too long and it is always
- * chasing a position it never reaches.
- *
- * So a bar that knows how long the row is does not step at all. It is handed
- * the row's length and how far into it we are, and runs one linear animation
- * for the whole row with a NEGATIVE delay that starts it exactly where it
- * should be. The compositor draws every frame; nothing has to tick. A nudge or
- * a hold changes the numbers, the delay is recomputed, and it re-aims without
- * a visible jump.
+ * Closing used to unmount it, so reopening fetched everything again from
+ * nothing and lost whatever was half-done in it — a note being typed, a
+ * scroll position, a column choice. Hidden through React's Activity instead:
+ * its state is kept, and its effects stop while hidden and run again on
+ * reopening, so anything it loads is fresh. Not mounted at all until first
+ * opened, so a sheet that never shows a panel pays nothing for it.
  */
-function BarFill({
-  frac,
-  className,
-  sweep,
-}: {
-  frac: number;
-  className?: string;
-  /**
-   * Row length and progress in ms, for the continuous form. `key` identifies
-   * the row: while it is unchanged the animation is left strictly alone.
-   */
-  sweep?: { key: string; durationMs: number; elapsedMs: number } | null;
-}) {
-  const prevRef = useRef<number | null>(null);
-  const snap = prevRef.current == null || frac < prevRef.current;
-  useLayoutEffect(() => {
-    prevRef.current = frac;
-  });
-  /**
-   * WORKED OUT ONCE PER ROW, and then left alone.
-   *
-   * Rewriting `animation-delay` restarts the animation from the new offset. So
-   * recomputing this on every render — which happens once a second, when the
-   * timing publishes a new whole second — restarted the sweep once a second,
-   * and each restart re-anchored it a fraction away from where it had got to.
-   * That is a bar that is moving but not smoothly.
-   *
-   * Measured: the alongside bars' animation string never changed and they were
-   * smooth; the active row's shifted by exactly -1000ms every second and it
-   * was not. Same animation, different treatment.
-   *
-   * Nothing here needs updating while a row runs: the animation already
-   * describes the whole row. Only its LENGTH changing — a nudge, extra time —
-   * is a reason to re-aim, and that is in the deps.
-   */
-  const anim = useMemo(
-    () =>
-      sweep && sweep.durationMs > 0 && sweep.elapsedMs < sweep.durationMs
-        ? `bar-sweep ${sweep.durationMs}ms linear ${-sweep.elapsedMs}ms 1 normal both`
-        : null,
-    // `elapsedMs` is deliberately NOT a dependency: it is the starting offset,
-    // read once, and reacting to it is exactly the restart described above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sweep?.key, sweep?.durationMs, sweep == null],
-  );
-  if (anim) {
-    return <div className={className} style={{ width: "100%", transition: "none", animation: anim }} />;
-  }
-  return <div className={className} style={{ width: `${frac * 100}%`, transition: snap ? "none" : undefined }} />;
+function KeepMounted({ open, children }: { open: boolean; children: ReactNode }) {
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
+  if (!opened) return null;
+  return <Activity mode={open ? "visible" : "hidden"}>{children}</Activity>;
 }
+
 
 /**
  * The unmissable clock: fixed centre-top while the show runs. Counts down the
@@ -1225,14 +1165,12 @@ export function RundownEditor({
    * nothing is live.
    */
   const [nowMs, setNowMs] = useState<number | null>(null);
-  // Read through a ref: `channel` is a fresh object every render, so an
-  // interval that depended on it would be torn down and rebuilt constantly.
-  const serverNowRef = useRef(channel.serverNow);
-  serverNowRef.current = channel.serverNow;
+  // An Effect Event: `channel` is a fresh object every render, so an interval
+  // that depended on it would be torn down and rebuilt constantly.
+  const readNow = useEffectEvent(() => setNowMs(channel.serverNow()));
   useEffect(() => {
-    const read = () => setNowMs(serverNowRef.current());
-    read();
-    const id = window.setInterval(read, 15000);
+    readNow();
+    const id = window.setInterval(() => readNow(), 15000);
     return () => window.clearInterval(id);
   }, []);
   // Phones show only the essentials (title/start/duration + the role column);
@@ -1903,7 +1841,7 @@ export function RundownEditor({
    */
   useEffect(() => {
     if (!showLive || activeRowId) return;
-    const id = window.setInterval(() => setNowMs(serverNowRef.current()), 1000);
+    const id = window.setInterval(() => readNow(), 1000);
     return () => window.clearInterval(id);
   }, [showLive, activeRowId]);
 
@@ -2052,11 +1990,8 @@ export function RundownEditor({
   // Undo of a move that unticked a row puts the tick back; redo takes it off
   // again. The doc has already changed when the event fires and React has not
   // re-rendered, so the order is read from the array, not from `rows`.
-  const undoTickRef = useRef({ activeRowId, mayDrive, sendCmd: channel.sendCmd });
-  undoTickRef.current = { activeRowId, mayDrive, sendCmd: channel.sendCmd };
-  useEffect(() => {
-    const onPopped = (e: { type: "undo" | "redo" }) => {
-      const { activeRowId, mayDrive, sendCmd } = undoTickRef.current;
+  const onUndoPopped = useEffectEvent((e: { type: "undo" | "redo" }) => {
+      const sendCmd = channel.sendCmd;
       if (!mayDrive || !activeRowId || untickedByMove.current.length === 0) return;
       const order = yOrder.toArray();
       const liveIdx = order.indexOf(activeRowId);
@@ -2067,10 +2002,12 @@ export function RundownEditor({
         if (e.type === "undo" && at < liveIdx) sendCmd("mark_played", id);
         if (e.type === "redo" && at > liveIdx) sendCmd("unplay", id);
       }
-    };
+  });
+  useEffect(() => {
+    const onPopped = (e: { type: "undo" | "redo" }) => onUndoPopped(e);
     undoMgr.on("stack-item-popped", onPopped);
     return () => undoMgr.off("stack-item-popped", onPopped);
-  }, [undoMgr, yOrder]);
+  }, [undoMgr]);
   useEffect(() => {
     if (!canEditContent) return;
     const onKey = (e: KeyboardEvent) => {
@@ -4816,16 +4753,16 @@ export function RundownEditor({
           </ul>
         </div>
       )}
-      {panel === "history" && (
+      <KeepMounted open={panel === "history"}>
         <div className="no-print">
           <HistoryPanel rundownId={rundownId} onClose={() => setPanel(null)} />
         </div>
-      )}
-      {panel === "join" && (
+      </KeepMounted>
+      <KeepMounted open={panel === "join"}>
         <div className="no-print">
           <JoinCodesPanel rundownId={rundownId} columns={columns} roleColumnKeys={meta.roleColumnKeys} onClose={() => setPanel(null)} />
         </div>
-      )}
+      </KeepMounted>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="grid-wrap">
@@ -5829,7 +5766,7 @@ export function RundownEditor({
         </div>
       )}
 
-      {notesOpen && (
+      <KeepMounted open={notesOpen}>
         <NotesPanel
           notes={rowNotes.notes}
           titleOf={(rowId) => rows.find((r) => r.id === rowId)?.title || null}
@@ -5865,7 +5802,7 @@ export function RundownEditor({
               : undefined
           }
         />
-      )}
+      </KeepMounted>
 
       {/* The docked strip follows the same rule as the hovering one: these are
           live corrections, and CUE is meaningless before anybody has started.

@@ -93,7 +93,10 @@ class Show {
   active: string | null = null;
   readonly played = new Set<string>();
   readonly log: string[] = [];
-  constructor(public rows: SimRow[]) {}
+  rows: SimRow[];
+  constructor(rows: SimRow[]) {
+    this.rows = rows;
+  }
   liveIndex() {
     return this.active ? this.rows.findIndex((r) => r.id === this.active) : -1;
   }

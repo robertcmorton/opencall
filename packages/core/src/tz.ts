@@ -1,4 +1,4 @@
-import { localSecondsOfDay } from "./live";
+import { localSecondsOfDay } from "./live.ts";
 
 /**
  * Event-timezone time model. The EVENT's location decides its IANA timezone,

@@ -1,6 +1,6 @@
-import { OUT_OF_ORDER_SEC } from "./timing";
-import type { PlanTiming } from "./types";
-import { isOpenEndedPeriodRow } from "./goldenPoint";
+import { OUT_OF_ORDER_SEC } from "./timing.ts";
+import type { PlanTiming } from "./types.ts";
+import { isOpenEndedPeriodRow } from "./goldenPoint.ts";
 
 export interface LiveShowInput {
   /** Planned timing for the rundown (computeTiming output). */

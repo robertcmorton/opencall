@@ -1,6 +1,7 @@
 "use client";
 
 import { nextForRole } from "../lib/nextForRole";
+import { readableInk } from "../lib/readableInk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatDuration, zoneSecondsOfDay, type LiveShowTiming, type PlanTiming } from "@opencall/core";
 import type { ProjectedRow, RoleDef } from "@opencall/db/doc";
@@ -57,6 +58,10 @@ const patternOf = (roles: RoleDef[]): { regex: RegExp; byName: Map<string, strin
 };
 
 /** Colour-codes every mention of a known role inside plain cell text. */
+/** Role colour as text, readable in either theme — see `.rb-role` and readableInk. */
+const roleInk = (color: string): React.CSSProperties =>
+  ({ ["--role" as string]: color, ["--role-ink" as string]: readableInk(color) }) as React.CSSProperties;
+
 export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode {
   if (!text || roles.length === 0) return text;
   const { regex, byName } = patternOf(roles);
@@ -74,9 +79,12 @@ export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode 
         key={i}
         // Never broken across lines: a position is read at a glance, and in a
         // narrow WHO column "CREW" was being split into "CRE" and "W".
+        className="role-tag"
+        // Colour comes from the stylesheet so each theme can pick its own:
+        // the bright palette on dark, a darkened ink on light (see readableInk).
         style={{
-          background: `${color}22`,
-          color,
+          ["--role" as string]: color,
+          ["--role-ink" as string]: readableInk(color),
           borderRadius: 3,
           padding: "0 3px",
           fontWeight: 600,
@@ -418,7 +426,7 @@ export function RoleBar({
     return (
       <div className="role-bar on-air no-print" ref={publishHeight}>
         <span className="rb-onair">● YOU’RE ON</span>
-        <span className="rb-role" style={{ color: roleColorFor(onAirRole) }}>{onAirRole}</span>
+        <span className="rb-role" style={roleInk(roleColorFor(onAirRole))}>{onAirRole}</span>
         <span className="rb-title">{activeRow!.title || "—"}</span>
         <span className="rb-count">{display}</span>
       </div>
@@ -445,7 +453,7 @@ export function RoleBar({
   if (!next) {
     return (
       <div className="role-bar no-print" ref={publishHeight}>
-        <span className="rb-role" style={{ color: roleColorFor(myRoles[0]!) }}>{rolesLabel}</span>
+        <span className="rb-role" style={roleInk(roleColorFor(myRoles[0]!))}>{rolesLabel}</span>
         <span className="rb-done">No more items for you in this show.</span>
       </div>
     );
@@ -459,7 +467,7 @@ export function RoleBar({
 
   return (
     <div className={`role-bar no-print ${imminent ? "imminent" : ""}`} ref={publishHeight}>
-      <span className="rb-role" style={{ color: roleColorFor(next.role) }}>{next.role} · next</span>
+      <span className="rb-role" style={roleInk(roleColorFor(next.role))}>{next.role} · next</span>
       <span className="rb-title">{next.row.title || "—"}</span>
       <span className="rb-count">
         {countdown == null ? "—" : countdown <= 0 ? "any moment" : `in ${formatDuration(countdown)}`}

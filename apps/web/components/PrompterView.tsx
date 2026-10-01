@@ -532,7 +532,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   };
 
   return (
-    <main style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
+    <main className="force-dark" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
       {/* What a reader needs without taking their eyes off the words: what
           they just read, how long until they are on, and what follows. Fixed
           at the top because it must never scroll away mid-read. */}
@@ -551,14 +551,14 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>PREVIOUS</div>
-          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6e7681" }}>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>PREVIOUS</div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#8b949e" }}>
             {readTitle(prevRead)}
           </div>
         </div>
 
         <div style={{ textAlign: "center", flexShrink: 0 }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>{cueLabel}</div>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>{cueLabel}</div>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -574,7 +574,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         </div>
 
         <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#555" }}>
+          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>
             NEXT
             {secondsUntilNext == null
               ? ""
@@ -582,7 +582,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                 ? ` · ${formatTimeOfDayWithDay(nextStartSec, use24h)}`
                 : ` · ${formatDuration(Math.round(secondsUntilNext))}`}
           </div>
-          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6e7681" }}>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#8b949e" }}>
             {readTitle(nextRead)}
           </div>
         </div>
@@ -605,7 +605,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#555",
+              color: "#848b95",
               fontSize: "1rem",
               letterSpacing: "0.08em",
               pointerEvents: "none",
@@ -694,11 +694,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
             <section
               key={row.id}
               id={`prompt-${row.id}`}
-              style={{ marginBottom: read ? "1.2em" : "0.35em", opacity: read || isLiveRow ? 1 : 0.55 }}
+              style={{ marginBottom: read ? "1.2em" : "0.35em", opacity: read || isLiveRow ? 1 : 0.85 }}
             >
               <div
                 style={{
-                  color: isLiveRow ? "#2f81f7" : "#555",
+                  color: isLiveRow ? "#2f81f7" : "#8b949e",
                   fontSize: "0.85rem",
                   letterSpacing: "0.1em",
                   marginBottom: read ? 6 : 2,
@@ -710,11 +710,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   {startSec != null ? formatTimeOfDay(startSec, use24h) : "—"}
                 </span>
                 {row.durationSec != null && (
-                  <span style={{ color: "#444" }}>
+                  <span style={{ color: "#8b949e" }}>
                     {Math.floor(row.durationSec / 60)}:{String(row.durationSec % 60).padStart(2, "0")}
                   </span>
                 )}
-                <span style={{ color: "#444" }}>{numberOf(i) ? `#${numberOf(i)}` : ""}</span>
+                <span style={{ color: "#8b949e" }}>{numberOf(i) ? `#${numberOf(i)}` : ""}</span>
                 {isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {activeId === row.id && !isLiveRow && <span style={{ color: "#2f81f7", fontWeight: 700 }}>ON AIR</span>}
                 {nextId === row.id && <span style={{ color: "#d29922", fontWeight: 700 }}>NEXT</span>}
@@ -859,7 +859,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   fontVariantNumeric: "tabular-nums",
                 }
               : autoPace
-                ? { borderColor: "var(--under)", color: "var(--under)", opacity: 0.75 }
+                ? { borderColor: "var(--under)", color: "var(--under)", background: "transparent" }
                 : { borderColor: "var(--warn)", color: "var(--warn)" }
           }
           data-tip={

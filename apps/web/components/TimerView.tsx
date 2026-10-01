@@ -117,6 +117,8 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
 
   return (
     <main
+      // Always black, so always the dark palette — see .force-dark.
+      className="force-dark"
       onDoubleClick={() => void document.documentElement.requestFullscreen?.().catch(() => undefined)}
       style={{
         // Sized to the screen in BOTH axes (min of vw/vh) so nothing ever
@@ -137,7 +139,7 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
       {/* Held back to a whisper: this screen is pointed at a speaker or a
           confidence monitor, where a bright button beside the countdown would
           be a distraction. Still there when somebody looks for it. */}
-      <BackLink style={{ position: "fixed", top: 12, left: 12, opacity: 0.35, zIndex: 5 }} />
+      <BackLink className="btn btn-sm btn-ghost back-quiet" style={{ position: "fixed", top: 12, left: 12, zIndex: 5 }} />
       <div
         style={{
           color: "var(--text-2)",

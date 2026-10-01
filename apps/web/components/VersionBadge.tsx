@@ -66,8 +66,8 @@ export function VersionBadge() {
         font: "inherit",
         fontSize: 11,
         letterSpacing: "0.02em",
+        // --text-3 alone: faded to 75% on top it measured 2.5:1 on light.
         color: "var(--text-3)",
-        opacity: 0.75,
       }}
     >
       {behind && <span className="version-behind" aria-label="A newer version is available" />}

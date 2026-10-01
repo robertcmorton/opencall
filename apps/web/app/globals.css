@@ -11,7 +11,11 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
-:root {
+/* .force-dark: the timer and prompter are always black (they face a
+   presenter or a confidence monitor), so they take the dark palette even on
+   a device set to light. Light greys on that black measured 3.5:1. */
+:root,
+.force-dark {
   /* Native form controls (date calendars, scrollbars) render for dark. */
   color-scheme: dark;
   /* Surfaces (dark) */
@@ -32,17 +36,20 @@ html {
   /* Text */
   --text: #e7eaf0;
   --text-2: #9aa3b2;
-  --text-3: #636d7d;
+  /* Raised to read at AA (4.5:1) on every dark surface: it measured 2.9:1. */
+  --text-3: #8f98a8;
   /* --text-3 set in 10px uppercase measures 3.49:1 on --surface and 3.71:1 on
      --bg; small text needs 4.5:1. Two steps lighter clears it (5.31:1 and
      5.64:1) while staying clearly quieter than --text-2. For the tiny
      letter-spaced labels ONLY — column headings and the readout captions —
      not a general replacement for --text-3, which is fine at larger sizes. */
-  --text-label: #808b9c;
+  --text-label: #8f98a8;
 
   /* Semantic color */
   --accent: #4c8dff;
   --accent-hover: #6ba1ff;
+  --accent-fill: #2a66d4;
+  --accent-fill-hover: #2560cc;
   --accent-soft: rgba(76, 141, 255, 0.14);
   --accent-text: #8ab4ff;
   --under: #3fd68f;          /* on time / under */
@@ -51,7 +58,7 @@ html {
   --over-soft: rgba(255, 98, 89, 0.12);
   --warn: #e8b03c;           /* anchors, amber stretch */
   --warn-soft: rgba(232, 176, 60, 0.12);
-  --live: #e5484d;
+  --live: #ff6369; /* 5.1:1 on its own tint; #e5484d was 4.0 */
   --live-soft: rgba(229, 72, 77, 0.16);
   /* A second track: shot or rung alongside the running order, taking none of
      its time. Violet because every other hue on a row already means something
@@ -127,14 +134,14 @@ html {
   --hl-purple: rgba(167, 139, 250, 0.28);
   --tint-mix: 16%;
   --hairline: rgba(20, 30, 50, 0.2);
-  --text-label: #66707f;
-  --under: #178a52;
-  --under-soft: rgba(23, 138, 82, 0.12);
-  --over: #d33a32;
+  --text-label: #5c6573;
+  --under: #13703f; /* 5.2:1 on its own tint; #178a52 was 3.5 */
+  --under-soft: rgba(19, 112, 63, 0.12);
+  --over: #bf332c; /* 5.2:1; #d33a32 was 4.4 */
   --over-soft: rgba(211, 58, 50, 0.1);
   --warn: #a8730a;
   --warn-soft: rgba(168, 115, 10, 0.12);
-  --live: #d7373f;
+  --live: #b42a31; /* 5.0:1 on its own tint; #d7373f was 3.8 */
   --live-soft: rgba(215, 55, 63, 0.14);
   --rec: #d7373f;
   --rec-soft: rgba(215, 55, 63, 0.18);
@@ -148,8 +155,9 @@ html {
   --border-subtle: #e9ecf1;
   --text: #171c24;
   --text-2: #5a6372;
-  --text-3: #8b93a1;
-  --accent-text: #2f6fe0;
+  /* Raised to read at AA on every light surface: it measured 2.6:1. */
+  --text-3: #5c6573;
+  --accent-text: #2a63cc; /* 5.0:1 on every light surface; was 4.2 */
   --accent-soft: rgba(76, 141, 255, 0.1);
   --shadow-raised: 0 1px 2px rgba(20, 30, 50, 0.07);
   --shadow-overlay: 0 8px 32px rgba(20, 30, 50, 0.16), 0 2px 8px rgba(20, 30, 50, 0.08);
@@ -295,13 +303,15 @@ a {
   flex: none;
 }
 
+/* White text needs a deeper blue than --accent: on #4c8dff it measured
+   3.2:1. --accent-fill is the button's own colour, 5.3:1 with white. */
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   border-color: transparent;
   color: #fff;
 }
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
   border-color: transparent;
 }
 
@@ -750,7 +760,6 @@ input.inline-edit {
 .empty .glyph {
   font-size: 1.6rem;
   margin-bottom: 8px;
-  opacity: 0.7;
 }
 
 .skeleton {
@@ -1705,9 +1714,10 @@ kbd {
      — so the name of the next item read as belonging to the bar rather than
      sitting in its own room. Seven matches what is already underneath. */
   margin-top: 7px;
+  /* No opacity: --text-3 is already the faintest grey that reads, and fading
+     it further took this line to 2.5:1 on light (AA needs 4.5). */
   font-size: 0.58rem;
   color: var(--text-3);
-  opacity: 0.75;
   align-self: stretch;
   text-align: center;
   width: 0;
@@ -1791,8 +1801,23 @@ kbd {
   padding: 10px 18px;
   transition: padding var(--t-med) var(--ease), background var(--t-med) var(--ease);
 }
+/* Role colours as text. The palette is bright for the dark sheet; on light
+   each colour is darkened just enough to read (lib/readableInk.ts measures it
+   to 4.8:1 on every light surface). Bright yellow text on a white page
+   measured 1.4:1 before this. */
+.role-tag {
+  color: var(--role);
+  background: color-mix(in srgb, var(--role) 13%, transparent);
+}
+[data-theme="light"] .role-tag {
+  color: var(--role-ink);
+  background: color-mix(in srgb, var(--role) 14%, transparent);
+}
+[data-theme="light"] .role-bar .rb-role {
+  color: var(--role-ink);
+}
 .role-bar .rb-role {
-  color: #2dd4bf;
+  color: var(--role, #2dd4bf);
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -4537,8 +4562,12 @@ th.col-drop-target {
   color: var(--text-3);
   font-style: italic;
 }
-.type-soon {
-  opacity: 0.55;
+/* Not yet tested. It was faded to 55%, which took its description to 2.3:1
+   on light; set in the secondary grey instead, still clearly second-tier and
+   still readable. */
+.type-soon,
+.type-soon strong {
+  color: var(--text-2);
 }
 
 /* The result was never called and the show has gone past the endings. Louder

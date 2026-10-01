@@ -164,7 +164,7 @@ export const DocProjectionMsg = z.object({
       type: z.enum(["cue", "group", "milestone"]),
       startSec: z.number().nullable(),
       durationSec: z.number().nullable(),
-      cells: z.record(z.string()),
+      cells: z.record(z.string(), z.string()),
     }),
   ),
 });
@@ -172,7 +172,8 @@ export const DocProjectionMsg = z.object({
 export const PresenceMsg = z.object({
   ...envelope,
   t: z.literal("presence"),
-  counts: z.record(Role, z.number().int().nonnegative()),
+  // Partial: only the roles somebody is connected as are counted.
+  counts: z.partialRecord(Role, z.number().int().nonnegative()),
 });
 
 export const HeartbeatMsg = z.object({ ...envelope, t: z.literal("hb") });

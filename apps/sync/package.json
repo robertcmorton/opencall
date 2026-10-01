@@ -15,14 +15,14 @@
     "@opencall/core": "workspace:^",
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",
-    "drizzle-orm": "^0.38.3",
-    "nodemailer": "^9.0.5",
-    "ulid": "^2.3.0",
+    "drizzle-orm": "^0.45.3",
+    "nodemailer": "^10.0.13",
+    "ulid": "^3.0.2",
     "ws": "^8.22.0",
     "yjs": "^13.6.33"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.6.3",
     "@types/nodemailer": "^8.0.2",
     "@types/ws": "^8.18.2",
     "tsx": "^4.23.15",

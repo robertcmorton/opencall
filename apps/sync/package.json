@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hocuspocus/server": "^2.15.2",
+    "@hocuspocus/server": "^4.7.0",
     "@opencall/core": "workspace:^",
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",

@@ -4,9 +4,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
-import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
-import Link from "@tiptap/extension-link";
 import type * as Y from "yjs";
 
 function FormatButton({
@@ -96,10 +94,11 @@ export function CellEditor({
     immediatelyRender: false,
     autofocus: "end",
     extensions: [
-      StarterKit.configure({ history: false }),
-      Underline,
+      // Underline and Link come inside StarterKit from Tiptap 3. Undo/redo
+      // stays off: the collaboration extension keeps the history, so an
+      // undo takes back this person's edits and not somebody else's.
+      StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
       Highlight,
-      Link.configure({ openOnClick: false }),
       Collaboration.configure({ fragment }),
     ],
     onBlur: () => {

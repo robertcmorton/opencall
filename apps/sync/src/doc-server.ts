@@ -1,4 +1,4 @@
-import { Server, type Hocuspocus } from "@hocuspocus/server";
+import { Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
@@ -99,8 +99,8 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
    * editing) at authentication time — worth doing, and not worth guessing at.
    */
 
-  return Server.configure({
-    async onAuthenticate({ documentName, token, connection }) {
+  return new Hocuspocus({
+    async onAuthenticate({ documentName, token, connectionConfig: connection }) {
       const { rundownId, epoch } = parseDocName(documentName);
       const liveEpoch = await currentEpoch(rundownId);
       if (liveEpoch == null) refuse("no-such-rundown", rundownId);

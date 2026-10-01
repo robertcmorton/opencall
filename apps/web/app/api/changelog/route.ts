@@ -23,7 +23,11 @@ const CANDIDATES = ["CHANGELOG.md", join("..", "..", "CHANGELOG.md")];
 export async function GET() {
   for (const path of CANDIDATES) {
     try {
-      const md = await readFile(join(process.cwd(), path), "utf8");
+      // Told not to trace: the path is decided at run time, so the bundler
+      // would otherwise pull the whole repository into the server output.
+      // The deploy runs `next start` from the full checkout, so the file is
+      // there to read without being traced.
+      const md = await readFile(join(/*turbopackIgnore: true*/ process.cwd(), path), "utf8");
       return NextResponse.json({ releases: parseChangelog(md) });
     } catch {
       // Try the next one. Only the last failure is worth reporting.

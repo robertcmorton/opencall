@@ -1,6 +1,6 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import { fileURLToPath } from "node:url";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, type RawData } from "ws";
 import {
   CloseCodes,
   PROTOCOL_VERSION,
@@ -279,11 +279,36 @@ const docWss = new WebSocketServer({
   },
 });
 
+/** Node's upgrade request as the standard Request the document server reads
+ *  its headers and query parameters from. */
+function toFetchRequest(req: IncomingMessage): Request {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (value == null) continue;
+    for (const v of Array.isArray(value) ? value : [value]) headers.append(name, v);
+  }
+  return new Request(`http://${req.headers.host ?? "localhost"}${req.url ?? "/"}`, { headers });
+}
+
+/** A ws frame as bytes, whichever of its three shapes it arrived in. */
+function toBytes(data: RawData): Uint8Array {
+  if (Array.isArray(data)) return new Uint8Array(Buffer.concat(data));
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+}
+
 httpServer.on("upgrade", (req, socket, head) => {
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
   if (pathname === "/doc" || pathname.startsWith("/doc/")) {
     docWss.handleUpgrade(req, socket, head, (ws) => {
-      docServer.handleConnection(ws, req);
+      // The document server no longer listens to the socket itself (from
+      // Hocuspocus 4 it takes any WebSocket-like object), so every frame and
+      // the close are handed over here. Without the close, a phone that drops
+      // off would hold its document open until the timeout found it.
+      const conn = docServer.handleConnection(ws, toFetchRequest(req));
+      ws.on("message", (data) => conn.handleMessage(toBytes(data)));
+      ws.on("close", (code, reason) => conn.handleClose({ code, reason: reason.toString() } as Parameters<typeof conn.handleClose>[0]));
+      ws.on("error", (err) => logServerError(dbHandle, "server", err, { context: { where: "document socket" } }));
     });
   } else {
     wss.handleUpgrade(req, socket, head, (ws) => {

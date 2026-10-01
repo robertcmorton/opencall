@@ -3637,11 +3637,17 @@ th.col-drop-target {
   color: var(--text-2);
   line-height: 1.35;
 }
+/* Flows like text, not a one-row flex box. As inline-flex, every bare piece
+   of text and every role tag was its own flex item on a single line that
+   could not wrap, so on a phone a WHO line of ten roles was squeezed into
+   one-letter slivers ("C U E" stacked down the cell). As text it wraps
+   between tags and words, and each tag stays whole (they are nowrap). */
 .cell-folded .cf-part {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  display: block;
   min-width: 0;
+}
+.cell-folded .cf-part .role-tag {
+  margin: 1px 0;
 }
 .cell-folded .cf-label {
   font-size: 0.6rem;
@@ -3652,10 +3658,7 @@ th.col-drop-target {
   /* Never broken: "NOTES" split across two lines as "NOT/ES" reads as noise
      next to the value it is labelling. */
   white-space: nowrap;
-  flex: 0 0 auto;
-}
-.cell-folded .cf-part > :not(.cf-label) {
-  min-width: 0;
+  margin-right: 4px;
 }
 
 /* The grid fills its container at every size — never wider. Fixed layout is

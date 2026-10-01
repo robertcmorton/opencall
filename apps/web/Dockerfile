@@ -1,6 +1,6 @@
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@12.8.1
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
@@ -14,9 +14,9 @@ ENV NEXT_PUBLIC_SYNC_HTTP_URL=$NEXT_PUBLIC_SYNC_HTTP_URL \
     NEXT_PUBLIC_DOC_WS_URL=$NEXT_PUBLIC_DOC_WS_URL
 RUN pnpm --filter @opencall/web build
 
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@12.8.1
 COPY --from=build /app ./
 ENV NODE_ENV=production
 EXPOSE 3000

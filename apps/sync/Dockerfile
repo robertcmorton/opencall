@@ -1,6 +1,6 @@
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@12.8.1
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages

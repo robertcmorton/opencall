@@ -2,7 +2,10 @@
   "name": "opencall",
   "private": true,
   "version": "0.36.0",
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
@@ -11,7 +14,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "turbo": "^2.11.6",
+    "turbo": "^2.11.0",
     "typescript": "^7.0.2"
   }
 }

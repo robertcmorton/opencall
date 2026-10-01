@@ -121,7 +121,7 @@ Email is optional: `SMTP_HOST` and `SMTP_FROM` (plus `SMTP_PORT`, `SMTP_USER`,
 mail server the invitation is still created and the dashboard hands you the
 link to pass on however you already reach your crew. See `.env.example`.
 
-Requires Node 20+ and pnpm 9+. Reverse-proxy `https://app.example.com` → :3000 and `https://sync.example.com` → :8787 (WebSocket upgrades on).
+Requires Node 26+ and pnpm 12+. Reverse-proxy `https://app.example.com` → :3000 and `https://sync.example.com` → :8787 (WebSocket upgrades on).
 
 ### First run
 

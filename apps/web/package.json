@@ -18,20 +18,20 @@
     "@opencall/core": "workspace:*",
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",
-    "@tiptap/extension-collaboration": "^3.31.4",
-    "@tiptap/extension-highlight": "^3.31.4",
-    "@tiptap/pm": "^3.31.4",
-    "@tiptap/react": "^3.31.4",
-    "@tiptap/starter-kit": "^3.31.4",
+    "@tiptap/extension-collaboration": "^3.31.0",
+    "@tiptap/extension-highlight": "^3.31.0",
+    "@tiptap/pm": "^3.31.0",
+    "@tiptap/react": "^3.31.0",
+    "@tiptap/starter-kit": "^3.31.0",
     "@tiptap/y-tiptap": "^3.0.9",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
-    "next": "^16.3.8",
+    "next": "^16.3.0",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "ulid": "^3.0.2",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.33"
   },
@@ -41,6 +41,6 @@
     "@types/react-dom": "^19.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.0"
   }
 }

@@ -18,14 +18,14 @@
     "drizzle-orm": "^0.38.3",
     "nodemailer": "^9.0.5",
     "ulid": "^2.3.0",
-    "ws": "^8.18.0",
-    "yjs": "^13.6.21"
+    "ws": "^8.22.0",
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "@types/nodemailer": "^8.0.1",
-    "@types/ws": "^8.5.13",
-    "tsx": "^4.19.2",
+    "@types/nodemailer": "^8.0.2",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   }

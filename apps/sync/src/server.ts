@@ -26,7 +26,9 @@ import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
 import { createDocServer, docStoresSettled } from "./doc-server.ts";
-import { createApiHandler, logServerError } from "./api.ts";
+import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
+import { clientIp, ipBucket } from "./clientIp.ts";
+import { consume, release } from "./throttle.ts";
 import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
 import * as authMod from "./auth.ts";
@@ -73,6 +75,9 @@ const dbHandle = await createDb(
 );
 // Fresh databases self-initialize (idempotent DDL).
 await ensureSchema(dbHandle.db);
+// Credentials stored before they were hashed are hashed in place, once. See
+// hashStoredCredentials: everyone signed in stays signed in.
+await authMod.hashStoredCredentials(dbHandle);
 
 interface ClientCtx {
   role: Role;
@@ -109,6 +114,7 @@ const broadcastPresence = (rundownId: string): void => {
 async function resolveAuth(
   auth: { kind: "session"; token: string } | { kind: "join"; code: string } | { kind: "guest"; token: string },
   rundownId: string,
+  ipKey: string,
 ): Promise<{ role: Role; label: string } | null> {
   if (auth.kind === "session") {
     if (auth.token && auth.token === authMod.adminToken()) return { role: "admin", label: "Admin" };
@@ -144,6 +150,11 @@ async function resolveAuth(
     return null;
   }
   if (auth.kind === "join") {
+    // Misses count against the address, as on every other way a code is
+    // tried (see resolveJoinCodeGuarded); a hit is given back.
+    const guessKey = `guess:ip:${ipKey}`;
+    const t = await consume(dbHandle, guessKey, { max: GUESS_PER_IP, windowSec: LOGIN_WINDOW_SEC });
+    if (!t.ok) return null;
     const row = await dbHandle.db.query.shareTokens.findFirst({
       where: and(
         eq(schema.shareTokens.joinCode, auth.code.toUpperCase()),
@@ -152,7 +163,10 @@ async function resolveAuth(
         isNull(schema.shareTokens.revokedAt),
       ),
     });
-    if (row) return { role: row.role as Role, label: row.label || (row.role === "caller" ? "Caller" : "Crew") };
+    if (row) {
+      await release(dbHandle, guessKey);
+      return { role: row.role as Role, label: row.label || (row.role === "caller" ? "Caller" : "Crew") };
+    }
     if (auth.code === "DEV123" && process.env.ALLOW_DEV_JOIN !== "0") return { role: "follower", label: "Crew (dev)" };
     return null;
   }
@@ -255,13 +269,29 @@ const httpServer = createServer(async (req, res) => {
       res.end("not found");
     }
   } catch (err) {
+    // A request that was refused on purpose (too large, malformed) is the
+    // caller's fault and says so; it is not a server error to log.
+    if (err instanceof HttpError) {
+      if (!res.headersSent) {
+        res.statusCode = err.status;
+        res.setHeader("content-type", "application/json");
+      }
+      res.end(JSON.stringify({ error: err.message }));
+      // Stop reading a body we have already refused.
+      if (err.status === 413) req.destroy();
+      return;
+    }
     logServerError(dbHandle, "server", err, { url: `${req.method} ${req.url}` });
     if (!res.headersSent) res.statusCode = 500;
     res.end("server error");
   }
 });
 
-const wss = new WebSocketServer({ noServer: true });
+// Message size caps. The library's default is 100MB per message, which lets
+// any client make the server buffer that much. Show commands are a few
+// hundred bytes; 256KB is generous. A sheet's document can arrive whole on
+// reconnect (measured 1.7MB raw for the largest real sheet), so 16MB.
+const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 /**
  * The document socket compresses; the show-state socket does not.
  *
@@ -285,6 +315,7 @@ const wss = new WebSocketServer({ noServer: true });
  */
 const docWss = new WebSocketServer({
   noServer: true,
+  maxPayload: 16 * 1024 * 1024,
   perMessageDeflate: {
     threshold: 1024,
     concurrencyLimit: 10,
@@ -348,7 +379,7 @@ wss.on("connection", (ws, req) => {
         ws.close(CloseCodes.UNKNOWN_RUNDOWN, "missing rundown");
         return;
       }
-      const resolved = await resolveAuth(msg.auth, rundownId);
+      const resolved = await resolveAuth(msg.auth, rundownId, ipBucket(clientIp(req)));
       if (!resolved) {
         ws.close(CloseCodes.AUTH_FAILED, "invalid credentials");
         return;

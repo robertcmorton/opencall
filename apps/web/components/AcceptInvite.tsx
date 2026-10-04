@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, setAdminToken } from "../lib/api";
 import { BrandWordmark, MissingFields } from "./ui";
+import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
 
 /**
  * Joining, from an invitation.
@@ -38,7 +39,7 @@ export function AcceptInvite({ token }: { token: string }) {
 
   const missing = [
     !name.trim() && "Your name",
-    password.length < 8 && "A password of at least 8 characters",
+    passwordProblem(password, invite?.email) && `A password: ${passwordProblem(password, invite?.email)!.toLowerCase().replace(/\.$/, "")}`,
   ].filter((v) => typeof v === "string") as string[];
 
   if (dead)
@@ -100,11 +101,11 @@ export function AcceptInvite({ token }: { token: string }) {
           <input className="input" value={invite.email} readOnly disabled />
           <label className="field-label">Choose a password</label>
           <input
-            className={"input " + (tried && password.length < 8 ? "field-missing" : "")}
+            className={"input " + (tried && passwordProblem(password, invite?.email) ? "field-missing" : "")}
             type="password"
             value={password}
             autoComplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder={PASSWORD_HINT}
             onChange={(e) => setPassword(e.target.value)}
           />
           {tried && <MissingFields missing={missing} />}

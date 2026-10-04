@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  index,
   boolean,
   customType,
   integer,
@@ -468,3 +469,40 @@ export const rowNotes = pgTable("row_notes", {
   body: text("body"),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+
+/**
+ * Attempt counters for anything that must not be guessed or hammered: sign-in,
+ * join-code lookups, invitation acceptance. One row per key ("login:ip:…",
+ * "login:email:…"), counted in a fixed window by a single atomic statement so
+ * parallel requests cannot slip past a limit. Kept in the database rather than
+ * in memory so a restart (every deploy) does not hand out a fresh budget.
+ * Rows idle for two days are pruned.
+ */
+export const throttles = pgTable("throttles", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+  lastAt: timestamp("last_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Who did what to accounts and access, for when something needs explaining.
+ * Written for sign-ins (and failed ones), password changes, access granted or
+ * taken away, tokens issued, and anything deleted. Never blocks the action it
+ * records. Kept two years; failed sign-ins ninety days.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: id().primaryKey(),
+    at: createdAt(),
+    /** Who acted: a user id, "admin", "company:<id>", or null when unknown. */
+    actor: text("actor"),
+    action: text("action").notNull(),
+    /** What it was done to, e.g. "user:<id>", "event:<id>". */
+    target: text("target"),
+    ip: text("ip"),
+    detail: jsonb("detail"),
+  },
+  (t) => [index("audit_log_at_idx").on(t.at)],
+);

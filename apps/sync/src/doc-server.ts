@@ -2,7 +2,8 @@ import { Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
-import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCode, teamIdForRundown } from "./auth.ts";
+import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCodeGuarded, teamIdForRundown } from "./auth.ts";
+import { clientIp, ipBucket } from "./clientIp.ts";
 
 /**
  * Doc names are `<rundownId>@<epoch>`. In-place restore bumps the rundown's
@@ -114,7 +115,7 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
    */
 
   return new Hocuspocus({
-    async onAuthenticate({ documentName, token, connectionConfig: connection }) {
+    async onAuthenticate({ documentName, token, connectionConfig: connection, request }) {
       const { rundownId, epoch } = parseDocName(documentName);
       const liveEpoch = await currentEpoch(rundownId);
       if (liveEpoch == null) refuse("no-such-rundown", rundownId);
@@ -152,7 +153,7 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
             }
           }
         }
-        const resolved = await resolveJoinCode(handle, token, rundownId);
+        const resolved = await resolveJoinCodeGuarded(handle, token, ipBucket(clientIp({ headers: request.headers })), rundownId);
         if (resolved) {
           // Every code is view-only. Caller and editor codes were withdrawn;
           // one issued before that still resolves so its holder gets told to

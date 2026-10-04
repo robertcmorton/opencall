@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, desc, eq, ne, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
   authContext,
@@ -9,7 +9,10 @@ import {
   canSeeEvent,
   createSession,
   hashPassword,
+  hashToken,
   isOpenAccess,
+  newToken,
+  passwordProblem,
   resolveBearer,
   resolveJoinCode,
   revokeSession,
@@ -20,6 +23,9 @@ import {
 } from "./auth.ts";
 import { serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
+import { clientIp, ipBucket } from "./clientIp.ts";
+import { consume, peek, release, clearStartingWith } from "./throttle.ts";
+import { audit } from "./audit.ts";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
 import { customEventTypes } from "./eventTypes.ts";
 import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, mayClaim, type EditLock } from "@opencall/core";
@@ -101,11 +107,35 @@ setInterval(() => {
   clientErrorBudget = 60;
 }, 60_000).unref();
 
-// Login attempts share a coarse per-process budget to slow brute-forcing.
-let loginBudget = 30;
-setInterval(() => {
-  loginBudget = 30;
-}, 60_000).unref();
+/** An error that already knows its HTTP status and a message fit to show. */
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+/** Ordinary request bodies: far above any form this app sends. */
+export const BODY_MAX = 1_000_000;
+/** Imports carry the original file as base64 (≤ ~12MB decoded, ~16MB encoded). */
+export const IMPORT_BODY_MAX = 24_000_000;
+
+/**
+ * Sign-in limits, as Kitshare sets them for its admins, in a 15-minute window:
+ * - 5 failures for one email from one address;
+ * - 20 failures from one address across all emails;
+ * - past 10 failures for one email from anywhere, each further try waits
+ *   2, 4, 8… seconds, up to 60 — a slowdown, not a lock, so a stranger
+ *   hammering somebody's address can never lock the real person out.
+ * Counted before the password is checked and given back when it was right,
+ * so only failures add up and parallel guesses are counted in full.
+ */
+export const LOGIN_WINDOW_SEC = 15 * 60;
+export const LOGIN_PER_PAIR = 5;
+export const LOGIN_PER_IP = 20;
+export const LOGIN_EMAIL_BACKOFF_AFTER = 10;
+/** Wrong join codes or invitation links from one address before it is refused for a while. */
+export const GUESS_PER_IP = 30;
 
 /**
  * Where the accept link points.
@@ -162,11 +192,39 @@ export function createApiHandler(
 ) {
   const { db } = handle;
 
+  /**
+   * A request body, as JSON, read up to a size limit.
+   *
+   * It had no limit: any caller could stream an unbounded body and the server
+   * would hold all of it in memory before looking at it. Now the read stops
+   * at the limit and answers 413. Imports are the one large thing — the
+   * original file travels with them as base64, up to about 16MB — so those
+   * routes get 24MB and everything else 1MB, which is far above any form.
+   * Malformed JSON answers 400 instead of falling through as a server error.
+   */
   const readJson = async (req: IncomingMessage): Promise<Record<string, unknown>> => {
+    const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    const isImport = (req.method === "POST" && path === "/rundowns") || /^\/rundowns\/[^/]+\/replace-content$/.test(path);
+    const limit = isImport ? IMPORT_BODY_MAX : BODY_MAX;
+    const declared = Number(req.headers["content-length"] ?? 0);
+    if (declared > limit) throw new HttpError(413, "request too large");
     const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    let size = 0;
+    for await (const chunk of req) {
+      size += (chunk as Buffer).length;
+      if (size > limit) throw new HttpError(413, "request too large");
+      chunks.push(chunk as Buffer);
+    }
     const raw = Buffer.concat(chunks).toString("utf8");
-    return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    if (!raw) return {};
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new HttpError(400, "the request body is not valid JSON");
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new HttpError(400, "expected a JSON object");
+    return parsed as Record<string, unknown>;
   };
 
   const json = (res: ServerResponse, status: number, body: unknown): void => {
@@ -187,6 +245,25 @@ export function createApiHandler(
   return async function handleApi(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = new URL(req.url ?? "/", "http://localhost");
     const { pathname } = url;
+    const ip = clientIp(req);
+    const ipKey = ipBucket(ip);
+    /**
+     * A lookup by a secret somebody might be guessing (a join code, an
+     * invitation link). Counted per address before the lookup and given back
+     * when it found something, so only misses add up; past GUESS_PER_IP
+     * misses in 15 minutes the address is refused until the window passes.
+     */
+    const guessing = async <T,>(lookup: () => Promise<T | null | undefined>): Promise<T | null | "throttled"> => {
+      const key = `guess:ip:${ipKey}`;
+      const t = await consume(handle, key, { max: GUESS_PER_IP, windowSec: LOGIN_WINDOW_SEC });
+      if (!t.ok) {
+        res.setHeader("retry-after", String(t.retryAfterSec));
+        return "throttled";
+      }
+      const found = await lookup();
+      if (found) await release(handle, key);
+      return found ?? null;
+    };
     res.setHeader("access-control-allow-origin", "*");
     res.setHeader("access-control-allow-headers", "content-type,authorization,x-join-code");
     res.setHeader("access-control-expose-headers", "x-source-name");
@@ -440,7 +517,11 @@ export function createApiHandler(
     try {
       // ── Landing-page code resolution (public: a valid code IS the credential) ──
       if (req.method === "GET" && /^\/codes\/[^/]+$/.test(pathname)) {
-        const resolved = await resolveJoinCode(handle, pathname.split("/")[2]!);
+        const resolved = await guessing(() => resolveJoinCode(handle, pathname.split("/")[2]!));
+        if (resolved === "throttled") {
+          json(res, 429, { error: "Too many wrong codes — try again in a few minutes." });
+          return true;
+        }
         if (!resolved) {
           json(res, 404, { error: "unknown code" });
           return true;
@@ -570,20 +651,52 @@ export function createApiHandler(
 
       // ── Accounts: password login & sessions ──
       if (req.method === "POST" && pathname === "/auth/login") {
-        if (loginBudget <= 0) {
-          json(res, 429, { error: "too many attempts — wait a minute" });
+        const body = await readJson(req);
+        const email = String(body.email ?? "").trim().toLowerCase().slice(0, 254);
+        const password = String(body.password ?? "").slice(0, 200);
+        const pairKey = `login:pair:${email}|${ipKey}`;
+        const ipLimitKey = `login:ip:${ipKey}`;
+        const emailKey = `login:email:${email}`;
+        const tooMany = (retryAfterSec: number, why: string) => {
+          res.setHeader("retry-after", String(retryAfterSec));
+          json(res, 429, { error: `Too many sign-in attempts — try again in ${retryAfterSec < 90 ? `${retryAfterSec} seconds` : `${Math.ceil(retryAfterSec / 60)} minutes`}.` });
+          audit(handle, { actor: null, action: "login.throttled", target: email ? `email:${email}` : null, ip, detail: { why } });
+        };
+        // Slowdown for an address under attack from anywhere: wait out the
+        // backoff since the last try before another one is even counted.
+        if (email) {
+          const failures = await peek(handle, emailKey, LOGIN_WINDOW_SEC);
+          if (failures >= LOGIN_EMAIL_BACKOFF_AFTER) {
+            const waitSec = Math.min(60, 2 ** (failures - LOGIN_EMAIL_BACKOFF_AFTER + 1));
+            const last = await db.query.throttles.findFirst({ where: eq(schema.throttles.key, emailKey) });
+            const since = last ? (Date.now() - last.lastAt.getTime()) / 1000 : Infinity;
+            if (since < waitSec) {
+              tooMany(Math.ceil(waitSec - since), "email backoff");
+              return true;
+            }
+          }
+        }
+        const counted = await Promise.all([
+          consume(handle, pairKey, { max: LOGIN_PER_PAIR, windowSec: LOGIN_WINDOW_SEC }),
+          consume(handle, ipLimitKey, { max: LOGIN_PER_IP, windowSec: LOGIN_WINDOW_SEC }),
+          email ? consume(handle, emailKey, { max: Number.MAX_SAFE_INTEGER, windowSec: LOGIN_WINDOW_SEC }) : null,
+        ]);
+        const refused = counted.slice(0, 2).find((c) => c && !c.ok);
+        if (refused) {
+          tooMany(refused.retryAfterSec, refused === counted[0] ? "email and address" : "address");
           return true;
         }
-        loginBudget -= 1;
-        const body = await readJson(req);
-        const email = String(body.email ?? "").trim().toLowerCase();
-        const password = String(body.password ?? "");
         const user = email ? await db.query.users.findFirst({ where: eq(schema.users.email, email) }) : null;
-        // One indistinct error for unknown email and wrong password alike.
-        if (!user || !verifyPassword(password, user.passwordHash)) {
+        // One indistinct error for unknown email and wrong password alike, and
+        // the same time taken for both (verifyPassword checks a dummy hash).
+        if (!verifyPassword(password, user?.passwordHash ?? null) || !user) {
+          audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip });
           json(res, 401, { error: "invalid email or password" });
           return true;
         }
+        // Right password: the attempt was not a guess, so it does not count.
+        await Promise.all([release(handle, pairKey), release(handle, ipLimitKey), release(handle, emailKey)]);
+        audit(handle, { actor: user.id, action: "login.ok", target: `user:${user.id}`, ip });
         const session = await createSession(handle, user.id, req.headers["user-agent"]);
         json(res, 200, { token: session.token, expiresAt: session.expiresAt.toISOString(), name: user.name });
         return true;
@@ -606,30 +719,45 @@ export function createApiHandler(
         const next = String(body.next ?? "");
         let userId: string | null = null;
         if (token?.startsWith("ses_")) {
-          const session = await db.query.authSessions.findFirst({ where: eq(schema.authSessions.token, token) });
+          const session = await db.query.authSessions.findFirst({ where: eq(schema.authSessions.token, hashToken(token)) });
           if (session && !session.revokedAt && session.expiresAt >= new Date()) userId = session.userId;
         } else if (token && ctx) {
-          const user = await db.query.users.findFirst({ where: eq(schema.users.accessToken, token) });
+          const user = await db.query.users.findFirst({ where: eq(schema.users.accessToken, hashToken(token)) });
           userId = user?.id ?? null;
         }
         if (!userId) {
           json(res, 401, { error: "sign in first" });
           return true;
         }
-        if (next.length < 8) {
-          json(res, 400, { error: "new password must be at least 8 characters" });
-          return true;
-        }
         const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
-        if (user?.passwordHash && !verifyPassword(current, user.passwordHash)) {
-          json(res, 401, { error: "current password is wrong" });
+        const problem = passwordProblem(next, user?.email);
+        if (problem) {
+          json(res, 400, { error: problem });
           return true;
         }
+        // A borrowed or stolen session must not be able to guess the current
+        // password: ten wrong tries a day, then it is refused until tomorrow.
+        const pwKey = `pwcheck:user:${userId}`;
+        if (user?.passwordHash) {
+          const t = await consume(handle, pwKey, { max: 10, windowSec: 24 * 3600 });
+          if (!t.ok) {
+            res.setHeader("retry-after", String(t.retryAfterSec));
+            json(res, 429, { error: "Too many wrong passwords today — try again tomorrow." });
+            return true;
+          }
+          if (!verifyPassword(current, user.passwordHash)) {
+            audit(handle, { actor: userId, action: "password.change_failed", target: `user:${userId}`, ip });
+            json(res, 401, { error: "current password is wrong" });
+            return true;
+          }
+          await release(handle, pwKey);
+        }
+        audit(handle, { actor: userId, action: "password.changed", target: `user:${userId}`, ip });
         await db.update(schema.users).set({ passwordHash: hashPassword(next) }).where(eq(schema.users.id, userId));
         // Every other session dies with the old password; this one stays.
         if (token?.startsWith("ses_")) {
           await revokeUserSessions(handle, userId);
-          await db.update(schema.authSessions).set({ revokedAt: null }).where(eq(schema.authSessions.token, token));
+          await db.update(schema.authSessions).set({ revokedAt: null }).where(eq(schema.authSessions.token, hashToken(token)));
         } else {
           await revokeUserSessions(handle, userId);
         }
@@ -642,12 +770,16 @@ export function createApiHandler(
         const id = pathname.split("/")[2]!;
         const body = await readJson(req);
         const password = String(body.password ?? "");
-        if (password.length < 8) {
-          json(res, 400, { error: "password must be at least 8 characters" });
+        const target = await db.query.users.findFirst({ where: eq(schema.users.id, id), columns: { email: true } });
+        const problem = passwordProblem(password, target?.email);
+        if (problem) {
+          json(res, 400, { error: problem });
           return true;
         }
         await db.update(schema.users).set({ passwordHash: hashPassword(password) }).where(eq(schema.users.id, id));
         await revokeUserSessions(handle, id); // old sessions die with the old password
+        if (target?.email) await clearStartingWith(handle, `login:email:${target.email}`);
+        audit(handle, { actor: "admin", action: "password.reset_by_admin", target: `user:${id}`, ip });
         json(res, 200, { id });
         return true;
       }
@@ -727,7 +859,8 @@ export function createApiHandler(
             id: u.id,
             name: u.name,
             email: u.email,
-            accessToken: u.accessToken,
+            // Stored hashed, so there is nothing to show — only whether one exists.
+            hasToken: u.accessToken != null,
             hasPassword: u.passwordHash != null,
             grants: grants.filter((g) => g.userId === u.id).map((g) => ({ kind: g.kind, targetId: g.targetId })),
           })),
@@ -858,7 +991,7 @@ export function createApiHandler(
         }
 
         const id = ulid();
-        const token = `inv_${ulid().toLowerCase()}${Math.random().toString(36).slice(2, 10)}`;
+        const token = newToken("inv");
         const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);
         await db.insert(schema.userInvites).values({
           id,
@@ -899,7 +1032,12 @@ export function createApiHandler(
 
       /** What an invitation is for — public, because the holder has no account yet. */
       if (req.method === "GET" && /^\/invites\/[^/]+$/.test(pathname)) {
-        const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, pathname.split("/")[2]!) });
+        const found = await guessing(() => db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, pathname.split("/")[2]!) }));
+        if (found === "throttled") {
+          json(res, 429, { error: "Too many attempts — try again later." });
+          return true;
+        }
+        const row = found;
         if (!row || row.acceptedAt || row.revokedAt || row.expiresAt < new Date()) {
           json(res, 404, { error: "This invitation has expired or already been used." });
           return true;
@@ -917,7 +1055,12 @@ export function createApiHandler(
       /** Accept: a name, a password, and the access the invitation carried. */
       if (req.method === "POST" && /^\/invites\/[^/]+\/accept$/.test(pathname)) {
         const token = pathname.split("/")[2]!;
-        const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, token) });
+        const found = await guessing(() => db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, token) }));
+        if (found === "throttled") {
+          json(res, 429, { error: "Too many attempts — try again later." });
+          return true;
+        }
+        const row = found;
         if (!row || row.acceptedAt || row.revokedAt || row.expiresAt < new Date()) {
           json(res, 404, { error: "This invitation has expired or already been used." });
           return true;
@@ -929,8 +1072,20 @@ export function createApiHandler(
           json(res, 400, { error: "Your name is required" });
           return true;
         }
-        if (password.length < 8) {
-          json(res, 400, { error: "Choose a password of at least 8 characters" });
+        const problem = passwordProblem(password, row.email);
+        if (problem) {
+          json(res, 400, { error: problem });
+          return true;
+        }
+        // Claim the invitation in ONE conditional update, so two tabs (or two
+        // people with the same link) cannot both turn it into an account.
+        const claimed = await db
+          .update(schema.userInvites)
+          .set({ acceptedAt: new Date() })
+          .where(and(eq(schema.userInvites.id, row.id), isNull(schema.userInvites.acceptedAt), isNull(schema.userInvites.revokedAt), gt(schema.userInvites.expiresAt, new Date())))
+          .returning();
+        if (claimed.length === 0) {
+          json(res, 404, { error: "This invitation has expired or already been used." });
           return true;
         }
         const userId = ulid();
@@ -938,15 +1093,15 @@ export function createApiHandler(
           id: userId,
           name: name.slice(0, 80),
           email: row.email,
-          accessToken: `usr_${ulid().toLowerCase()}`,
+          // No personal token: an invited person signs in with their password.
+          accessToken: null,
           passwordHash: hashPassword(password),
         });
+        audit(handle, { actor: userId, action: "invite.accepted", target: `user:${userId}`, ip, detail: { invite: row.id } });
         // Exactly what the invitation carried — accepting cannot ask for more.
         for (const g of row.grants) {
           await db.insert(schema.userGrants).values({ userId, kind: g.kind as never, targetId: g.targetId }).onConflictDoNothing();
         }
-        // Single use.
-        await db.update(schema.userInvites).set({ acceptedAt: new Date() }).where(eq(schema.userInvites.id, row.id));
         const session = await createSession(handle, userId, String(req.headers["user-agent"] ?? ""));
         json(res, 201, { token: session.token, expiresAt: session.expiresAt.toISOString(), name });
         return true;
@@ -961,19 +1116,22 @@ export function createApiHandler(
           return true;
         }
         const id = ulid();
-        const token = `usr_${ulid().toLowerCase()}`;
+        const token = newToken("usr");
         const password = String(body.password ?? "");
-        if (password && password.length < 8) {
-          json(res, 400, { error: "password must be at least 8 characters" });
+        const email = String(body.email ?? "").trim().toLowerCase();
+        const problem = password ? passwordProblem(password, email) : null;
+        if (problem) {
+          json(res, 400, { error: problem });
           return true;
         }
         await db.insert(schema.users).values({
           id,
           name,
           email: String(body.email ?? `${id.toLowerCase()}@local`).trim().toLowerCase() || `${id.toLowerCase()}@local`,
-          accessToken: token,
+          accessToken: hashToken(token),
           passwordHash: password ? hashPassword(password) : null,
         });
+        audit(handle, { actor: "admin", action: "user.created", target: `user:${id}`, ip });
         const grants = Array.isArray(body.grants) ? (body.grants as { kind: string; targetId?: string }[]) : [];
         for (const g of grants) {
           if (!["admin", "company", "event", "view"].includes(g.kind)) continue;
@@ -1082,8 +1240,10 @@ export function createApiHandler(
       if (req.method === "POST" && /^\/users\/[^/]+\/rotate-token$/.test(pathname)) {
         if (!(await requireAdmin())) return true;
         const id = pathname.split("/")[2]!;
-        const token = `usr_${ulid().toLowerCase()}`;
-        await db.update(schema.users).set({ accessToken: token }).where(eq(schema.users.id, id));
+        const token = newToken("usr");
+        await db.update(schema.users).set({ accessToken: hashToken(token) }).where(eq(schema.users.id, id));
+        audit(handle, { actor: "admin", action: "token.user_rotated", target: `user:${id}`, ip });
+        // Shown this once; only its hash is kept.
         json(res, 200, { id, accessToken: token });
         return true;
       }
@@ -1158,7 +1318,8 @@ export function createApiHandler(
           teams.map((t) => ({
             id: t.id,
             name: t.name,
-            companyToken: t.companyToken,
+            // Stored hashed, so there is nothing to show — only whether one exists.
+            hasToken: t.companyToken != null,
             logo: t.logo ?? null,
             eventCount: events.filter((e) => e.teamId === t.id).length,
           })),
@@ -1175,13 +1336,14 @@ export function createApiHandler(
           return true;
         }
         const id = ulid();
-        const token = `co_${ulid().toLowerCase()}`;
+        const token = newToken("co");
         await db.insert(schema.teams).values({
           id,
           name,
           slug: `co-${id.slice(-8).toLowerCase()}`,
-          companyToken: token,
+          companyToken: hashToken(token),
         });
+        audit(handle, { actor: "admin", action: "company.created", target: `team:${id}`, ip });
         json(res, 201, { id, companyToken: token });
         return true;
       }
@@ -1189,8 +1351,10 @@ export function createApiHandler(
       if (req.method === "POST" && /^\/companies\/[^/]+\/rotate-token$/.test(pathname)) {
         if (!(await requireAdmin())) return true;
         const id = pathname.split("/")[2]!;
-        const token = `co_${ulid().toLowerCase()}`;
-        await db.update(schema.teams).set({ companyToken: token }).where(eq(schema.teams.id, id));
+        const token = newToken("co");
+        await db.update(schema.teams).set({ companyToken: hashToken(token) }).where(eq(schema.teams.id, id));
+        audit(handle, { actor: "admin", action: "token.company_rotated", target: `team:${id}`, ip });
+        // Shown this once; only its hash is kept.
         json(res, 200, { id, companyToken: token });
         return true;
       }
@@ -2627,8 +2791,18 @@ export function createApiHandler(
         return true;
       }
     } catch (err) {
+      // A refusal made on purpose (too large, malformed) keeps its status and
+      // its words, and is not a server fault worth logging.
+      if (err instanceof HttpError) {
+        json(res, err.status, { error: err.message });
+        if (err.status === 413) req.destroy();
+        return true;
+      }
+      // Anything else is logged in full here and NOT echoed to the caller:
+      // the raw text of a database or library error can describe the
+      // schema, a query or a file path.
       logServerError(handle, "server", err, { url: `${req.method} ${pathname}` });
-      json(res, 500, { error: String(err) });
+      json(res, 500, { error: "Something went wrong on the server. It has been logged." });
       return true;
     }
     return false;

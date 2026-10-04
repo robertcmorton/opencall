@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type EventSummary } from "../lib/api";
 import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant, withPending } from "./AccessGrants";
 import { Icon } from "./ui";
+import { passwordProblem, PASSWORD_HINT, PASSWORD_MIN } from "@opencall/core";
 
 /**
  * Users & access (admin only): the user database — who has control of what.
@@ -18,7 +19,7 @@ export function UsersPanel({
   events: EventSummary[];
 }) {
   const [users, setUsers] = useState<
-    { id: string; name: string; email: string; accessToken: string | null; hasPassword: boolean; grants: Grant[] }[]
+    { id: string; name: string; email: string; hasToken: boolean; hasPassword: boolean; grants: Grant[] }[]
   >([]);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -35,8 +36,9 @@ export function UsersPanel({
 
   const create = () => {
     if (!name.trim() || grants.length === 0) return;
-    if (password && password.length < 8) {
-      window.alert("Password must be at least 8 characters (or leave it empty).");
+    const problem = password ? passwordProblem(password, email) : null;
+    if (problem) {
+      window.alert(`${problem} (Or leave the password empty.)`);
       return;
     }
     void api
@@ -78,7 +80,7 @@ export function UsersPanel({
             <input
               className="input"
               type="password"
-              placeholder="Password (optional, min 8)"
+              placeholder={`Password (optional, at least ${PASSWORD_MIN} characters)`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -137,11 +139,6 @@ export function UsersPanel({
             <button className="btn btn-sm btn-ghost" onClick={() => setEditing(u)}>
               Change access
             </button>
-            {u.accessToken && (
-              <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(u.accessToken!)}>
-                Copy token
-              </button>
-            )}
             <button
               className="btn btn-sm btn-ghost"
               onClick={() =>
@@ -157,8 +154,13 @@ export function UsersPanel({
               className="btn btn-sm btn-ghost"
               title={u.hasPassword ? "Reset this user's password (signs out their devices)" : "Set a password so they can sign in with email"}
               onClick={() => {
-                const pw = window.prompt(`${u.hasPassword ? "New" : "Set"} password for ${u.name} (min 8 characters)`);
+                const pw = window.prompt(`${u.hasPassword ? "New" : "Set"} password for ${u.name} (${PASSWORD_HINT.toLowerCase()})`);
                 if (!pw) return;
+                const problem = passwordProblem(pw, u.email);
+                if (problem) {
+                  window.alert(problem);
+                  return;
+                }
                 void api
                   .setUserPassword(u.id, pw)
                   .then(() => {

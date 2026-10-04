@@ -412,6 +412,55 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("walk: follower rejected", walk?.t === "cmd_error", walk);
 }
 
+// ── Hardening (2026-10): credentials, throttles, limits ───────────────────────
+// Kept LAST: the throttle checks spend this address's allowance on purpose.
+{
+  const users = await req("/users", ADMIN);
+  const row = (users.body as any[]).find((u) => u.id === viewer.id);
+  check("users list: no token value, only whether one exists", row && !("accessToken" in row) && row.hasToken === true, row);
+  const companies = await req("/companies", ADMIN);
+  const co = (companies.body as any[]).find((c) => c.id === company.body.id);
+  check("companies list: no token value, only whether one exists", co && !("companyToken" in co) && co.hasToken === true, co);
+  check("issued token still signs in (stored hashed)", (await req("/me", viewer.accessToken)).body?.role === "user");
+  check("company token still signs in (stored hashed)", (await req("/me", companyToken)).body?.role === "company");
+
+  // Request limits.
+  const big = await fetch(API + "/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "x".repeat(1_100_000) }) });
+  check("body over 1MB → 413", big.status === 413, big.status);
+  const bad = await fetch(API + "/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: "{not json" });
+  check("malformed JSON → 400", bad.status === 400, bad.status);
+
+  // Invitations: the password rule, and single use under a race.
+  const inv = await req("/invites", ADMIN, { method: "POST", body: JSON.stringify({ email: "matrix-invitee@example.com", grants: [{ kind: "view", targetId: eventA.body.id }] }) });
+  const invToken = String(inv.body?.url ?? "").split("/").pop() ?? "";
+  const weak = await req(`/invites/${invToken}/accept`, null, { method: "POST", body: JSON.stringify({ name: "Invitee", password: "short" }) });
+  check("invite: weak password refused", weak.status === 400, weak);
+  const strong = JSON.stringify({ name: "Invitee", password: "a-long-enough-password-9" });
+  const both = await Promise.all([1, 2].map(() => req(`/invites/${invToken}/accept`, null, { method: "POST", body: strong })));
+  check("invite: two accepts at once → exactly one account", both.filter((r) => r.status === 201).length === 1, both.map((r) => r.status));
+  const invitee = (await req("/users", ADMIN)).body.find((u: any) => u.email === "matrix-invitee@example.com");
+  if (invitee) await req(`/users/${invitee.id}`, ADMIN, { method: "DELETE" });
+
+  // Sign-in throttle: 5 failures for one email from one address, then 429.
+  const email = "matrix-throttle@example.com";
+  const statuses: number[] = [];
+  for (let i = 0; i < 7; i++) statuses.push((await req("/auth/login", null, { method: "POST", body: JSON.stringify({ email, password: "wrong-password-xx" }) })).status);
+  check("login: 5 failures allowed, then 429", statuses.slice(0, 5).every((s) => s === 401) && statuses.slice(5).every((s) => s === 429), statuses);
+
+  // Join-code guessing: 30 misses from one address, then refused.
+  const codeStatuses: number[] = [];
+  for (let i = 0; i < 32; i++) codeStatuses.push((await req(`/codes/ZZZ${String(i).padStart(3, "0")}`, null)).status);
+  // Earlier checks spent a miss or two from this address, so the refusal can
+  // arrive slightly before the 30th guess — but never after it, and once it
+  // starts it holds.
+  const firstRefused = codeStatuses.indexOf(429);
+  check(
+    "codes: at most 30 wrong guesses, then 429 and it holds",
+    firstRefused >= 25 && firstRefused <= 30 && codeStatuses.slice(firstRefused).every((s) => s === 429),
+    { firstRefused, tail: codeStatuses.slice(24) },
+  );
+}
+
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────
 for (const u of [viewer, eventMgr, companyMgr, superUser]) await req(`/users/${u.id}`, ADMIN, { method: "DELETE" });
 await req(`/events/${eventB.body.id}`, ADMIN, { method: "DELETE" });

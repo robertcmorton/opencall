@@ -777,7 +777,7 @@ export default function AdminPage() {
     }
   }, [me]);
   const [showArchived, setShowArchived] = useState(false);
-  const [companies, setCompanies] = useState<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string; hasToken: boolean; logo: string | null; eventCount: number }[]>([]);
   /** Kinds of show this company added for itself, offered beside the built-ins. */
   const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
 
@@ -891,12 +891,12 @@ export default function AdminPage() {
       ? companies.map((c) => ({
           id: c.id,
           name: c.name,
-          companyToken: c.companyToken,
+          hasToken: c.hasToken,
           logo: c.logo,
           real: true,
           events: eventsByTeam.get(c.id) ?? [],
         }))
-      : [{ id: "own", name: me?.teamName ?? "Events", companyToken: null, logo: null, real: false, events: events ?? [] }];
+      : [{ id: "own", name: me?.teamName ?? "Events", hasToken: false, logo: null, real: false, events: events ?? [] }];
 
   if (locked)
     return (
@@ -1021,17 +1021,6 @@ export default function AdminPage() {
                           <span className="check" />
                           Logo…
                         </button>
-                        {group.companyToken && (
-                          <button
-                            type="button"
-                            className="menu-item"
-                            data-tip="Copy this company's access token"
-                            onClick={() => void navigator.clipboard.writeText(group.companyToken!)}
-                          >
-                            <span className="check" />
-                            Copy token
-                          </button>
-                        )}
                         <button type="button" className="menu-item" onClick={rotate}>
                           <span className="check" />
                           New token…

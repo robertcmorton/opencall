@@ -257,7 +257,7 @@ export const api = {
   eventPeople: (eventId: string) => request<AccessPerson[]>(`/events/${eventId}/people`),
   rundownPeople: (rundownId: string) => request<AccessPerson[]>(`/rundowns/${rundownId}/people`),
   users: () =>
-    request<{ id: string; name: string; email: string; accessToken: string | null; hasPassword: boolean; grants: { kind: string; targetId: string }[] }[]>(
+    request<{ id: string; name: string; email: string; hasToken: boolean; hasPassword: boolean; grants: { kind: string; targetId: string }[] }[]>(
       "/users",
     ),
   createUser: (body: { name: string; email?: string; password?: string; grants: { kind: string; targetId?: string }[] }) =>
@@ -271,7 +271,7 @@ export const api = {
   archiveRundown: (id: string, archived: boolean) =>
     request<{ id: string }>(`/rundowns/${id}/archive`, { method: "POST", body: JSON.stringify({ archived }) }),
   companies: () =>
-    request<{ id: string; name: string; companyToken: string | null; logo: string | null; eventCount: number }[]>(
+    request<{ id: string; name: string; hasToken: boolean; logo: string | null; eventCount: number }[]>(
       "/companies",
     ),
   createCompany: (name: string) =>

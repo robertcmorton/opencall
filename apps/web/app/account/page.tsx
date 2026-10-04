@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
+import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
 
 /** My account: who I am, what I can access, and my details. */
 export default function AccountPage() {
@@ -105,8 +106,9 @@ export default function AccountPage() {
             style={{ display: "grid", gap: 10 }}
             onSubmit={(e) => {
               e.preventDefault();
-              if (next.length < 8) {
-                window.alert("New password must be at least 8 characters.");
+              const problem = passwordProblem(next, email);
+              if (problem) {
+                window.alert(problem);
                 return;
               }
               void api
@@ -125,7 +127,7 @@ export default function AccountPage() {
               <input className="input" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} style={{ width: "100%" }} />
             </div>
             <div>
-              <label className="field-label">New password (8+ characters)</label>
+              <label className="field-label">New password ({PASSWORD_HINT.toLowerCase()})</label>
               <input className="input" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} style={{ width: "100%" }} />
             </div>
             <div>

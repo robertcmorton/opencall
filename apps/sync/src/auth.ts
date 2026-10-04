@@ -1,8 +1,10 @@
 import type { IncomingMessage } from "node:http";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { schema, type DbHandle } from "@opencall/db";
+import { clientIp, ipBucket } from "./clientIp.ts";
+import { consume, release } from "./throttle.ts";
 
 /**
  * Interim token auth (full accounts land later; this module is the seam they
@@ -33,8 +35,20 @@ export function hashPassword(password: string): string {
   return `scrypt$${salt}$${hash}`;
 }
 
+/**
+ * A fixed hash to verify against when there is no account, so a sign-in for an
+ * unknown email takes as long as one for a real account with a wrong password.
+ * Without it the scrypt step was skipped for unknown emails and the response
+ * time alone said whether an address had an account.
+ */
+let dummyHash: string | null = null;
+
 export function verifyPassword(password: string, stored: string | null): boolean {
-  if (!stored) return false;
+  if (!stored) {
+    dummyHash ??= hashPassword(randomBytes(18).toString("base64url"));
+    verifyPassword(password, dummyHash);
+    return false;
+  }
   const [scheme, salt, hash] = stored.split("$");
   if (scheme !== "scrypt" || !salt || !hash) return false;
   const candidate = scryptSync(password, salt, SCRYPT_KEYLEN);
@@ -42,16 +56,49 @@ export function verifyPassword(password: string, stored: string | null): boolean
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
+// The password rule is shared with the screens that explain it.
+export { passwordProblem, PASSWORD_MIN } from "@opencall/core";
+
+/**
+ * Credentials are stored as their SHA-256, never as themselves: a copy of the
+ * database (a backup, a leaked dump) then holds nothing that signs anybody
+ * in. "h:" marks a stored hash. A token is shown once, when it is issued.
+ */
+export const hashToken = (token: string): string => `h:${createHash("sha256").update(token).digest("hex")}`;
+
+/**
+ * One-time conversion of credentials stored before hashing: every session,
+ * personal token and company token still held as itself is replaced by its
+ * hash, in place. Postgres computes the same SHA-256, so anybody signed in
+ * stays signed in. Idempotent; runs at boot.
+ */
+export async function hashStoredCredentials(handle: DbHandle): Promise<void> {
+  const h = (col: string) => sql.raw(`'h:' || encode(sha256(convert_to(${col}, 'UTF8')), 'hex')`);
+  await handle.db.execute(sql`UPDATE auth_sessions SET token = ${h("token")} WHERE token NOT LIKE 'h:%'`);
+  await handle.db.execute(sql`UPDATE users SET access_token = ${h("access_token")} WHERE access_token IS NOT NULL AND access_token NOT LIKE 'h:%'`);
+  await handle.db.execute(sql`UPDATE teams SET company_token = ${h("company_token")} WHERE company_token IS NOT NULL AND company_token NOT LIKE 'h:%'`);
+}
+
+/** A new random credential with a readable prefix (usr_, co_, ses_). */
+export const newToken = (prefix: string): string => `${prefix}_${randomBytes(32).toString("base64url")}`;
+
 export const SESSION_DAYS = 30;
+/**
+ * A session nobody has used for this long ends, whatever its 30 days say.
+ * Kitshare's admin sessions idle out after 2 hours; an OpenCall session is the
+ * showcaller's laptop on show night, which may sit open from a morning
+ * rehearsal to a late finish, so the idle limit is measured in days.
+ */
+export const IDLE_DAYS = 14;
 
 /** Issues a login session for a user; the `ses_…` token is the bearer credential. */
 export async function createSession(handle: DbHandle, userId: string, userAgent?: string): Promise<{ token: string; expiresAt: Date }> {
-  const token = `ses_${randomBytes(24).toString("base64url")}`;
+  const token = newToken("ses");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000);
   await handle.db.insert(schema.authSessions).values({
     id: ulid(),
     userId,
-    token,
+    token: hashToken(token),
     expiresAt,
     lastSeenAt: new Date(),
     userAgent: userAgent?.slice(0, 300),
@@ -64,7 +111,7 @@ export async function revokeSession(handle: DbHandle, token: string): Promise<vo
   await handle.db
     .update(schema.authSessions)
     .set({ revokedAt: new Date() })
-    .where(eq(schema.authSessions.token, token));
+    .where(eq(schema.authSessions.token, hashToken(token)));
 }
 
 /** Revokes every session a user holds (password reset, account removal). */
@@ -77,8 +124,12 @@ export async function revokeUserSessions(handle: DbHandle, userId: string): Prom
 
 /** A valid, unexpired, unrevoked session → its user id. */
 async function resolveSession(handle: DbHandle, token: string): Promise<string | null> {
-  const session = await handle.db.query.authSessions.findFirst({ where: eq(schema.authSessions.token, token) });
+  const session = await handle.db.query.authSessions.findFirst({ where: eq(schema.authSessions.token, hashToken(token)) });
   if (!session || session.revokedAt || session.expiresAt < new Date()) return null;
+  if (session.lastSeenAt && Date.now() - session.lastSeenAt.getTime() > IDLE_DAYS * 24 * 3600_000) {
+    await handle.db.update(schema.authSessions).set({ revokedAt: new Date() }).where(eq(schema.authSessions.id, session.id));
+    return null;
+  }
   // Rolling last-seen, throttled to once an hour to keep reads cheap.
   if (!session.lastSeenAt || Date.now() - session.lastSeenAt.getTime() > 3600_000) {
     await handle.db
@@ -142,14 +193,14 @@ export async function resolveJoinCode(
 export async function resolveBearer(handle: DbHandle, token: string | null): Promise<AuthCtx> {
   if (!token) return null;
   if (token === adminToken()) return { kind: "admin" };
-  const team = await handle.db.query.teams.findFirst({ where: eq(schema.teams.companyToken, token) });
+  const team = await handle.db.query.teams.findFirst({ where: eq(schema.teams.companyToken, hashToken(token)) });
   if (team) return { kind: "company", teamId: team.id, teamName: team.name };
   let user = null;
   if (token.startsWith("ses_")) {
     const userId = await resolveSession(handle, token);
     if (userId) user = await handle.db.query.users.findFirst({ where: eq(schema.users.id, userId) });
   } else {
-    user = await handle.db.query.users.findFirst({ where: eq(schema.users.accessToken, token) });
+    user = await handle.db.query.users.findFirst({ where: eq(schema.users.accessToken, hashToken(token)) });
   }
   if (user) {
     const grants = await handle.db.query.userGrants.findMany({ where: eq(schema.userGrants.userId, user.id) });
@@ -200,6 +251,27 @@ export async function canSeeEvent(handle: DbHandle, ctx: AuthCtx, eventId: strin
   return false;
 }
 
+/**
+ * A join-code lookup that counts misses per address. A view-only code is six
+ * characters; without a limit somebody could simply try them. Past 30 misses
+ * from one address in 15 minutes, every lookup from it fails until the window
+ * passes — a hit never counts, so a crew member re-opening a valid link is
+ * never caught by it.
+ */
+export async function resolveJoinCodeGuarded(
+  handle: DbHandle,
+  code: string,
+  ipKey: string,
+  rundownId?: string,
+): Promise<Awaited<ReturnType<typeof resolveJoinCode>>> {
+  const key = `guess:ip:${ipKey}`;
+  const t = await consume(handle, key, { max: 30, windowSec: 15 * 60 });
+  if (!t.ok) return null;
+  const found = await resolveJoinCode(handle, code, rundownId);
+  if (found) await release(handle, key);
+  return found;
+}
+
 /** Full request auth context. `rundownId` scopes join-code checks. */
 export async function authContext(handle: DbHandle, req: IncomingMessage, rundownId?: string): Promise<AuthCtx> {
   if (isOpenAccess()) return { kind: "admin" };
@@ -207,7 +279,7 @@ export async function authContext(handle: DbHandle, req: IncomingMessage, rundow
   if (viaBearer) return viaBearer;
   const code = req.headers["x-join-code"];
   if (typeof code === "string" && code) {
-    const resolved = await resolveJoinCode(handle, code, rundownId);
+    const resolved = await resolveJoinCodeGuarded(handle, code, ipBucket(clientIp(req)), rundownId);
     if (resolved) return { kind: "code", ...resolved };
   }
   return null;

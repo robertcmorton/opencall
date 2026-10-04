@@ -139,8 +139,8 @@ html {
   --under-soft: rgba(19, 112, 63, 0.12);
   --over: #bf332c; /* 5.2:1; #d33a32 was 4.4 */
   --over-soft: rgba(211, 58, 50, 0.1);
-  --warn: #a8730a;
-  --warn-soft: rgba(168, 115, 10, 0.12);
+  --warn: #7d5606; /* 5.1:1 on the milestone row's own tint; #a8730a was 3.6 */
+  --warn-soft: rgba(125, 86, 6, 0.12);
   --live: #b42a31; /* 5.0:1 on its own tint; #d7373f was 3.8 */
   --live-soft: rgba(215, 55, 63, 0.14);
   --rec: #d7373f;
@@ -291,8 +291,10 @@ a {
   visibility: hidden;
 }
 
+/* 60%, not 45%: still plainly unavailable, but the label can be read
+   (at 45% "Undo" measured 2.8:1 on light). */
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.6;
   cursor: default;
 }
 .btn:disabled:hover {
@@ -712,7 +714,7 @@ input.inline-edit {
   position: relative;
   display: inline-block;
   padding-left: 11px;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--text-3);
@@ -780,7 +782,7 @@ input.inline-edit {
 
 .header-label {
   color: var(--text-label);
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
@@ -810,7 +812,7 @@ input.inline-edit {
   text-align: left;
   color: var(--text-3);
   background: var(--surface);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1682,7 +1684,7 @@ kbd {
   pointer-events: none;
 }
 .big-timer .bt-label {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-3);
@@ -1716,7 +1718,7 @@ kbd {
   margin-top: 7px;
   /* No opacity: --text-3 is already the faintest grey that reads, and fading
      it further took this line to 2.5:1 on light (AA needs 4.5). */
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   color: var(--text-3);
   align-self: stretch;
   text-align: center;
@@ -1744,7 +1746,7 @@ kbd {
    footnote than as a title. Same zero-width trick as `.bt-label` — the name of
    the first item must not decide how wide the header is. */
 .big-timer .bt-sub {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   color: var(--text-3);
   align-self: stretch;
   text-align: center;
@@ -3083,8 +3085,10 @@ th.col-drop-target {
   /* Fixed layout takes its widths from the header row, so the action column
      is simply the one left unsized — it gets whatever remains. The imported
      widths are inline styles, hence the overrides. */
+  /* 32px, plus the phase rail and the endings marker when the sheet has
+     them — the sheet sets --rownum-w to exactly what its width maths used. */
   .grid-scroll:not(.mobile-show-all) th[data-colkey="rownum"] {
-    width: 32px !important;
+    width: var(--rownum-w, 32px) !important;
   }
   .grid-scroll:not(.mobile-show-all) th[data-colkey="start"] {
     width: 84px !important;
@@ -3650,7 +3654,7 @@ th.col-drop-target {
   margin: 1px 0;
 }
 .cell-folded .cf-label {
-  font-size: 0.6rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3686,7 +3690,7 @@ th.col-drop-target {
     letter-spacing: 0;
     word-break: break-all;
     max-width: 1.1em;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
   }
   .rundown-grid .row-number {
     padding-left: 3px;
@@ -4045,7 +4049,7 @@ th.col-drop-target {
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  font-size: 0.6rem;
+  font-size: 0.68rem;
 }
 .sidenav-credit strong {
   color: var(--text-2);

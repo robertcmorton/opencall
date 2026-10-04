@@ -551,14 +551,14 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>PREVIOUS</div>
+          <div style={{ fontSize: "0.7rem", letterSpacing: "0.14em", color: "#848b95" }}>PREVIOUS</div>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#8b949e" }}>
             {readTitle(prevRead)}
           </div>
         </div>
 
         <div style={{ textAlign: "center", flexShrink: 0 }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>{cueLabel}</div>
+          <div style={{ fontSize: "0.7rem", letterSpacing: "0.14em", color: "#848b95" }}>{cueLabel}</div>
           <div
             style={{
               fontFamily: "var(--font-mono)",
@@ -574,7 +574,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         </div>
 
         <div style={{ flex: 1, minWidth: 0, textAlign: "right" }}>
-          <div style={{ fontSize: "0.62rem", letterSpacing: "0.14em", color: "#848b95" }}>
+          <div style={{ fontSize: "0.7rem", letterSpacing: "0.14em", color: "#848b95" }}>
             NEXT
             {secondsUntilNext == null
               ? ""

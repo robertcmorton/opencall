@@ -9,7 +9,11 @@ function forced(selector: string): number | null {
   const at = css.indexOf(`@media ${PHONE_MEDIA}`);
   expect(at, "the phone media block exists with exactly this query").toBeGreaterThan(-1);
   const block = css.slice(at);
-  const m = new RegExp(selector.replace(/[.[\]"()]/g, (c) => `\\${c}`) + String.raw`\s*\{[^}]*?width:\s*(\d+)px !important`).exec(block);
+  // A plain pixel width, or a variable with a pixel fallback (the row-number
+  // column grows by the phase rail and endings marker the sheet passes in).
+  const m = new RegExp(
+    selector.replace(/[.[\]"()]/g, (c) => `\\${c}`) + String.raw`\s*\{[^}]*?width:\s*(?:var\(--[\w-]+,\s*)?(\d+)px\)? !important`,
+  ).exec(block);
   return m ? Number(m[1]) : null;
 }
 

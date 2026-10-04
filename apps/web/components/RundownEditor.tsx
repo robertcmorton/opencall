@@ -3481,7 +3481,11 @@ export function RundownEditor({
     // strip with the stored widths, 16px without. Stored widths still apply
     // to the columns the stylesheet leaves alone.
     if (phoneLayout) {
-      if (key === "rownum") return COL_W_PHONE.rownum;
+      // The phase rail and the endings marker live in this column on a phone
+      // too. Leaving them out gave a sheet with a rail a 32px column holding
+      // 30px of rail padding — 3px for the number, which was clipped to a
+      // sliver. The stylesheet takes the same figure via --rownum-w.
+      if (key === "rownum") return COL_W_PHONE.rownum + railW + endingsW;
       if (key === "zero") return 0;
       const pc = orderedColumns.find((x) => x.key === key);
       if (!pc) return null;
@@ -5139,7 +5143,14 @@ export function RundownEditor({
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""} ${railW ? "has-rail" : ""}`} style={fixedStyle}>
           <thead>
             <tr>
-              <th data-colkey="rownum" style={{ width: share("rownum", (colWidths["rownum"] ?? COL_W.rownum) + railW + endingsW) }}>
+              <th
+                data-colkey="rownum"
+                style={{
+                  width: share("rownum", (colWidths["rownum"] ?? COL_W.rownum) + railW + endingsW),
+                  // The phone stylesheet pins this column; this is the width it pins it to.
+                  ["--rownum-w" as string]: `${COL_W_PHONE.rownum + railW + endingsW}px`,
+                }}
+              >
                 {resizeHandle(prevColKey("rownum"), "rownum")}
               </th>
               {orderedColumns.map((c) => {

@@ -2,8 +2,9 @@ import { Hocuspocus } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { eq } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
-import { adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCodeGuarded, teamIdForRundown } from "./auth.ts";
+import { accountIdForToken, adminToken, canEditEvent, canSeeEvent, isOpenAccess, resolveBearer, resolveJoinCodeGuarded, teamIdForRundown } from "./auth.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
+import type { EditTracker, Who } from "./sheetChanges.ts";
 
 /**
  * Doc names are `<rundownId>@<epoch>`. In-place restore bumps the rundown's
@@ -76,7 +77,7 @@ export async function docStoresSettled(): Promise<void> {
   while (storesInFlight.size > 0) await Promise.allSettled([...storesInFlight]);
 }
 
-export function createDocServer(handle: DbHandle): Hocuspocus {
+export function createDocServer(handle: DbHandle, tracker?: EditTracker): Hocuspocus {
   const currentEpoch = async (rundownId: string): Promise<number | null> => {
     const row = await handle.db.query.rundowns.findFirst({
       where: eq(schema.rundowns.id, rundownId),
@@ -123,8 +124,10 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
       // Dev-open has no identities, so the lock cannot tell two connections
       // apart — but it is still applied, because a deployment that later gains
       // an ADMIN_TOKEN should not quietly change behaviour here.
-      if (isOpenAccess()) return; // dev-open deployment
-      if (token && token === adminToken()) return;
+      // Each way in returns WHO it is, for the change log (see sheetChanges.ts).
+      const as = (who: Who) => ({ who });
+      if (isOpenAccess()) return as({ key: "admin", userId: null, name: "Someone (development)" }); // dev-open: everyone is the admin, as the lock sees it
+      if (token && token === adminToken()) return as({ key: "admin", userId: null, name: "Administrator" });
       // "dev" is what a client with no stored credential sends; on a locked
       // deployment that is simply nobody, and saying so is the whole point.
       if (token && token !== "dev") {
@@ -133,15 +136,16 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         // literal ADMIN_TOKEN string was accepted above, so signing in with an
         // admin ACCOUNT (email and password) was refused on this channel while
         // the HTTP API happily treated the same session as an admin.
-        if (bearer?.kind === "admin") return;
-        if (bearer?.kind === "company" && (await teamIdForRundown(handle, rundownId)) === bearer.teamId) return;
+        if (bearer?.kind === "admin") return as({ key: "admin", userId: await accountIdForToken(handle, token), name: bearer.name ?? "Administrator" });
+        if (bearer?.kind === "company" && (await teamIdForRundown(handle, rundownId)) === bearer.teamId)
+          return as({ key: `company:${bearer.teamId}`, userId: null, name: bearer.teamName });
         if (bearer?.kind === "user") {
           const rundown = await handle.db.query.rundowns.findFirst({
             where: eq(schema.rundowns.id, rundownId),
             columns: { eventId: true },
           });
           if (rundown) {
-            if (await canEditEvent(handle, bearer, rundown.eventId)) return;
+            if (await canEditEvent(handle, bearer, rundown.eventId)) return as({ key: `user:${bearer.userId}`, userId: bearer.userId, name: bearer.name });
             const event = await handle.db.query.events.findFirst({
               where: eq(schema.events.id, rundown.eventId),
               columns: { teamId: true },
@@ -169,6 +173,9 @@ export function createDocServer(handle: DbHandle): Hocuspocus {
         refuse(bearer ? "no-access-for-this-account" : "signin-not-recognised", rundownId);
       }
       refuse("not-signed-in", rundownId);
+    },
+    async afterLoadDocument({ documentName, document, instance }) {
+      tracker?.attach(documentName, document, () => instance.documents.get(documentName) === document);
     },
     async onLoadDocument({ documentName, document }) {
       const { rundownId } = parseDocName(documentName);

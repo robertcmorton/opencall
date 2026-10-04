@@ -244,6 +244,64 @@ export interface JoinCodeSummary {
   columns?: Record<string, boolean> | null;
 }
 
+/** One line of a sheet's change log. Changes open a page of their own; shows and notes are context. */
+export interface ChangeLogEntry {
+  type: "change" | "show" | "note";
+  id: string;
+  at: string;
+  summary: string;
+  actorName: string | null;
+  /** For changes: "edit" (a person), "assistant", "import", "restore", "undo". */
+  kind?: string;
+  assistant?: string | null;
+  startedAt?: string;
+  counts?: { added: number; removed: number; changed: number; moved: number };
+  undoneBy?: string | null;
+  undoes?: string | null;
+  beforeSnapshotId?: string | null;
+}
+
+interface RowRefView {
+  id: string;
+  number: number;
+  title: string;
+}
+export interface RowSnapshotView extends RowRefView {
+  type: string;
+  cells: Record<string, string>;
+  duration: string | null;
+  start: string | null;
+}
+
+/** One change in full: before and after for every field, rows created and deleted whole. */
+export interface SheetChangeDetail {
+  id: string;
+  rundownId: string;
+  rundown: { id: string; name: string } | null;
+  kind: string;
+  startedAt: string;
+  at: string;
+  actorName: string | null;
+  assistant: string | null;
+  summary: string;
+  beforeSnapshotId: string | null;
+  undoneBy: string | null;
+  undoes: string | null;
+  undoneByEntry: { id: string; at: string; actorName: string | null; summary: string } | null;
+  undoesEntry: { id: string; at: string; actorName: string | null; summary: string } | null;
+  canUndo: boolean;
+  undoProblem: string | null;
+  detail: {
+    counts: { added: number; removed: number; changed: number; moved: number };
+    added: RowSnapshotView[];
+    removed: RowSnapshotView[];
+    changed: (RowRefView & { changes: { field: string; key: string; before: string; after: string }[] })[];
+    moved: (RowRefView & { from: number })[];
+    sheet: { field: string; before: string; after: string }[];
+    truncated: boolean;
+  };
+}
+
 /** What an assistant asking to connect wants, as the approval page shows it. */
 export interface AssistantRequest {
   /** Something is wrong with the request itself: shown, never followed. */
@@ -337,6 +395,14 @@ export const api = {
   revokeJoinCode: (rundownId: string, codeId: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "DELETE" }),
   snapshots: (rundownId: string) => request<SnapshotSummary[]>(`/rundowns/${rundownId}/snapshots`),
+  sheetChanges: (rundownId: string) =>
+    request<{ rundown: { id: string; name: string; eventId: string }; entries: ChangeLogEntry[] }>(`/rundowns/${rundownId}/changes`),
+  sheetChange: (changeId: string) => request<SheetChangeDetail>(`/sheet-changes/${encodeURIComponent(changeId)}`),
+  undoSheetChange: (changeId: string) =>
+    request<{ undone: number; skipped: { title: string; what: string; why: string }[]; entryId: string | null }>(
+      `/sheet-changes/${encodeURIComponent(changeId)}/undo`,
+      { method: "POST" },
+    ),
   compareSnapshot: (snapshotId: string) => request<VersionComparison>(`/snapshots/${snapshotId}/compare`),
   createSnapshot: (rundownId: string, label?: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/snapshots`, { method: "POST", body: JSON.stringify({ label }) }),

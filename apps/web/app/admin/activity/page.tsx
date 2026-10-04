@@ -38,6 +38,16 @@ const ACTION_LABEL: Record<string, string> = {
   "code.revoked": "View-only link revoked",
   "kind_of_show.deleted": "Kind of show deleted",
   "error_log.cleared": "Error log cleared",
+  "sheet.change_undone": "Undid one change to a show",
+  "mcp.connected": "Connected an AI assistant",
+  "mcp.disconnected": "Disconnected an AI assistant",
+  "mcp.update_cells": "AI assistant edited text",
+  "mcp.set_duration": "AI assistant changed a duration",
+  "mcp.set_start_time": "AI assistant changed a start time",
+  "mcp.add_rows": "AI assistant added rows",
+  "mcp.move_row": "AI assistant moved a row",
+  "mcp.strike_row": "AI assistant struck or restored a row",
+  "mcp.delete_rows": "AI assistant deleted rows",
 };
 
 /**

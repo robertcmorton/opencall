@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { buildRundownDoc, projectRundownDoc } from "../src/doc";
-import { compareSheets } from "../src/compare";
+import { compareSheets, describeChange, revertChange, summarizeChange } from "../src/compare";
 import { addRow, deleteRow, moveRow, setCellText, setDuration, strikeRow } from "../src/sheetOps";
 
 const sheet = () =>
@@ -84,5 +84,72 @@ describe("comparing two versions of a sheet", () => {
     expect(c.removed).toEqual([]);
     expect(c.moved).toEqual([]);
     expect(c.changed.map((r) => [r.title, r.fields])).toEqual([["Anthem", ["Duration"]]]);
+  });
+});
+
+describe("recording a change and taking back just that one", () => {
+  it("keeps before and after for each field, and the deleted row whole", () => {
+    const before = sheet();
+    const after = copy(before);
+    setCellText(after, id(after, "Welcome"), "Audio", "Silence");
+    deleteRow(after, id(after, "Anthem"));
+    const d = describeChange(before, after)!;
+    expect(d.counts).toEqual({ added: 0, removed: 1, changed: 1, moved: 0 });
+    expect(d.removed[0]).toMatchObject({ title: "Anthem", duration: "02:00" });
+    const audio = d.changed.find((r) => r.title === "Welcome")!.changes.find((c) => c.field === "Audio")!;
+    expect([audio.before, audio.after]).toEqual(["Walk-in music", "Silence"]);
+    expect(summarizeChange(d)).toBe("deleted 1 row · changed 1 row (Audio)");
+    expect(describeChange(before, copy(before))).toBeNull();
+  });
+
+  it("undoes one change and keeps work done after it", () => {
+    const before = sheet();
+    const now = copy(before);
+    // The change to undo: an assistant adds a row, deletes Anthem, retitles Welcome.
+    const added = addRow(now, id(now, "Welcome"), { title: "Sponsor read" });
+    deleteRow(now, id(now, "Anthem"));
+    setCellText(now, id(now, "Welcome"), "Title", "Welcome, wrongly renamed");
+    const detail = describeChange(before, now)!;
+    // Then a person carries on: a note on First half.
+    setCellText(now, id(now, "First half"), "Audio", "Crowd mics up");
+
+    const r = revertChange(now, before, detail);
+    const titles = projectRundownDoc(now).rows.map((x) => x.title);
+    expect(titles).toEqual(["Doors", "Welcome", "Anthem", "Kick-off", "First half"]);
+    expect(projectRundownDoc(now).rows.find((x) => x.title === "First half")!.cells.audio).toBe("Crowd mics up");
+    expect(projectRundownDoc(now).rows.some((x) => x.id === added)).toBe(false);
+    expect(r.skipped).toEqual([]);
+  });
+
+  it("leaves alone anything changed again since, and says so", () => {
+    const before = sheet();
+    const now = copy(before);
+    setDuration(now, id(now, "Welcome"), 600);
+    const detail = describeChange(before, now)!;
+    setDuration(now, id(now, "Welcome"), 420); // somebody fixed it by hand since
+    const r = revertChange(now, before, detail);
+    expect(projectRundownDoc(now).rows.find((x) => x.title === "Welcome")!.durationSec).toBe(420);
+    expect(r.skipped.map((s) => [s.title, s.what])).toContainEqual(["Welcome", "Duration"]);
+  });
+
+  it("puts a moved row back beside its old neighbours", () => {
+    const before = sheet();
+    const now = copy(before);
+    moveRow(now, id(now, "First half"), null);
+    const detail = describeChange(before, now)!;
+    revertChange(now, before, detail);
+    expect(projectRundownDoc(now).rows.map((x) => x.title)).toEqual(["Doors", "Welcome", "Anthem", "Kick-off", "First half"]);
+  });
+
+  it("will not undo a change too large to have been recorded whole", () => {
+    const before = sheet();
+    const now = copy(before);
+    deleteRow(now, id(now, "Anthem"));
+    deleteRow(now, id(now, "Welcome"));
+    const detail = describeChange(before, now, 1)!;
+    expect(detail.truncated).toBe(true);
+    const r = revertChange(now, before, detail);
+    expect(r.undone).toBe(0);
+    expect(projectRundownDoc(now).rows).toHaveLength(3);
   });
 });

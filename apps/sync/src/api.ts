@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
   authContext,
@@ -26,12 +26,14 @@ import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
 import { audit } from "./audit.ts";
+import type { Hocuspocus } from "@hocuspocus/server";
+import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
 import { accountIdForToken, contextForAccount } from "./auth.ts";
 import { checkAuthorize, decideAuthorize, listConnections, OAuthError, revokeGrant, revokeUserGrants, SCOPES, syncBase, type AuthorizeRequest } from "./oauth.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
 import { customEventTypes } from "./eventTypes.ts";
-import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, mayClaim, type EditLock } from "@opencall/core";
+import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, lockIsFree, mayClaim, type EditLock } from "@opencall/core";
 
 /**
  * The lock as everyone else may see it.
@@ -73,6 +75,7 @@ const asOutcomeList = (v: unknown): string[] =>
 import {
   buildRundownDoc,
   compareSheets,
+  revertChange,
   decodeDoc,
   encodeDoc,
   projectRundownDoc,
@@ -215,9 +218,15 @@ async function describeGrants(
 export function createApiHandler(
   handle: DbHandle,
   /** The live doc server, so in-place restore can kick stale connections. */
-  docServer?: { closeConnections: (documentName?: string) => void; documents: Map<string, unknown> },
+  docServer?: Hocuspocus,
   /** Ways into the show channel the API has no handle on itself. */
-  hooks: { stopShow?: (rundownId: string) => Promise<void> } = {},
+  hooks: {
+    stopShow?: (rundownId: string) => Promise<void>;
+    /** What the show on a sheet is doing, for refusing changes under a live show. */
+    liveState?: (rundownId: string) => Promise<{ state: string; activeRowId: string | null }>;
+    /** People's editing sessions, closed into the change log at the right moments. */
+    editTracker?: EditTracker;
+  } = {},
 ) {
   const { db } = handle;
 
@@ -276,6 +285,20 @@ export function createApiHandler(
    * is ahead of the stored copy by up to a few seconds of typing, and a
    * version saved from the stored copy would quietly miss that typing.
    */
+  /** Why a logged change cannot be undone by itself, or null when it can. */
+  const undoProblem = (c: typeof schema.sheetChanges.$inferSelect): string | null => {
+    if (c.undoneBy) return "This change has already been undone.";
+    if (c.kind === "import" || c.kind === "restore")
+      return "An import or a restore replaces the whole sheet. To go back, use Restore to just before it.";
+    if (!c.beforeSnapshotId) return "The version saved before this change is no longer kept, so it cannot be undone row by row.";
+    if (c.detail.truncated) return "This change is too large to undo row by row. Use Restore to just before it.";
+    return null;
+  };
+
+  /** A context as a name for the change log. */
+  const actorNameOf = (ctx: Awaited<ReturnType<typeof authContext>>): string =>
+    ctx?.kind === "user" ? ctx.name : ctx?.kind === "company" ? ctx.teamName : ctx?.kind === "admin" ? (ctx.name ?? "Administrator") : "Someone";
+
   const currentDocBytes = (r: { id: string; docEpoch: number; doc: Uint8Array | null }): Uint8Array | null => {
     const live = docServer?.documents.get(`${r.id}@${r.docEpoch}`) as Y.Doc | undefined;
     return live ? Y.encodeStateAsUpdate(live) : r.doc;
@@ -1406,8 +1429,31 @@ export function createApiHandler(
       if (req.method === "DELETE" && /^\/users\/[^/]+$/.test(pathname)) {
         if (!(await requireAdmin())) return true;
         const id = pathname.split("/")[2]!;
+        // Everything that points at the account has to let go first, or the
+        // database refuses the delete. Their own rows go; records of what they
+        // did stay, unattributed — the log keeps the name as text.
+        //
+        // It used to clear only grants and sessions, so an account that had
+        // ever held an edit lock, called a show, or saved a version could not
+        // be deleted at all (500). Found 5 Oct when versions began recording
+        // who saved them and the security suite's own clean-up quietly failed.
         await db.delete(schema.userGrants).where(eq(schema.userGrants.userId, id));
         await db.delete(schema.authSessions).where(eq(schema.authSessions.userId, id));
+        await db.delete(schema.teamMembers).where(eq(schema.teamMembers.userId, id));
+        await db.delete(schema.userRundownPrefs).where(eq(schema.userRundownPrefs.userId, id));
+        await db
+          .update(schema.rundowns)
+          .set({ editLockBy: null, editLockUserId: null, editLockHolderKey: null, editLockToken: null, editLockAt: null, editLockSince: null })
+          .where(eq(schema.rundowns.editLockUserId, id));
+        await db.update(schema.userInvites).set({ invitedByUserId: null }).where(eq(schema.userInvites.invitedByUserId, id));
+        await db.update(schema.events).set({ ownerUserId: null }).where(eq(schema.events.ownerUserId, id));
+        await db.update(schema.rundownSnapshots).set({ createdBy: null }).where(eq(schema.rundownSnapshots.createdBy, id));
+        await db.update(schema.templates).set({ createdBy: null }).where(eq(schema.templates.createdBy, id));
+        await db.update(schema.customEventTypes).set({ createdBy: null }).where(eq(schema.customEventTypes.createdBy, id));
+        await db.update(schema.eventFiles).set({ uploadedBy: null }).where(eq(schema.eventFiles.uploadedBy, id));
+        await db.update(schema.shareTokens).set({ createdBy: null }).where(eq(schema.shareTokens.createdBy, id));
+        await db.update(schema.showSessions).set({ callerUserId: null }).where(eq(schema.showSessions.callerUserId, id));
+        await db.update(schema.showTransitions).set({ actorUserId: null }).where(eq(schema.showTransitions.actorUserId, id));
         await db.delete(schema.users).where(eq(schema.users.id, id));
         json(res, 200, { id });
         return true;
@@ -2096,6 +2142,8 @@ export function createApiHandler(
             return true;
           }
           await clearLock(db, id);
+          // "Done editing" ends their editing session: it goes in the change log now.
+          await hooks.editTracker?.closeFor(id, requesterKey);
           json(res, 200, { lock: publicLock({ heldBy: null, heldByUserId: null, sinceMs: null, lastSeenMs: null }, now) });
           return true;
         }
@@ -2194,14 +2242,13 @@ export function createApiHandler(
           : [];
         const plannedStartSec =
           typeof body.plannedStartSec === "number" ? body.plannedStartSec : rundown.plannedStartSec;
-        if (rundown.doc)
-          await db.insert(schema.rundownSnapshots).values({
-            id: ulid(),
-            rundownId: rundown.id,
-            doc: currentDocBytes(rundown) ?? rundown.doc,
-            label: "Before update",
-            kind: "import",
-          });
+        // Anyone mid-edit is written to the log before the sheet is replaced.
+        await hooks.editTracker?.closeRundown(rundown.id);
+        const importer = await authContext(handle, req, rundown.id);
+        const beforeBytes = currentDocBytes(rundown);
+        const beforeSnapshotId = beforeBytes
+          ? await versionBefore(handle, rundown.id, beforeBytes, { label: "Before update", kind: "import", createdBy: importer?.kind === "user" ? importer.userId : null })
+          : null;
         const doc = buildRundownDoc(
           rows,
           {
@@ -2241,6 +2288,17 @@ export function createApiHandler(
         } catch (err) {
           logServerError(handle, "server", err, { url: "replace-content closeConnections" });
         }
+        if (beforeBytes)
+          await recordChange(handle, {
+            rundownId: id,
+            kind: "import",
+            startedAt: new Date(),
+            actorUserId: importer?.kind === "user" ? importer.userId : null,
+            actorName: actorNameOf(importer),
+            beforeSnapshotId,
+            before: decodeDoc(beforeBytes),
+            after: doc,
+          }).catch((err) => logServerError(handle, "server", err, { url: "replace-content change log" }));
         json(res, 200, { id, epoch });
         return true;
       }
@@ -2771,6 +2829,170 @@ export function createApiHandler(
         return true;
       }
 
+      // ── The sheet's change log ──
+      // Who changed what, newest first: people's editing sessions, assistant
+      // changes, imports, restores and undos — with shows started and ended,
+      // and the sheet closed or opened to viewers, threaded in from where
+      // those are already recorded. For whoever may edit the sheet.
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/changes$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId), columns: { id: true, name: true, eventId: true } });
+        if (!rundown) {
+          json(res, 404, { error: "rundown not found" });
+          return true;
+        }
+        const t = schema.sheetChanges;
+        const changes = await db
+          .select({
+            id: t.id,
+            kind: t.kind,
+            startedAt: t.startedAt,
+            at: t.at,
+            actorName: t.actorName,
+            assistant: t.assistant,
+            summary: t.summary,
+            beforeSnapshotId: t.beforeSnapshotId,
+            undoneBy: t.undoneBy,
+            undoes: t.undoes,
+            counts: sql<{ added: number; removed: number; changed: number; moved: number }>`${t.detail}->'counts'`,
+          })
+          .from(t)
+          .where(eq(t.rundownId, rundownId))
+          .orderBy(desc(t.at))
+          .limit(300);
+        const shows = await db.query.showSessions.findMany({
+          where: eq(schema.showSessions.rundownId, rundownId),
+          columns: { id: true, startedAt: true, endedAt: true, callerUserId: true },
+          orderBy: [desc(schema.showSessions.startedAt)],
+          limit: 100,
+        });
+        const notes = await db.query.auditLog.findMany({
+          where: and(
+            eq(schema.auditLog.target, rundownId),
+            inArray(schema.auditLog.action, ["sheet.viewing_changed", "sheet.archived", "code.created", "code.revoked"]),
+          ),
+          orderBy: [desc(schema.auditLog.at)],
+          limit: 100,
+        });
+        const people = [...new Set([...shows.map((x) => x.callerUserId), ...notes.map((n) => n.actor)].filter((v): v is string => !!v && !v.includes(":") && v !== "admin"))];
+        const nameOf = new Map(
+          people.length ? (await db.query.users.findMany({ where: inArray(schema.users.id, people), columns: { id: true, name: true } })).map((u) => [u.id, u.name]) : [],
+        );
+        const NOTE: Record<string, string> = {
+          "sheet.viewing_changed": "Closed to viewers, or opened to them again",
+          "sheet.archived": "Archived, or brought back",
+          "code.created": "View-only link created",
+          "code.revoked": "View-only link revoked",
+        };
+        const entries = [
+          ...changes.map((c) => ({ type: "change" as const, ...c })),
+          ...shows.flatMap((x) => [
+            { type: "show" as const, id: `${x.id}:start`, at: x.startedAt, summary: "Show started", actorName: x.callerUserId ? (nameOf.get(x.callerUserId) ?? null) : null },
+            ...(x.endedAt ? [{ type: "show" as const, id: `${x.id}:end`, at: x.endedAt, summary: "Show ended", actorName: null }] : []),
+          ]),
+          ...notes.map((n) => ({ type: "note" as const, id: n.id, at: n.at, summary: NOTE[n.action] ?? n.action, actorName: n.actor ? (nameOf.get(n.actor) ?? (n.actor === "admin" ? "Administrator" : null)) : null })),
+        ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        json(res, 200, { rundown, entries });
+        return true;
+      }
+
+      if (req.method === "GET" && /^\/sheet-changes\/[^/]+$/.test(pathname)) {
+        const change = await db.query.sheetChanges.findFirst({ where: eq(schema.sheetChanges.id, pathname.split("/")[2]!) });
+        if (!change) {
+          json(res, 404, { error: "change not found" });
+          return true;
+        }
+        if (!(await requireEditor(change.rundownId))) return true;
+        const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, change.rundownId), columns: { id: true, name: true } });
+        const related = await db.query.sheetChanges.findMany({
+          where: inArray(schema.sheetChanges.id, [change.undoneBy, change.undoes].filter((v): v is string => !!v)),
+          columns: { id: true, at: true, actorName: true, summary: true },
+        });
+        json(res, 200, {
+          ...change,
+          rundown,
+          undoneByEntry: related.find((r) => r.id === change.undoneBy) ?? null,
+          undoesEntry: related.find((r) => r.id === change.undoes) ?? null,
+          canUndo: undoProblem(change) == null,
+          undoProblem: undoProblem(change),
+        });
+        return true;
+      }
+
+      // Take back ONE change, keeping everything anybody has done since.
+      // What has been changed again since is left alone and reported.
+      if (req.method === "POST" && /^\/sheet-changes\/[^/]+\/undo$/.test(pathname)) {
+        const change = await db.query.sheetChanges.findFirst({ where: eq(schema.sheetChanges.id, pathname.split("/")[2]!) });
+        if (!change) {
+          json(res, 404, { error: "change not found" });
+          return true;
+        }
+        if (!(await requireEditor(change.rundownId))) return true;
+        const problem = undoProblem(change);
+        if (problem) {
+          json(res, 409, { error: problem });
+          return true;
+        }
+        const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, change.rundownId) });
+        const snapshot = await db.query.rundownSnapshots.findFirst({ where: eq(schema.rundownSnapshots.id, change.beforeSnapshotId!) });
+        if (!rundown || !snapshot || !docServer) {
+          json(res, 409, { error: "The version saved before this change is no longer kept, so it cannot be undone row by row." });
+          return true;
+        }
+        const n = change.detail.counts;
+        const live = (await hooks.liveState?.(rundown.id))?.state;
+        if ((live === "running" || live === "paused") && (n.added || n.removed || n.moved)) {
+          json(res, 409, { error: "The show on this sheet is live. Undoing this would add, remove or move rows under it — wait until the show has ended." });
+          return true;
+        }
+        const who = await authContext(handle, req, rundown.id);
+        const whoKey = who?.kind === "user" ? `user:${who.userId}` : who?.kind === "company" ? `company:${who.teamId}` : "admin";
+        const lock = { heldBy: rundown.editLockBy, heldByUserId: rundown.editLockUserId, sinceMs: null, lastSeenMs: rundown.editLockAt?.getTime() ?? null };
+        if (!lockIsFree(lock, Date.now()) && rundown.editLockHolderKey !== whoKey) {
+          json(res, 409, { error: `${rundown.editLockBy ?? "Someone"} is editing this sheet right now. Try again once they have pressed Done editing.` });
+          return true;
+        }
+        // Edits in progress are logged as their own entry first.
+        await hooks.editTracker?.closeRundown(rundown.id);
+        const conn = await docServer.openDirectConnection(`${rundown.id}@${rundown.docEpoch}`, { undo: change.id });
+        let result!: ReturnType<typeof revertChange>;
+        let beforeBytes!: Uint8Array;
+        let afterBytes!: Uint8Array;
+        try {
+          beforeBytes = Y.encodeStateAsUpdate(conn.document!);
+          await conn.transact((doc) => {
+            result = revertChange(doc, decodeDoc(snapshot.doc), change.detail);
+          });
+          afterBytes = Y.encodeStateAsUpdate(conn.document!);
+        } finally {
+          await conn.disconnect();
+        }
+        let entryId: string | null = null;
+        if (result.undone > 0) {
+          const beforeSnapshotId = await versionBefore(handle, rundown.id, beforeBytes, {
+            label: `Before undoing: ${change.summary}`,
+            kind: "restore",
+            createdBy: who?.kind === "user" ? who.userId : null,
+          });
+          entryId = await recordChange(handle, {
+            rundownId: rundown.id,
+            kind: "undo",
+            startedAt: new Date(),
+            actorUserId: who?.kind === "user" ? who.userId : null,
+            actorName: actorNameOf(who),
+            beforeSnapshotId,
+            before: decodeDoc(beforeBytes),
+            after: decodeDoc(afterBytes),
+            undoes: change.id,
+          });
+          if (entryId) await db.update(schema.sheetChanges).set({ undoneBy: entryId }).where(eq(schema.sheetChanges.id, change.id));
+          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.change_undone", target: rundown.id, ip, detail: { change: change.id, summary: change.summary } });
+        }
+        json(res, 200, { undone: result.undone, skipped: result.skipped, entryId });
+        return true;
+      }
+
       // What restoring a version would undo: the sheet as it is now, compared
       // row by row with that version.
       if (req.method === "GET" && /^\/snapshots\/[^/]+\/compare$/.test(pathname)) {
@@ -2862,17 +3084,16 @@ export function createApiHandler(
         }
         // Safety net: snapshot the pre-restore state first, so a restore is
         // itself reversible.
+        await hooks.editTracker?.closeRundown(rundown.id);
         const before = currentDocBytes(rundown);
         const restorer = await authContext(handle, req, rundown.id);
-        if (before)
-          await db.insert(schema.rundownSnapshots).values({
-            id: ulid(),
-            rundownId: rundown.id,
-            doc: before,
-            label: `Before restoring ${snapshot.label ? `“${snapshot.label}”` : "a version"}`.slice(0, 160),
-            kind: "restore",
-            createdBy: restorer?.kind === "user" ? restorer.userId : null,
-          });
+        const beforeSnapshotId = before
+          ? await versionBefore(handle, rundown.id, before, {
+              label: `Before restoring ${snapshot.label ? `“${snapshot.label}”` : "a version"}`,
+              kind: "restore",
+              createdBy: restorer?.kind === "user" ? restorer.userId : null,
+            })
+          : null;
         const epoch = rundown.docEpoch + 1;
         await db
           .update(schema.rundowns)
@@ -2886,6 +3107,17 @@ export function createApiHandler(
         } catch (err) {
           logServerError(handle, "server", err, { url: "restore-in-place closeConnections" });
         }
+        if (before)
+          await recordChange(handle, {
+            rundownId: rundown.id,
+            kind: "restore",
+            startedAt: new Date(),
+            actorUserId: restorer?.kind === "user" ? restorer.userId : null,
+            actorName: actorNameOf(restorer),
+            beforeSnapshotId,
+            before: decodeDoc(before),
+            after: decodeDoc(snapshot.doc),
+          }).catch((err) => logServerError(handle, "server", err, { url: "restore-in-place change log" }));
         json(res, 200, { id: rundown.id, epoch });
         return true;
       }

@@ -558,19 +558,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const liveAdd = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: second, rows: [{ title: "x" }] });
   const liveText = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: second, column: "Title", text: "Matrix second, live" }] });
   check("mcp live: adding rows is refused, text still edits", started.cmdReply?.state === "running" && liveAdd.error && liveAdd.text.includes("live") && !liveText.error, { liveAdd: liveAdd.text, liveText: liveText.text });
-  await new Promise<void>((done) => {
+  // A fresh command id: the server drops a repeated one as a retry, and an
+  // earlier stop in this run used "t-stop" — so reusing it silently left this
+  // show running for the rest of the run (found 5 Oct).
+  const stopped = await new Promise<string | null>((done) => {
     const ws = new WebSocket(`${WS}/?rundown=${rdA.body.id}`);
     ws.addEventListener("open", () => ws.send(JSON.stringify({ v: 1, t: "hello", auth: { kind: "session", token: ADMIN }, device: "console" })));
     ws.addEventListener("message", (e) => {
       const msg = JSON.parse(String(e.data));
-      if (msg.t === "welcome") ws.send(JSON.stringify({ v: 1, t: "cmd", id: "t-stop", action: "stop", confirm: true }));
-      if (msg.t === "show_state") {
+      if (msg.t === "welcome") ws.send(JSON.stringify({ v: 1, t: "cmd", id: `t-stop-mcp-${Date.now()}`, action: "stop", confirm: true }));
+      if (msg.t === "show_state" || msg.t === "cmd_error") {
         ws.close();
-        done();
+        done(msg.state ?? msg.msg ?? null);
       }
     });
-    setTimeout(done, 3000);
+    setTimeout(() => done(null), 3000);
   });
+  check("mcp live: the show is stopped again afterwards", stopped === "ended", stopped);
   const tools = (await mcp(at, "tools/list")).body?.result?.tools?.map((t: any) => t.name) ?? [];
   check("mcp: there is no tool that runs the show", tools.length > 0 && !tools.some((n: string) => /^(start|stop|next|go|pause|resume|fire|jump)(_|$)/i.test(n)), tools);
 
@@ -592,6 +596,87 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const log = await req("/audit?limit=500", ADMIN);
   const actions = new Set((log.body as any[]).map((r) => r.action));
   check("mcp: connections and changes are in the audit log", actions.has("mcp.connected") && actions.has("mcp.add_rows") && actions.has("mcp.disconnected"), [...actions].filter((a) => a.startsWith("mcp")));
+}
+
+// ── The sheet's change log ────────────────────────────────────────────────────
+{
+  /** Sets a cell's text over a live connection, as the editor's typing would. */
+  const typeInto = (doc: Y.Doc, rowId: string, colKey: string, text: string) => {
+    const col = (doc.getArray("columns").toArray() as Y.Map<unknown>[]).find((c) => c.get("key") === colKey)!;
+    const row = doc.getMap("rows").get(rowId) as Y.Map<unknown>;
+    let cells = row.get("cells") as Y.Map<Y.XmlFragment> | undefined;
+    if (!cells) {
+      cells = new Y.Map();
+      row.set("cells", cells);
+    }
+    let frag = cells.get(col.get("id") as string);
+    if (!frag) {
+      frag = new Y.XmlFragment();
+      cells.set(col.get("id") as string, frag);
+    }
+    if (frag.length) frag.delete(0, frag.length);
+    const p = new Y.XmlElement("paragraph");
+    p.insert(0, [new Y.XmlText(text)]);
+    frag.insert(0, [p]);
+  };
+
+  // A person edits: takes the sheet, changes a title, presses Done editing.
+  const claim = await req(`/rundowns/${rdA.body.id}/lock`, eventMgr.accessToken, { method: "POST", body: "{}" });
+  // The sheet's CURRENT document: earlier checks replace it, which moves its epoch on.
+  const epoch = (await req(`/rundowns/${rdA.body.id}/epoch`, null)).body?.epoch ?? 0;
+  const conn = docConnect(`${rdA.body.id}@${epoch}`, eventMgr.accessToken);
+  await sleep(1500);
+  const firstRow = (conn.doc.getArray("rowOrder").toArray() as string[])[0]!;
+  typeInto(conn.doc, firstRow, "title", "Matrix title, edited by a person");
+  await sleep(1200);
+  await req(`/rundowns/${rdA.body.id}/lock`, eventMgr.accessToken, { method: "DELETE", body: JSON.stringify({ token: claim.body?.token }) });
+  conn.provider.destroy();
+
+  const log = await req(`/rundowns/${rdA.body.id}/changes`, eventMgr.accessToken);
+  const entries = (log.body?.entries ?? []) as any[];
+  const edit = entries.find((e) => e.type === "change" && e.kind === "edit");
+  check("changes: a person's editing session is logged when they press Done editing", edit?.actorName === "Matrix EventMgr" && /changed 1 row \(Title\)/.test(edit?.summary), entries.slice(0, 4));
+  check(
+    "changes: the assistant's changes are in the same log, attributed",
+    entries.some((e) => e.kind === "assistant" && e.assistant === "Matrix Assistant" && e.actorName === "Matrix EventMgr"),
+    entries.map((e) => [e.kind, e.summary]),
+  );
+  check("changes: shows started and ended are threaded in", entries.some((e) => e.type === "show" && e.summary === "Show started"), entries.map((e) => e.summary));
+  check("changes: crew cannot read a sheet's change log", (await req(`/rundowns/${rdA.body.id}/changes`, viewer.accessToken)).status === 401);
+
+  const detail = await req(`/sheet-changes/${edit?.id}`, eventMgr.accessToken);
+  const field = detail.body?.detail?.changed?.[0]?.changes?.[0];
+  check("changes: a change opens with before and after", field?.field === "Title" && field?.after === "Matrix title, edited by a person" && detail.body?.canUndo === true, detail.body?.detail);
+  check("changes: crew cannot open a change", (await req(`/sheet-changes/${edit?.id}`, viewer.accessToken)).status === 401);
+
+  const undone = await req(`/sheet-changes/${edit?.id}/undo`, eventMgr.accessToken, { method: "POST" });
+  const titleBack = (await req(`/rundowns/${rdA.body.id}/changes`, eventMgr.accessToken)).body?.entries?.find((e: any) => e.kind === "undo");
+  const after = await req(`/sheet-changes/${edit?.id}`, eventMgr.accessToken);
+  check(
+    "changes: undo takes back just that change, and both ends of it say so",
+    undone.status === 200 && undone.body?.undone === 1 && titleBack?.undoes === edit?.id && after.body?.undoneBy === titleBack?.id && after.body?.canUndo === false,
+    { undone: undone.body, titleBack, undoneBy: after.body?.undoneBy },
+  );
+  check("changes: the same change cannot be undone twice", (await req(`/sheet-changes/${edit?.id}/undo`, eventMgr.accessToken, { method: "POST" })).status === 409);
+
+  // The assistant added two rows, then retitled each of them later on. Undo
+  // the newest retitle ("Matrix second, live") first: that row is back to
+  // exactly how it was added. Then undo "added 2 rows": that row goes, the
+  // other — still renamed — is kept, and the answer says why.
+  const retitle = entries.find((e) => e.kind === "assistant" && /changed 1 row \(Title\)/.test(e.summary));
+  const undoRetitle = await req(`/sheet-changes/${retitle?.id}/undo`, eventMgr.accessToken, { method: "POST" });
+  check("changes: undo an assistant's later edit", undoRetitle.status === 200 && undoRetitle.body?.undone === 1, undoRetitle.body);
+  const addedRows = entries.find((e) => e.kind === "assistant" && /added 2 rows/.test(e.summary));
+  const undoAi = await req(`/sheet-changes/${addedRows?.id}/undo`, eventMgr.accessToken, { method: "POST" });
+  check(
+    "changes: undoing the assistant's added rows removes the untouched one and keeps the one edited since",
+    undoAi.status === 200 &&
+      undoAi.body?.undone === 1 &&
+      undoAi.body?.skipped?.length === 1 &&
+      undoAi.body.skipped[0].title === "Matrix opener (now “Matrix opener, renamed”)" &&
+      /edited since/.test(undoAi.body.skipped[0].why),
+    undoAi.body,
+  );
 }
 
 // ── Hardening (2026-10): credentials, throttles, limits ───────────────────────
@@ -656,7 +741,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 }
 
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────
-for (const u of [viewer, eventMgr, companyMgr, superUser]) await req(`/users/${u.id}`, ADMIN, { method: "DELETE" });
+{
+  // Every account the run used can be deleted — including ones that held the
+  // edit lock, called a show, saved versions and made logged changes.
+  const statuses = [];
+  for (const u of [viewer, eventMgr, companyMgr, superUser]) statuses.push((await req(`/users/${u.id}`, ADMIN, { method: "DELETE" })).status);
+  check("cleanup: accounts with history can still be deleted", statuses.every((s) => s === 200), statuses);
+}
 await req(`/events/${eventB.body.id}`, ADMIN, { method: "DELETE" });
 await req(`/companies/${company.body.id}`, ADMIN, { method: "DELETE" });
 await req(`/companies/${otherCompany.body.id}`, ADMIN, { method: "DELETE" });

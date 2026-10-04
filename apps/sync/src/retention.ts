@@ -18,8 +18,10 @@ export const RETENTION_DAYS = {
   errors: 365,
   /** Assistant tokens after they expired or were revoked; assistant connections after they ended. */
   assistantTokens: 1,
-  /** Versions saved automatically before an assistant's change. Others are kept. */
-  assistantVersions: 90,
+  /** Versions saved automatically before an assistant's change or a person's editing session. Others are kept. */
+  automaticVersions: 90,
+  /** The sheets' change logs (their details outlive the versions; only undo needs those). */
+  sheetChanges: 730,
   endedAssistants: 30,
 } as const;
 
@@ -33,7 +35,8 @@ export async function applyRetention(handle: DbHandle): Promise<void> {
   await handle.db.execute(sql`DELETE FROM audit_log WHERE action IN ('login.failed', 'login.throttled') AND created_at < now() - ${days(d.failedSignIns)}`);
   await handle.db.execute(sql`DELETE FROM audit_log WHERE created_at < now() - ${days(d.audit)}`);
   await handle.db.execute(sql`DELETE FROM error_logs WHERE at < now() - ${days(d.errors)}`);
-  await handle.db.execute(sql`DELETE FROM rundown_snapshots WHERE kind = 'assistant' AND created_at < now() - ${days(d.assistantVersions)}`);
+  await handle.db.execute(sql`DELETE FROM rundown_snapshots WHERE kind IN ('assistant', 'edit') AND created_at < now() - ${days(d.automaticVersions)}`);
+  await handle.db.execute(sql`DELETE FROM sheet_changes WHERE at < now() - ${days(d.sheetChanges)}`);
   await handle.db.execute(sql`DELETE FROM mcp_tokens WHERE expires_at < now() - ${days(d.assistantTokens)} OR revoked_at < now() - ${days(d.assistantTokens)}`);
   await handle.db.execute(
     sql`DELETE FROM mcp_grants WHERE revoked_at < now() - ${days(d.endedAssistants)} OR authorized_at < now() - interval '90 days' - ${days(d.endedAssistants)}`,

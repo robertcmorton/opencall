@@ -25,9 +25,10 @@ import type { ProjectedRow } from "@opencall/db/doc";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
-import { createDocServer, docStoresSettled } from "./doc-server.ts";
+import { createDocServer, docStoresSettled, parseDocName } from "./doc-server.ts";
 import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
 import { createMcpRoutes } from "./mcp.ts";
+import { createEditTracker } from "./sheetChanges.ts";
 import { readFileSync } from "node:fs";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
@@ -277,8 +278,16 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     } catch {
       /* not created yet */
     }
+    const closeEditSessions = (): Promise<void> => {
+      try {
+        return editTracker.closeAll();
+      } catch {
+        return Promise.resolve(); // not created yet
+      }
+    };
     const settled = Promise.race([
-      Promise.all([showStore.flush(), docStoresSettled()]),
+      // Editing sessions still open are written to the change log first.
+      Promise.all([showStore.flush(), docStoresSettled(), closeEditSessions()]),
       new Promise<void>((resolve) => setTimeout(resolve, 2000).unref?.()),
     ]);
     void settled
@@ -289,10 +298,18 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
-const docServer = createDocServer(dbHandle);
+const editTracker = createEditTracker(dbHandle, parseDocName);
+const docServer = createDocServer(dbHandle, editTracker);
+/** What the show on a sheet is doing right now. */
+const liveState = async (rundownId: string) => {
+  const { state, activeRowId } = (await showStore.get(rundownId)).current;
+  return { state, activeRowId };
+};
 
 // HTTP: JSON API for the web app.
 const handleApi = createApiHandler(dbHandle, docServer, {
+  liveState,
+  editTracker,
   // "End event" from the sheet or the dashboard: the show stops with it.
   stopShow: async (rundownId) => {
     const machine = await showStore.get(rundownId);
@@ -310,10 +327,7 @@ const appVersion = (() => {
     return "0.0.0";
   }
 })();
-const handleMcp = createMcpRoutes(dbHandle, docServer, async (rundownId) => {
-  const { state, activeRowId } = (await showStore.get(rundownId)).current;
-  return { state, activeRowId };
-}, appVersion);
+const handleMcp = createMcpRoutes(dbHandle, docServer, liveState, appVersion);
 const httpServer = createServer(async (req, res) => {
   /**
    * Health, for the platform and an uptime check: can this process reach its

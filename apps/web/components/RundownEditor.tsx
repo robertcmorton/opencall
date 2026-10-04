@@ -4011,6 +4011,10 @@ export function RundownEditor({
             <span className="check" />
             Version history
           </button>
+          <Link className="menu-item" href={`/changes/${rundownId}`} style={{ textDecoration: "none" }}>
+            <span className="check" />
+            Changes
+          </Link>
         </SideNavSection>
       )}
       {isShow && mayDrive && (
@@ -4029,6 +4033,10 @@ export function RundownEditor({
             <span className="check" />
             Version history
           </button>
+          <Link className="menu-item" href={`/changes/${rundownId}`} style={{ textDecoration: "none" }}>
+            <span className="check" />
+            Changes
+          </Link>
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "join" ? null : "join")}>
             <span className="check" />
             View-only links

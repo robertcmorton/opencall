@@ -25,6 +25,13 @@ import { canEditEvent, canSeeEvent, contextForAccount, type AuthCtx } from "./au
 import { audit } from "./audit.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume } from "./throttle.ts";
+import { recordChange, versionBefore } from "./sheetChanges.ts";
+
+const probeBefore = (bytes: Uint8Array) => {
+  const d = new Y.Doc();
+  Y.applyUpdate(d, bytes);
+  return d;
+};
 import {
   authorizationServerMetadata,
   exchangeToken,
@@ -195,38 +202,45 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       if (!lockIsFree(lock, Date.now()) && rundown.editLockHolderKey !== `user:${caller.userId}` && ctx?.kind !== "admin") {
         throw new ToolRefusal(`${rundown.editLockBy ?? "Someone"} is editing this sheet right now. Try again once they have closed it.`);
       }
-      const current = currentDoc(rundown);
-      if (!current) throw new ToolRefusal("This sheet has no content yet.");
+      if (!rundown.doc && !docServer.documents.has(docName(rundown))) throw new ToolRefusal("This sheet has no content yet.");
       const liveRowId = isLive ? live.activeRowId : null;
 
-      const probe = new Y.Doc();
-      Y.applyUpdate(probe, Y.encodeStateAsUpdate(current));
-      apply(probe, liveRowId);
-
-      // A version of the sheet as it was, before EVERY change an assistant
-      // makes, so any one of them can be undone — unless the newest version
-      // already is exactly this state (nothing has changed since it was saved).
-      const latest = await db.query.rundownSnapshots.findFirst({
-        where: eq(schema.rundownSnapshots.rundownId, rundownId),
-        orderBy: (t, { desc }) => [desc(t.createdAt)],
-      });
-      const unchanged = latest != null && Buffer.from(Y.encodeStateVectorFromUpdate(latest.doc)).equals(Buffer.from(Y.encodeStateVector(current)));
-      if (!unchanged) {
-        await db.insert(schema.rundownSnapshots).values({
-          id: ulid(),
-          rundownId,
-          doc: Y.encodeStateAsUpdate(current),
-          label: `Before ${caller.clientName} ${what}`.slice(0, 160),
-          createdBy: caller.userId,
-          kind: "assistant",
-        });
-      }
-
+      // Everything below works on the sheet as the server holds it this
+      // moment — the open document, so nobody's typing of the last few
+      // seconds is missing from the "before".
       const conn = await docServer.openDirectConnection(docName(rundown), { mcp: caller.grantId });
       let result!: T;
       try {
+        const beforeBytes = Y.encodeStateAsUpdate(conn.document!);
+        // A dry run on a copy: Yjs cannot roll a half-done change back.
+        const probe = new Y.Doc();
+        Y.applyUpdate(probe, beforeBytes);
+        apply(probe, liveRowId);
+
+        // A version of the sheet as it was, before EVERY change an assistant
+        // makes, so any one of them can be undone — reusing the newest
+        // version when it already is exactly this state.
+        const beforeSnapshotId = await versionBefore(handle, rundownId, beforeBytes, {
+          label: `Before ${caller.clientName} ${what}`,
+          kind: "assistant",
+          createdBy: caller.userId,
+        });
+        const startedAt = new Date();
         await conn.transact((doc) => {
           result = apply(doc, liveRowId);
+        });
+        const after = new Y.Doc();
+        Y.applyUpdate(after, Y.encodeStateAsUpdate(conn.document!));
+        await recordChange(handle, {
+          rundownId,
+          kind: "assistant",
+          startedAt,
+          actorUserId: caller.userId,
+          actorName: (await db.query.users.findFirst({ where: eq(schema.users.id, caller.userId), columns: { name: true } }))?.name ?? null,
+          assistant: caller.clientName,
+          beforeSnapshotId,
+          before: probeBefore(beforeBytes),
+          after,
         });
       } finally {
         await conn.disconnect();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary, type VersionComparison } from "../lib/api";
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
@@ -381,6 +382,7 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
 
 const KIND_TAG: Record<string, string> = {
   assistant: "AI",
+  edit: "Edit",
   show_start: "Show start",
   restore: "Restore",
   import: "Import",
@@ -463,7 +465,12 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
   return (
     <PanelModal onClose={onClose}>
       <div className="panel" style={panelStyle}>
-        <strong>Version history</strong>
+        <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+          <strong style={{ flex: 1 }}>Version history</strong>
+          <Link href={`/changes/${rundownId}`} style={{ color: "var(--accent-text)", fontSize: "var(--fs-sm)" }}>
+            Every change, in detail →
+          </Link>
+        </span>
         <div>
           <button
             className="btn btn-sm"

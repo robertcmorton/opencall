@@ -169,6 +169,13 @@
       "when": 1791153141026,
       "tag": "0023_backfill_snapshot_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791154133052,
+      "tag": "0024_sheet_changes",
+      "breakpoints": true
     }
   ]
 }

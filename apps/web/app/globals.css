@@ -4874,3 +4874,72 @@ tr.played-row td {
   cursor: pointer;
   font: inherit;
 }
+
+/* The sheet's change log. */
+.change-line {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+}
+a.change-line:hover {
+  border-color: var(--accent);
+}
+.change-line-quiet {
+  padding: 2px 12px;
+}
+.change-when {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.change-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.change-table th,
+.change-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+.change-table th {
+  color: var(--text-label);
+  font-weight: 600;
+}
+.change-before {
+  background: var(--over-soft);
+  white-space: pre-wrap;
+}
+.change-after {
+  background: var(--under-soft);
+  white-space: pre-wrap;
+}
+.change-row-before {
+  border-left: 3px solid var(--over);
+}
+.change-row-after {
+  border-left: 3px solid var(--under);
+}
+.version-tag-edit {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.version-tag-undo,
+.version-tag-restore {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+@media (max-width: 560px) {
+  .change-line {
+    grid-template-columns: 1fr auto;
+  }
+  .change-line .change-when {
+    grid-column: 1 / -1;
+  }
+}

@@ -46,7 +46,8 @@ that ends up somewhere it should not.
 | Redirects | The sign-in return address must be a path on this site: no `//`, backslashes or control characters | `apps/web/lib/session.ts` |
 | Database | Optional restricted login for the app (rows only), schema changes as the owner through `MIGRATION_DATABASE_URL`; queries over 30 s are stopped | `packages/db/scripts/setup-app-role.ts`, `server.ts`, `client.ts` |
 | Audit | Sign-ins and failures, password changes, invitations, access changes, tokens, deletions, archiving, codes, closing a sheet to viewers. Read it at Dashboard → Account activity | `audit.ts`, `api.ts` |
-| Retention | Throttles 2 days idle; ended sessions 30 days; failed sign-ins 90 days; other audit 2 years; error log 1 year | `retention.ts` |
+| Change log | Every change to a sheet is recorded: a person's editing session (first change to a two-minute pause or Done editing), each AI assistant change, each import, restore and undo — who, when, and every field before and after — with the version from just before it. "Undo just this change" puts back only what that change altered and never overwrites anything changed since. Readable by whoever may edit the sheet; crew and view links cannot | `sheetChanges.ts`, `packages/db/src/compare.ts` |
+| Retention | Throttles 2 days idle; ended sessions 30 days; failed sign-ins 90 days; other audit 2 years; error log 1 year; sheet change logs 2 years; versions saved automatically before an AI change or an editing session 90 days (all others kept) | `retention.ts` |
 | Health | `GET /health` on the sync server: database answers within 2 s → 200, else 503 | `server.ts` |
 | Timeouts | Request headers 20 s, request 120 s, query 30 s, mail 10 s | `server.ts`, `client.ts`, `mail.ts` |
 | Supply chain | pnpm 12 refuses packages under a day old; install scripts only for approved packages; `pnpm audit --prod` in CI; Dependabot weekly | `pnpm-workspace.yaml`, `.github/` |

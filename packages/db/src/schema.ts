@@ -227,6 +227,45 @@ export const rundownSnapshots = pgTable("rundown_snapshots", {
   createdAt: createdAt(),
 });
 
+/**
+ * The sheet's change log: who changed what, when, and how to take it back.
+ *
+ * One row per editing session of a person (first change to a pause or "Done
+ * editing"), per assistant change, per import over the sheet, per restore and
+ * per undo. `detail` holds the change itself — before and after for each
+ * field, created and deleted rows whole — so it can be shown without
+ * re-reading any version; `beforeSnapshotId` is the version saved just
+ * before, which is what "Restore to just before this" and "Undo just this"
+ * read from.
+ */
+export const sheetChanges = pgTable(
+  "sheet_changes",
+  {
+    id: id().primaryKey(),
+    rundownId: text("rundown_id")
+      .notNull()
+      .references(() => rundowns.id, { onDelete: "cascade" }),
+    /** "edit" (a person), "assistant", "import", "restore" or "undo". */
+    kind: text("kind").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    /** When it was finished — the time the log is ordered by. */
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    /** The name as it was then, so the log still reads after a rename or a deleted account. */
+    actorName: text("actor_name"),
+    /** For assistant changes: which assistant. */
+    assistant: text("assistant"),
+    summary: text("summary").notNull(),
+    beforeSnapshotId: text("before_snapshot_id").references(() => rundownSnapshots.id, { onDelete: "set null" }),
+    detail: jsonb("detail").$type<import("./compare.ts").ChangeDetail>().notNull(),
+    /** Set on a change that has been undone, to the undo's own entry. */
+    undoneBy: text("undone_by"),
+    /** Set on an undo, to the change it took back. */
+    undoes: text("undoes"),
+  },
+  (t) => [index("sheet_changes_rundown_at_idx").on(t.rundownId, t.at)],
+);
+
 export const templates = pgTable("templates", {
   id: id().primaryKey(),
   teamId: text("team_id").references(() => teams.id), // null = built-in starter template

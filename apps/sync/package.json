@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hocuspocus/server": "^4.7.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@opencall/core": "workspace:^",
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",
@@ -19,7 +20,8 @@
     "nodemailer": "^10.0.13",
     "ulid": "^3.0.2",
     "ws": "^8.22.0",
-    "yjs": "^13.6.33"
+    "yjs": "^13.6.33",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

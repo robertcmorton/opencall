@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
+import { api, API_URL, type AssistantConnection } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
 
@@ -116,7 +116,7 @@ export default function AccountPage() {
                 .then(() => {
                   setCurrent("");
                   setNext("");
-                  window.alert("Password changed. Other signed-in devices were signed out.");
+                  window.alert("Password changed. Other signed-in devices and connected assistants were signed out.");
                 })
                 .catch((err) => window.alert(String(err)));
             }}
@@ -144,6 +144,73 @@ export default function AccountPage() {
           email, and password here.
         </div>
       )}
+
+      <AssistantsPanel />
     </main>
+  );
+}
+
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * AI assistants connected to this account, and how to connect one. Only an
+ * account (signed in with email, or its personal token) can have them; for a
+ * company or server token the list is refused and the panel stays away.
+ */
+function AssistantsPanel() {
+  const [list, setList] = useState<AssistantConnection[] | null>(null);
+  const [refused, setRefused] = useState(false);
+  const load = () =>
+    void api
+      .assistants()
+      .then((r) => setList(r.assistants))
+      .catch(() => setRefused(true));
+  useEffect(load, []);
+  if (refused) return null;
+  const mcpUrl = `${API_URL}/mcp`;
+  return (
+    <div className="panel" style={{ display: "grid", gap: 10 }}>
+      <strong>AI assistants</strong>
+      <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+        An assistant such as Claude can read your run sheets and, if you allow it, change them — only the sheets you can, never
+        running the show. To connect one, add a custom connector with this address and sign in when it asks:
+      </span>
+      <code style={{ fontSize: "var(--fs-sm)", padding: "6px 8px", borderRadius: 6, background: "var(--surface-2, rgba(127,127,127,.12))", overflowWrap: "anywhere" }}>
+        {mcpUrl}
+      </code>
+      {list == null ? (
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Loading…</span>
+      ) : list.length === 0 ? (
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>No assistants connected.</span>
+      ) : (
+        list.map((a) => (
+          <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 220px", display: "grid", gap: 2 }}>
+              <span>
+                {a.name}
+                {a.host ? <span style={{ color: "var(--text-3)" }}> · {a.host}</span> : null}
+              </span>
+              <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
+                {a.scopes.includes("sheets:write") ? "Reads and changes sheets" : "Reads sheets"} · connected {day(a.connectedAt)}
+                {a.lastUsedAt ? ` · last used ${day(a.lastUsedAt)}` : ""} · ends {day(a.endsAt)}
+              </span>
+            </div>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                if (!window.confirm(`Disconnect ${a.name}? It will stop working at once.`)) return;
+                void api
+                  .disconnectAssistant(a.id)
+                  .then(load)
+                  .catch((err) => window.alert(String(err)));
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
+        ))
+      )}
+    </div>
   );
 }

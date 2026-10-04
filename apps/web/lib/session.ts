@@ -68,7 +68,7 @@ export function sendToSignIn(router: Router): void {
  * show page asking for something the code does not allow — is a refusal,
  * not a sign-out, and must not throw them off the sheet.
  */
-const REQUIRES_SESSION = /^\/(admin|account)(\/|$)/;
+const REQUIRES_SESSION = /^\/(admin|account|oauth)(\/|$)/;
 
 let checking: Promise<void> | null = null;
 

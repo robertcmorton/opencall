@@ -148,6 +148,13 @@
       "when": 1791149571547,
       "tag": "0020_security_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791151131774,
+      "tag": "0021_mcp_oauth",
+      "breakpoints": true
     }
   ]
 }

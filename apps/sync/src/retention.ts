@@ -16,6 +16,9 @@ export const RETENTION_DAYS = {
   audit: 730,
   /** The error journal. */
   errors: 365,
+  /** Assistant tokens after they expired or were revoked; assistant connections after they ended. */
+  assistantTokens: 1,
+  endedAssistants: 30,
 } as const;
 
 export async function applyRetention(handle: DbHandle): Promise<void> {
@@ -28,6 +31,13 @@ export async function applyRetention(handle: DbHandle): Promise<void> {
   await handle.db.execute(sql`DELETE FROM audit_log WHERE action IN ('login.failed', 'login.throttled') AND created_at < now() - ${days(d.failedSignIns)}`);
   await handle.db.execute(sql`DELETE FROM audit_log WHERE created_at < now() - ${days(d.audit)}`);
   await handle.db.execute(sql`DELETE FROM error_logs WHERE at < now() - ${days(d.errors)}`);
+  await handle.db.execute(sql`DELETE FROM mcp_tokens WHERE expires_at < now() - ${days(d.assistantTokens)} OR revoked_at < now() - ${days(d.assistantTokens)}`);
+  await handle.db.execute(
+    sql`DELETE FROM mcp_grants WHERE revoked_at < now() - ${days(d.endedAssistants)} OR authorized_at < now() - interval '90 days' - ${days(d.endedAssistants)}`,
+  );
+  await handle.db.execute(
+    sql`DELETE FROM mcp_clients c WHERE c.created_at < now() - interval '1 day' AND c.last_used_at IS NULL AND NOT EXISTS (SELECT 1 FROM mcp_grants g WHERE g.client_id = c.id)`,
+  );
 }
 
 /** Runs `applyRetention` a minute after start, then every 24 hours. Never throws. */

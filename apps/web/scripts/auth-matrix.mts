@@ -436,6 +436,143 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("WebSocket: our site connects", (await upgrade("http://web.matrix.test")) === 101);
 }
 
+// ── AI assistants (MCP) ───────────────────────────────────────────────────────
+// An assistant acts as one account, with that account's reach and no more.
+{
+  const { createHash, randomBytes } = await import("node:crypto");
+  const CB = "https://assistant.matrix.test/cb";
+  const noAuth = await fetch(API + "/mcp", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  check("mcp: no token → 401 pointing at the sign-in metadata", noAuth.status === 401 && String(noAuth.headers.get("www-authenticate")).includes("resource_metadata="), noAuth.headers.get("www-authenticate"));
+  check("mcp: any website may call it (tokens, not cookies)", noAuth.headers.get("access-control-allow-origin") === "*");
+  const prm = await (await fetch(API + "/.well-known/oauth-protected-resource/mcp")).json();
+  const asm = await (await fetch(API + "/.well-known/oauth-authorization-server")).json();
+  check("mcp: discovery documents", String(prm.resource).endsWith("/mcp") && asm.code_challenge_methods_supported?.includes("S256") && String(asm.authorization_endpoint).startsWith("http://web.matrix.test/oauth/authorize"), { prm, asm });
+  const badReg = await fetch(API + "/oauth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uris: ["http://evil.matrix.test/cb"] }) });
+  check("mcp: registration refuses a plain-http return address", badReg.status === 400, badReg.status);
+  const reg = await (
+    await fetch(API + "/oauth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Matrix Assistant", redirect_uris: [CB], token_endpoint_auth_method: "none" }) })
+  ).json();
+
+  const params = (challenge: string) => ({ client_id: reg.client_id, redirect_uri: CB, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "m", scope: "sheets:read sheets:write" });
+  const tokenCall = (form: Record<string, string>) =>
+    fetch(API + "/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: reg.client_id, ...form }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
+  const connect = async (who: string) => {
+    const verifier = randomBytes(32).toString("base64url");
+    const p = params(createHash("sha256").update(verifier).digest("base64url"));
+    const asked = await req("/oauth/authorize/check", who, { method: "POST", body: JSON.stringify({ params: p }) });
+    const scopes = (asked.body?.scopes ?? []).filter((s: any) => s.available).map((s: any) => s.key);
+    const decided = await req("/oauth/authorize/decide", who, { method: "POST", body: JSON.stringify({ params: p, allow: true, scopes }) });
+    const code = new URL(decided.body.redirect).searchParams.get("code")!;
+    const tokens = await tokenCall({ grant_type: "authorization_code", code, redirect_uri: CB, code_verifier: verifier });
+    return { asked, tokens: tokens.body };
+  };
+  const mcp = async (token: string, method: string, params: unknown = {}) => {
+    const r = await fetch(API + "/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}`, "mcp-protocol-version": "2025-06-18" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    let body: any = null;
+    try {
+      body = await r.json();
+    } catch {
+      /* none */
+    }
+    return { status: r.status, body, headers: r.headers };
+  };
+  const tool = async (token: string, name: string, args: Record<string, unknown> = {}) => {
+    const r = await mcp(token, "tools/call", { name, arguments: args });
+    const text = r.body?.result?.content?.[0]?.text ?? "";
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      /* prose */
+    }
+    return { status: r.status, error: r.body?.result?.isError === true, text, data };
+  };
+
+  check("mcp: a company token cannot connect an assistant", (await req("/oauth/authorize/check", companyToken, { method: "POST", body: JSON.stringify({ params: params("x".repeat(43)) }) })).status === 401);
+
+  // Crew: read only, its own event only.
+  const crew = await connect(viewer.accessToken);
+  check("mcp crew: changing sheets is not offered", crew.asked.body?.scopes?.find((s: any) => s.key === "sheets:write")?.available === false, crew.asked.body);
+  check("mcp crew: token is read-only", crew.tokens.scope === "sheets:read", crew.tokens);
+  const crewTools = (await mcp(crew.tokens.access_token, "tools/list")).body?.result?.tools?.map((t: any) => t.name) ?? [];
+  check("mcp crew: only the reading tools are listed", crewTools.includes("get_sheet") && !crewTools.includes("update_cells"), crewTools);
+  const crewList = await tool(crew.tokens.access_token, "list_sheets");
+  const crewEvents = (crewList.data?.events ?? []).map((e: any) => e.event);
+  check("mcp crew: list_sheets shows only its event, read only", crewEvents.length === 1 && crewEvents[0] === "Matrix Event A" && crewList.data.events[0].access === "read only", crewList.text);
+  check("mcp crew: another company's sheet is refused", (await tool(crew.tokens.access_token, "get_sheet", { sheet_id: rdB.body.id })).error);
+  const crewWrite = await mcp(crew.tokens.access_token, "tools/call", { name: "update_cells", arguments: { sheet_id: rdA.body.id, changes: [] } });
+  check("mcp crew: a change is refused 403 insufficient_scope", crewWrite.status === 403 && String(crewWrite.headers.get("www-authenticate")).includes("insufficient_scope"), crewWrite.status);
+
+  // Showcaller for one event: reads and changes that event, nothing else.
+  const mgr = await connect(eventMgr.accessToken);
+  const at = mgr.tokens.access_token as string;
+  const hello = await mcp(at, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "matrix", version: "1" } });
+  check("mcp: the opening handshake names the server and explains the rules", hello.body?.result?.serverInfo?.name === "opencall" && String(hello.body?.result?.instructions).includes("cannot start"), hello.body);
+  check("mcp showcaller: token reads and changes", mgr.tokens.scope === "sheets:read sheets:write", mgr.tokens);
+  const added = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: null, rows: [{ title: "Matrix opener", duration: "2:00" }, { title: "Matrix second" }] });
+  check("mcp showcaller: adds rows", !added.error && added.data?.added?.length === 2, added.text);
+  const [first, second] = added.data?.added ?? [];
+  const edited = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: first, column: "Title", text: "Matrix opener, renamed" }] });
+  check("mcp showcaller: edits a cell", !edited.error, edited.text);
+  const sheet = await tool(at, "get_sheet", { sheet_id: rdA.body.id });
+  const rowOne = sheet.data?.rows?.find((r: any) => r.id === first);
+  check("mcp showcaller: the change is on the sheet", rowOne?.title === "Matrix opener, renamed" && rowOne?.duration === "02:00", rowOne);
+  check("mcp showcaller: another company's sheet cannot be changed", (await tool(at, "add_rows", { sheet_id: rdB.body.id, after_row_id: null, rows: [{ title: "x" }] })).error);
+  check("mcp showcaller: a bad duration is refused, not guessed", (await tool(at, "set_duration", { sheet_id: rdA.body.id, row_id: first, duration: "soon" })).error);
+  const snaps = await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN);
+  check("mcp: a snapshot was taken before the first change", (snaps.body as any[]).some((s) => String(s.label).startsWith("Before changes by Matrix Assistant")), snaps.body);
+
+  // Someone else editing: hands off.
+  const claimed = await req(`/rundowns/${rdA.body.id}/lock`, companyMgr.accessToken, { method: "POST", body: JSON.stringify({}) });
+  const locked = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: first, column: "Title", text: "nope" }] });
+  check("mcp: refused while someone else holds the edit lock", claimed.status === 200 && locked.error && locked.text.includes("editing"), { claimed: claimed.status, locked });
+  await req(`/rundowns/${rdA.body.id}/lock`, companyMgr.accessToken, { method: "DELETE", body: JSON.stringify({ token: claimed.body?.token }) });
+
+  // A live show: text and strikes only.
+  const started = await showChannel(rdA.body.id, eventMgr.accessToken, true);
+  const liveAdd = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: second, rows: [{ title: "x" }] });
+  const liveText = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: second, column: "Title", text: "Matrix second, live" }] });
+  check("mcp live: adding rows is refused, text still edits", started.cmdReply?.state === "running" && liveAdd.error && liveAdd.text.includes("live") && !liveText.error, { liveAdd: liveAdd.text, liveText: liveText.text });
+  await new Promise<void>((done) => {
+    const ws = new WebSocket(`${WS}/?rundown=${rdA.body.id}`);
+    ws.addEventListener("open", () => ws.send(JSON.stringify({ v: 1, t: "hello", auth: { kind: "session", token: ADMIN }, device: "console" })));
+    ws.addEventListener("message", (e) => {
+      const msg = JSON.parse(String(e.data));
+      if (msg.t === "welcome") ws.send(JSON.stringify({ v: 1, t: "cmd", id: "t-stop", action: "stop", confirm: true }));
+      if (msg.t === "show_state") {
+        ws.close();
+        done();
+      }
+    });
+    setTimeout(done, 3000);
+  });
+  const tools = (await mcp(at, "tools/list")).body?.result?.tools?.map((t: any) => t.name) ?? [];
+  check("mcp: there is no tool that runs the show", tools.length > 0 && !tools.some((n: string) => /^(start|stop|next|go|pause|resume|fire|jump)(_|$)/i.test(n)), tools);
+
+  // Tokens: a replayed refresh token ends the connection.
+  const turned = await tokenCall({ grant_type: "refresh_token", refresh_token: mgr.tokens.refresh_token });
+  const replay = await tokenCall({ grant_type: "refresh_token", refresh_token: mgr.tokens.refresh_token });
+  check("mcp tokens: refresh turns over once; a replay is refused and ends it", turned.status === 200 && replay.status === 400 && (await mcp(turned.body.access_token, "tools/list")).status === 401, { turned: turned.status, replay: replay.body });
+
+  // Disconnect from My account.
+  const again = await connect(eventMgr.accessToken);
+  const listed = await req("/me/assistants", eventMgr.accessToken);
+  const conn = (listed.body?.assistants ?? []).find((a: any) => a.name === "Matrix Assistant");
+  check("mcp: My account lists the connection", conn != null, listed.body);
+  check("mcp: someone else cannot disconnect it", (await req(`/me/assistants/${conn?.id}`, viewer.accessToken, { method: "DELETE" })).status === 404);
+  await req(`/me/assistants/${conn?.id}`, eventMgr.accessToken, { method: "DELETE" });
+  check("mcp: disconnecting stops it at once", (await mcp(again.tokens.access_token, "tools/list")).status === 401);
+
+  await new Promise((r) => setTimeout(r, 300));
+  const log = await req("/audit?limit=500", ADMIN);
+  const actions = new Set((log.body as any[]).map((r) => r.action));
+  check("mcp: connections and changes are in the audit log", actions.has("mcp.connected") && actions.has("mcp.add_rows") && actions.has("mcp.disconnected"), [...actions].filter((a) => a.startsWith("mcp")));
+}
+
 // ── Hardening (2026-10): credentials, throttles, limits ───────────────────────
 // Kept LAST: the throttle checks spend this address's allowance on purpose.
 {

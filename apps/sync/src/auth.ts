@@ -215,6 +215,31 @@ export async function resolveBearer(handle: DbHandle, token: string | null): Pro
   return null;
 }
 
+/**
+ * The ACCOUNT behind a sign-in token (a session or a personal token), whatever
+ * its access — including System Administrator accounts, which resolveBearer
+ * reports only as "admin". Null for the server's own admin token, company
+ * tokens and codes: those are not people, and cannot connect an assistant.
+ */
+export async function accountIdForToken(handle: DbHandle, token: string | null): Promise<string | null> {
+  if (!token) return null;
+  if (token.startsWith("ses_")) return resolveSession(handle, token);
+  if (token.startsWith("usr_")) {
+    const user = await handle.db.query.users.findFirst({ where: eq(schema.users.accessToken, hashToken(token)), columns: { id: true } });
+    return user?.id ?? null;
+  }
+  return null;
+}
+
+/** The access context of an account, exactly as a sign-in would give it. */
+export async function contextForAccount(handle: DbHandle, userId: string): Promise<AuthCtx> {
+  const user = await handle.db.query.users.findFirst({ where: eq(schema.users.id, userId) });
+  if (!user) return null;
+  const grants = await handle.db.query.userGrants.findMany({ where: eq(schema.userGrants.userId, user.id) });
+  if (grants.some((g) => g.kind === "admin")) return { kind: "admin", name: user.name };
+  return { kind: "user", userId: user.id, name: user.name, grants: grants.map((g) => ({ kind: g.kind as UserGrant["kind"], targetId: g.targetId })) };
+}
+
 /** Can this context CHANGE the given event (and everything below it)? */
 export async function canManageEvent(handle: DbHandle, ctx: AuthCtx, eventId: string): Promise<boolean> {
   if (ctx?.kind === "admin") return true;

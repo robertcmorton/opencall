@@ -27,6 +27,8 @@ import type * as Y from "yjs";
 import { ulid } from "ulid";
 import { createDocServer, docStoresSettled } from "./doc-server.ts";
 import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
+import { createMcpRoutes } from "./mcp.ts";
+import { readFileSync } from "node:fs";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
 import { scheduleRetention } from "./retention.ts";
@@ -90,6 +92,7 @@ if (process.env.DATABASE_URL) {
   if (!admin) warn("ADMIN_TOKEN is not set, so this server is OPEN: anybody is an administrator.");
   else if (admin.length < 32) warn(`ADMIN_TOKEN is only ${admin.length} characters; use at least 32 random characters.`);
   if (allowedOrigins().size === 0) warn("PUBLIC_WEB_URL is not set, so any website may call this API from a browser.");
+  if (!process.env.PUBLIC_WEB_URL?.trim()) warn("PUBLIC_WEB_URL is not set, so AI assistants cannot find the page where people approve them.");
   if (process.env.ALLOW_DEV_JOIN !== "0") warn("ALLOW_DEV_JOIN is not 0, so the development join code DEV123 opens any sheet read-only.");
 }
 
@@ -299,6 +302,18 @@ const handleApi = createApiHandler(dbHandle, docServer, {
     showStore.persist(rundownId, result, "stop");
   },
 });
+// AI assistants (MCP): discovery, sign-in and the tools. Open to any origin.
+const appVersion = (() => {
+  try {
+    return String(JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")).version ?? "0.0.0");
+  } catch {
+    return "0.0.0";
+  }
+})();
+const handleMcp = createMcpRoutes(dbHandle, docServer, async (rundownId) => {
+  const { state, activeRowId } = (await showStore.get(rundownId)).current;
+  return { state, activeRowId };
+}, appVersion);
 const httpServer = createServer(async (req, res) => {
   /**
    * Health, for the platform and an uptime check: can this process reach its
@@ -320,7 +335,7 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
   try {
-    const handled = await handleApi(req, res);
+    const handled = (await handleMcp(req, res)) || (await handleApi(req, res));
     if (!handled) {
       res.statusCode = 404;
       res.end("not found");

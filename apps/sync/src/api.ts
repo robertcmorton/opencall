@@ -26,6 +26,8 @@ import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
 import { audit } from "./audit.ts";
+import { accountIdForToken, contextForAccount } from "./auth.ts";
+import { checkAuthorize, decideAuthorize, listConnections, OAuthError, revokeGrant, revokeUserGrants, SCOPES, syncBase, type AuthorizeRequest } from "./oauth.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
 import { customEventTypes } from "./eventTypes.ts";
@@ -755,6 +757,79 @@ export function createApiHandler(
         return true;
       }
 
+      // ── AI assistants (MCP) ──
+      // The approval page lives on the web app, where people are signed in; it
+      // asks here what the assistant wants, and sends the person's answer back.
+      // Only an account can connect one: an assistant acts as a person.
+      if (req.method === "POST" && (pathname === "/oauth/authorize/check" || pathname === "/oauth/authorize/decide")) {
+        const userId = await accountIdForToken(handle, bearerToken(req));
+        if (!userId) {
+          json(res, 401, { error: "Sign in with your own account to connect an assistant." });
+          return true;
+        }
+        const ctx = await contextForAccount(handle, userId);
+        const body = await readJson(req);
+        const params = (body.params && typeof body.params === "object" ? body.params : {}) as Record<string, unknown>;
+        const p: AuthorizeRequest = Object.fromEntries(
+          ["client_id", "redirect_uri", "response_type", "state", "code_challenge", "code_challenge_method", "scope", "resource"]
+            .filter((k) => typeof params[k] === "string")
+            .map((k) => [k, String(params[k])]),
+        );
+        // Changing sheets is only offered to an account that can change some.
+        const mayWrite = ctx?.kind === "admin" || (ctx?.kind === "user" && ctx.grants.some((g) => g.kind === "company" || g.kind === "event" || g.kind === "edit"));
+        const base = syncBase(req);
+        try {
+          if (pathname.endsWith("/check")) {
+            const checked = await checkAuthorize(handle, base, p);
+            if ("fatal" in checked) json(res, 200, { fatal: checked.fatal });
+            else if ("redirectError" in checked) json(res, 200, { redirect: checked.redirectError });
+            else {
+              const ok = checked.ok!;
+              const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { name: true, email: true } });
+              json(res, 200, {
+                client: { name: ok.clientName, host: ok.host, loopbackOnly: ok.loopbackOnly },
+                account: { name: user?.name ?? null, email: user?.email ?? null },
+                scopes: ok.scopes.map((key) => ({ key, ...SCOPES[key], available: key !== "sheets:write" || mayWrite })),
+              });
+            }
+            return true;
+          }
+          const allow = body.allow === true;
+          const ticked = (Array.isArray(body.scopes) ? body.scopes.map(String) : []).filter((s: string) => s !== "sheets:write" || mayWrite);
+          const out = await decideAuthorize(handle, base, userId, p, allow, ticked);
+          if (out.grantId) audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, detail: { assistant: out.clientName, scopes: ticked } });
+          json(res, 200, { redirect: out.redirect });
+        } catch (err) {
+          if (err instanceof OAuthError) json(res, 400, { error: err.description });
+          else throw err;
+        }
+        return true;
+      }
+
+      if (pathname === "/me/assistants" || pathname.startsWith("/me/assistants/")) {
+        const userId = await accountIdForToken(handle, bearerToken(req));
+        if (!userId) {
+          json(res, 401, { error: "sign in first" });
+          return true;
+        }
+        if (req.method === "GET" && pathname === "/me/assistants") {
+          json(res, 200, { assistants: await listConnections(handle, userId) });
+          return true;
+        }
+        const grantId = pathname.split("/")[3];
+        if (req.method === "DELETE" && grantId) {
+          const grant = await db.query.mcpGrants.findFirst({ where: eq(schema.mcpGrants.id, grantId) });
+          if (!grant || grant.userId !== userId) {
+            json(res, 404, { error: "no such connection" });
+            return true;
+          }
+          await revokeGrant(handle, grant.id);
+          audit(handle, { actor: userId, action: "mcp.disconnected", target: grant.id, ip, detail: { assistant: grant.clientName, by: "person" } });
+          json(res, 200, {});
+          return true;
+        }
+      }
+
       if (req.method === "POST" && pathname === "/auth/logout") {
         const token = bearerToken(req);
         if (token?.startsWith("ses_")) await revokeSession(handle, token);
@@ -808,6 +883,8 @@ export function createApiHandler(
         audit(handle, { actor: userId, action: "password.changed", target: `user:${userId}`, ip });
         await db.update(schema.users).set({ passwordHash: hashPassword(next) }).where(eq(schema.users.id, userId));
         // Every other session dies with the old password; this one stays.
+        // Assistants connected under the old password are disconnected too.
+        await revokeUserGrants(handle, userId);
         if (token?.startsWith("ses_")) {
           await revokeUserSessions(handle, userId);
           await db.update(schema.authSessions).set({ revokedAt: null }).where(eq(schema.authSessions.token, hashToken(token)));
@@ -831,6 +908,7 @@ export function createApiHandler(
         }
         await db.update(schema.users).set({ passwordHash: hashPassword(password) }).where(eq(schema.users.id, id));
         await revokeUserSessions(handle, id); // old sessions die with the old password
+        await revokeUserGrants(handle, id); // and so do its assistant connections
         if (target?.email) await clearStartingWith(handle, `login:email:${target.email}`);
         audit(handle, { actor: "admin", action: "password.reset_by_admin", target: `user:${id}`, ip });
         json(res, 200, { id });

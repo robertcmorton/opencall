@@ -52,6 +52,8 @@ that ends up somewhere it should not.
 | Supply chain | pnpm 12 refuses packages under a day old; install scripts only for approved packages; `pnpm audit --prod` in CI; Dependabot weekly | `pnpm-workspace.yaml`, `.github/` |
 | CI | Actions pinned to commit SHAs, read-only token, no persisted credentials, gitleaks on every push | `.github/workflows/ci.yml` |
 | Monitoring | Hourly uptime check opens and closes a GitHub issue; a monthly security-review checklist issue | `.github/workflows/uptime.yml`, `security-reminder.yml` |
+| AI assistants | Connected by OAuth 2.1 with PKCE (S256) to one ACCOUNT, never a company or server token; the assistant reaches exactly that account's sheets — read where it can see, change where it can edit. Codes 5 min, access tokens 1 h, refresh tokens 30 days and turned over on every use, a connection ends after 90 days; all stored hashed. A code or refresh token used twice ends the whole connection. Ended by a password change or admin reset, by Disconnect in My account, or by deleting the account | `apps/sync/src/oauth.ts` |
+| AI assistants | No tool runs the show. While a show is live only text and strikes change. A sheet somebody else is editing is not changed. A snapshot is taken before an assistant's first change to a sheet each hour. Changes are recorded in the audit log as `mcp.*`. 60 requests a minute and 2000 a day per account, 30 changes a minute; 64KB requests, 10 messages per batch | `apps/sync/src/mcp.ts` |
 | Startup | Warns in the error log when a production server has no or a short admin token, no web origin, or the dev join code enabled | `server.ts` |
 
 ## Settings (sync service)
@@ -59,7 +61,8 @@ that ends up somewhere it should not.
 | Variable | What it does |
 |---|---|
 | `ADMIN_TOKEN` | Locks the server. At least 32 random characters. |
-| `PUBLIC_WEB_URL` | The web app's address. Invitation links point here, and browsers on any other site are refused. |
+| `PUBLIC_WEB_URL` | The web app's address. Invitation links point here, browsers on any other site are refused, and AI assistants are sent here to be approved — they cannot connect without it. |
+| `PUBLIC_SYNC_URL` | Optional. The sync server's own public address, as assistants should see it. Worked out from the request when unset. |
 | `WEB_ORIGINS` | Extra allowed web origins, comma-separated (e.g. a staging site). |
 | `ALLOW_DEV_JOIN` | Must be `0` in production. |
 | `DATABASE_URL` | The app's database login. Ideally the restricted `opencall_app` role. |
@@ -72,7 +75,8 @@ that ends up somewhere it should not.
 | `ADMIN_TOKEN` | New value in Railway, redeploy sync | Anybody signed in with the old admin token must sign in again. |
 | A company token | Dashboard → company ⋯ → New token | The old token stops at once; give the new one to the company. |
 | A personal token | Users & access → New token | The old token stops at once. |
-| A password | The person changes it, or an admin resets it | Every other session of that account ends. |
+| A password | The person changes it, or an admin resets it | Every other session of that account ends, and every assistant connected to it is disconnected. |
+| An assistant's access | My account → AI assistants → Disconnect | Stops at once; the assistant has to be approved again. |
 | `opencall_app` password | Re-run `setup-app-role.ts` with a new `APP_DB_PASSWORD`, update `DATABASE_URL`, redeploy | Brief reconnect of the sync server. |
 | SMTP password | New value in Railway | Invitations fail until set. |
 
@@ -89,6 +93,26 @@ that ends up somewhere it should not.
    Breaches scheme applies (OAIC).
 5. **Record it** here, with the date, what happened and the check added to the
    security suite so it cannot happen again unnoticed.
+
+## AI assistants (MCP)
+
+An assistant such as Claude connects at `<sync address>/mcp`. Discovery is at
+`/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`;
+it registers itself at `/oauth/register`, sends the person to the web app's
+`/oauth/authorize` page to approve it, and exchanges the answer at `/oauth/token`.
+
+| Who | What an assistant can do |
+|---|---|
+| System Administrator | Read and change every sheet |
+| Showcaller (company or event access) | Read and change that company's or event's sheets |
+| Producer (edit access) | Read and change that event's sheets |
+| Crew (view access) | Read only; "Change your run sheets" is not offered |
+| Anyone with only a view link, a company token or the server token | Cannot connect one |
+
+The security suite walks the whole flow: crew are read-only and refused
+`insufficient_scope`, another company's sheet is refused, the edit lock and a
+live show are respected, a replayed refresh token ends the connection, and
+Disconnect stops it at once.
 
 ## Open items
 

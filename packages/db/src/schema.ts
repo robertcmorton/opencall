@@ -506,3 +506,65 @@ export const auditLog = pgTable(
   },
   (t) => [index("audit_log_at_idx").on(t.at)],
 );
+
+// ── AI assistants (MCP) and how they sign in (OAuth 2.1) ─────────────────────
+// Modelled on Kitshare's: an assistant registers itself, the person approves
+// it once on OpenCall's own page, and then holds short-lived tokens tied to
+// that approval. Every secret is stored as its SHA-256.
+
+/** An assistant app that has registered itself (RFC 7591 dynamic registration). */
+export const mcpClients = pgTable("mcp_clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  uri: text("uri"),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  /** "none" (a public client using PKCE alone) or a client secret. */
+  authMethod: text("auth_method").notNull().default("none"),
+  secretHash: text("secret_hash"),
+  createdAt: createdAt(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
+
+/** A person's approval of one assistant: what it may do, and until when. */
+export const mcpGrants = pgTable(
+  "mcp_grants",
+  {
+    id: id().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => mcpClients.id, { onDelete: "cascade" }),
+    clientName: text("client_name").notNull(),
+    clientHost: text("client_host"),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    createdAt: createdAt(),
+    /** Approving again restarts the 90 days. */
+    authorizedAt: timestamp("authorized_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [index("mcp_grants_user_idx").on(t.userId)],
+);
+
+/** Authorisation codes, access tokens and refresh tokens, by hash. */
+export const mcpTokens = pgTable(
+  "mcp_tokens",
+  {
+    id: id().primaryKey(),
+    hash: text("hash").notNull().unique(),
+    kind: text("kind", { enum: ["code", "access", "refresh"] }).notNull(),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => mcpGrants.id, { onDelete: "cascade" }),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    redirectUri: text("redirect_uri"),
+    codeChallenge: text("code_challenge"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("mcp_tokens_grant_idx").on(t.grantId), index("mcp_tokens_expires_idx").on(t.expiresAt)],
+);

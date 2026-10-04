@@ -228,6 +228,28 @@ export interface JoinCodeSummary {
   columns?: Record<string, boolean> | null;
 }
 
+/** What an assistant asking to connect wants, as the approval page shows it. */
+export interface AssistantRequest {
+  /** Something is wrong with the request itself: shown, never followed. */
+  fatal?: string;
+  /** The request goes straight back to the assistant (with an error). */
+  redirect?: string;
+  client?: { name: string; host: string | null; loopbackOnly: boolean };
+  account?: { name: string | null; email: string | null };
+  scopes?: { key: string; title: string; detail: string; available: boolean }[];
+}
+
+/** An assistant connected to this account. */
+export interface AssistantConnection {
+  id: string;
+  name: string;
+  host: string | null;
+  scopes: string[];
+  connectedAt: string;
+  lastUsedAt: string | null;
+  endsAt: string;
+}
+
 export const api = {
   events: (includeArchived = false) => request<EventSummary[]>(`/events${includeArchived ? "?archived=1" : ""}`),
   updateMe: (body: { name?: string; email?: string }) =>
@@ -249,6 +271,12 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   logout: () => request<Record<string, never>>("/auth/logout", { method: "POST" }),
+  authorizeCheck: (params: Record<string, string>) =>
+    request<AssistantRequest>("/oauth/authorize/check", { method: "POST", body: JSON.stringify({ params }) }),
+  authorizeDecide: (params: Record<string, string>, allow: boolean, scopes: string[]) =>
+    request<{ redirect: string }>("/oauth/authorize/decide", { method: "POST", body: JSON.stringify({ params, allow, scopes }) }),
+  assistants: () => request<{ assistants: AssistantConnection[] }>("/me/assistants"),
+  disconnectAssistant: (id: string) => request<Record<string, never>>(`/me/assistants/${encodeURIComponent(id)}`, { method: "DELETE" }),
   changePassword: (current: string, next: string) =>
     request<Record<string, never>>("/auth/change-password", { method: "POST", body: JSON.stringify({ current, next }) }),
   setUserPassword: (id: string, password: string) =>

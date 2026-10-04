@@ -1,0 +1,1 @@
+ALTER TABLE "rundown_snapshots" ADD COLUMN "kind" text;

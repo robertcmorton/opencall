@@ -4849,3 +4849,28 @@ tr.played-row td {
 .activity-sub {
   color: var(--text-2);
 }
+
+/* Version history: why each version was saved, and a quiet text button. */
+.version-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.version-tag-assistant {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-text);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}

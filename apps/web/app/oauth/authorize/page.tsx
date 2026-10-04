@@ -105,7 +105,7 @@ export default function AuthorizePage() {
         <li>It can never start, step or stop a show.</li>
         <li>While a show is live it can only edit text and strike rows.</li>
         <li>It cannot change a sheet somebody else is editing.</li>
-        <li>Before its first change to a sheet each hour, a copy is saved in Versions.</li>
+        <li>Before every change it makes, the sheet as it was is saved in Versions, so any change can be undone.</li>
         <li>You can disconnect it at any time from My account.</li>
       </ul>
 

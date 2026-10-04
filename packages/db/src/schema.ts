@@ -218,6 +218,12 @@ export const rundownSnapshots = pgTable("rundown_snapshots", {
   doc: bytea("doc").notNull(),
   label: text("label"),
   createdBy: text("created_by").references(() => users.id),
+  /**
+   * Why it was saved: "manual", "show_start", "import", "restore" or
+   * "assistant" (taken just before an AI assistant changed the sheet).
+   * Null on versions saved before this was recorded.
+   */
+  kind: text("kind"),
   createdAt: createdAt(),
 });
 

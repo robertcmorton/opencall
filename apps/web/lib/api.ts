@@ -205,7 +205,23 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 export interface SnapshotSummary {
   id: string;
   label: string | null;
+  /** Why it was saved: manual, show_start, import, restore, assistant — or null on old versions. */
+  kind: string | null;
+  /** Who saved it (or whose assistant), when known. */
+  by: string | null;
   createdAt: string;
+}
+
+/** What restoring a version would undo, row by row, against the sheet as it is now. */
+export interface VersionComparison {
+  added: { id: string; number: number; title: string }[];
+  removed: { id: string; number: number; title: string }[];
+  changed: { id: string; number: number; title: string; fields: string[] }[];
+  moved: { id: string; number: number; title: string }[];
+  sheet: string[];
+  same: boolean;
+  /** How many of each there are; the lists above hold only the first few. */
+  counts: { added: number; removed: number; changed: number; moved: number };
 }
 
 export interface JoinCodeSummary {
@@ -321,6 +337,7 @@ export const api = {
   revokeJoinCode: (rundownId: string, codeId: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "DELETE" }),
   snapshots: (rundownId: string) => request<SnapshotSummary[]>(`/rundowns/${rundownId}/snapshots`),
+  compareSnapshot: (snapshotId: string) => request<VersionComparison>(`/snapshots/${snapshotId}/compare`),
   createSnapshot: (rundownId: string, label?: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/snapshots`, { method: "POST", body: JSON.stringify({ label }) }),
   restoreSnapshot: (snapshotId: string, name?: string) =>

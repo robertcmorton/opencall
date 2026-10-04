@@ -4002,6 +4002,17 @@ export function RundownEditor({
           the showcaller's business. A follower was offered all four; the API
           refused them, which made them dead buttons rather than a hole — and a
           dead "End event" is a bad thing to put in front of a crew member. */}
+      {/* On the editing page, whoever may edit the sheet can also get back to
+          an earlier version of it — the producer whose AI assistant changed
+          something by mistake most of all. The server checks the same right. */}
+      {!isShow && (
+        <SideNavSection heading="Sheet">
+          <button type="button" className="menu-item" onClick={() => setPanel(panel === "history" ? null : "history")}>
+            <span className="check" />
+            Version history
+          </button>
+        </SideNavSection>
+      )}
       {isShow && mayDrive && (
         <SideNavSection heading="Show settings">
           <button type="button" className="menu-item" onClick={saveAsTemplate}>
@@ -4016,7 +4027,7 @@ export function RundownEditor({
           )}
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "history" ? null : "history")}>
             <span className="check" />
-            History
+            Version history
           </button>
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "join" ? null : "join")}>
             <span className="check" />
@@ -4759,7 +4770,7 @@ export function RundownEditor({
       )}
       <KeepMounted open={panel === "history"}>
         <div className="no-print">
-          <HistoryPanel rundownId={rundownId} onClose={() => setPanel(null)} />
+          <HistoryPanel rundownId={rundownId} open={panel === "history"} onClose={() => setPanel(null)} />
         </div>
       </KeepMounted>
       <KeepMounted open={panel === "join"}>

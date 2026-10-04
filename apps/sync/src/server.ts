@@ -638,6 +638,7 @@ wss.on("connection", (ws, req) => {
               rundownId: ctx.rundownId,
               doc: rundown.doc,
               label: "Show start",
+              kind: "show_start",
             });
         })().catch((err) => console.error("[sync] show-start snapshot failed:", err));
       }

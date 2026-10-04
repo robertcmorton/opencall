@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary } from "../lib/api";
+import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary, type VersionComparison } from "../lib/api";
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
 
@@ -379,6 +379,63 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   );
 }
 
+const KIND_TAG: Record<string, string> = {
+  assistant: "AI",
+  show_start: "Show start",
+  restore: "Restore",
+  import: "Import",
+};
+
+const names = (rows: { number: number; title: string }[], total: number) => {
+  const shown = rows.slice(0, 6).map((r) => `${r.number}. ${r.title}`);
+  return total > shown.length ? `${shown.join(", ")} and ${total - shown.length} more` : shown.join(", ");
+};
+const rowWord = (n: number) => (n === 1 ? "a row" : `${n.toLocaleString()} rows`);
+
+/**
+ * "What would restoring this undo?" — the sheet as it is now against this
+ * version, in plain lines, before anybody presses Restore. The point is the
+ * work done SINCE that version: restoring takes all of it back, not only the
+ * change somebody regrets.
+ */
+function WhatRestoringUndoes({ snapshotId }: { snapshotId: string }) {
+  const [open, setOpen] = useState(false);
+  const [c, setC] = useState<VersionComparison | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!open)
+    return (
+      <button
+        className="btn-link"
+        style={{ justifySelf: "start", fontSize: "var(--fs-sm)" }}
+        onClick={() => {
+          setOpen(true);
+          void api
+            .compareSnapshot(snapshotId)
+            .then(setC)
+            .catch((err: unknown) => setFailed(err instanceof Error ? err.message : String(err)));
+        }}
+      >
+        What would restoring this undo?
+      </button>
+    );
+  const lines: string[] = [];
+  if (c) {
+    if (c.same) lines.push("Nothing — the sheet is the same as this version.");
+    const n = c.counts;
+    if (n.removed) lines.push(`Removes ${rowWord(n.removed)} added since: ${names(c.removed, n.removed)}`);
+    if (n.added) lines.push(`Brings back ${rowWord(n.added)} deleted since: ${names(c.added, n.added)}`);
+    for (const r of c.changed.slice(0, 8)) lines.push(`Puts back ${r.number}. ${r.title}: ${r.fields.join(", ")}`);
+    if (n.changed > 8) lines.push(`…and changes to ${(n.changed - 8).toLocaleString()} more rows`);
+    if (n.moved) lines.push(`Moves back ${rowWord(n.moved)}: ${names(c.moved, n.moved)}`);
+    if (c.sheet.length) lines.push(`Also puts back the sheet's ${c.sheet.join(", ").toLowerCase()}`);
+  }
+  return (
+    <span style={{ fontSize: "var(--fs-sm)", color: "var(--text-2)", display: "grid", gap: 2, paddingTop: 2 }}>
+      {failed ? failed : !c ? "Comparing…" : lines.map((l, i) => <span key={i}>{l}</span>)}
+    </span>
+  );
+}
+
 /**
  * Version history, floating over the sheet rather than shoving it down.
  *
@@ -387,10 +444,21 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
  * that moves is the cue the showcaller is reading. Same reasoning, and the
  * same PanelModal, as the sharing panel above it.
  */
-export function HistoryPanel({ rundownId, onClose }: { rundownId: string; onClose: () => void }) {
+export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: string; open?: boolean; onClose: () => void }) {
   const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
-  const reload = () => void api.snapshots(rundownId).then(setSnapshots);
-  useEffect(reload, [rundownId]);
+  // Bumped on every reload so an opened comparison is not left showing how the
+  // sheet compared the LAST time the panel was open.
+  const [generation, setGeneration] = useState(0);
+  const reload = () =>
+    void api.snapshots(rundownId).then((list) => {
+      setSnapshots(list);
+      setGeneration((g) => g + 1);
+    });
+  // The panel stays mounted while closed, so it re-reads on every opening:
+  // versions saved since (an assistant saves one before each change) must show.
+  useEffect(() => {
+    if (open) reload();
+  }, [rundownId, open]);
 
   return (
     <PanelModal onClose={onClose}>
@@ -417,26 +485,42 @@ export function HistoryPanel({ rundownId, onClose }: { rundownId: string; onClos
             Download as-run report (CSV)
           </a>
         </div>
-        {snapshots.length === 0 && <span style={{ color: "var(--text-3)" }}>No versions yet. One is saved automatically when a show starts.</span>}
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        {snapshots.length === 0 && (
+          <span style={{ color: "var(--text-3)" }}>
+            No versions yet. One is saved automatically when a show starts, and before every change an AI assistant makes.
+          </span>
+        )}
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10, maxHeight: "55vh", overflowY: "auto" }}>
           {snapshots.map((s) => (
-            <li key={s.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <span style={{ flex: 1 }}>
-                {s.label ?? "Untitled"}{" "}
-                <span style={{ color: "var(--text-3)" }}>{new Date(s.createdAt).toLocaleString()}</span>
+            <li
+              key={`${s.id}:${generation}`}
+              style={{ display: "grid", gap: 4, paddingBottom: 10, borderBottom: "1px solid var(--border, rgba(127,127,127,.2))" }}
+            >
+              <span>
+                {KIND_TAG[s.kind ?? ""] && <span className={`version-tag version-tag-${s.kind}`}>{KIND_TAG[s.kind ?? ""]}</span>}
+                {s.label ?? "Untitled"}
               </span>
-              <RestoreHereButton snapshotId={s.id} />
-              <button
-                className="btn btn-sm"
-                data-tip="Copy this version into a new show, leaving this one untouched"
-                onClick={() =>
-                  void api
-                    .restoreSnapshot(s.id)
-                    .then(({ id }) => (window.location.href = `/show/${id}`))
-                }
-              >
-                Restore as copy
-              </button>
+              <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
+                {new Date(s.createdAt).toLocaleString()}
+                {s.by ? ` · ${s.kind === "assistant" ? `for ${s.by}` : s.by}` : ""}
+              </span>
+              <WhatRestoringUndoes snapshotId={s.id} />
+              {/* Both of THIS version's buttons together, so neither can wrap
+                  onto a line where it reads as belonging to the next one. */}
+              <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <RestoreHereButton snapshotId={s.id} />
+                <button
+                  className="btn btn-sm"
+                  data-tip="Copy this version into a new show, leaving this one untouched"
+                  onClick={() =>
+                    void api
+                      .restoreSnapshot(s.id)
+                      .then(({ id }) => (window.location.href = `/show/${id}`))
+                  }
+                >
+                  Restore as copy
+                </button>
+              </span>
             </li>
           ))}
         </ul>

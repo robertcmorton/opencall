@@ -50,8 +50,8 @@ import {
  * - While a show is live, only text and strikes may change — nothing is
  *   added, moved, deleted or re-timed under the person calling it.
  * - A sheet somebody else is editing (the edit lock) is not changed.
- * - Before an assistant's first change to a sheet in any hour, a snapshot is
- *   taken, so its work can be undone from Versions.
+ * - Before every change an assistant makes, the sheet as it was is saved as
+ *   a version, so any one change can be seen and undone from Versions.
  */
 
 export const MCP_BODY_MAX = 64 * 1024;
@@ -76,7 +76,7 @@ Start with list_sheets, then get_sheet to see the rows. Rows are named by their 
 
 Changing a duration or a fixed start time moves the fixed times below it, as it does in the app. A struck row stays visible but gives its time back.
 
-You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. Before your first change to a sheet in an hour a snapshot is taken; it can be restored from Versions in the app.`;
+You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. Before every change you make, the sheet as it was is saved as a version; the person can see what each change did and restore it from Versions in the app.`;
 
 const respond = (res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
   res.statusCode = status;
@@ -166,11 +166,18 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       };
 
     /**
-     * Every change goes through here: checks, a snapshot when one is due, a
-     * dry run on a copy (Yjs cannot roll a half-done change back), then the
-     * real change on the live document so every open screen gets it at once.
+     * Every change goes through here: checks, a dry run on a copy (Yjs cannot
+     * roll a half-done change back), a version of the sheet as it was, then
+     * the real change on the live document so every open screen gets it at once.
      */
-    async function change<T>(tool: string, rundownId: string, apply: (doc: Y.Doc, liveRowId: string | null) => T, summary: Record<string, unknown>): Promise<T> {
+    async function change<T>(
+      tool: string,
+      rundownId: string,
+      apply: (doc: Y.Doc, liveRowId: string | null) => T,
+      summary: Record<string, unknown>,
+      /** What it is about to do, for the version's label: "added 2 rows". */
+      what: string,
+    ): Promise<T> {
       const writes = await consume(handle, `mcp:write:${caller.userId}`, { max: MCP_LIMITS.writesPerMinute, windowSec: 60 });
       if (!writes.ok) throw new ToolRefusal(`Too many changes in a minute. Wait ${writes.retryAfterSec} seconds and try again.`);
       const { rundown } = await sheetFor(ctx, rundownId, true);
@@ -196,14 +203,22 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       Y.applyUpdate(probe, Y.encodeStateAsUpdate(current));
       apply(probe, liveRowId);
 
-      const snap = await consume(handle, `mcp:snap:${caller.grantId}:${rundownId}`, { max: 1, windowSec: 3600 });
-      if (snap.ok) {
+      // A version of the sheet as it was, before EVERY change an assistant
+      // makes, so any one of them can be undone — unless the newest version
+      // already is exactly this state (nothing has changed since it was saved).
+      const latest = await db.query.rundownSnapshots.findFirst({
+        where: eq(schema.rundownSnapshots.rundownId, rundownId),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
+      });
+      const unchanged = latest != null && Buffer.from(Y.encodeStateVectorFromUpdate(latest.doc)).equals(Buffer.from(Y.encodeStateVector(current)));
+      if (!unchanged) {
         await db.insert(schema.rundownSnapshots).values({
           id: ulid(),
           rundownId,
           doc: Y.encodeStateAsUpdate(current),
-          label: `Before changes by ${caller.clientName}`.slice(0, 120),
+          label: `Before ${caller.clientName} ${what}`.slice(0, 160),
           createdBy: caller.userId,
+          kind: "assistant",
         });
       }
 
@@ -308,7 +323,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       guarded(async ({ sheet_id, changes }: { sheet_id: string; changes: { row_id: string; column: string; text: string }[] }) => {
         await change("update_cells", sheet_id, (doc) => {
           for (const c of changes) setCellText(doc, c.row_id, c.column, c.text);
-        }, { cells: changes.length });
+        }, { cells: changes.length }, `edited ${changes.length === 1 ? "a cell" : `${changes.length} cells`}`);
         return ok(`Changed ${changes.length} cell${changes.length === 1 ? "" : "s"}.`);
       }),
     );
@@ -324,7 +339,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       guarded(async ({ sheet_id, row_id, duration }: { sheet_id: string; row_id: string; duration: string | null }) => {
         const sec = duration == null ? null : parseDurationShorthand(duration);
         if (duration != null && (sec == null || sec > 24 * 3600)) return fail(`"${duration}" is not a duration. Use e.g. "2:30", "90s" or "1m30s".`);
-        await change("set_duration", sheet_id, (doc) => setDuration(doc, row_id, sec), { row: row_id, sec });
+        await change("set_duration", sheet_id, (doc) => setDuration(doc, row_id, sec), { row: row_id, sec }, "changed a duration");
         return ok("Duration set.");
       }),
     );
@@ -340,7 +355,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       guarded(async ({ sheet_id, row_id, start_time }: { sheet_id: string; row_id: string; start_time: string | null }) => {
         const sec = start_time == null ? null : parseTimeOfDay(start_time);
         if (start_time != null && sec == null) return fail(`"${start_time}" is not a time of day. Use e.g. "7:30 PM" or "19:30".`);
-        await change("set_start_time", sheet_id, (doc) => setStartTime(doc, row_id, sec), { row: row_id, sec });
+        await change("set_start_time", sheet_id, (doc) => setStartTime(doc, row_id, sec), { row: row_id, sec }, "changed a start time");
         return ok(start_time == null ? "Start time cleared." : "Start time set.");
       }),
     );
@@ -391,6 +406,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
               return specs.map((s) => (after = addRow(doc, after, s)));
             },
             { rows: specs.length },
+            `added ${specs.length === 1 ? "a row" : `${specs.length} rows`}`,
           );
           return ok({ added: ids });
         },
@@ -406,7 +422,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_id, after_row_id }: { sheet_id: string; row_id: string; after_row_id: string | null }) => {
-        await change("move_row", sheet_id, (doc, liveRowId) => moveRow(doc, row_id, after_row_id, liveRowId), { row: row_id, after: after_row_id });
+        await change("move_row", sheet_id, (doc, liveRowId) => moveRow(doc, row_id, after_row_id, liveRowId), { row: row_id, after: after_row_id }, "moved a row");
         return ok("Row moved.");
       }),
     );
@@ -420,7 +436,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_id, struck }: { sheet_id: string; row_id: string; struck: boolean }) => {
-        await change("strike_row", sheet_id, (doc, liveRowId) => strikeRow(doc, row_id, struck, liveRowId), { row: row_id, struck });
+        await change("strike_row", sheet_id, (doc, liveRowId) => strikeRow(doc, row_id, struck, liveRowId), { row: row_id, struck }, struck ? "struck a row" : "put back a struck row");
         return ok(struck ? "Row struck." : "Row put back.");
       }),
     );
@@ -429,14 +445,14 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       "delete_rows",
       {
         title: "Delete rows",
-        description: "Removes rows from the sheet. Prefer strike_row when a row may come back. A snapshot taken before the change can restore them from Versions in the app.",
+        description: "Removes rows from the sheet. Prefer strike_row when a row may come back. The version saved before the change can restore them from Versions in the app.",
         inputSchema: { sheet_id: sheetId, row_ids: z.array(rowId).min(1).max(50) },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_ids }: { sheet_id: string; row_ids: string[] }) => {
         await change("delete_rows", sheet_id, (doc) => {
           for (const id of row_ids) deleteRow(doc, id);
-        }, { rows: row_ids.length });
+        }, { rows: row_ids.length }, `deleted ${row_ids.length === 1 ? "a row" : `${row_ids.length} rows`}`);
         return ok(`Deleted ${row_ids.length} row${row_ids.length === 1 ? "" : "s"}.`);
       }),
     );

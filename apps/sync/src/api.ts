@@ -72,6 +72,7 @@ const asOutcomeList = (v: unknown): string[] =>
   Array.isArray(v) ? v.map((k) => String(k)).filter((k) => (OUTCOME_KEYS as readonly string[]).includes(k)) : [];
 import {
   buildRundownDoc,
+  compareSheets,
   decodeDoc,
   encodeDoc,
   projectRundownDoc,
@@ -268,6 +269,16 @@ export function createApiHandler(
     const id = ulid();
     await db.insert(schema.teams).values({ id, name: "My Team", slug: `team-${id.slice(-6).toLowerCase()}` });
     return id;
+  };
+
+  /**
+   * A sheet as it is this moment. While anyone has it open the live document
+   * is ahead of the stored copy by up to a few seconds of typing, and a
+   * version saved from the stored copy would quietly miss that typing.
+   */
+  const currentDocBytes = (r: { id: string; docEpoch: number; doc: Uint8Array | null }): Uint8Array | null => {
+    const live = docServer?.documents.get(`${r.id}@${r.docEpoch}`) as Y.Doc | undefined;
+    return live ? Y.encodeStateAsUpdate(live) : r.doc;
   };
 
   return async function handleApi(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -2187,8 +2198,9 @@ export function createApiHandler(
           await db.insert(schema.rundownSnapshots).values({
             id: ulid(),
             rundownId: rundown.id,
-            doc: rundown.doc,
+            doc: currentDocBytes(rundown) ?? rundown.doc,
             label: "Before update",
+            kind: "import",
           });
         const doc = buildRundownDoc(
           rows,
@@ -2740,14 +2752,52 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/snapshots$/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!;
         if (!(await requireEditor(rundownId))) return true;
+        const rows = await db.query.rundownSnapshots.findMany({
+          where: eq(schema.rundownSnapshots.rundownId, rundownId),
+          columns: { id: true, label: true, kind: true, createdBy: true, createdAt: true },
+          orderBy: [desc(schema.rundownSnapshots.createdAt)],
+        });
+        const people = [...new Set(rows.map((r) => r.createdBy).filter((v): v is string => v != null))];
+        const names = people.length
+          ? new Map(
+              (await db.query.users.findMany({ where: inArray(schema.users.id, people), columns: { id: true, name: true } })).map((u) => [u.id, u.name]),
+            )
+          : new Map<string, string>();
         json(
           res,
           200,
-          await db.query.rundownSnapshots.findMany({
-            where: eq(schema.rundownSnapshots.rundownId, rundownId),
-            columns: { id: true, label: true, createdAt: true },
-          }),
+          rows.map((r) => ({ id: r.id, label: r.label, kind: r.kind, by: r.createdBy ? (names.get(r.createdBy) ?? null) : null, createdAt: r.createdAt })),
         );
+        return true;
+      }
+
+      // What restoring a version would undo: the sheet as it is now, compared
+      // row by row with that version.
+      if (req.method === "GET" && /^\/snapshots\/[^/]+\/compare$/.test(pathname)) {
+        const snapshot = await db.query.rundownSnapshots.findFirst({ where: eq(schema.rundownSnapshots.id, pathname.split("/")[2]!) });
+        if (!snapshot) {
+          json(res, 404, { error: "version not found" });
+          return true;
+        }
+        if (!(await requireEditor(snapshot.rundownId))) return true;
+        const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, snapshot.rundownId) });
+        const now = rundown ? currentDocBytes(rundown) : null;
+        if (!now) {
+          json(res, 404, { error: "rundown not found" });
+          return true;
+        }
+        // The panel names a few rows of each kind and counts the rest; a whole
+        // re-import compared row by row is half a megabyte nobody reads.
+        const c = compareSheets(decodeDoc(now), decodeDoc(snapshot.doc));
+        const SHOWN = 12;
+        json(res, 200, {
+          ...c,
+          counts: { added: c.added.length, removed: c.removed.length, changed: c.changed.length, moved: c.moved.length },
+          added: c.added.slice(0, SHOWN),
+          removed: c.removed.slice(0, SHOWN),
+          changed: c.changed.slice(0, SHOWN),
+          moved: c.moved.slice(0, SHOWN),
+        });
         return true;
       }
 
@@ -2761,11 +2811,14 @@ export function createApiHandler(
           return true;
         }
         const id = ulid();
+        const who = await authContext(handle, req, rundownId);
         await db.insert(schema.rundownSnapshots).values({
           id,
           rundownId,
-          doc: rundown.doc,
-          label: body.label ? String(body.label) : null,
+          doc: currentDocBytes(rundown) ?? rundown.doc,
+          label: body.label ? String(body.label).slice(0, 160) : null,
+          kind: "manual",
+          createdBy: who?.kind === "user" ? who.userId : null,
         });
         json(res, 201, { id });
         return true;
@@ -2809,12 +2862,16 @@ export function createApiHandler(
         }
         // Safety net: snapshot the pre-restore state first, so a restore is
         // itself reversible.
-        if (rundown.doc)
+        const before = currentDocBytes(rundown);
+        const restorer = await authContext(handle, req, rundown.id);
+        if (before)
           await db.insert(schema.rundownSnapshots).values({
             id: ulid(),
             rundownId: rundown.id,
-            doc: rundown.doc,
-            label: "Before restore",
+            doc: before,
+            label: `Before restoring ${snapshot.label ? `“${snapshot.label}”` : "a version"}`.slice(0, 160),
+            kind: "restore",
+            createdBy: restorer?.kind === "user" ? restorer.userId : null,
           });
         const epoch = rundown.docEpoch + 1;
         await db

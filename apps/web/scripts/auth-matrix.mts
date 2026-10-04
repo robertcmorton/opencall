@@ -523,8 +523,29 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp showcaller: the change is on the sheet", rowOne?.title === "Matrix opener, renamed" && rowOne?.duration === "02:00", rowOne);
   check("mcp showcaller: another company's sheet cannot be changed", (await tool(at, "add_rows", { sheet_id: rdB.body.id, after_row_id: null, rows: [{ title: "x" }] })).error);
   check("mcp showcaller: a bad duration is refused, not guessed", (await tool(at, "set_duration", { sheet_id: rdA.body.id, row_id: first, duration: "soon" })).error);
-  const snaps = await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN);
-  check("mcp: a snapshot was taken before the first change", (snaps.body as any[]).some((s) => String(s.label).startsWith("Before changes by Matrix Assistant")), snaps.body);
+  const snaps = (await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN)).body as any[];
+  const aiVersions = snaps.filter((s) => s.kind === "assistant");
+  check(
+    "mcp versions: one before EACH change, newest first, labelled and attributed",
+    aiVersions.length === 2 &&
+      aiVersions[0].label === "Before Matrix Assistant edited a cell" &&
+      aiVersions[1].label === "Before Matrix Assistant added 2 rows" &&
+      aiVersions[0].by === "Matrix EventMgr",
+    snaps,
+  );
+  const undo = await req(`/snapshots/${aiVersions[1]?.id}/compare`, eventMgr.accessToken);
+  check(
+    "mcp versions: comparing says restoring would remove the 2 rows the assistant added",
+    undo.status === 200 && undo.body?.removed?.map((r: any) => r.title).join("|") === "Matrix opener, renamed|Matrix second",
+    undo.body,
+  );
+  check("mcp versions: crew cannot read the versions of a sheet", (await req(`/snapshots/${aiVersions[1]?.id}/compare`, viewer.accessToken)).status === 401);
+  // A batch with one bad row: refused in the dry run, so nothing half-done
+  // reaches the sheet and no version is saved for it.
+  const refused = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: first, column: "Title", text: "half" }, { row_id: "no-such-row", column: "Title", text: "x" }] });
+  const afterRefusal = ((await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN)).body as any[]).filter((s) => s.kind === "assistant").length;
+  const titleNow = (await tool(at, "get_sheet", { sheet_id: rdA.body.id })).data?.rows?.find((r: any) => r.id === first)?.title;
+  check("mcp versions: a refused batch changes nothing and saves no version", refused.error && afterRefusal === 2 && titleNow === "Matrix opener, renamed", { afterRefusal, titleNow });
 
   // Someone else editing: hands off.
   const claimed = await req(`/rundowns/${rdA.body.id}/lock`, companyMgr.accessToken, { method: "POST", body: JSON.stringify({}) });

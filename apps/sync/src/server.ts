@@ -22,12 +22,13 @@ import {
 } from "@opencall/core";
 import { createDb, decodeDoc, ensureSchema, projectRundownDoc, schema } from "@opencall/db";
 import type { ProjectedRow } from "@opencall/db/doc";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type * as Y from "yjs";
 import { ulid } from "ulid";
 import { createDocServer, docStoresSettled } from "./doc-server.ts";
 import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
+import { allowedOrigins, originAllowed } from "./origins.ts";
 import { consume, release } from "./throttle.ts";
 import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
@@ -74,6 +75,23 @@ const dbHandle = await createDb(
   process.env.PGLITE_DIR || fileURLToPath(new URL("../../../.pglite", import.meta.url)),
 );
 // Fresh databases self-initialize (idempotent DDL).
+/**
+ * Settings that would leave a production server open, said out loud at boot
+ * (and in the error journal) rather than discovered later. Never fatal: a
+ * server that refused to start would take the show down with it.
+ */
+if (process.env.DATABASE_URL) {
+  const warn = (msg: string) => {
+    console.warn(`[sync] WARNING: ${msg}`);
+    setTimeout(() => logServerError(dbHandle, "process", new Error(`startup check: ${msg}`)), 5000).unref?.();
+  };
+  const admin = process.env.ADMIN_TOKEN ?? "";
+  if (!admin) warn("ADMIN_TOKEN is not set, so this server is OPEN: anybody is an administrator.");
+  else if (admin.length < 32) warn(`ADMIN_TOKEN is only ${admin.length} characters; use at least 32 random characters.`);
+  if (allowedOrigins().size === 0) warn("PUBLIC_WEB_URL is not set, so any website may call this API from a browser.");
+  if (process.env.ALLOW_DEV_JOIN !== "0") warn("ALLOW_DEV_JOIN is not 0, so the development join code DEV123 opens any sheet read-only.");
+}
+
 await ensureSchema(dbHandle.db);
 // Credentials stored before they were hashed are hashed in place, once. See
 // hashStoredCredentials: everyone signed in stays signed in.
@@ -262,6 +280,25 @@ const handleApi = createApiHandler(dbHandle, docServer, {
   },
 });
 const httpServer = createServer(async (req, res) => {
+  /**
+   * Health, for the platform and an uptime check: can this process reach its
+   * database within two seconds? 200 if so, 503 if not, the reason in the
+   * server log only. Answered before anything else, with no auth.
+   */
+  if (req.method === "GET" && (req.url === "/health" || req.url === "/healthz")) {
+    const ok = await Promise.race([
+      dbHandle.db.execute(sql`select 1`).then(() => true, (err) => {
+        console.error("[health] database check failed:", err);
+        return false;
+      }),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000).unref?.()),
+    ]);
+    res.statusCode = ok ? 200 : 503;
+    res.setHeader("content-type", "application/json");
+    res.setHeader("cache-control", "no-store");
+    res.end(JSON.stringify({ ok }));
+    return;
+  }
   try {
     const handled = await handleApi(req, res);
     if (!handled) {
@@ -341,6 +378,14 @@ function toBytes(data: RawData): Uint8Array {
 }
 
 httpServer.on("upgrade", (req, socket, head) => {
+  // A WebSocket is not protected by the browser's cross-site rules the way a
+  // fetch is, so the Origin is checked here: a page on another site cannot
+  // open the show or the document socket with a visitor's browser.
+  if (!originAllowed(req.headers.origin, allowedOrigins())) {
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return;
+  }
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
   if (pathname === "/doc" || pathname.startsWith("/doc/")) {
     docWss.handleUpgrade(req, socket, head, (ws) => {
@@ -901,6 +946,12 @@ void abandonedSessionSweep();
 
 const clockLoop = setInterval(() => void clockTick(), 1000);
 clockLoop.unref();
+
+// A client that sends its headers slowly, or a body slower still, is cut off
+// instead of holding a connection open indefinitely. Two minutes covers a
+// 24MB import on poor venue wifi.
+httpServer.headersTimeout = 20_000;
+httpServer.requestTimeout = 120_000;
 
 httpServer.listen(PORT, () => {
   console.log(`[sync] api + show channel + /doc channel on :${PORT}  (protocol v${PROTOCOL_VERSION})`);

@@ -6,7 +6,7 @@
  *
  * Usage (from repo root). PGLITE_DIR gives the test instance its own database,
  * so the dev server can keep running on the repo's .pglite:
- *   cd apps/sync && PGLITE_DIR=/tmp/matrix.pglite ADMIN_TOKEN=oc_test_admin \
+ *   cd apps/sync && PGLITE_DIR=/tmp/matrix.pglite ADMIN_TOKEN=oc_test_admin PUBLIC_WEB_URL=http://web.matrix.test \
  *     ALLOW_DEV_JOIN=0 SYNC_PORT=8899 node src/server.ts &
  *   cd apps/web  && ../sync/node_modules/.bin/tsx scripts/auth-matrix.mts
  *
@@ -18,7 +18,7 @@ import { HocuspocusProvider } from "@hocuspocus/provider";
 
 const API = "http://localhost:8899";
 const WS = "ws://localhost:8899";
-const ADMIN = "oc_test_admin";
+const ADMIN = process.env.MATRIX_ADMIN ?? "oc_test_admin";
 
 let pass = 0;
 let fail = 0;
@@ -410,6 +410,30 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     });
   });
   check("walk: follower rejected", walk?.t === "cmd_error", walk);
+}
+
+// ── Hardening (2026-10): HTTP surface ─────────────────────────────────────────
+// Run with PUBLIC_WEB_URL=http://web.matrix.test on the sync server.
+{
+  const health = await fetch(API + "/health");
+  check("health: 200 {ok:true}, not cached", health.status === 200 && (await health.json()).ok === true && health.headers.get("cache-control") === "no-store");
+  const me = await fetch(API + "/me");
+  check("API: nosniff, no-store, no framing", me.headers.get("x-content-type-options") === "nosniff" && me.headers.get("cache-control") === "no-store" && me.headers.get("x-frame-options") === "DENY");
+  const evil = await fetch(API + "/me", { headers: { origin: "http://evil.matrix.test" } });
+  check("CORS: another site gets no permission", evil.headers.get("access-control-allow-origin") === null, evil.headers.get("access-control-allow-origin"));
+  const ours = await fetch(API + "/me", { headers: { origin: "http://web.matrix.test" } });
+  check("CORS: our site is allowed by name", ours.headers.get("access-control-allow-origin") === "http://web.matrix.test", ours.headers.get("access-control-allow-origin"));
+  const { request } = await import("node:http");
+  const upgrade = (origin: string) =>
+    new Promise<number>((resolve) => {
+      const r = request({ host: "localhost", port: 8899, path: `/?rundown=${rdA.body.id}`, headers: { connection: "Upgrade", upgrade: "websocket", origin, "sec-websocket-version": "13", "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==" } });
+      r.on("upgrade", () => resolve(101));
+      r.on("response", (res) => resolve(res.statusCode ?? 0));
+      r.on("error", () => resolve(-1));
+      r.end();
+    });
+  check("WebSocket: another site's page is refused", (await upgrade("http://evil.matrix.test")) === 403);
+  check("WebSocket: our site connects", (await upgrade("http://web.matrix.test")) === 101);
 }
 
 // ── Hardening (2026-10): credentials, throttles, limits ───────────────────────

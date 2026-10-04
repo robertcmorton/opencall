@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ErrorReporter } from "../components/ErrorReporter";
 import { ViewportLock } from "../components/ViewportLock";
@@ -29,7 +30,10 @@ export const viewport: Viewport = {
   themeColor: "#0b0d10",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // The Content Security Policy's nonce for this request (see proxy.ts): the
+  // one inline script of ours must carry it or the browser will not run it.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     // suppressHydrationWarning: the boot script below stamps data-theme on
     // this element before React arrives, and the server cannot know what a
@@ -37,7 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${inter.variable} ${jbmono.variable}`} suppressHydrationWarning>
       <body>
         {/* Before first paint, before hydration: see THEME_BOOT_SCRIPT. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <ErrorReporter />
         <ViewportLock />
         {children}

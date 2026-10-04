@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+// No compiled validators: zod otherwise probes `new Function` to speed up
+// parsing, which the web app's Content Security Policy refuses (by design).
+// The probe failing is harmless but reported as a violation on every sheet
+// page; switching it off keeps that report meaningful.
+z.config({ jitless: true });
+
 /** Wire protocol version. Bumps only on breaking changes — see PROTOCOL.md. */
 export const PROTOCOL_VERSION = 1;
 

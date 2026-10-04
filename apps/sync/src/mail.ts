@@ -33,6 +33,11 @@ function transport(): Transporter | null {
     // 465 is implicit TLS; everything else starts plain and upgrades.
     secure: port === 465,
     auth: user && pass ? { user, pass } : undefined,
+    // A mail server that does not answer must not hold up the request that
+    // sent the invitation: give up after ten seconds and say it was not sent.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
   return cached;
 }

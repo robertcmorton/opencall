@@ -16,8 +16,27 @@ import { api, getAdminToken, setAdminToken } from "./api";
  * Only same-site paths are honoured as a return address. `//host` would
  * leave the site entirely, so it is rejected, as is anything absolute.
  */
-export const safeNext = (value: string | null | undefined): string | null =>
-  value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+/**
+ * A path on THIS site to go to after signing in, or null.
+ *
+ * Starting with "/" and not "//" was not enough: browsers read a backslash as
+ * a slash, so "/\\evil.example" went to another site, and control characters
+ * can split what a browser and a check each think the URL is. Now anything
+ * with a backslash or a control character is refused, and the value has to
+ * resolve to this same origin.
+ */
+export const safeNext = (value: string | null | undefined): string | null => {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  if (/[\\\u0000-\u001f\u007f-\u009f]/.test(value)) return null;
+  try {
+    const base = "http://opencall.invalid";
+    const url = new URL(value, base);
+    if (url.origin !== base) return null;
+  } catch {
+    return null;
+  }
+  return value;
+};
 
 /**
  * The sign-in screen, remembering `pathname` + `search` as the way back.

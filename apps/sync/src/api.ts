@@ -26,6 +26,7 @@ import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
 import { audit } from "./audit.ts";
+import { allowedOrigins, originAllowed } from "./origins.ts";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
 import { customEventTypes } from "./eventTypes.ts";
 import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, mayClaim, type EditLock } from "@opencall/core";
@@ -246,6 +247,11 @@ export function createApiHandler(
     const url = new URL(req.url ?? "/", "http://localhost");
     const { pathname } = url;
     const ip = clientIp(req);
+    // Headers every answer carries: never sniffed, never cached, never framed.
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-frame-options", "DENY");
+    res.setHeader("referrer-policy", "no-referrer");
     const ipKey = ipBucket(ip);
     /**
      * A lookup by a secret somebody might be guessing (a join code, an
@@ -264,7 +270,14 @@ export function createApiHandler(
       if (found) await release(handle, key);
       return found ?? null;
     };
-    res.setHeader("access-control-allow-origin", "*");
+    // Only OpenCall's own site, once its address is configured (see origins.ts).
+    const origins = allowedOrigins();
+    const origin = req.headers.origin;
+    if (origins.size === 0) res.setHeader("access-control-allow-origin", "*");
+    else {
+      res.setHeader("vary", "Origin");
+      if (origin && originAllowed(origin, origins)) res.setHeader("access-control-allow-origin", origin);
+    }
     res.setHeader("access-control-allow-headers", "content-type,authorization,x-join-code");
     res.setHeader("access-control-expose-headers", "x-source-name");
     res.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");

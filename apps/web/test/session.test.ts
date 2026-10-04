@@ -19,4 +19,15 @@ describe("the way back after signing in", () => {
     expect(safeNext("/admin/users")).toBe("/admin/users");
     expect(signInPath("//evil.example", "")).toBe("/");
   });
+
+  it("refuses the tricks a plain starts-with-slash check let through", () => {
+    // Browsers read a backslash as a slash: this is //evil.example.
+    expect(safeNext("/\\evil.example")).toBeNull();
+    expect(safeNext("/\\/evil.example")).toBeNull();
+    // Control characters (a tab or newline is stripped by URL parsers).
+    expect(safeNext("/\t/evil.example")).toBeNull();
+    expect(safeNext("/admin\n")).toBeNull();
+    // Ordinary paths with queries survive.
+    expect(safeNext("/show/01ABC?code=X7KQ2M")).toBe("/show/01ABC?code=X7KQ2M");
+  });
 });

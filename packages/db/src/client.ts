@@ -32,7 +32,10 @@ export async function createDb(databaseUrl = process.env.DATABASE_URL, pgliteDir
      * seconds rides out a blip and surfaces anything longer as an error a
      * person can see and act on.
      */
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 10, connectionTimeoutMillis: 10_000 });
+    // statement_timeout: no single query may run longer than 30 seconds. A
+    // runaway query otherwise holds a pool connection until it finishes,
+    // and ten of them stop the server answering at all.
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 10, connectionTimeoutMillis: 10_000, statement_timeout: 30_000 });
     /**
      * An idle client failing is expected, not exceptional.
      *

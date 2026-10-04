@@ -17,8 +17,35 @@ function buildSha() {
   }
 }
 
+/**
+ * Headers on every response, as Kitshare sets them. The Content Security
+ * Policy is per request (it carries a nonce) and is set in proxy.ts.
+ * - no framing anywhere (a run sheet inside somebody else's page is how a
+ *   click gets tricked onto a Stop button);
+ * - no MIME sniffing; referrers trimmed to the origin when leaving the site;
+ * - camera, microphone, location and payments off; fullscreen and keeping
+ *   the screen awake stay on, because the timer and prompter use them;
+ * - HTTPS remembered for a year in production.
+ */
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self), screen-wake-lock=(self)" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  ...(process.env.NODE_ENV === "production" ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }] : []),
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Nothing this app answers from /api is for a shared cache.
+      { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+    ];
+  },
   transpilePackages: ["@opencall/core", "@opencall/protocol", "@opencall/db"],
   env: {
     NEXT_PUBLIC_APP_VERSION: rootPkg.version,

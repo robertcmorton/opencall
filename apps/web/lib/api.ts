@@ -342,6 +342,10 @@ export const api = {
       `/errors?limit=${limit}`,
     ),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
+  audit: (limit = 200) =>
+    request<{ id: string; at: string; actor: string | null; actorName: string | null; action: string; target: string | null; ip: string | null }[]>(
+      `/audit?limit=${limit}`,
+    ),
   templates: () => request<TemplateSummary[]>("/templates"),
   /**
    * A note raised against one row, by somebody holding a view-only link.

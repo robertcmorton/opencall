@@ -485,6 +485,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   );
 }
 
+// ── Audit log ─────────────────────────────────────────────────────────────────
+{
+  check("audit: a non-admin cannot read it", (await req("/audit", viewer.accessToken)).status === 401 || (await req("/audit", viewer.accessToken)).status === 403);
+  // A recorded change made through the API: revoking a fresh view-only link.
+  const code = await req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "audit probe" }) });
+  if (code.body?.id) await req(`/rundowns/${rdA.body.id}/join-codes/${code.body.id}`, ADMIN, { method: "DELETE" });
+  await new Promise((r) => setTimeout(r, 400)); // recorded after the answer goes
+  const log = await req("/audit?limit=500", ADMIN);
+  const actions = new Set((log.body as any[]).map((r) => r.action));
+  check("audit: sign-ins, failures and changes are recorded", actions.has("login.ok") && actions.has("login.failed") && actions.has("code.created") && actions.has("code.revoked"), [...actions]);
+}
+
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────
 for (const u of [viewer, eventMgr, companyMgr, superUser]) await req(`/users/${u.id}`, ADMIN, { method: "DELETE" });
 await req(`/events/${eventB.body.id}`, ADMIN, { method: "DELETE" });

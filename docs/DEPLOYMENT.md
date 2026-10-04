@@ -22,7 +22,9 @@ NEXT_PUBLIC_DOC_WS_URL=wss://opencall-sync-production.up.railway.app/doc
 PORT=3000
 ```
 
-Sync service variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}` (PORT is Railway-injected). The sync server runs idempotent DDL on boot, so a fresh database initializes itself.
+Sync service variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}` (PORT is Railway-injected).
+
+Security settings for the sync service (see docs/security.md for what each does): `ADMIN_TOKEN` (32+ random characters), `PUBLIC_WEB_URL=https://opencall-web-production.up.railway.app` (invitation links, and the only site whose browsers may call the API), `ALLOW_DEV_JOIN=0`, and optionally a restricted `DATABASE_URL` with the owner login in `MIGRATION_DATABASE_URL`. The health check for Railway is `GET /health` on the sync service. The sync server runs idempotent DDL on boot, so a fresh database initializes itself.
 
 ## Operational notes
 

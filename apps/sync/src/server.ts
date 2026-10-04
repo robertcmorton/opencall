@@ -29,6 +29,7 @@ import { createDocServer, docStoresSettled } from "./doc-server.ts";
 import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
+import { scheduleRetention } from "./retention.ts";
 import { consume, release } from "./throttle.ts";
 import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
@@ -92,10 +93,29 @@ if (process.env.DATABASE_URL) {
   if (process.env.ALLOW_DEV_JOIN !== "0") warn("ALLOW_DEV_JOIN is not 0, so the development join code DEV123 opens any sheet read-only.");
 }
 
-await ensureSchema(dbHandle.db);
+/**
+ * Schema changes run as the database OWNER when MIGRATION_DATABASE_URL is set,
+ * and everything else through DATABASE_URL — which can then be a restricted
+ * login that reads and writes rows but cannot create, alter or drop anything
+ * (packages/db/scripts/setup-app-role.ts makes one). A query that got past
+ * every other check still could not drop a table. Without it set, the one
+ * login does both, as before.
+ */
+if (process.env.MIGRATION_DATABASE_URL && process.env.DATABASE_URL) {
+  const owner = await createDb(process.env.MIGRATION_DATABASE_URL);
+  try {
+    await ensureSchema(owner.db);
+  } finally {
+    await owner.close();
+  }
+} else {
+  await ensureSchema(dbHandle.db);
+}
 // Credentials stored before they were hashed are hashed in place, once. See
 // hashStoredCredentials: everyone signed in stays signed in.
 await authMod.hashStoredCredentials(dbHandle);
+// Old counters, ended sessions, aged audit and error records — see retention.ts.
+scheduleRetention(dbHandle);
 
 interface ClientCtx {
   role: Role;

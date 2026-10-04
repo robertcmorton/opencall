@@ -116,6 +116,31 @@ export class HttpError extends Error {
     this.status = status;
   }
 }
+/**
+ * Changes recorded in the audit log by route, whoever made them: deletions,
+ * access, archiving, join codes, imports over a sheet, closing a sheet to its
+ * viewers. Recorded when the change SUCCEEDED (status below 400). Sign-ins,
+ * passwords, tokens and new accounts are recorded where they happen.
+ */
+const AUDITED: { method: string; pattern: RegExp; action: string }[] = [
+  { method: "DELETE", pattern: /^\/users\/([^/]+)$/, action: "user.deleted" },
+  { method: "PATCH", pattern: /^\/users\/([^/]+)\/grants$/, action: "access.changed" },
+  { method: "PATCH", pattern: /^\/users\/([^/]+)$/, action: "user.updated" },
+  { method: "POST", pattern: /^\/invites$/, action: "invite.sent" },
+  { method: "DELETE", pattern: /^\/invites\/([^/]+)$/, action: "invite.withdrawn" },
+  { method: "DELETE", pattern: /^\/companies\/([^/]+)$/, action: "company.deleted" },
+  { method: "DELETE", pattern: /^\/events\/([^/]+)$/, action: "event.deleted" },
+  { method: "POST", pattern: /^\/events\/([^/]+)\/archive$/, action: "event.archived" },
+  { method: "DELETE", pattern: /^\/rundowns\/([^/]+)$/, action: "sheet.deleted" },
+  { method: "POST", pattern: /^\/rundowns\/([^/]+)\/archive$/, action: "sheet.archived" },
+  { method: "POST", pattern: /^\/rundowns\/([^/]+)\/replace-content$/, action: "sheet.reimported" },
+  { method: "POST", pattern: /^\/rundowns\/([^/]+)\/viewing$/, action: "sheet.viewing_changed" },
+  { method: "POST", pattern: /^\/rundowns\/([^/]+)\/join-codes$/, action: "code.created" },
+  { method: "DELETE", pattern: /^\/rundowns\/([^/]+)\/join-codes\/[^/]+$/, action: "code.revoked" },
+  { method: "DELETE", pattern: /^\/event-types\/([^/]+)$/, action: "kind_of_show.deleted" },
+  { method: "DELETE", pattern: /^\/errors$/, action: "error_log.cleared" },
+];
+
 /** Ordinary request bodies: far above any form this app sends. */
 export const BODY_MAX = 1_000_000;
 /** Imports carry the original file as base64 (≤ ~12MB decoded, ~16MB encoded). */
@@ -247,6 +272,21 @@ export function createApiHandler(
     const url = new URL(req.url ?? "/", "http://localhost");
     const { pathname } = url;
     const ip = clientIp(req);
+    // Successful changes on audited routes are recorded once the answer has
+    // gone, with who made them (worked out from the same credentials).
+    const audited = AUDITED.find((a) => a.method === req.method && a.pattern.test(pathname));
+    if (audited) {
+      res.once("finish", () => {
+        if (res.statusCode >= 400) return;
+        void authContext(handle, req)
+          .catch(() => null)
+          .then((ctx) => {
+            const actor =
+              ctx?.kind === "user" ? ctx.userId : ctx?.kind === "company" ? `company:${ctx.teamId}` : ctx?.kind === "admin" ? "admin" : (ctx?.kind ?? null);
+            audit(handle, { actor, action: audited.action, target: audited.pattern.exec(pathname)?.[1] ?? null, ip, detail: { path: pathname } });
+          });
+      });
+    }
     // Headers every answer carries: never sniffed, never cached, never framed.
     res.setHeader("x-content-type-options", "nosniff");
     res.setHeader("cache-control", "no-store");
@@ -850,6 +890,19 @@ export function createApiHandler(
             userAgent: r.userAgent,
           })),
         );
+        return true;
+      }
+
+      // ── Audit log (admins): who did what to accounts and access ──
+      if (req.method === "GET" && pathname === "/audit") {
+        if (!(await requireAdmin())) return true;
+        const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit") ?? 200)));
+        const rows = await db.query.auditLog.findMany({ orderBy: desc(schema.auditLog.at), limit });
+        // Names for the account ids, so the log reads as people.
+        const ids = [...new Set(rows.flatMap((r) => [r.actor, r.target?.replace(/^user:/, "")]).filter((v): v is string => !!v && !v.includes(":") && v !== "admin"))];
+        const people = ids.length ? await db.query.users.findMany({ where: inArray(schema.users.id, ids), columns: { id: true, name: true } }) : [];
+        const nameOf = new Map(people.map((p) => [p.id, p.name]));
+        json(res, 200, rows.map((r) => ({ ...r, actorName: r.actor ? (nameOf.get(r.actor) ?? null) : null })));
         return true;
       }
 

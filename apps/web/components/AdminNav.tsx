@@ -14,7 +14,7 @@ export function AdminNavSection({
   active,
   role,
 }: {
-  active?: "users" | "errors" | "event-types";
+  active?: "users" | "errors" | "event-types" | "activity";
   /** Who is looking. A company administers its own people but not the server. */
   role?: string | null;
 }) {
@@ -35,6 +35,12 @@ export function AdminNavSection({
         <Link className="menu-item" href="/admin/errors">
           <span className="check">{active === "errors" && "✓"}</span>
           Error log
+        </Link>
+      )}
+      {isAdmin && (
+        <Link className="menu-item" href="/admin/activity">
+          <span className="check">{active === "activity" && "✓"}</span>
+          Account activity
         </Link>
       )}
     </SideNavSection>

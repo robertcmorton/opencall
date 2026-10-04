@@ -1,0 +1,32 @@
+# On the 1st of each month: a checklist issue for the security review that
+# should not depend on anybody remembering it.
+name: Monthly security review
+
+on:
+  schedule:
+    - cron: "0 22 1 * *" # 1st of the month, 08:00 Sydney (AEST)
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - run: |
+          gh label create security-review --color 5319E7 --force >/dev/null
+          gh issue create --label security-review --title "Security review — $(date -u +%B\ %Y)" --body "$(cat <<'BODY'
+          - [ ] Read **Account activity** (dashboard → Account activity): unexpected sign-ins, failed-sign-in bursts, access changes nobody asked for.
+          - [ ] Read the **Error log** for anything new since the last review.
+          - [ ] Merge or close open **Dependabot** pull requests; check Security → Dependabot alerts.
+          - [ ] Run `pnpm test:security` locally; every security fix since last month has a check in it.
+          - [ ] Review **who has access**: Users & access — remove anybody who has left.
+          - [ ] Secrets: rotate anything shared with somebody who has since left (see docs/security.md, "Rotating secrets").
+          - [ ] Quarterly (Jan/Apr/Jul/Oct): restore the latest database backup somewhere disposable and open a sheet from it.
+          BODY
+          )"

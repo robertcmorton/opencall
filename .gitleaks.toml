@@ -1,0 +1,13 @@
+# Secret scanning: gitleaks' default rules, minus files that only look like
+# secrets — the lockfile's integrity hashes and the security suite's
+# throwaway test credentials.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Lockfile hashes and test-only credentials"
+paths = [
+  '''pnpm-lock\.yaml''',
+  '''apps/web/scripts/auth-matrix\.mts''',
+  '''apps/sync/test/.*''',
+]

@@ -1,0 +1,49 @@
+# Hourly: is production up? Checks the web app and the sync server's health
+# (which includes its database). Opens an issue labelled "uptime" when
+# something is down and closes it when it recovers, so the alert arrives
+# through GitHub's own notifications.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      WEB: https://opencall-web-production.up.railway.app/api/version
+      SYNC: https://opencall-sync-production.up.railway.app/health
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check both services (3 tries, 20 s apart)
+        id: probe
+        run: |
+          down=""
+          for url in "$WEB" "$SYNC"; do
+            ok=0
+            for i in 1 2 3; do
+              if curl -fsS --max-time 60 "$url" >/dev/null; then ok=1; break; fi
+              sleep 20
+            done
+            [ "$ok" = 1 ] || down="$down $url"
+          done
+          echo "down=$down" >> "$GITHUB_OUTPUT"
+      - name: Open or close the uptime issue
+        env:
+          DOWN: ${{ steps.probe.outputs.down }}
+        run: |
+          gh label create uptime --color B60205 --description "Production is down" --force >/dev/null
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number')
+          if [ -n "$DOWN" ]; then
+            body="Not answering at $(date -u +%FT%TZ):$DOWN"
+            if [ -n "$open" ]; then gh issue comment "$open" --body "$body"; else gh issue create --title "Production is down" --label uptime --body "$body"; fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Back up at $(date -u +%FT%TZ)."
+          fi

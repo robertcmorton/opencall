@@ -35,7 +35,7 @@ export function titleOf(c: SheetChangeDetail): string {
     case "edit":
       return `${c.actorName ?? "Someone"} edited the sheet`;
     case "assistant":
-      return `${whoDid(c)} changed the sheet`;
+      return `${c.assistant ?? "An AI assistant"} changed the sheet${c.actorName ? `, for ${c.actorName}` : ""}`;
     case "import":
       return `${c.actorName ?? "Someone"} updated the sheet from a file`;
     case "restore":

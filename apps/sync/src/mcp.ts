@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import * as Y from "yjs";
 import { z } from "zod";
@@ -87,7 +87,7 @@ Start with list_sheets, then get_sheet to see the rows. Rows are named by their 
 
 Changing a duration or a fixed start time moves the fixed times below it, as it does in the app. A struck row stays visible but gives its time back.
 
-You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. Before every change you make, the sheet as it was is saved as a version. Every change answers with whatChanged — each field it altered, before and after, including start times that moved as a knock-on — and changePage, a link to that change in OpenCall where the person can see it all and undo just that change. After a change, tell the person what changed (especially any knock-on time changes they did not ask for) and give them the changePage link. Before a change that touches more than one row, changes a duration or start time, or moves, strikes or deletes rows, call preview_change first, tell the person what it would do, and make the change only once they agree.`;
+You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. A System Administrator may also have allowed read_error_log, to check the app's health. Before every change you make, the sheet as it was is saved as a version. Every change answers with whatChanged — each field it altered, before and after, including start times that moved as a knock-on — and changePage, a link to that change in OpenCall where the person can see it all and undo just that change. After a change, tell the person what changed (especially any knock-on time changes they did not ask for) and give them the changePage link. Before a change that touches more than one row, changes a duration or start time, or moves, strikes or deletes rows, call preview_change first, tell the person what it would do, and make the change only once they agree.`;
 
 const respond = (res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
   res.statusCode = status;
@@ -363,6 +363,48 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         });
       }),
     );
+
+    // The server's error log, for System Administrators who allowed it — so
+    // an assistant can check the app's health after a deploy without anybody
+    // opening the dashboard. Read only; every read is in Account activity.
+    if (caller.scopes.includes("errors:read") && ctx?.kind === "admin") {
+      server.registerTool(
+        "read_error_log",
+        {
+          title: "Read the error log",
+          description:
+            "The server's error log, newest first: server exceptions, crashes at the process level, and errors reported by browsers. Give `since` (an ISO time) to see only entries after a previous review. Read only.",
+          inputSchema: {
+            since: z.string().max(40).optional().describe("Only entries after this time, e.g. 2026-10-05T08:00:00Z."),
+            source: z.enum(["server", "process", "client"]).optional().describe("Only one kind of entry."),
+            limit: z.number().int().min(1).max(200).optional().describe("At most this many entries (default 50)."),
+          },
+          annotations: { readOnlyHint: true, openWorldHint: false },
+        },
+        guarded(async ({ since, source, limit }: { since?: string; source?: "server" | "process" | "client"; limit?: number }) => {
+          const after = since ? new Date(since) : null;
+          if (after && Number.isNaN(after.getTime())) return fail(`"${since}" is not a time. Use e.g. 2026-10-05T08:00:00Z.`);
+          const t = schema.errorLogs;
+          const where = and(after ? gt(t.at, after) : undefined, source ? eq(t.source, source) : undefined);
+          const rows = await db.select().from(t).where(where).orderBy(desc(t.at)).limit(limit ?? 50);
+          const total = (await db.select({ n: count() }).from(t).where(where))[0]?.n ?? 0;
+          audit(handle, { actor: caller.userId, action: "mcp.read_error_log", target: null, ip, detail: { assistant: caller.clientName, since: since ?? null, returned: rows.length } });
+          return ok({
+            total,
+            shown: rows.length,
+            entries: rows.map((r) => ({
+              at: r.at.toISOString(),
+              source: r.source,
+              message: r.message,
+              where: r.url ?? undefined,
+              stack: r.stack ? r.stack.split("\n").slice(0, 6).join("\n") : undefined,
+              browser: r.userAgent ? r.userAgent.slice(0, 120) : undefined,
+            })),
+            note: rows.length === 0 ? "Nothing in the log for that period." : undefined,
+          });
+        }),
+      );
+    }
 
     if (!mayWrite) return server;
 
@@ -710,11 +752,15 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       return true;
     }
     // A change asked for on a read-only connection: say which permission is missing.
-    const wantsWrite = messages.some(
-      (m) => m && typeof m === "object" && (m as { method?: string }).method === "tools/call" && WRITE_TOOLS.has(String((m as { params?: { name?: unknown } }).params?.name)),
+    const called = messages.flatMap((m) =>
+      m && typeof m === "object" && (m as { method?: string }).method === "tools/call" ? [String((m as { params?: { name?: unknown } }).params?.name)] : [],
     );
-    if (wantsWrite && !caller.scopes.includes("sheets:write")) {
+    if (called.some((n) => WRITE_TOOLS.has(n)) && !caller.scopes.includes("sheets:write")) {
       challenge(403, { code: "insufficient_scope", description: "This connection may only read sheets. Reconnect and allow changes." }, "sheets:read sheets:write");
+      return true;
+    }
+    if (called.includes("read_error_log") && !caller.scopes.includes("errors:read")) {
+      challenge(403, { code: "insufficient_scope", description: "This connection may not read the error log. A System Administrator can reconnect and allow it." }, "sheets:read sheets:write errors:read");
       return true;
     }
 

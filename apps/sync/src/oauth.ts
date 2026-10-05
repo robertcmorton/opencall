@@ -23,6 +23,10 @@ export const SCOPES = {
     title: "Change your run sheets",
     detail: "Edit, add, move, strike and delete rows on sheets you are allowed to edit. It can never start, step or stop a show.",
   },
+  "errors:read": {
+    title: "Read the error log",
+    detail: "See the server's error log, to check the app is healthy. Read only — it cannot clear or change it.",
+  },
 } as const;
 export type Scope = keyof typeof SCOPES;
 export const ALL_SCOPES = Object.keys(SCOPES) as Scope[];

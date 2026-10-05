@@ -811,6 +811,10 @@ export function createApiHandler(
         );
         // Changing sheets is only offered to an account that can change some.
         const mayWrite = ctx?.kind === "admin" || (ctx?.kind === "user" && ctx.grants.some((g) => g.kind === "company" || g.kind === "event" || g.kind === "edit"));
+        // The error log is the server's, not a sheet's: System Administrators only.
+        const offered = (key: string) => (key === "sheets:write" ? mayWrite : key === "errors:read" ? ctx?.kind === "admin" : true);
+        const whyNot = (key: string) =>
+          key === "errors:read" ? "Only a System Administrator can read the error log, so this is not offered." : "Your account can only read sheets, so this is not offered.";
         const base = syncBase(req);
         try {
           if (pathname.endsWith("/check")) {
@@ -823,13 +827,13 @@ export function createApiHandler(
               json(res, 200, {
                 client: { name: ok.clientName, host: ok.host, loopbackOnly: ok.loopbackOnly },
                 account: { name: user?.name ?? null, email: user?.email ?? null },
-                scopes: ok.scopes.map((key) => ({ key, ...SCOPES[key], available: key !== "sheets:write" || mayWrite })),
+                scopes: ok.scopes.map((key) => ({ key, ...SCOPES[key], available: offered(key), whyNot: offered(key) ? null : whyNot(key) })),
               });
             }
             return true;
           }
           const allow = body.allow === true;
-          const ticked = (Array.isArray(body.scopes) ? body.scopes.map(String) : []).filter((s: string) => s !== "sheets:write" || mayWrite);
+          const ticked = (Array.isArray(body.scopes) ? body.scopes.map(String) : []).filter((s: string) => offered(s));
           const out = await decideAuthorize(handle, base, userId, p, allow, ticked);
           if (out.grantId) audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, detail: { assistant: out.clientName, scopes: ticked } });
           json(res, 200, { redirect: out.redirect });

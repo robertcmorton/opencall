@@ -453,7 +453,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     await fetch(API + "/oauth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Matrix Assistant", redirect_uris: [CB], token_endpoint_auth_method: "none" }) })
   ).json();
 
-  const params = (challenge: string) => ({ client_id: reg.client_id, redirect_uri: CB, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "m", scope: "sheets:read sheets:write" });
+  const params = (challenge: string) => ({ client_id: reg.client_id, redirect_uri: CB, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "m", scope: "sheets:read sheets:write errors:read" });
   const tokenCall = (form: Record<string, string>) =>
     fetch(API + "/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: reg.client_id, ...form }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
   const connect = async (who: string) => {
@@ -612,6 +612,22 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp: someone else cannot disconnect it", (await req(`/me/assistants/${conn?.id}`, viewer.accessToken, { method: "DELETE" })).status === 404);
   await req(`/me/assistants/${conn?.id}`, eventMgr.accessToken, { method: "DELETE" });
   check("mcp: disconnecting stops it at once", (await mcp(again.tokens.access_token, "tools/list")).status === 401);
+
+  // The error log: System Administrators only, and only when allowed.
+  check("mcp errors: a showcaller is not offered the error log", mgr.asked.body?.scopes?.find((x: any) => x.key === "errors:read")?.available === false, mgr.asked.body?.scopes);
+  const freshMgr = await connect(eventMgr.accessToken);
+  const mgrTry = await mcp(freshMgr.tokens.access_token, "tools/call", { name: "read_error_log", arguments: {} });
+  check(
+    "mcp errors: a showcaller's live connection is refused it — 403 insufficient_scope",
+    mgrTry.status === 403 && String(mgrTry.headers.get("www-authenticate")).includes("insufficient_scope"),
+    mgrTry.status,
+  );
+  const boss = await connect(superUser.accessToken);
+  check("mcp errors: an administrator can allow it", boss.tokens.scope === "sheets:read sheets:write errors:read", boss.tokens);
+  const errs = await tool(boss.tokens.access_token, "read_error_log", { limit: 5 });
+  check("mcp errors: an administrator's assistant reads the log", !errs.error && typeof errs.data?.total === "number" && Array.isArray(errs.data?.entries), errs.text.slice(0, 200));
+  const future = await tool(boss.tokens.access_token, "read_error_log", { since: "2999-01-01T00:00:00Z" });
+  check("mcp errors: 'since' shows only newer entries", future.data?.shown === 0, future.data);
 
   await new Promise((r) => setTimeout(r, 300));
   const log = await req("/audit?limit=500", ADMIN);

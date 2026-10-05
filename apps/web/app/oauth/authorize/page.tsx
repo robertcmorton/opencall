@@ -95,7 +95,7 @@ export default function AuthorizePage() {
             <span>{s.title}</span>
             <span />
             <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-              {s.available ? s.detail : "Your account can only read sheets, so this is not offered."}
+              {s.available ? s.detail : (s.whyNot ?? "Your account cannot do this, so it is not offered.")}
             </span>
           </label>
         ))}

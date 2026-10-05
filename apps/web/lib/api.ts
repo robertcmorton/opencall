@@ -310,7 +310,7 @@ export interface AssistantRequest {
   redirect?: string;
   client?: { name: string; host: string | null; loopbackOnly: boolean };
   account?: { name: string | null; email: string | null };
-  scopes?: { key: string; title: string; detail: string; available: boolean }[];
+  scopes?: { key: string; title: string; detail: string; available: boolean; whyNot?: string | null }[];
 }
 
 /** An assistant connected to this account. */

@@ -191,7 +191,8 @@ function AssistantsPanel() {
                 {a.host ? <span style={{ color: "var(--text-3)" }}> · {a.host}</span> : null}
               </span>
               <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-                {a.scopes.includes("sheets:write") ? "Reads and changes sheets" : "Reads sheets"} · connected {day(a.connectedAt)}
+                {a.scopes.includes("sheets:write") ? "Reads and changes sheets" : "Reads sheets"}
+                {a.scopes.includes("errors:read") ? ", reads the error log" : ""} · connected {day(a.connectedAt)}
                 {a.lastUsedAt ? ` · last used ${day(a.lastUsedAt)}` : ""} · ends {day(a.endsAt)}
               </span>
             </div>

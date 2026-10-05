@@ -30,7 +30,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
    using them.
 5. **Read-time to duration.** Open a script cell, see the word count and a
    read time at three speeds, set the row's duration from it.
-6. **Speaker messages.** Flash "wrap up" or "stretch two minutes" onto the
+6. **Speaker messages.** — BUILT 5 Oct 2026 ("Message stage"). Flash "wrap up" or "stretch two minutes" onto the
    timer and prompter screens.
 7. **Copy and paste rows across sheets**, with columns mapped by name and
    type. Pairs with 4.

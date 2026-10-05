@@ -125,7 +125,26 @@ interface ClientCtx {
   role: Role;
   rundownId: string;
   device: "console" | "companion";
+  /** Who, as the hello resolved them — names a speaker message's sender. */
+  label: string;
 }
+
+/**
+ * The message on stage screens now, per sheet. Memory only: a message is for
+ * this minute of this show, and a server restart clearing it is the right
+ * failure. Dropped on its own after an hour so a forgotten one never greets
+ * the next show.
+ */
+const speakerMessages = new Map<string, { text: string; from: string; atMs: number }>();
+const SPEAKER_TTL_MS = 60 * 60 * 1000;
+const speakerFor = (rundownId: string) => {
+  const m = speakerMessages.get(rundownId);
+  if (m && Date.now() - m.atMs > SPEAKER_TTL_MS) {
+    speakerMessages.delete(rundownId);
+    return null;
+  }
+  return m ?? null;
+};
 
 const showStore = new PersistentShowStore(dbHandle);
 const clients = new Map<WebSocket, ClientCtx>();
@@ -478,7 +497,7 @@ wss.on("connection", (ws, req) => {
         ws.close(CloseCodes.AUTH_FAILED, "invalid credentials");
         return;
       }
-      clients.set(ws, { role: resolved.role, rundownId, device: msg.device });
+      clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: resolved.label });
       // The event's location decides the timezone every clock renders in.
       const rundownRow = await dbHandle.db.query.rundowns.findFirst({
         where: eq(schema.rundowns.id, rundownId),
@@ -504,6 +523,7 @@ wss.on("connection", (ws, req) => {
         userLabel: resolved.label,
         serverTimeMs: Date.now(),
         show: (await showStore.get(rundownId)).current,
+        speaker: speakerFor(rundownId),
         doc: { mode: resolved.role === "guest" ? "projection" : "sync" },
         timezone: eventRow?.timezone,
         sport,
@@ -519,6 +539,19 @@ wss.on("connection", (ws, req) => {
 
     if (msg.t === "ping") {
       send(ws, { v: PROTOCOL_VERSION, t: "pong", t0: msg.t0, t1: Date.now() });
+      return;
+    }
+
+    // A message for the stage screens: the caller's (or an admin's) to send.
+    if (msg.t === "say") {
+      if (ctx.role !== "caller" && ctx.role !== "admin") {
+        send(ws, { v: PROTOCOL_VERSION, t: "error", code: CloseCodes.FORBIDDEN, msg: "only the showcaller can send a message to the stage" });
+        return;
+      }
+      const message = msg.text ? { text: msg.text, from: ctx.label, atMs: Date.now() } : null;
+      if (message) speakerMessages.set(ctx.rundownId, message);
+      else speakerMessages.delete(ctx.rundownId);
+      broadcast(ctx.rundownId, { v: PROTOCOL_VERSION, t: "speaker", message });
       return;
     }
 

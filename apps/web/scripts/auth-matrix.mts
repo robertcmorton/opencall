@@ -191,6 +191,29 @@ const showChannel = (rundownId: string, token: string, sendCmd: boolean): Promis
   check("show: viewer cmd rejected", r.cmdReply?.t === "cmd_error", r.cmdReply);
 }
 {
+  // Speaker messages: the caller's to send; crew are refused and see nothing change.
+  const sayAs = (token: string, text: string | null) =>
+    new Promise<any[]>((resolve) => {
+      const got: any[] = [];
+      const ws = new WebSocket(`${WS}/?rundown=${rdA.body.id}`);
+      const t = setTimeout(() => (ws.close(), resolve(got)), 2500);
+      ws.addEventListener("open", () => ws.send(JSON.stringify({ v: 1, t: "hello", auth: { kind: "session", token }, device: "console" })));
+      ws.addEventListener("message", (e) => {
+        const m = JSON.parse(String(e.data));
+        got.push(m);
+        if (m.t === "welcome") ws.send(JSON.stringify({ v: 1, t: "say", text }));
+        if (m.t === "speaker" || m.t === "error") (clearTimeout(t), ws.close(), resolve(got));
+      });
+    });
+  const crewSay = await sayAs(viewer.accessToken, "hijack");
+  check("speaker: crew cannot message the stage", crewSay.some((m) => m.t === "error") && !crewSay.some((m) => m.t === "speaker"), crewSay.map((m) => m.t));
+  const callerSay = await sayAs(eventMgr.accessToken, "Wrap up");
+  check("speaker: the caller's message reaches the screens", callerSay.some((m) => m.t === "speaker" && m.message?.text === "Wrap up"), callerSay.map((m) => m.t));
+  const late = await showChannel(rdA.body.id, viewer.accessToken, false);
+  check("speaker: a screen joining late gets the message", late.welcome?.speaker?.text === "Wrap up", late.welcome?.speaker);
+  await sayAs(eventMgr.accessToken, null);
+}
+{
   const r = await showChannel(rdA.body.id, eventMgr.accessToken, true);
   check("show: eventMgr → caller role", r.welcome?.role === "caller", r.welcome);
   check("show: eventMgr can start show", r.cmdReply?.t === "show_state" && r.cmdReply?.state === "running", r.cmdReply);

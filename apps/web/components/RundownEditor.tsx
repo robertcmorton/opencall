@@ -79,6 +79,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { JumpPalette } from "./JumpPalette";
+import { SpeakerControl } from "./SpeakerMessage";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
@@ -4496,6 +4497,10 @@ export function RundownEditor({
           )}
           {isShow && showKnown && (
             <div className="show-state-row">
+              {/* A message to the person on stage, on the timer and prompter.
+                  The caller's to send; what is up now is always shown here so
+                  nothing is left on a screen by accident. */}
+              {mayDrive && <SpeakerControl message={channel.speaker} onSay={channel.say} />}
               {/* Before the doors: rehearsing and going live are the two things
                   you do here, so they share one box. Walkthrough used to sit in
                   the sheet's toolbar among Undo, Redo and Add row — editing

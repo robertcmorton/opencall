@@ -5061,3 +5061,66 @@ tr.jump-flash > td {
   color: var(--warn);
   vertical-align: -1px;
 }
+
+/* Speaker messages: across the top of the timer and prompter. */
+.speaker-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 1.6vh 3vw;
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 7vmin, 6rem);
+  line-height: 1.1;
+  color: #000;
+  background: #ffd23f;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+}
+.speaker-banner.fresh {
+  animation: speaker-pulse 0.75s ease-in-out 4;
+}
+@keyframes speaker-pulse {
+  50% {
+    background: #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .speaker-banner.fresh {
+    animation: none;
+  }
+}
+.speaker-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.speaker-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  max-width: 320px;
+}
+.speaker-live-label {
+  color: var(--warn);
+  font-weight: 600;
+}
+.speaker-pop {
+  top: calc(100% + 4px);
+  left: 0;
+  width: 300px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+.speaker-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

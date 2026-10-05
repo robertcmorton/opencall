@@ -78,7 +78,19 @@ export const CmdMsg = z
   .refine((m) => m.action !== "fire" || !!m.rowId, { message: "fire requires rowId" })
   .refine((m) => m.action !== "stop" || m.confirm === true, { message: "stop requires confirm" });
 
-export const ClientMsg = z.union([HelloMsg, PingMsg, CmdMsg]);
+/**
+ * A message for the person on stage (additive v1.8): "wrap up", "stretch two
+ * minutes". From the caller to every timer and prompter, large, until cleared
+ * — `text: null` clears it. Not a transport command: it moves nothing, and
+ * the as-run record does not carry it.
+ */
+export const SayMsg = z.object({
+  ...envelope,
+  t: z.literal("say"),
+  text: z.string().trim().min(1).max(120).nullable(),
+});
+
+export const ClientMsg = z.union([HelloMsg, PingMsg, CmdMsg, SayMsg]);
 export type ClientMsg = z.infer<typeof ClientMsg>;
 
 // ── Server → Client ────────────────────────────────────────────────────────────
@@ -115,6 +127,8 @@ export const WelcomeMsg = z.object({
   userLabel: z.string(),
   serverTimeMs: z.number(),
   show: ShowStatePayload,
+  /** The speaker message on screen right now, if any (additive v1.8). */
+  speaker: z.lazy(() => SpeakerMessage).nullable().optional(),
   doc: z.object({ mode: z.enum(["sync", "projection"]) }),
   /** IANA timezone of the event's location — governs every clock (additive v1.3). */
   timezone: z.string().optional(),
@@ -182,6 +196,11 @@ export const PresenceMsg = z.object({
   counts: z.partialRecord(Role, z.number().int().nonnegative()),
 });
 
+/** The message on screen now, or none (additive v1.8). */
+export const SpeakerMessage = z.object({ text: z.string(), from: z.string(), atMs: z.number() });
+export type SpeakerMessage = z.infer<typeof SpeakerMessage>;
+export const SpeakerMsg = z.object({ ...envelope, t: z.literal("speaker"), message: SpeakerMessage.nullable() });
+
 export const HeartbeatMsg = z.object({ ...envelope, t: z.literal("hb") });
 
 export const ErrorMsg = z.object({
@@ -198,6 +217,7 @@ export const ServerMsg = z.union([
   CmdErrorMsg,
   DocProjectionMsg,
   PresenceMsg,
+  SpeakerMsg,
   HeartbeatMsg,
   ErrorMsg,
 ]);

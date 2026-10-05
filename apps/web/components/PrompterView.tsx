@@ -18,6 +18,7 @@ import {
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
+import { SpeakerBanner } from "./SpeakerMessage";
 import { rowNumbering } from "../lib/rowNumbering";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
@@ -533,6 +534,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   return (
     <main className="force-dark" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
+      <SpeakerBanner message={channel.speaker} />
       {/* What a reader needs without taking their eyes off the words: what
           they just read, how long until they are on, and what follows. Fixed
           at the top because it must never scroll away mid-read. */}

@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
+import { SpeakerBanner } from "./SpeakerMessage";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
 
@@ -136,6 +137,7 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
         padding: "0 2vw",
       }}
     >
+      <SpeakerBanner message={channel.speaker} />
       {/* Held back to a whisper: this screen is pointed at a speaker or a
           confidence monitor, where a bright button beside the countdown would
           be a distraction. Still there when somebody looks for it. */}

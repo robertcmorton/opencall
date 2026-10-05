@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
-import {
+import { type SpeakerMessage,
   PROTOCOL_VERSION,
   type CmdAction,
   type Role,
@@ -42,6 +42,10 @@ export interface ShowChannel {
   role: Role | null;
   /** Who this connection is, as the server names it ("Sam Lee", "Administrator"). */
   userLabel: string | null;
+  /** The message on the stage screens now ("Wrap up"), or null. */
+  speaker: SpeakerMessage | null;
+  /** Put a message on the stage screens, or clear it with null. Callers only; the server refuses others. */
+  say: (text: string | null) => void;
   /** IANA timezone of the event — governs every clock on this surface. */
   timezone: string | null;
   /**
@@ -99,6 +103,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const [connected, setConnected] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
   const [userLabel, setUserLabel] = useState<string | null>(null);
+  const [speaker, setSpeaker] = useState<SpeakerMessage | null>(null);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
   const [homeImage, setHomeImage] = useState<string | null>(null);
@@ -189,6 +194,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             setConnected(true);
             setRole(msg.role);
             setUserLabel(msg.userLabel ?? null);
+            setSpeaker(msg.speaker ?? null);
             setTimezone(msg.timezone ?? null);
             setSport(msg.sport ?? null);
             setHomeImage(msg.homeImage ?? null);
@@ -206,6 +212,10 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             // and far better than a screen that never draws. Two seconds is
             // long past the samples above on any connection that has one.
             setTimeout(() => setClockReady(true), 2000);
+            break;
+          }
+          case "speaker": {
+            setSpeaker(msg.message);
             break;
           }
           case "pong": {
@@ -317,6 +327,11 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     awayImage,
     eventTypeSpec,
     show,
+    speaker,
+    say: (text) => {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current) ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "say", text }));
+    },
     serverNow: () => Date.now() + offsetRef.current,
     lastCmdError,
     clearCmdError: () => setLastCmdError(null),

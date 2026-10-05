@@ -120,10 +120,17 @@ Disconnect stops it at once.
 - **Backups.** Not kept off-site: the production deployment is a test server
   (decided 5 Oct 2026). Railway's own volume backups are all there is. Revisit
   before real shows depend on it.
-- **Deploy only after CI passes.** Turn on Railway's "Wait for CI" for both
-  services once the CI workflow has run green once.
-- **Restricted database login.** Run `setup-app-role.ts` once and switch the
-  sync service's `DATABASE_URL`, with `MIGRATION_DATABASE_URL` set to the owner.
+- **Deploy only after CI passes — DONE 5 Oct 2026.** "Wait for CI" is on for
+  both services.
+- **Restricted database login — DONE 5 Oct 2026.** Production's sync service
+  connects as `opencall_app` (rows only) and applies schema changes as the owner
+  through `MIGRATION_DATABASE_URL`. On Railway both are references:
+  `MIGRATION_DATABASE_URL = ${{Postgres.DATABASE_URL}}` and
+  `DATABASE_URL = postgresql://opencall_app:<password>@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`.
+  The Postgres service has no public address, so the setup script is run from
+  the sync service's Console, where `DATABASE_URL` is still the owner:
+  `OWNER_DATABASE_URL="$DATABASE_URL" APP_DB_PASSWORD=… node packages/db/scripts/setup-app-role.ts`
+  (before switching the variables over).
 - **Sessions in the browser.** Sign-in tokens are kept in the browser's local
   storage because the web app and the sync server are separate hosts; the
   Content Security Policy is what stops a script stealing them. Moving to an

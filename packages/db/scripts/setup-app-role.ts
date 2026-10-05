@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 /**
  * Creates (or updates) the restricted login the sync server should use day to
  * day: it can read and write rows in every table, use the sequences, and
@@ -74,4 +75,7 @@ async function main(): Promise<void> {
   console.log(`  DATABASE_URL           = ${url.toString()}  (put the real password in place of APP_DB_PASSWORD)`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+// Compared as file URLs: a raw path with spaces (this repo's folder has them)
+// never equals import.meta.url, which encodes them — so the script used to do
+// nothing at all, silently, when run from here.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

@@ -490,13 +490,17 @@ correction anchored on a known row. That is a real piece of work on the most
 load-bearing hook in the app and should not be attempted at the end of a long
 session, which is exactly how both attempts above happened.
 
-## 6d. Proposed 6 Oct 2026 — waiting on a yes
+## 6d. Proposed 6 Oct 2026 — built the same day
 
-- [ ] **"Open show" on the edit page**, for people allowed to run shows only.
+- [x] **"Open show" on the edit page** — BUILT 6 Oct, for people allowed to run shows only.
       A showcaller who builds the sheet on /edit has to go back to the
       dashboard to walk it through or start it. No reverse link needed: the
       show page already edits everything the edit page does.
-- [ ] **Spreadsheet-style editing in the shared grid.** Click a cell and type
+- [x] **Spreadsheet-style editing in the shared grid** — BUILT 6 Oct (click and
+      type, arrows/Tab/Enter, Shift-select, paste from Google Sheets/Excel,
+      copy/cut out, Cmd+D, Delete, Enter on the last row adds one). Not done:
+      Cmd+arrow skips blanks the way a spreadsheet does (it goes to the edge),
+      drag-to-select with the mouse, and paste of formatting (text only). Click a cell and type
       (no double-click); arrow keys, Tab and Enter move between cells; Enter
       on the last row adds one; paste a block copied from Google Sheets or
       Excel (fills rows and columns, adds rows, reads "2:30" as a time or

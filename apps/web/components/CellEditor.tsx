@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import Highlight from "@tiptap/extension-highlight";
 import { CharacterCount } from "@tiptap/extensions";
+import { splitBlock } from "@tiptap/pm/commands";
 import type * as Y from "yjs";
 
 function FormatButton({
@@ -143,15 +144,27 @@ export function CellEditor({
   onDone,
   chips,
   onUseReadTime,
+  onEnter,
+  onTab,
 }: {
   fragment: Y.XmlFragment;
   onDone: () => void;
+  /**
+   * Spreadsheet keys, where the sheet offers them: Enter saves and moves down
+   * (Shift+Enter starts a new line instead), Tab saves and moves along. Absent,
+   * Enter starts a new line as it always has.
+   */
+  onEnter?: () => void;
+  onTab?: (back: boolean) => void;
   /** Quick-insert vocabulary (cue-type columns) — free text stays possible. */
   chips?: string[];
   /** Set the row's duration from the read time; absent where there is none to set. */
   onUseReadTime?: (sec: number) => void;
 }) {
   const suppressBlur = useRef(false);
+  // Read at key time: the editor's key handler is fixed when it is created.
+  const keys = useRef({ onEnter, onTab });
+  keys.current = { onEnter, onTab };
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: "end",
@@ -172,6 +185,18 @@ export function CellEditor({
       handleKeyDown: (_view, event) => {
         if (event.key === "Escape") {
           onDone();
+          return true;
+        }
+        const { onEnter: enter, onTab: tab } = keys.current;
+        if (event.key === "Enter" && enter && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          // A new paragraph, the same thing Enter made before — not a line
+          // break, which the rest of the app does not read.
+          if (event.shiftKey) return splitBlock(_view.state, _view.dispatch);
+          enter();
+          return true;
+        }
+        if (event.key === "Tab" && tab && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          tab(event.shiftKey);
           return true;
         }
         return false;

@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./doc": "./src/doc.ts",
-    "./findReplace": "./src/findReplace.ts"
+    "./findReplace": "./src/findReplace.ts",
+    "./sheetGrid": "./src/sheetGrid.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

@@ -91,6 +91,7 @@ import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
 import { RichCellText } from "./RichCellText";
 import { useColWidths } from "../lib/useColWidths";
 import { useEditLock } from "../lib/useEditLock";
+import { useSheetGrid } from "../lib/useSheetGrid";
 import { DiagnosticsBar } from "./DiagnosticsBar";
 import { DocBlockedPanel } from "./DocBlockedPanel";
 import { useShowChannel } from "../lib/showChannel";
@@ -972,6 +973,8 @@ export function RundownEditor({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [lastSelected, setLastSelected] = useState<string | null>(null);
   const [editingTime, setEditingTime] = useState<string | null>(null); // rowId
+  /** What was typed onto a time or length to open it — replaces what is there. */
+  const [typedSeed, setTypedSeed] = useState<string | null>(null);
   /**
    * Which of the two ending layouts this device is using.
    *
@@ -3904,9 +3907,94 @@ export function RundownEditor({
    * surfaces only (a crew phone following the show is not "in the sheet"):
    * the cell being edited, or the one row selected.
    */
+  /**
+   * Spreadsheet keys — see `useSheetGrid`. Wherever the sheet can be edited
+   * (during a live show only behind "Edit run sheet", where the arrows and
+   * Space belong to the show), and not on a phone, which has no keyboard to
+   * drive it with.
+   */
+  const gridOn = canEditContent && (!showLive || editTools) && !isPhone;
+  const gridRowIds = useMemo(() => rows.filter((_, i) => !forkHides(i)).map((r) => r.id), [rows, outcomeLayout, peekedGames]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gridColumns = useMemo(() => orderedColumns.map((c) => ({ id: c.id, kind: c.kind })), [orderedColumns.map((c) => c.id).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const grid = useSheetGrid({
+    enabled: gridOn,
+    doc,
+    gridEl,
+    rowIds: gridRowIds,
+    columns: gridColumns,
+    editorOpen: activeCell != null || editingTime != null || durationPopover != null,
+    spaceTypes: !showLive,
+    newRowSec: 60,
+    textOf: (rowId, col) => {
+      const i = rows.findIndex((r) => r.id === rowId);
+      const r = rows[i];
+      if (!r) return "";
+      if (col.kind === "startTime") {
+        const sec = timing.rows[i]?.startSec;
+        return sec == null || (r.untimed && r.hardStartSec == null) ? "" : formatTimeOfDay(sec, meta.use24h);
+      }
+      if (col.kind === "duration") return r.durationSec != null ? formatDuration(r.durationSec) : "";
+      const key = columns.find((c) => c.id === col.id)?.key;
+      return key ? (r.cells[key] ?? "") : "";
+    },
+    open: (cell, seed) => {
+      const r = rows.find((x) => x.id === cell.rowId);
+      const col = columns.find((c) => c.id === cell.columnId);
+      if (!r || !col || r.locked) return;
+      if (col.kind === "startTime") {
+        setTypedSeed(seed ?? null);
+        setEditingTime(r.id);
+      } else if (col.kind === "duration") {
+        if (r.type === "milestone") return;
+        setTypedSeed(seed ?? null);
+        setDurationPopover(r.id);
+      } else {
+        const fragment = getFragment(r.id, col.id);
+        if (!fragment) return;
+        if (seed != null)
+          doc.transact(() => {
+            // Typing onto a cell replaces it, as a spreadsheet does.
+            if (fragment.length > 0) fragment.delete(0, fragment.length);
+            const p = new Y.XmlElement("paragraph");
+            const t = new Y.XmlText();
+            t.insert(0, seed);
+            p.insert(0, [t]);
+            fragment.insert(0, [p]);
+          });
+        setActiveCell({ rowId: r.id, columnId: col.id });
+      }
+    },
+    typeAhead: (cell, text) => {
+      const col = columns.find((c) => c.id === cell.columnId);
+      if (!col || col.kind === "startTime" || col.kind === "duration") return;
+      const fragment = getFragment(cell.rowId, cell.columnId);
+      const p = fragment?.toArray().at(-1);
+      const t = p instanceof Y.XmlElement ? p.toArray().at(-1) : null;
+      if (t instanceof Y.XmlText) doc.transact(() => t.insert(t.length, text));
+    },
+    scrollToIndex: (i) => {
+      if (!gridEl || i < 0) return;
+      const all = rows.findIndex((r) => r.id === gridRowIds[i]);
+      gridEl.scrollTo({ top: Math.max(0, rowWindowRef.current.offsetOf(all) - gridEl.clientHeight / 3) });
+    },
+  });
+  // The cell editor loads on demand; once somebody has a cursor in the sheet
+  // they are about to type, and keys pressed before it arrives are lost (an
+  // Enter that came before it, measured in dev, did nothing).
+  const hasCursor = grid.cursor != null;
+  useEffect(() => {
+    if (hasCursor) void import("./CellEditor");
+  }, [hasCursor]);
+  // A time or length box that closed takes what was typed onto it with it.
+  useEffect(() => {
+    if (editingTime == null && durationPopover == null) setTypedSeed(null);
+  }, [editingTime, durationPopover]);
+
   const mySpot: PresenceSpot | null = activeCell
     ? { rowId: activeCell.rowId, columnId: activeCell.columnId }
-    : selected.size === 1
+    : grid.cursor
+      ? grid.cursor
+      : selected.size === 1
       ? { rowId: [...selected][0]!, columnId: null }
       : null;
   const peers = usePresence(mode !== "view" ? (awareness as Parameters<typeof usePresence>[0]) : null, channel.userLabel ? { name: channel.userLabel } : null, mySpot);
@@ -3918,10 +4006,26 @@ export function RundownEditor({
       const fragment = getFragment(rowRecord.id, column.id);
       if (fragment)
         return (
-          <td key={column.id} className={`active-cell ${richColClass(column)}`}>
+          <td key={column.id} className={`active-cell ${richColClass(column)}`} {...grid.cellProps(rowRecord.id, column.id)}>
             <CellEditor
               fragment={fragment}
               onDone={() => setActiveCell(null)}
+              onEnter={
+                gridOn
+                  ? () => {
+                      setActiveCell(null);
+                      grid.afterCommit("down");
+                    }
+                  : undefined
+              }
+              onTab={
+                gridOn
+                  ? (back) => {
+                      setActiveCell(null);
+                      grid.afterCommit(back ? "left" : "right");
+                    }
+                  : undefined
+              }
               chips={/^(cue\s*)?type$/i.test(column.title) ? CUE_TYPE_CHIPS : undefined}
               // Only a timed item has a duration to set from its read time.
               onUseReadTime={rowRecord.type === "cue" ? (sec) => setDuration(rowRecord.id, sec) : undefined}
@@ -3934,6 +4038,7 @@ export function RundownEditor({
     return (
       <td
         key={column.id}
+        {...grid.cellProps(rowRecord.id, column.id)}
         className={`${richColClass(column)} ${peerIn(rowRecord.id, column.id) ? "peer-cell" : ""}`}
         style={peerIn(rowRecord.id, column.id) ? ({ "--peer": peerIn(rowRecord.id, column.id)!.color } as React.CSSProperties) : undefined}
         data-peer={peerIn(rowRecord.id, column.id)?.name}
@@ -3991,6 +4096,7 @@ export function RundownEditor({
       <td
         className="mono"
         style={{ position: "relative", cursor: "default" }}
+        {...(durationColumn ? grid.cellProps(rowRecord.id, durationColumn.id) : {})}
         onDoubleClick={canEditContent && !rowRecord.locked ? () => setDurationPopover(rowRecord.id) : undefined}
       >
         {rowRecord.type === "milestone" ? (
@@ -4049,13 +4155,24 @@ export function RundownEditor({
             <input
               className="inline-edit"
               autoFocus
-              defaultValue={rowRecord.durationSec != null ? formatDuration(rowRecord.durationSec) : ""}
+              defaultValue={typedSeed ?? (rowRecord.durationSec != null ? formatDuration(rowRecord.durationSec) : "")}
               placeholder="1m30s"
               style={{ width: "100%", marginBottom: 8 }}
+              onFocus={(e) => {
+                const el = e.currentTarget;
+                if (typedSeed != null) el.setSelectionRange(el.value.length, el.value.length);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   commitDuration(rowRecord.id, e.currentTarget.value);
                   setDurationPopover(null);
+                  if (gridOn) grid.afterCommit(e.shiftKey ? "up" : "down");
+                }
+                if (e.key === "Tab" && gridOn) {
+                  e.preventDefault();
+                  commitDuration(rowRecord.id, e.currentTarget.value);
+                  setDurationPopover(null);
+                  grid.afterCommit(e.shiftKey ? "left" : "right");
                 }
                 if (e.key === "Escape") setDurationPopover(null);
               }}
@@ -4350,6 +4467,19 @@ export function RundownEditor({
             </h1>
           )}
           {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
+          {/* Built the sheet, now walk it through or run it — without a trip
+              back to the dashboard. Only for those who may run a show; the
+              show page edits everything this one does, so nothing points back. */}
+          {mode === "edit" && mayDrive && (
+            <Link
+              className="btn btn-sm"
+              style={{ textDecoration: "none" }}
+              href={`/show/${rundownId}`}
+              data-tip="Open this sheet on the show page — walkthrough, Start show and the rest"
+            >
+              ▶ Open show
+            </Link>
+          )}
         </div>
         {/* The sheet's own shape — when it starts, how long it runs, when it
             ends — belongs UNDER its name, not in the row of live readouts.
@@ -5715,7 +5845,7 @@ export function RundownEditor({
                             const f = clockFrac(rowRecord.id);
                             if (f == null) return plain;
                             return (
-                              <td className="mono-progress" style={{ position: "relative" }}>
+                              <td className="mono-progress" style={{ position: "relative" }} {...grid.cellProps(rowRecord.id, col.id)}>
                                 {rowRecord.cells[col.key] ?? ""}
                                 {foldedLine(rowRecord)}
                                 <BarFill className="row-progress alongside" frac={f} sweep={clockSweep(rowRecord.id)} />
@@ -5741,7 +5871,7 @@ export function RundownEditor({
                                 ? Math.min(1, Math.max(0, 1 - live.remainingInRowSec / rowRecord.durationSec))
                                 : 0;
                           return (
-                            <td className="mono-progress" style={{ position: "relative" }}>
+                            <td className="mono-progress" style={{ position: "relative" }} {...grid.cellProps(rowRecord.id, col.id)}>
                               {rowRecord.cells[col.key] ?? ""}
                               {foldedLine(rowRecord)}
                               <BarFill
@@ -5764,6 +5894,7 @@ export function RundownEditor({
                             key={col.id}
                             className="mono"
                             style={{ position: "relative" }}
+                            {...grid.cellProps(rowRecord.id, col.id)}
                             onDoubleClick={canEditContent && !rowRecord.locked ? () => setEditingTime(rowRecord.id) : undefined}
                           >
                             {editingTime === rowRecord.id ? (
@@ -5781,17 +5912,31 @@ export function RundownEditor({
                                   size={1}
                                   style={{ position: "absolute", inset: "1px 2px", width: "calc(100% - 4px)", boxSizing: "border-box" }}
                                   defaultValue={
-                                    rowRecord.hardStartSec != null
+                                    typedSeed ??
+                                    (rowRecord.hardStartSec != null
                                       ? formatTimeOfDay(rowRecord.hardStartSec, meta.use24h)
                                       : t.startSec != null
                                         ? formatTimeOfDay(t.startSec, meta.use24h)
-                                        : ""
+                                        : "")
                                   }
                                   placeholder="9:30 am"
-                                  onFocus={(e) => e.currentTarget.select()}
+                                  onFocus={(e) => {
+                                    // Opened by typing: carry on after what was typed.
+                                    const el = e.currentTarget;
+                                    if (typedSeed != null) el.setSelectionRange(el.value.length, el.value.length);
+                                    else el.select();
+                                  }}
                                   onBlur={(e) => commitTime(rowRecord.id, e.currentTarget.value, t.startSec ?? null)}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter") commitTime(rowRecord.id, e.currentTarget.value, t.startSec ?? null);
+                                    if (e.key === "Enter") {
+                                      commitTime(rowRecord.id, e.currentTarget.value, t.startSec ?? null);
+                                      if (gridOn) grid.afterCommit(e.shiftKey ? "up" : "down");
+                                    }
+                                    if (e.key === "Tab" && gridOn) {
+                                      e.preventDefault();
+                                      commitTime(rowRecord.id, e.currentTarget.value, t.startSec ?? null);
+                                      grid.afterCommit(e.shiftKey ? "left" : "right");
+                                    }
                                     if (e.key === "Escape") setEditingTime(null);
                                   }}
                                 />
@@ -6148,6 +6293,11 @@ export function RundownEditor({
         show={{ connected: channel.connected, role: channel.role, timezone: channel.timezone }}
       />
 
+      {grid.note && (
+        <div className="grid-note no-print" role="status">
+          {grid.note}
+        </div>
+      )}
       {CUE_POOL_ENABLED && <CuePool doc={doc} mode={mode} channel={channel} />}
       {myRoles.length > 0 && activeRowId && <div style={{ height: 72 }} />}
       {myRoles.length > 0 && (

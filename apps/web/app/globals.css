@@ -5396,3 +5396,36 @@ td.peer-cell::after {
   font-size: var(--fs-sm);
   padding: 3px 0;
 }
+
+/* Spreadsheet keys (useSheetGrid): the cursor cell is boxed, a block is tinted.
+   Both are inset shadows: a border would move the layout, and the tint as a
+   background was wiped out on every other row by the striping's `background`
+   shorthand (measured: 4 of 6 cells untinted). */
+.rundown-grid td[data-cursor] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.rundown-grid td[data-inblock] {
+  box-shadow: inset 0 0 0 999px var(--accent-soft);
+}
+.rundown-grid td[data-inblock][data-cursor] {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    inset 0 0 0 999px var(--accent-soft);
+}
+.grid-note {
+  /* At the top: the bottom of the screen already holds the editing banner,
+     the role bar and the docks, and a notice behind them is not a notice. */
+  position: fixed;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  z-index: 60;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}

@@ -453,7 +453,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     await fetch(API + "/oauth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Matrix Assistant", redirect_uris: [CB], token_endpoint_auth_method: "none" }) })
   ).json();
 
-  const params = (challenge: string) => ({ client_id: reg.client_id, redirect_uri: CB, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "m", scope: "sheets:read sheets:write errors:read" });
+  const params = (challenge: string) => ({ client_id: reg.client_id, redirect_uri: CB, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "m", scope: "sheets:read sheets:write errors:read errors:resolve" });
   const tokenCall = (form: Record<string, string>) =>
     fetch(API + "/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: reg.client_id, ...form }) }).then(async (r) => ({ status: r.status, body: await r.json() }));
   const connect = async (who: string) => {
@@ -623,11 +623,34 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     mgrTry.status,
   );
   const boss = await connect(superUser.accessToken);
-  check("mcp errors: an administrator can allow it", boss.tokens.scope === "sheets:read sheets:write errors:read", boss.tokens);
+  check("mcp errors: an administrator can allow it", boss.tokens.scope === "sheets:read sheets:write errors:read errors:resolve", boss.tokens);
   const errs = await tool(boss.tokens.access_token, "read_error_log", { limit: 5 });
   check("mcp errors: an administrator's assistant reads the log", !errs.error && typeof errs.data?.total === "number" && Array.isArray(errs.data?.entries), errs.text.slice(0, 200));
   const future = await tool(boss.tokens.access_token, "read_error_log", { since: "2999-01-01T00:00:00Z" });
   check("mcp errors: 'since' shows only newer entries", future.data?.shown === 0, future.data);
+
+  // Resolving fixed errors: hidden from the log, kept, with what fixed them.
+  for (const m of ["Matrix fault one: widget exploded", "Matrix fault one: widget exploded", "Matrix fault two: still broken"])
+    await req("/client-errors", null, { method: "POST", body: JSON.stringify({ message: m, url: "http://web.matrix.test/x" }) });
+  const mgrResolve = await mcp(freshMgr.tokens.access_token, "tools/call", { name: "resolve_errors", arguments: { matching: "Matrix fault", fix: "nothing, a showcaller trying" } });
+  check("mcp resolve: a showcaller is refused — 403 insufficient_scope", mgrResolve.status === 403 && String(mgrResolve.headers.get("www-authenticate")).includes("insufficient_scope"), mgrResolve.status);
+  const noFix = await tool(boss.tokens.access_token, "resolve_errors", { matching: "Matrix fault one" });
+  check("mcp resolve: a fix note is required", noFix.error || noFix.status !== 200, noFix.text.slice(0, 120));
+  const fixed = await tool(boss.tokens.access_token, "resolve_errors", { matching: "Matrix fault one", fix: "Widget bolted down in the matrix test" });
+  check("mcp resolve: an administrator resolves the matching entries", !fixed.error && fixed.data?.resolved === 2, fixed.data);
+  const openNow = await tool(boss.tokens.access_token, "read_error_log", { limit: 200 });
+  const openMsgs = (openNow.data?.entries ?? []).map((e: any) => e.message);
+  check("mcp resolve: resolved entries are hidden; the other stays", !openMsgs.includes("Matrix fault one: widget exploded") && openMsgs.includes("Matrix fault two: still broken"), openMsgs.filter((m: string) => m.startsWith("Matrix")));
+  const withResolved = await tool(boss.tokens.access_token, "read_error_log", { limit: 200, include_resolved: true });
+  const kept = (withResolved.data?.entries ?? []).filter((e: any) => e.message === "Matrix fault one: widget exploded");
+  check("mcp resolve: nothing is deleted — kept with the fix noted", kept.length === 2 && kept.every((e: any) => e.resolved?.fix === "Widget bolted down in the matrix test"), kept);
+  const dash = await req("/errors?limit=200", ADMIN);
+  const dashResolved = await req("/errors?limit=200&resolved=1", ADMIN);
+  check(
+    "errors page: open entries by default, resolved ones on ask",
+    !(dash.body as any[]).some((e) => e.message === "Matrix fault one: widget exploded") && (dashResolved.body as any[]).filter((e) => e.resolution === "Widget bolted down in the matrix test").length === 2,
+    { open: (dash.body as any[]).length, resolved: (dashResolved.body as any[]).length },
+  );
 
   await new Promise((r) => setTimeout(r, 300));
   const log = await req("/audit?limit=500", ADMIN);

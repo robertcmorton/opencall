@@ -451,10 +451,22 @@ export const api = {
       columnOrder?: string[];
     },
   ) => request<{ id: string; epoch: number }>(`/rundowns/${id}/replace-content`, { method: "POST", body: JSON.stringify(body) }),
-  errors: (limit = 200) =>
-    request<{ id: string; at: string; source: string; message: string; stack: string | null; url: string | null; userAgent: string | null }[]>(
-      `/errors?limit=${limit}`,
-    ),
+  /** The error log: open entries, or (resolved = true) the ones marked fixed. */
+  errors: (limit = 200, resolved = false) =>
+    request<
+      {
+        id: string;
+        at: string;
+        source: string;
+        message: string;
+        stack: string | null;
+        url: string | null;
+        userAgent: string | null;
+        resolvedAt: string | null;
+        resolvedBy: string | null;
+        resolution: string | null;
+      }[]
+    >(`/errors?limit=${limit}${resolved ? "&resolved=1" : ""}`),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   audit: (limit = 200) =>
     request<{ id: string; at: string; actor: string | null; actorName: string | null; action: string; target: string | null; ip: string | null }[]>(

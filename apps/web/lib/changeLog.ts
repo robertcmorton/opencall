@@ -8,6 +8,7 @@ const KIND_WORD: Record<string, string> = {
   import: "Import",
   restore: "Restore",
   undo: "Undo",
+  copy: "Copied in",
 };
 export const kindWord = (kind: string | undefined) => (kind ? (KIND_WORD[kind] ?? kind) : "");
 
@@ -42,6 +43,8 @@ export function titleOf(c: SheetChangeDetail): string {
       return `${c.actorName ?? "Someone"} restored an earlier version`;
     case "undo":
       return `${c.actorName ?? "Someone"} undid a change`;
+    case "copy":
+      return `${c.actorName ?? "Someone"} copied rows in from another sheet`;
     default:
       return "A change to the sheet";
   }

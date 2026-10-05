@@ -32,7 +32,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
    read time at three speeds, set the row's duration from it.
 6. **Speaker messages.** — BUILT 5 Oct 2026 ("Message stage"). Flash "wrap up" or "stretch two minutes" onto the
    timer and prompter screens.
-7. **Copy and paste rows across sheets**, with columns mapped by name and
+7. **Copy and paste rows across sheets** — BUILT 5 Oct 2026 as "Copy to sheet…" (same company)., with columns mapped by name and
    type. Pairs with 4.
 8. **Per-cell history with restore.** Who changed this cell, when, and put
    it back. Cheap: the document keeps every update already.
@@ -50,7 +50,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
     breaks, saved per-department presets.
 16. **Event guest page** with a QR code: one landing page listing every
     sheet for the day.
-17. **Find and replace** across the sheet.
+17. **Find and replace** across the sheet. — BUILT 5 Oct 2026.
 18. **Checklists in cells** with a strike-through when done.
 19. **Editor presence.** — BUILT 5 Oct 2026. See who else is in the sheet and which cell they
     are on.

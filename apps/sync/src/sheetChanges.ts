@@ -55,7 +55,7 @@ export async function recordChange(
   handle: DbHandle,
   e: {
     rundownId: string;
-    kind: "edit" | "assistant" | "import" | "restore" | "undo";
+    kind: "edit" | "assistant" | "import" | "restore" | "undo" | "copy";
     startedAt: Date;
     at?: Date;
     actorUserId: string | null;

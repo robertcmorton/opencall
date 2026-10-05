@@ -79,6 +79,8 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { JumpPalette } from "./JumpPalette";
+import { FindReplacePanel } from "./FindReplacePanel";
+import { CopyRowsPanel } from "./CopyRowsPanel";
 import { SpeakerControl } from "./SpeakerMessage";
 import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
@@ -3597,8 +3599,16 @@ export function RundownEditor({
    * may not be drawn yet, so the scroller goes to where it will be first.
    */
   const [jumpOpen, setJumpOpen] = useState(false);
+  // Find and replace: Cmd/Ctrl+Shift+F (plain Cmd+F stays the browser's).
+  const [findOpen, setFindOpen] = useState(false);
+  const [copyRowIds, setCopyRowIds] = useState<string[] | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindOpen((open) => !open);
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k" || e.shiftKey || e.altKey) return;
       e.preventDefault();
       setJumpOpen((open) => !open);
@@ -4106,6 +4116,10 @@ export function RundownEditor({
         <button type="button" className="menu-item" onClick={() => setJumpOpen(true)}>
           <span className="check" />
           Jump to row <span className="menu-kbd">⌘K</span>
+        </button>
+        <button type="button" className="menu-item" onClick={() => setFindOpen(true)}>
+          <span className="check" />
+          {canEditContent ? "Find and replace" : "Find"} <span className="menu-kbd">⇧⌘F</span>
         </button>
       </SideNavSection>
       <SideNavSection heading="Views">
@@ -4989,6 +5003,21 @@ export function RundownEditor({
         </div>
       )}
       {jumpOpen && <JumpPalette items={jumpItems} onJump={goToRow} onClose={() => setJumpOpen(false)} />}
+      {copyRowIds && <CopyRowsPanel rundownId={rundownId} rowIds={copyRowIds} onClose={() => setCopyRowIds(null)} />}
+      {findOpen && (
+        <FindReplacePanel
+          doc={doc}
+          revision={revision}
+          canEdit={canEditContent}
+          columnTitle={(id) => columns.find((c) => c.id === id)?.title ?? "?"}
+          rowLabel={(rowId) => {
+            const i = rows.findIndex((r) => r.id === rowId);
+            return i < 0 ? "?" : `${numberOf(i) || "·"} ${rows[i]!.title.trim() || "(untitled)"}`;
+          }}
+          onGoTo={goToRow}
+          onClose={() => setFindOpen(false)}
+        />
+      )}
       <KeepMounted open={panel === "history"}>
         <div className="no-print">
           <HistoryPanel rundownId={rundownId} open={panel === "history"} onClose={() => setPanel(null)} />
@@ -5211,6 +5240,13 @@ export function RundownEditor({
                 </button>
               );
             })()}
+            <button
+              className="btn btn-sm"
+              data-tip="Copy these rows to the end of another sheet in this company"
+              onClick={() => setCopyRowIds(rows.filter((r) => selected.has(r.id)).map((r) => r.id))}
+            >
+              Copy to sheet…
+            </button>
             {/* Live, the bar is Strike and the colours and nothing else.
                 Duplicate, Group, Milestone and the endings builder change the
                 SHAPE of the sheet, and the show is not the moment for that —

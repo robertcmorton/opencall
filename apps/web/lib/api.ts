@@ -395,6 +395,13 @@ export const api = {
   revokeJoinCode: (rundownId: string, codeId: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "DELETE" }),
   snapshots: (rundownId: string) => request<SnapshotSummary[]>(`/rundowns/${rundownId}/snapshots`),
+  /** Sheets in the same company these rows may be copied into. */
+  copyTargets: (rundownId: string) => request<{ id: string; name: string; event: string }[]>(`/rundowns/${rundownId}/copy-targets`),
+  copyRows: (rundownId: string, toRundownId: string, rowIds: string[]) =>
+    request<{ added: number; unmatchedColumns: string[]; target: { id: string; name: string } }>(`/rundowns/${rundownId}/copy-rows`, {
+      method: "POST",
+      body: JSON.stringify({ toRundownId, rowIds }),
+    }),
   /** How long each row actually ran in the current (or last) show — the over/under trail. */
   runTimes: (rundownId: string) =>
     request<{ sessionId: string | null; live: boolean; rows: Record<string, { sec: number; runs: number }> }>(`/rundowns/${rundownId}/run-times`),

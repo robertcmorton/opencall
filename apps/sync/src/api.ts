@@ -2875,6 +2875,134 @@ export function createApiHandler(
         return true;
       }
 
+      // ── Copy rows to another sheet ──
+      // The sheets these rows may be copied into: in the same company, and
+      // that this account may edit.
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/copy-targets$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const ctx = await authContext(handle, req, rundownId);
+        const teamId = await teamIdForRundown(handle, rundownId);
+        const events = teamId ? await db.query.events.findMany({ where: and(eq(schema.events.teamId, teamId), isNull(schema.events.archivedAt)) }) : [];
+        const out: { id: string; name: string; event: string }[] = [];
+        for (const e of events) {
+          if (!(await canEditEvent(handle, ctx, e.id))) continue;
+          const sheets = await db.query.rundowns.findMany({
+            where: and(eq(schema.rundowns.eventId, e.id), isNull(schema.rundowns.archivedAt)),
+            columns: { id: true, name: true },
+          });
+          for (const r of sheets) if (r.id !== rundownId) out.push({ id: r.id, name: r.name, event: e.name });
+        }
+        json(res, 200, out);
+        return true;
+      }
+
+      // Copy rows into another sheet, at its end. Columns are matched by key,
+      // then by title; fixed start times are dropped (the other sheet has its
+      // own clock). Refused under a live show there, or while somebody else
+      // holds its edit lock — the same rules as any other change.
+      if (req.method === "POST" && /^\/rundowns\/[^/]+\/copy-rows$/.test(pathname)) {
+        const fromId = pathname.split("/")[2]!;
+        if (!(await requireEditor(fromId))) return true;
+        const body = await readJson(req);
+        const toId = String(body.toRundownId ?? "");
+        const rowIds = Array.isArray(body.rowIds) ? body.rowIds.map(String).slice(0, 500) : [];
+        const target = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, toId) });
+        const source = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, fromId) });
+        const ctx = await authContext(handle, req, toId);
+        if (!target || !source || target.archivedAt || !(await canEditEvent(handle, ctx, target.eventId))) {
+          json(res, 404, { error: "That sheet is not one you can copy into." });
+          return true;
+        }
+        if (rowIds.length === 0) {
+          json(res, 400, { error: "Choose some rows to copy." });
+          return true;
+        }
+        const live = (await hooks.liveState?.(toId))?.state;
+        if (live === "running" || live === "paused") {
+          json(res, 409, { error: "The show on that sheet is live — rows cannot be added under it. Copy them after the show." });
+          return true;
+        }
+        const whoKey = ctx?.kind === "user" ? `user:${ctx.userId}` : ctx?.kind === "company" ? `company:${ctx.teamId}` : "admin";
+        const tLock = { heldBy: target.editLockBy, heldByUserId: target.editLockUserId, sinceMs: null, lastSeenMs: target.editLockAt?.getTime() ?? null };
+        if (!lockIsFree(tLock, Date.now()) && target.editLockHolderKey !== whoKey) {
+          json(res, 409, { error: `${target.editLockBy ?? "Someone"} is editing that sheet right now. Try again once they have pressed Done editing.` });
+          return true;
+        }
+        if (!docServer) throw new Error("no document server");
+        // The source as it is this moment (its live document if open).
+        const srcDoc = decodeDoc(currentDocBytes(source) ?? new Uint8Array());
+        const srcCols = projectRundownDoc(srcDoc).columns;
+        const srcRows = srcDoc.getMap<Y.Map<unknown>>("rows");
+        const picked = srcDoc.getArray<string>("rowOrder").toArray().filter((id) => rowIds.includes(id));
+        await hooks.editTracker?.closeRundown(toId);
+        const conn = await docServer.openDirectConnection(`${toId}@${target.docEpoch}`, { copyFrom: fromId });
+        let added = 0;
+        const unmatched = new Set<string>();
+        let beforeBytes!: Uint8Array;
+        let afterBytes!: Uint8Array;
+        try {
+          beforeBytes = Y.encodeStateAsUpdate(conn.document!);
+          const tCols = projectRundownDoc(conn.document!).columns;
+          const colFor = (srcColId: string) => {
+            const c = srcCols.find((x) => x.id === srcColId);
+            if (!c) return null;
+            return (
+              tCols.find((t) => t.key === c.key) ??
+              tCols.find((t) => t.title.trim().toLowerCase() === c.title.trim().toLowerCase()) ??
+              (unmatched.add(c.title), null)
+            );
+          };
+          await conn.transact((doc) => {
+            const rows = doc.getMap<Y.Map<unknown>>("rows");
+            const order = doc.getArray<string>("rowOrder");
+            for (const id of picked) {
+              const src = srcRows.get(id);
+              if (!src) continue;
+              const row = new Y.Map<unknown>();
+              const newId = ulid();
+              for (const [k, v] of src) {
+                if (k === "cells" || k === "id" || k === "hardStartSec" || k === "locked" || k === "lockedBy" || k === "skipped") continue;
+                row.set(k, v instanceof Y.AbstractType ? v.clone() : v);
+              }
+              row.set("id", newId);
+              row.set("hardStartSec", null);
+              const cells = new Y.Map<Y.XmlFragment>();
+              for (const [colId, frag] of (src.get("cells") as Y.Map<Y.XmlFragment> | undefined) ?? new Map()) {
+                const t = colFor(colId);
+                if (t && frag instanceof Y.XmlFragment) cells.set(t.id, frag.clone());
+              }
+              row.set("cells", cells);
+              rows.set(newId, row);
+              order.push([newId]);
+              added++;
+            }
+          });
+          afterBytes = Y.encodeStateAsUpdate(conn.document!);
+        } finally {
+          await conn.disconnect();
+        }
+        if (added > 0) {
+          const beforeSnapshotId = await versionBefore(handle, toId, beforeBytes, {
+            label: `Before rows copied in from ${source.name}`,
+            kind: "import",
+            createdBy: ctx?.kind === "user" ? ctx.userId : null,
+          });
+          await recordChange(handle, {
+            rundownId: toId,
+            kind: "copy",
+            startedAt: new Date(),
+            actorUserId: ctx?.kind === "user" ? ctx.userId : null,
+            actorName: actorNameOf(ctx),
+            beforeSnapshotId,
+            before: decodeDoc(beforeBytes),
+            after: decodeDoc(afterBytes),
+          });
+        }
+        json(res, 200, { added, unmatchedColumns: [...unmatched], target: { id: target.id, name: target.name } });
+        return true;
+      }
+
       // ── The sheet's change log ──
       // Who changed what, newest first: people's editing sessions, assistant
       // changes, imports, restores and undos — with shows started and ended,

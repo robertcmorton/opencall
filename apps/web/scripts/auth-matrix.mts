@@ -681,6 +681,25 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp: connections and changes are in the audit log", actions.has("mcp.connected") && actions.has("mcp.add_rows") && actions.has("mcp.disconnected"), [...actions].filter((a) => a.startsWith("mcp")));
 }
 
+// ── Copy rows between sheets ──────────────────────────────────────────────────
+{
+  const rdA2 = await req("/rundowns", ADMIN, { method: "POST", body: JSON.stringify({ eventId: eventA.body.id, name: "Matrix RD A2" }) });
+  const targets = await req(`/rundowns/${rdA.body.id}/copy-targets`, eventMgr.accessToken);
+  const ids = (targets.body as any[]).map((t) => t.id);
+  check("copy: targets are this company's sheets the account can edit", ids.includes(rdA2.body.id) && !ids.includes(rdB.body.id) && !ids.includes(rdA.body.id), targets.body);
+  const epochA = (await req(`/rundowns/${rdA.body.id}/epoch`, null)).body?.epoch ?? 0;
+  const src = docConnect(`${rdA.body.id}@${epochA}`, eventMgr.accessToken);
+  await sleep(1200);
+  const someRows = (src.doc.getArray("rowOrder").toArray() as string[]).slice(0, 2);
+  src.provider.destroy();
+  const copied = await req(`/rundowns/${rdA.body.id}/copy-rows`, eventMgr.accessToken, { method: "POST", body: JSON.stringify({ toRundownId: rdA2.body.id, rowIds: someRows }) });
+  check("copy: rows land on the other sheet", copied.status === 200 && copied.body?.added === someRows.length, copied.body);
+  const log = await req(`/rundowns/${rdA2.body.id}/changes`, eventMgr.accessToken);
+  check("copy: it is in the target's change log", (log.body?.entries ?? []).some((e: any) => e.kind === "copy"), log.body?.entries?.map((e: any) => e.kind));
+  check("copy: not into another company's sheet", (await req(`/rundowns/${rdA.body.id}/copy-rows`, eventMgr.accessToken, { method: "POST", body: JSON.stringify({ toRundownId: rdB.body.id, rowIds: someRows }) })).status === 404);
+  check("copy: crew cannot copy", (await req(`/rundowns/${rdA.body.id}/copy-rows`, viewer.accessToken, { method: "POST", body: JSON.stringify({ toRundownId: rdA2.body.id, rowIds: someRows }) })).status === 401);
+}
+
 // ── Over/under trail ──────────────────────────────────────────────────────────
 {
   // rdA has had shows started and stopped above; the latest session's rows ran.

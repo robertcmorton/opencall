@@ -78,6 +78,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
   loading: () => <span className="cell-standin" aria-hidden="true" />,
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
+import { JumpPalette } from "./JumpPalette";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
@@ -3552,6 +3553,58 @@ export function RundownEditor({
   const numberOf = useMemo(() => rowNumbering(rows, extraShort), [rows, extraShort]);
 
   /**
+   * Jump to a row (Cmd/Ctrl+K, or the menu). Going somewhere else on the sheet
+   * stops it following the live cue, exactly as scrolling by hand does — the
+   * "back to live" control brings it back. Under the row window the target
+   * may not be drawn yet, so the scroller goes to where it will be first.
+   */
+  const [jumpOpen, setJumpOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k" || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      setJumpOpen((open) => !open);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  const goToRow = (rowId: string) => {
+    const i = rows.findIndex((r) => r.id === rowId);
+    if (i < 0 || !gridEl) return;
+    setFollowScroll(false);
+    const centre = () => {
+      const el = gridEl.querySelector(`tr[data-rowid="${rowId}"]`);
+      if (!el) return false;
+      centreInSheet(el);
+      // A brief glow, so the eye lands on the row it asked for.
+      el.classList.remove("jump-flash");
+      void (el as HTMLElement).offsetWidth;
+      el.classList.add("jump-flash");
+      window.setTimeout(() => el.classList.remove("jump-flash"), 1600);
+      return true;
+    };
+    if (!centre()) {
+      gridEl.scrollTo({ top: Math.max(0, rowWindowRef.current.offsetOf(i) - gridEl.clientHeight / 3) });
+      window.setTimeout(centre, 120);
+    }
+    setSelected(new Set([rowId]));
+    setLastSelected(rowId);
+  };
+  const jumpItems = useMemo(
+    () =>
+      jumpOpen
+        ? rows.map((r, i) => ({
+            id: r.id,
+            number: numberOf(i),
+            title: r.title.trim(),
+            start: timing.rows[i]?.startSec != null ? formatTimeOfDay(timing.rows[i]!.startSec!, meta.use24h) : null,
+            text: Object.values(r.cells).join(" ").toLowerCase(),
+          }))
+        : [],
+    [jumpOpen, rows, numberOf, timing, meta.use24h],
+  );
+
+  /**
    * Notes the crew have raised against rows.
    *
    * Read by whoever is calling the show; RAISED by anybody holding a view-only
@@ -3996,6 +4049,12 @@ export function RundownEditor({
 
   const settings = (
     <>
+      <SideNavSection heading="Find">
+        <button type="button" className="menu-item" onClick={() => setJumpOpen(true)}>
+          <span className="check" />
+          Jump to row <span className="menu-kbd">⌘K</span>
+        </button>
+      </SideNavSection>
       <SideNavSection heading="Views">
         {/* Two companion screens, not three. The follower screen showed the
             current item, a countdown and the next one — which is the timer's
@@ -4858,6 +4917,7 @@ export function RundownEditor({
           </ul>
         </div>
       )}
+      {jumpOpen && <JumpPalette items={jumpItems} onJump={goToRow} onClose={() => setJumpOpen(false)} />}
       <KeepMounted open={panel === "history"}>
         <div className="no-print">
           <HistoryPanel rundownId={rundownId} open={panel === "history"} onClose={() => setPanel(null)} />

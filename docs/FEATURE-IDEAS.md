@@ -22,7 +22,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
    heavy it ran, a running total in the header, and a reset for the next
    rehearsal. *Why:* our Proj. end says where the night will land; this says
    which items put it there.
-3. **Command palette.** Cmd+K to jump to any row by number or word, or run
+3. **Command palette.** — BUILT 5 Oct 2026 as jump-to-row (Cmd/Ctrl+K); running actions from it is not built. Cmd+K to jump to any row by number or word, or run
    any action. *Why:* long sheets, and a caller who cannot take their eyes
    off the room to scroll.
 4. **Reusable elements library.** Sponsor reads, anthem, half-time package

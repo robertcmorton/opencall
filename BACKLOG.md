@@ -490,6 +490,21 @@ correction anchored on a known row. That is a real piece of work on the most
 load-bearing hook in the app and should not be attempted at the end of a long
 session, which is exactly how both attempts above happened.
 
+## 6d. Proposed 6 Oct 2026 — waiting on a yes
+
+- [ ] **"Open show" on the edit page**, for people allowed to run shows only.
+      A showcaller who builds the sheet on /edit has to go back to the
+      dashboard to walk it through or start it. No reverse link needed: the
+      show page already edits everything the edit page does.
+- [ ] **Spreadsheet-style editing in the shared grid.** Click a cell and type
+      (no double-click); arrow keys, Tab and Enter move between cells; Enter
+      on the last row adds one; paste a block copied from Google Sheets or
+      Excel (fills rows and columns, adds rows, reads "2:30" as a time or
+      length); copy a block out; Cmd+D fills down. On the edit page, and on
+      the show page when editing is on — during a live show only behind
+      "Edit run sheet". If showcallers build in Google Sheets first, do the
+      paste first.
+
 ## 7. Waiting on a decision
 
 Nothing can start on these until they are answered.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { buildRundownDoc, projectRundownDoc } from "../src/doc";
-import { compareSheets, describeChange, revertChange, summarizeChange } from "../src/compare";
+import { compareSheets, describeChange, reportChange, revertChange, summarizeChange } from "../src/compare";
 import { addRow, deleteRow, moveRow, setCellText, setDuration, strikeRow } from "../src/sheetOps";
 
 const sheet = () =>
@@ -151,5 +151,27 @@ describe("recording a change and taking back just that one", () => {
     const r = revertChange(now, before, detail);
     expect(r.undone).toBe(0);
     expect(projectRundownDoc(now).rows).toHaveLength(3);
+  });
+});
+
+describe("telling an assistant what its change did", () => {
+  it("names each field with before and after, knock-on start times included", () => {
+    const before = sheet();
+    const now = copy(before);
+    setDuration(now, id(now, "Welcome"), 420);
+    const lines = reportChange(describeChange(before, now)!);
+    expect(lines).toEqual(["Row 2 Welcome: Duration “05:00” → “07:00”", "Row 4 Kick-off: Start time “6:30:00 PM” → “6:32:00 PM”"]);
+  });
+
+  it("lists added rows with their times, and stops at a sensible length", () => {
+    const before = sheet();
+    const now = copy(before);
+    addRow(now, null, { title: "Crew call", durationSec: 120 });
+    expect(reportChange(describeChange(before, now)!)).toEqual(["Added row 1: Crew call (runs 02:00)"]);
+    const many = copy(before);
+    for (let i = 0; i < 5; i++) addRow(many, null, { title: `Extra ${i}` });
+    const cut = reportChange(describeChange(before, many)!, 3);
+    expect(cut).toHaveLength(4);
+    expect(cut[3]).toMatch(/and 2 more/);
   });
 });

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -12,7 +13,9 @@ import {
   decodeDoc,
   deleteRow,
   moveRow,
+  describeChange,
   readSheet,
+  reportChange,
   schema,
   setCellText,
   setDuration,
@@ -42,6 +45,7 @@ import {
   revokeToken,
   syncBase,
   verifyAccessToken,
+  webBase,
   wwwAuthenticate,
   type McpCaller,
 } from "./oauth.ts";
@@ -83,7 +87,7 @@ Start with list_sheets, then get_sheet to see the rows. Rows are named by their 
 
 Changing a duration or a fixed start time moves the fixed times below it, as it does in the app. A struck row stays visible but gives its time back.
 
-You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. Before every change you make, the sheet as it was is saved as a version; the person can see what each change did and restore it from Versions in the app.`;
+You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. Before every change you make, the sheet as it was is saved as a version. Every change answers with whatChanged — each field it altered, before and after, including start times that moved as a knock-on — and changePage, a link to that change in OpenCall where the person can see it all and undo just that change. After a change, tell the person what changed (especially any knock-on time changes they did not ask for) and give them the changePage link. Before a change that touches more than one row, changes a duration or start time, or moves, strikes or deletes rows, call preview_change first, tell the person what it would do, and make the change only once they agree.`;
 
 const respond = (res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
   res.statusCode = status;
@@ -105,6 +109,27 @@ async function readBody(req: IncomingMessage, limit: number): Promise<string | n
 }
 
 class ToolRefusal extends Error {}
+
+/**
+ * Set while a change is being rehearsed for preview_change: the change runs
+ * every check and the dry run as usual, then stops before touching the sheet
+ * and throws its result back instead.
+ */
+const previewing = new AsyncLocalStorage<true>();
+class PreviewOutcome {
+  lines: string[];
+  constructor(lines: string[]) {
+    this.lines = lines;
+  }
+}
+
+/** What a change did, handed back to the assistant to pass on to the person. */
+interface ChangeReport {
+  whatChanged: string[];
+  /** The change's own page: every detail, and Undo just this change. */
+  changePage: string | null;
+  tellThePerson?: string;
+}
 
 export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveState: LiveState, version: string) {
   const { db } = handle;
@@ -184,9 +209,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       summary: Record<string, unknown>,
       /** What it is about to do, for the version's label: "added 2 rows". */
       what: string,
-    ): Promise<T> {
-      const writes = await consume(handle, `mcp:write:${caller.userId}`, { max: MCP_LIMITS.writesPerMinute, windowSec: 60 });
-      if (!writes.ok) throw new ToolRefusal(`Too many changes in a minute. Wait ${writes.retryAfterSec} seconds and try again.`);
+    ): Promise<{ result: T; report: ChangeReport }> {
       const { rundown } = await sheetFor(ctx, rundownId, true);
       const live = await liveState(rundownId);
       const isLive = live.state === "running" || live.state === "paused";
@@ -205,11 +228,25 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       if (!rundown.doc && !docServer.documents.has(docName(rundown))) throw new ToolRefusal("This sheet has no content yet.");
       const liveRowId = isLive ? live.activeRowId : null;
 
+      // A rehearsal: every check above has passed, so the change WOULD be
+      // allowed. Run it on a copy, say what it would do, touch nothing.
+      if (previewing.getStore()) {
+        const beforeBytes = Y.encodeStateAsUpdate(currentDoc(rundown)!);
+        const probe = probeBefore(beforeBytes);
+        apply(probe, liveRowId);
+        const detail = describeChange(probeBefore(beforeBytes), probe);
+        throw new PreviewOutcome(detail ? reportChange(detail) : ["Nothing would change — the sheet is already like that."]);
+      }
+
+      const writes = await consume(handle, `mcp:write:${caller.userId}`, { max: MCP_LIMITS.writesPerMinute, windowSec: 60 });
+      if (!writes.ok) throw new ToolRefusal(`Too many changes in a minute. Wait ${writes.retryAfterSec} seconds and try again.`);
+
       // Everything below works on the sheet as the server holds it this
       // moment — the open document, so nobody's typing of the last few
       // seconds is missing from the "before".
       const conn = await docServer.openDirectConnection(docName(rundown), { mcp: caller.grantId });
       let result!: T;
+      let recorded: Awaited<ReturnType<typeof recordChange>> = null;
       try {
         const beforeBytes = Y.encodeStateAsUpdate(conn.document!);
         // A dry run on a copy: Yjs cannot roll a half-done change back.
@@ -231,7 +268,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         });
         const after = new Y.Doc();
         Y.applyUpdate(after, Y.encodeStateAsUpdate(conn.document!));
-        await recordChange(handle, {
+        recorded = await recordChange(handle, {
           rundownId,
           kind: "assistant",
           startedAt,
@@ -246,7 +283,16 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         await conn.disconnect();
       }
       audit(handle, { actor: caller.userId, action: `mcp.${tool}`, target: rundownId, ip, detail: { assistant: caller.clientName, ...summary } });
-      return result;
+      return {
+        result,
+        report: recorded
+          ? {
+              whatChanged: reportChange(recorded.detail),
+              changePage: `${webBase()}/changes/${rundownId}/${recorded.id}`,
+              tellThePerson: "Tell the person what changed, in a sentence or two, and give them the change page link — that page shows every detail and has Undo just this change.",
+            }
+          : { whatChanged: ["Nothing on the sheet actually changed (it was already like that)."], changePage: null },
+      };
     }
 
     const sheetId = z.string().min(1).max(64).describe("The sheet's id, from list_sheets.");
@@ -320,7 +366,14 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
 
     if (!mayWrite) return server;
 
-    server.registerTool(
+    /** The change tools, by name, so preview_change can rehearse any of them. */
+    const changeTools = new Map<string, { shape: z.ZodRawShape; run: (args: never) => Promise<unknown> }>();
+    const registerWrite: typeof server.registerTool = ((name: string, config: { inputSchema?: z.ZodRawShape }, run: (args: never) => Promise<unknown>) => {
+      changeTools.set(name, { shape: config.inputSchema ?? {}, run });
+      return server.registerTool(name, config as never, run as never);
+    }) as never;
+
+    registerWrite(
       "update_cells",
       {
         title: "Edit text",
@@ -335,14 +388,14 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, changes }: { sheet_id: string; changes: { row_id: string; column: string; text: string }[] }) => {
-        await change("update_cells", sheet_id, (doc) => {
+        const { report } = await change("update_cells", sheet_id, (doc) => {
           for (const c of changes) setCellText(doc, c.row_id, c.column, c.text);
         }, { cells: changes.length }, `edited ${changes.length === 1 ? "a cell" : `${changes.length} cells`}`);
-        return ok(`Changed ${changes.length} cell${changes.length === 1 ? "" : "s"}.`);
+        return ok({ done: `Changed ${changes.length} cell${changes.length === 1 ? "" : "s"}.`, ...report });
       }),
     );
 
-    server.registerTool(
+    registerWrite(
       "set_duration",
       {
         title: "Set a duration",
@@ -353,12 +406,12 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       guarded(async ({ sheet_id, row_id, duration }: { sheet_id: string; row_id: string; duration: string | null }) => {
         const sec = duration == null ? null : parseDurationShorthand(duration);
         if (duration != null && (sec == null || sec > 24 * 3600)) return fail(`"${duration}" is not a duration. Use e.g. "2:30", "90s" or "1m30s".`);
-        await change("set_duration", sheet_id, (doc) => setDuration(doc, row_id, sec), { row: row_id, sec }, "changed a duration");
-        return ok("Duration set.");
+        const { report } = await change("set_duration", sheet_id, (doc) => setDuration(doc, row_id, sec), { row: row_id, sec }, "changed a duration");
+        return ok({ done: "Duration set.", ...report });
       }),
     );
 
-    server.registerTool(
+    registerWrite(
       "set_start_time",
       {
         title: "Set a fixed start time",
@@ -369,12 +422,12 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       guarded(async ({ sheet_id, row_id, start_time }: { sheet_id: string; row_id: string; start_time: string | null }) => {
         const sec = start_time == null ? null : parseTimeOfDay(start_time);
         if (start_time != null && sec == null) return fail(`"${start_time}" is not a time of day. Use e.g. "7:30 PM" or "19:30".`);
-        await change("set_start_time", sheet_id, (doc) => setStartTime(doc, row_id, sec), { row: row_id, sec }, "changed a start time");
-        return ok(start_time == null ? "Start time cleared." : "Start time set.");
+        const { report } = await change("set_start_time", sheet_id, (doc) => setStartTime(doc, row_id, sec), { row: row_id, sec }, "changed a start time");
+        return ok({ done: start_time == null ? "Start time cleared." : "Start time set.", ...report });
       }),
     );
 
-    server.registerTool(
+    registerWrite(
       "add_rows",
       {
         title: "Add rows",
@@ -412,7 +465,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
             if (r.duration && (sec == null || sec > 24 * 3600)) throw new ToolRefusal(`"${r.duration}" is not a duration.`);
             return { type: r.type, title: r.title, durationSec: sec, cells: r.cells };
           });
-          const ids = await change(
+          const { result: ids, report } = await change(
             "add_rows",
             sheet_id,
             (doc) => {
@@ -422,12 +475,12 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
             { rows: specs.length },
             `added ${specs.length === 1 ? "a row" : `${specs.length} rows`}`,
           );
-          return ok({ added: ids });
+          return ok({ done: `Added ${ids.length} row${ids.length === 1 ? "" : "s"}.`, added: ids, ...report });
         },
       ),
     );
 
-    server.registerTool(
+    registerWrite(
       "move_row",
       {
         title: "Move a row",
@@ -436,12 +489,12 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_id, after_row_id }: { sheet_id: string; row_id: string; after_row_id: string | null }) => {
-        await change("move_row", sheet_id, (doc, liveRowId) => moveRow(doc, row_id, after_row_id, liveRowId), { row: row_id, after: after_row_id }, "moved a row");
-        return ok("Row moved.");
+        const { report } = await change("move_row", sheet_id, (doc, liveRowId) => moveRow(doc, row_id, after_row_id, liveRowId), { row: row_id, after: after_row_id }, "moved a row");
+        return ok({ done: "Row moved.", ...report });
       }),
     );
 
-    server.registerTool(
+    registerWrite(
       "strike_row",
       {
         title: "Strike a row",
@@ -450,12 +503,12 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_id, struck }: { sheet_id: string; row_id: string; struck: boolean }) => {
-        await change("strike_row", sheet_id, (doc, liveRowId) => strikeRow(doc, row_id, struck, liveRowId), { row: row_id, struck }, struck ? "struck a row" : "put back a struck row");
-        return ok(struck ? "Row struck." : "Row put back.");
+        const { report } = await change("strike_row", sheet_id, (doc, liveRowId) => strikeRow(doc, row_id, struck, liveRowId), { row: row_id, struck }, struck ? "struck a row" : "put back a struck row");
+        return ok({ done: struck ? "Row struck." : "Row put back.", ...report });
       }),
     );
 
-    server.registerTool(
+    registerWrite(
       "delete_rows",
       {
         title: "Delete rows",
@@ -464,11 +517,44 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       },
       guarded(async ({ sheet_id, row_ids }: { sheet_id: string; row_ids: string[] }) => {
-        await change("delete_rows", sheet_id, (doc) => {
+        const { report } = await change("delete_rows", sheet_id, (doc) => {
           for (const id of row_ids) deleteRow(doc, id);
         }, { rows: row_ids.length }, `deleted ${row_ids.length === 1 ? "a row" : `${row_ids.length} rows`}`);
-        return ok(`Deleted ${row_ids.length} row${row_ids.length === 1 ? "" : "s"}.`);
+        return ok({ done: `Deleted ${row_ids.length} row${row_ids.length === 1 ? "" : "s"}.`, ...report });
       }),
+    );
+
+    server.registerTool(
+      "preview_change",
+      {
+        title: "Preview a change",
+        description:
+          "Shows exactly what a change WOULD do, without changing anything: every field it would alter with before and after, including start times that would move as a knock-on, and rows it would add, delete or move. Give the name of a change tool and the same arguments you would give it. Use this first whenever a change touches more than one row, or changes a duration or start time, or moves, strikes or deletes rows — tell the person what it would do, and make the change only once they agree.",
+        inputSchema: {
+          change: z.enum([...changeTools.keys()] as [string, ...string[]]).describe("The change tool to rehearse, e.g. \"set_duration\"."),
+          arguments: z.record(z.string(), z.unknown()).describe("Exactly the arguments you would pass to that tool."),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+      },
+      async ({ change: name, arguments: args }: { change: string; arguments: Record<string, unknown> }) => {
+        const tool = changeTools.get(name);
+        if (!tool) return fail(`There is no change tool called "${name}".`);
+        const parsed = z.object(tool.shape).safeParse(args);
+        if (!parsed.success) return fail(`Those arguments do not fit ${name}: ${parsed.error.issues.map((i) => `${i.path.join(".") || "arguments"} ${i.message}`).join("; ")}.`);
+        try {
+          // A refusal (live show, someone editing, no access) comes back as
+          // the tool's own error — exactly what the real change would say.
+          return (await previewing.run(true, () => tool.run(parsed.data as never))) as ReturnType<typeof ok>;
+        } catch (err) {
+          if (err instanceof PreviewOutcome)
+            return ok({
+              preview: "Nothing has been changed yet.",
+              wouldChange: err.lines,
+              next: `Tell the person what this would do. If they agree, call ${name} with the same arguments.`,
+            });
+          throw err;
+        }
+      },
     );
 
     return server;

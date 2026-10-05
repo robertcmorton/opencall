@@ -515,6 +515,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp showcaller: token reads and changes", mgr.tokens.scope === "sheets:read sheets:write", mgr.tokens);
   const added = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: null, rows: [{ title: "Matrix opener", duration: "2:00" }, { title: "Matrix second" }] });
   check("mcp showcaller: adds rows", !added.error && added.data?.added?.length === 2, added.text);
+  check(
+    "mcp: a change answers with what it did and a link to its page",
+    added.data?.whatChanged?.[0] === "Added row 1: Matrix opener (runs 02:00)" &&
+      added.data?.whatChanged?.[1] === "Added row 2: Matrix second (runs 01:00)" &&
+      /^http:\/\/web\.matrix\.test\/changes\/[^/]+\/[0-9A-Z]{26}$/.test(added.data?.changePage ?? "") &&
+      typeof added.data?.tellThePerson === "string",
+    added.data,
+  );
   const [first, second] = added.data?.added ?? [];
   const edited = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: first, column: "Title", text: "Matrix opener, renamed" }] });
   check("mcp showcaller: edits a cell", !edited.error, edited.text);
@@ -523,6 +531,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp showcaller: the change is on the sheet", rowOne?.title === "Matrix opener, renamed" && rowOne?.duration === "02:00", rowOne);
   check("mcp showcaller: another company's sheet cannot be changed", (await tool(at, "add_rows", { sheet_id: rdB.body.id, after_row_id: null, rows: [{ title: "x" }] })).error);
   check("mcp showcaller: a bad duration is refused, not guessed", (await tool(at, "set_duration", { sheet_id: rdA.body.id, row_id: first, duration: "soon" })).error);
+  // Preview: what a change would do, with nothing changed and nothing saved.
+  const preview = await tool(at, "preview_change", { change: "set_duration", arguments: { sheet_id: rdA.body.id, row_id: first, duration: "3:00" } });
+  const stillTwo = (await tool(at, "get_sheet", { sheet_id: rdA.body.id })).data?.rows?.find((r: any) => r.id === first)?.duration;
+  check(
+    "mcp preview: says what a change would do and changes nothing",
+    !preview.error && preview.data?.preview === "Nothing has been changed yet." && /Duration “02:00” → “03:00”/.test(preview.data?.wouldChange?.[0] ?? "") && stillTwo === "02:00",
+    { preview: preview.data, stillTwo },
+  );
+  const badPreview = await tool(at, "preview_change", { change: "set_duration", arguments: { sheet_id: rdA.body.id } });
+  check("mcp preview: arguments that do not fit the change are refused", badPreview.error && /do not fit set_duration/.test(badPreview.text), badPreview.text);
+  check("mcp preview: listed among the tools", (await mcp(at, "tools/list")).body?.result?.tools?.some((t: any) => t.name === "preview_change" && t.annotations?.readOnlyHint === true));
   const snaps = (await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN)).body as any[];
   const aiVersions = snaps.filter((s) => s.kind === "assistant");
   check(
@@ -556,6 +575,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   // A live show: text and strikes only.
   const started = await showChannel(rdA.body.id, eventMgr.accessToken, true);
   const liveAdd = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: second, rows: [{ title: "x" }] });
+  const livePreview = await tool(at, "preview_change", { change: "add_rows", arguments: { sheet_id: rdA.body.id, after_row_id: second, rows: [{ title: "x" }] } });
+  check("mcp preview: during a live show it gives the real change's refusal", livePreview.error && livePreview.text.includes("live"), livePreview.text);
   const liveText = await tool(at, "update_cells", { sheet_id: rdA.body.id, changes: [{ row_id: second, column: "Title", text: "Matrix second, live" }] });
   check("mcp live: adding rows is refused, text still edits", started.cmdReply?.state === "running" && liveAdd.error && liveAdd.text.includes("live") && !liveText.error, { liveAdd: liveAdd.text, liveText: liveText.text });
   // A fresh command id: the server drops a repeated one as a retry, and an

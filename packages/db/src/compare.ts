@@ -395,3 +395,30 @@ export function revertChange(current: Y.Doc, before: Y.Doc, detail: ChangeDetail
   if (detail.sheet.length) result.skipped.push({ title: "The sheet", what: detail.sheet.map((s) => s.field).join(", "), why: "sheet settings are not undone here — use Restore" });
   return result;
 }
+
+/**
+ * A recorded change as plain lines, for whoever asked for it — an AI
+ * assistant hands these straight to the person it is working for. Every field
+ * that moved is named with before and after, including the knock-on ones (a
+ * longer item pushes the fixed start times below it), because those are the
+ * changes nobody asked for and everybody needs to hear about.
+ */
+export function reportChange(detail: ChangeDetail, max = 30): string[] {
+  const lines: string[] = [];
+  const short = (v: string) => {
+    const one = v.replace(/\s+/g, " ").trim();
+    return one ? (one.length > 80 ? `“${one.slice(0, 77)}…”` : `“${one}”`) : "empty";
+  };
+  const facts = (r: RowSnapshot) => [r.start ? `starts ${r.start}` : null, r.duration ? `runs ${r.duration}` : null].filter(Boolean).join(", ");
+  for (const r of detail.added) lines.push(`Added row ${r.number}: ${r.title}${facts(r) ? ` (${facts(r)})` : ""}`);
+  for (const r of detail.removed) lines.push(`Deleted row ${r.number}: ${r.title}${facts(r) ? ` (${facts(r)})` : ""}`);
+  for (const r of detail.changed)
+    lines.push(`Row ${r.number} ${r.title}: ${r.changes.map((c) => `${c.field} ${short(c.before)} → ${short(c.after)}`).join("; ")}`);
+  for (const r of detail.moved) lines.push(`Moved ${r.title} from row ${r.from} to row ${r.number}`);
+  for (const s of detail.sheet) lines.push(`Sheet ${s.field.toLowerCase()}: ${short(s.before)} → ${short(s.after)}`);
+  const n = detail.counts;
+  const total = n.added + n.removed + n.changed + n.moved + detail.sheet.length;
+  if (lines.length > max) return [...lines.slice(0, max), `…and ${total - max} more — see the change page for all of it.`];
+  if (total > lines.length) lines.push(`…and ${total - lines.length} more — see the change page for all of it.`);
+  return lines;
+}

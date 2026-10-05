@@ -2975,7 +2975,7 @@ export function createApiHandler(
             kind: "restore",
             createdBy: who?.kind === "user" ? who.userId : null,
           });
-          entryId = await recordChange(handle, {
+          entryId = (await recordChange(handle, {
             rundownId: rundown.id,
             kind: "undo",
             startedAt: new Date(),
@@ -2985,7 +2985,7 @@ export function createApiHandler(
             before: decodeDoc(beforeBytes),
             after: decodeDoc(afterBytes),
             undoes: change.id,
-          });
+          }))?.id ?? null;
           if (entryId) await db.update(schema.sheetChanges).set({ undoneBy: entryId }).where(eq(schema.sheetChanges.id, change.id));
           audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.change_undone", target: rundown.id, ip, detail: { change: change.id, summary: change.summary } });
         }

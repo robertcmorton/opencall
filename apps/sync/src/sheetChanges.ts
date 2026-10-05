@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import * as Y from "yjs";
-import { describeChange, schema, summarizeChange, type DbHandle } from "@opencall/db";
+import { describeChange, schema, summarizeChange, type ChangeDetail, type DbHandle } from "@opencall/db";
 
 /**
  * The sheet's change log (see `sheet_changes` in the schema).
@@ -49,7 +49,7 @@ export async function versionBefore(
 
 /**
  * Writes one entry, or nothing when before and after are the same. Returns
- * the entry's id.
+ * the entry's id and what it recorded.
  */
 export async function recordChange(
   handle: DbHandle,
@@ -66,7 +66,7 @@ export async function recordChange(
     after: Y.Doc;
     undoes?: string | null;
   },
-): Promise<string | null> {
+): Promise<{ id: string; detail: ChangeDetail } | null> {
   const detail = describeChange(e.before, e.after);
   if (!detail) return null;
   const id = ulid();
@@ -86,7 +86,7 @@ export async function recordChange(
     detail,
     undoes: e.undoes ?? null,
   });
-  return id;
+  return { id, detail };
 }
 
 /** A pause this long ends a person's editing session. */

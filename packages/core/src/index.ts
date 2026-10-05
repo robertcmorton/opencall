@@ -14,3 +14,4 @@ export * from "./phases.ts";
 export * from "./changelog.ts";
 export * from "./ink.ts";
 export * from "./password.ts";
+export * from "./runTimes.ts";

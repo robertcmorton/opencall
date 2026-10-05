@@ -94,7 +94,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
+import { formatOverUnder, INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 
@@ -1931,6 +1931,24 @@ export function RundownEditor({
    * the show from. Same rule the prompter already applies.
    */
   const mayDrive = channel.role === "caller" || channel.role === "admin";
+  /**
+   * The over/under trail: how long each played row actually ran, from the
+   * server's as-run log, for the current show or — between shows — the last.
+   * For whoever builds or calls the sheet; crew links do not ask. Re-read on
+   * every transport move, since that is exactly when a row finishes.
+   */
+  const trailOn = mode === "edit" || (mode === "show" && (mayDrive || canEditContent));
+  const [runTimes, setRunTimes] = useState<Awaited<ReturnType<typeof api.runTimes>> | null>(null);
+  useEffect(() => {
+    if (!trailOn) return;
+    const t = window.setTimeout(() => {
+      void api
+        .runTimes(rundownId)
+        .then(setRunTimes)
+        .catch(() => {});
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [trailOn, rundownId, channel.show?.seq, channel.show?.sessionId]);
   /**
    * How far the live cue has fallen behind the clock, in rows.
    *
@@ -3831,6 +3849,24 @@ export function RundownEditor({
     );
   };
 
+  /**
+   * The running total: over or under across the items played, counting only
+   * what counts in the running order — not rows alongside the show, muted
+   * ones, or rows with no planned length. Null when nothing has played.
+   */
+  const ranTotal = (() => {
+    if (!runTimes || Object.keys(runTimes.rows).length === 0) return null;
+    let total = 0;
+    let counted = 0;
+    for (const r of rows) {
+      const run = runTimes.rows[r.id];
+      if (!run || r.type !== "cue" || r.durationSec == null || r.parallel || r.durationMuted) continue;
+      total += run.sec - r.durationSec;
+      counted++;
+    }
+    return counted > 0 ? total : null;
+  })();
+
   const renderDurationCell = (rowRecord: ProjectedRow) => {
     const open = durationPopover === rowRecord.id;
     return (
@@ -3866,6 +3902,29 @@ export function RundownEditor({
         ) : (
           ""
         )}
+        {(() => {
+          // How it actually ran: over (+) or under (−) the plan, once it has
+          // been on air and left it. A fixed moment has no length to run over.
+          const run = runTimes?.rows[rowRecord.id];
+          if (!run || rowRecord.type !== "cue") return null;
+          const planned = rowRecord.durationSec;
+          const goes = run.runs > 1 ? `, over ${run.runs} goes` : "";
+          if (planned == null)
+            return (
+              <span className="ran-chip" data-tip={`Ran ${formatDuration(run.sec)}${goes}; no length was planned`}>
+                ran {formatDuration(run.sec)}
+              </span>
+            );
+          const d = run.sec - planned;
+          return (
+            <span
+              className={`ran-chip ${d > 0 ? "over" : d < 0 ? "under" : ""}`}
+              data-tip={`Ran ${formatDuration(run.sec)} against ${formatDuration(planned)} planned${goes}`}
+            >
+              {formatOverUnder(d)}
+            </span>
+          );
+        })()}
         {open && (
           <div className="popover" data-popover style={{ top: "calc(100% - 2px)", left: 0, width: 210 }}>
             <label className="field-label">Duration</label>
@@ -4194,6 +4253,17 @@ export function RundownEditor({
             <span className="shape-val">{timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "—"}</span>
             <span className="shape-key">Dur</span>
             <span className="shape-val">{formatDuration(timing.totalDurationSec)}</span>
+            {ranTotal != null && (
+              <>
+                <span className="shape-key">Ran</span>
+                <span
+                  className={`shape-val ${ranTotal > 0 ? "ran-over" : ranTotal < 0 ? "ran-under" : ""}`}
+                  data-tip={`The items played ${runTimes?.live ? "so far" : "in the last show"} ran ${ranTotal === 0 ? "exactly to plan" : `${formatOverUnder(ranTotal).slice(1)} ${ranTotal > 0 ? "over" : "under"} their planned lengths`}. Starting a show starts a fresh count.`}
+                >
+                  {formatOverUnder(ranTotal)}
+                </span>
+              </>
+            )}
             <span className="shape-key">End</span>
             <span
               className="shape-val"

@@ -21,7 +21,7 @@ import {
   teamIdForRundown,
   verifyPassword,
 } from "./auth.ts";
-import { serializeCsv } from "@opencall/core";
+import { runTimes, serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
@@ -2697,6 +2697,36 @@ export function createApiHandler(
       }
 
       // As-run show report: sessions + transitions for a rundown (JSON or CSV).
+      // How long each row actually ran in the current show — or, when none is
+      // live, the last one — for the over/under trail on the sheet. Rows still
+      // on air are left out: the trail counts finished items only. Starting a
+      // show begins a new session, which is what resets the trail.
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/run-times$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireEditor(rundownId))) return true;
+        const session = await db.query.showSessions.findFirst({
+          where: eq(schema.showSessions.rundownId, rundownId),
+          orderBy: [desc(schema.showSessions.startedAt)],
+        });
+        if (!session) {
+          json(res, 200, { sessionId: null, live: false, rows: {} });
+          return true;
+        }
+        const transitions = await db.query.showTransitions.findMany({
+          where: eq(schema.showTransitions.sessionId, session.id),
+          columns: { at: true, type: true, rowId: true },
+        });
+        const times = runTimes(transitions.map((t) => ({ atMs: t.at.getTime(), type: t.type, rowId: t.rowId })));
+        json(res, 200, {
+          sessionId: session.id,
+          live: session.state === "running" || session.state === "paused",
+          startedAt: session.startedAt.toISOString(),
+          endedAt: session.endedAt?.toISOString() ?? null,
+          rows: Object.fromEntries(times),
+        });
+        return true;
+      }
+
       if (req.method === "GET" && /^\/rundowns\/[^/]+\/report/.test(pathname)) {
         const rundownId = pathname.split("/")[2]!.split("?")[0]!;
         if (!(await requireEditor(rundownId))) return true;

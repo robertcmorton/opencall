@@ -619,6 +619,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp: connections and changes are in the audit log", actions.has("mcp.connected") && actions.has("mcp.add_rows") && actions.has("mcp.disconnected"), [...actions].filter((a) => a.startsWith("mcp")));
 }
 
+// ── Over/under trail ──────────────────────────────────────────────────────────
+{
+  // rdA has had shows started and stopped above; the latest session's rows ran.
+  const trail = await req(`/rundowns/${rdA.body.id}/run-times`, eventMgr.accessToken);
+  check("trail: a showcaller reads how long rows actually ran", trail.status === 200 && typeof trail.body?.sessionId === "string" && typeof trail.body?.rows === "object", trail.body);
+  check("trail: crew cannot", (await req(`/rundowns/${rdA.body.id}/run-times`, viewer.accessToken)).status === 401);
+  check("trail: another company's sheet is refused", (await req(`/rundowns/${rdB.body.id}/run-times`, eventMgr.accessToken)).status === 401);
+}
+
 // ── The sheet's change log ────────────────────────────────────────────────────
 {
   /** Sets a cell's text over a live connection, as the editor's typing would. */

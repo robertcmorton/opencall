@@ -18,7 +18,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
    note, exported as a spreadsheet. The server already keeps the transitions;
    this is a screen and an export. *Why first:* it is the one thing a
    producer asks for the morning after, and the data is already there.
-2. **Over and under trail.** A chip on each played row saying how light or
+2. **Over and under trail.** — BUILT 5 Oct 2026 (chips on played rows, a "Ran" total in the header; a new show resets it by being a new session). A chip on each played row saying how light or
    heavy it ran, a running total in the header, and a reset for the next
    rehearsal. *Why:* our Proj. end says where the night will land; this says
    which items put it there.

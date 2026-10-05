@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import { formatOverUnder, runTimes, type Transition } from "../src/runTimes";
+
+const s = (sec: number) => sec * 1000;
+const t = (atSec: number, type: string, rowId: string | null): Transition => ({ atMs: s(atSec), type, rowId });
+
+describe("how long each row actually ran", () => {
+  it("runs from the move that put it on air to the next one", () => {
+    const log = [t(0, "start", "a"), t(90, "next", "b"), t(200, "next", "c"), t(260, "stop", null)];
+    const r = runTimes(log);
+    expect(r.get("a")).toEqual({ sec: 90, runs: 1 });
+    expect(r.get("b")).toEqual({ sec: 110, runs: 1 });
+    expect(r.get("c")).toEqual({ sec: 60, runs: 1 });
+  });
+
+  it("leaves the row still on air out, unless asked to count it to now", () => {
+    const log = [t(0, "start", "a"), t(30, "next", "b")];
+    expect(runTimes(log).has("b")).toBe(false);
+    expect(runTimes(log, s(45)).get("b")).toEqual({ sec: 15, runs: 1 });
+  });
+
+  it("takes pauses off", () => {
+    const log = [t(0, "start", "a"), t(20, "pause", "a"), t(50, "resume", "a"), t(70, "next", "b")];
+    expect(runTimes(log).get("a")!.sec).toBe(40);
+  });
+
+  it("ignores entries about other rows, and moves that keep the same row on air", () => {
+    const log = [t(0, "start", "a"), t(10, "fire", "Siren"), t(15, "mark_played", "z"), t(20, "clock_hold", "a"), t(60, "next", "b")];
+    expect(runTimes(log).get("a")).toEqual({ sec: 60, runs: 1 });
+    expect(runTimes(log).has("z")).toBe(false);
+  });
+
+  it("adds runs together when a row comes back on air", () => {
+    const log = [t(0, "jump", "a"), t(30, "jump", "b"), t(40, "jump", "a"), t(50, "stop", null)];
+    expect(runTimes(log).get("a")).toEqual({ sec: 40, runs: 2 });
+  });
+
+  it("starting with nothing cued counts nothing until a row goes on air", () => {
+    const log = [t(0, "start", null), t(300, "clock_on", "a"), t(360, "next", "b")];
+    expect(runTimes(log).get("a")!.sec).toBe(60);
+  });
+});
+
+describe("over and under, as the sheet shows it", () => {
+  it("signs and trims", () => {
+    expect(formatOverUnder(12)).toBe("+0:12");
+    expect(formatOverUnder(-65)).toBe("−1:05");
+    expect(formatOverUnder(0)).toBe("±0:00");
+    expect(formatOverUnder(3725)).toBe("+1:02:05");
+  });
+});

@@ -52,7 +52,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
     sheet for the day.
 17. **Find and replace** across the sheet.
 18. **Checklists in cells** with a strike-through when done.
-19. **Editor presence.** See who else is in the sheet and which cell they
+19. **Editor presence.** — BUILT 5 Oct 2026. See who else is in the sheet and which cell they
     are on.
 20. **Hardware shuttle for the prompter**, with mappable speed presets.
 21. **Step mode for crew phones.** A countdown to each person's next item

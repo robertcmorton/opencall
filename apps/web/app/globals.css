@@ -5246,3 +5246,45 @@ tr.jump-flash > td {
     grid-template-rows: auto auto;
   }
 }
+
+/* Who else is in the sheet: avatars in the header, an outline on their cell. */
+.peers {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+.peer {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.peer-more {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+td.peer-cell {
+  position: relative;
+  box-shadow: inset 0 0 0 2px var(--peer);
+}
+td.peer-cell::after {
+  content: attr(data-peer);
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  padding: 0 4px;
+  border-radius: 0 0 0 4px;
+  background: var(--peer);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  pointer-events: none;
+  white-space: nowrap;
+}

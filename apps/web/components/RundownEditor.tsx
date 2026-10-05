@@ -80,6 +80,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { JumpPalette } from "./JumpPalette";
 import { SpeakerControl } from "./SpeakerMessage";
+import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
@@ -853,7 +854,7 @@ export function RundownEditor({
   // In show mode the lock is not applied — but the ROLE still is. A follower
   // holding a join code sees the sheet and drives nothing; see `mayEditShow`.
   const canEditContent = mode === "show" ? mayEditShow(channel.role) : mayEditSheet ? lock.mine : false;
-  const { doc, revision, connected, synced, status: docStatus } = useRundownDoc(rundownId, joinCode, initialEpoch);
+  const { doc, revision, connected, synced, status: docStatus, awareness } = useRundownDoc(rundownId, joinCode, initialEpoch);
   /**
    * Edits the server has not confirmed yet, shown only once they have been
    * waiting a moment. Every keystroke is "unsaved" for a few milliseconds, and
@@ -3886,6 +3887,19 @@ export function RundownEditor({
   const richColClass = (column: ColumnDef): string =>
     column.kind !== "richtext" ? "" : `col-rich${meta.roleColumnKeys.includes(column.key) ? " col-role" : ""}`;
 
+  /**
+   * Who else is working on this sheet, and where. Published from the editing
+   * surfaces only (a crew phone following the show is not "in the sheet"):
+   * the cell being edited, or the one row selected.
+   */
+  const mySpot: PresenceSpot | null = activeCell
+    ? { rowId: activeCell.rowId, columnId: activeCell.columnId }
+    : selected.size === 1
+      ? { rowId: [...selected][0]!, columnId: null }
+      : null;
+  const peers = usePresence(mode !== "view" ? (awareness as Parameters<typeof usePresence>[0]) : null, channel.userLabel ? { name: channel.userLabel } : null, mySpot);
+
+  const peerIn = (rowId: string, columnId: string) => peers.find((p) => p.spot?.rowId === rowId && p.spot.columnId === columnId);
   const renderRichCell = (rowRecord: ProjectedRow, column: ColumnDef) => {
     const isActive = activeCell?.rowId === rowRecord.id && activeCell.columnId === column.id;
     if (isActive) {
@@ -3908,7 +3922,9 @@ export function RundownEditor({
     return (
       <td
         key={column.id}
-        className={richColClass(column)}
+        className={`${richColClass(column)} ${peerIn(rowRecord.id, column.id) ? "peer-cell" : ""}`}
+        style={peerIn(rowRecord.id, column.id) ? ({ "--peer": peerIn(rowRecord.id, column.id)!.color } as React.CSSProperties) : undefined}
+        data-peer={peerIn(rowRecord.id, column.id)?.name}
         onDoubleClick={canEditContent && !rowRecord.locked ? () => setActiveCell({ rowId: rowRecord.id, columnId: column.id }) : undefined}
       >
         {/* A read written to be spoken is a paragraph, and a paragraph in a
@@ -4581,6 +4597,20 @@ export function RundownEditor({
           )}
         </div>
         <div className="topbar-right">
+          {peers.length > 0 && (
+            <div className="peers" aria-label={`Also here: ${peers.map((p) => p.name).join(", ")}`}>
+              {peers.slice(0, 5).map((p) => {
+                const at = p.spot ? rows.findIndex((r) => r.id === p.spot!.rowId) : -1;
+                const where = at >= 0 ? ` — ${p.spot!.columnId ? "editing" : "on"} row ${numberOf(at) || at + 1}` : "";
+                return (
+                  <span key={p.clientId} className="peer" style={{ background: p.color }} data-tip={`${p.name}${where}`}>
+                    {initialsOf(p.name)}
+                  </span>
+                );
+              })}
+              {peers.length > 5 && <span className="peer peer-more" data-tip={peers.slice(5).map((p) => p.name).join(", ")}>+{peers.length - 5}</span>}
+            </div>
+          )}
           <LiveReadouts
             live={live}
             use24h={meta.use24h}

@@ -125,10 +125,11 @@ export function useRundownDoc(
    * exactly as it did.
    */
   initialEpoch?: number,
-): { doc: Y.Doc; revision: number; connected: boolean; synced: boolean; status: DocStatus } {
+): { doc: Y.Doc; revision: number; connected: boolean; synced: boolean; status: DocStatus; awareness: HocuspocusProvider["awareness"] | null } {
   const [epoch, setEpoch] = useState<number | null>(initialEpoch ?? null);
   const [doc, setDoc] = useState(() => new Y.Doc());
   const [connected, setConnected] = useState(false);
+  const [awareness, setAwareness] = useState<HocuspocusProvider["awareness"] | null>(null);
   // The socket opening is not the same as the CONTENT arriving: a long sheet
   // over a phone connection takes a moment, and until it lands the document
   // is legitimately empty. Surfaces use this to say "loading" rather than
@@ -392,11 +393,13 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
         conclude(reason);
       },
     });
+    setAwareness(provider.awareness ?? null);
     const bump = () => setTick((n) => n + 1);
     fresh.on("update", bump);
     return () => {
       cancelled = true;
       fresh.off("update", bump);
+      setAwareness(null);
       provider.destroy();
       // Closes the connection, keeps what is stored — the point is that it
       // survives to the next load.
@@ -409,6 +412,8 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
     revision,
     connected,
     synced,
+    /** Who else has this sheet open and where they are — see usePresence. */
+    awareness,
     status: { connected, synced, phase, authFailed, attempts, epoch, url: DOC_WS_URL, tokenKind, lastError, blocked, unsynced },
   };
 }

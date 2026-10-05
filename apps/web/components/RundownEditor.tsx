@@ -83,8 +83,9 @@ import { FindReplacePanel } from "./FindReplacePanel";
 import { CopyRowsPanel } from "./CopyRowsPanel";
 import { SignalsPanel } from "./SignalsPanel";
 import { SpeakerControl } from "./SpeakerMessage";
+import { RowMenu, type RowMenuEntry } from "./RowMenu";
 import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
-import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
+import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift, startShow } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
@@ -3105,6 +3106,46 @@ export function RundownEditor({
     });
   };
 
+  /**
+   * Strike the selected rows, or put them back. A printed time is an anchor:
+   * flip the flag alone and the row leaves the cascade but the row under it
+   * still says 8:47, because 8:47 is written on it — so the struck minutes
+   * came straight back and nothing below moved. The strike is a change of
+   * length, and ripples like one.
+   */
+  const strikeSelected = (): void => {
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    doc.transact(() =>
+      selected.forEach((id) => {
+        const yRow = yRows.get(id);
+        if (!yRow) return;
+        const struck = !(yRow.get("skipped") as boolean | undefined);
+        yRow.set("skipped", struck);
+        const idx = rows.findIndex((r) => r.id === id);
+        const delta = strikeShift(rows, idx, struck, liveIdx);
+        if (delta !== 0) shiftFixedTimes(idx + 1, rows.length - 1, delta);
+      }),
+    );
+  };
+
+  /** A new item straight above or below a row — the row menu's Insert. */
+  const insertRowBeside = (rowId: string, below: boolean): void => {
+    const newId = ulid();
+    doc.transact(() => {
+      const yRow = new Y.Map();
+      yRow.set("id", newId);
+      yRow.set("type", "cue");
+      yRow.set("hardStartSec", null);
+      yRow.set("durationSec", 60);
+      yRow.set("cells", new Y.Map<Y.XmlFragment>());
+      yRows.set(newId, yRow);
+      const idx = yOrder.toArray().indexOf(rowId);
+      yOrder.insert(idx < 0 ? yOrder.length : below ? idx + 1 : idx, [newId]);
+    });
+    setSelected(new Set([newId]));
+    setLastSelected(newId);
+  };
+
   const duplicateSelected = (): void => {
     if (selected.size === 0) return;
     doc.transact(() => {
@@ -3985,6 +4026,118 @@ export function RundownEditor({
   useEffect(() => {
     if (hasCursor) void import("./CellEditor");
   }, [hasCursor]);
+  /**
+   * Right-click on a row: the show's own controls (before the doors) and the
+   * row's, in one menu where the mouse already is — as a spreadsheet does.
+   * A row that is not already selected becomes the selection, so the row
+   * actions mean the row that was clicked.
+   */
+  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number } | null>(null);
+  const [menuArmStart, setMenuArmStart] = useState(false);
+  const [speakerOpen, setSpeakerOpen] = useState(0);
+  const closeRowMenu = useCallback(() => {
+    setRowMenu(null);
+    setMenuArmStart(false);
+  }, []);
+  const menuShow = isShow && mayDrive && !showLive && rows.length > 0;
+  const onRowContextMenu = useEffectEvent((e: MouseEvent) => {
+    const t = e.target as HTMLElement;
+    // Inside a cell being edited the browser's own menu has spelling and paste.
+    if (t.closest("input, textarea, [contenteditable=true], a")) return;
+    const rowId = t.closest<HTMLElement>("tr[data-rowid]")?.dataset.rowid;
+    if (!rowId || !(menuShow || canEditContent)) return;
+    e.preventDefault();
+    if (!selected.has(rowId)) {
+      setSelected(new Set([rowId]));
+      setLastSelected(rowId);
+    }
+    const colId = t.closest<HTMLElement>("td[data-colid]")?.dataset.colid;
+    if (gridOn && colId) grid.place({ rowId, columnId: colId });
+    setMenuArmStart(false);
+    setRowMenu({ rowId, x: e.clientX, y: e.clientY });
+  });
+  useEffect(() => {
+    if (!gridEl) return;
+    const onMenu = (e: MouseEvent) => onRowContextMenu(e);
+    gridEl.addEventListener("contextmenu", onMenu);
+    return () => gridEl.removeEventListener("contextmenu", onMenu);
+  }, [gridEl]);
+  const rowMenuEntries = (rowId: string): RowMenuEntry[] => {
+    const i = rows.findIndex((r) => r.id === rowId);
+    const r = rows[i];
+    if (!r) return [];
+    const n = numberOf(i) || String(i + 1);
+    const out: RowMenuEntry[] = [];
+    if (menuShow) {
+      const walkable = rows.filter(stepsOnto);
+      const at = walkRowId ? walkable.findIndex((x) => x.id === walkRowId) : -1;
+      const ordered = rows.filter((x) => stepsOnto(x) || x.id === activeRowId).map((x) => x.id);
+      const walk = (id: string) => {
+        setFollowScroll(true);
+        channel.sendCmd("walk", id);
+      };
+      out.push({ heading: "Show" });
+      out.push({
+        label: menuArmStart ? "▶ Start anyway" : "▶ Start show",
+        tone: menuArmStart ? "warn" : "positive",
+        hint: menuArmStart
+          ? `${preflight.length} thing${preflight.length === 1 ? "" : "s"} to look at first: ${preflight[0]}${preflight.length > 1 ? " …" : ""}`
+          : undefined,
+        keepOpen: preflight.length > 0 && !menuArmStart,
+        disabled: !channel.connected || ordered.length === 0,
+        onSelect: () => {
+          // Warned about, never blocked — the same bargain as the button.
+          if (preflight.length > 0 && !menuArmStart) return setMenuArmStart(true);
+          startShow(channel, ordered, untilShowSec);
+        },
+      });
+      if (stepsOnto(r))
+        out.push({
+          label: walkRowId === r.id ? `Walkthrough is on row ${n}` : walkRowId ? `Walk to row ${n}` : `Walk through from row ${n}`,
+          disabled: walkRowId === r.id,
+          onSelect: () => {
+            // Pointed at, so already on screen — see `walkFromClick`.
+            walkFromClick.current = true;
+            channel.sendCmd("walk", r.id);
+          },
+        });
+      out.push({ label: "⏮ Prev", disabled: at <= 0, onSelect: () => at > 0 && walk(walkable[at - 1]!.id) });
+      out.push({
+        label: "Next ⏭",
+        disabled: at >= walkable.length - 1,
+        onSelect: () => walk(walkable[Math.min(at + 1, walkable.length - 1)]!.id),
+      });
+      if (walkRowId) out.push({ label: "End walkthrough", onSelect: () => channel.sendCmd("walk") });
+      out.push(
+        channel.speaker
+          ? { label: "Clear stage message", hint: `“${channel.speaker.text}”`, onSelect: () => channel.say(null) }
+          : { label: "Message stage…", onSelect: () => setSpeakerOpen((k) => k + 1) },
+      );
+    }
+    if (canEditContent) {
+      const picked = rows.filter((x) => selected.has(x.id) || x.id === rowId);
+      const many = picked.length > 1;
+      const noun = many ? `${picked.length} rows` : "row";
+      const allLocked = picked.every((x) => x.locked);
+      const allStruck = picked.every((x) => x.skipped);
+      if (out.length > 0) out.push("sep");
+      out.push({ heading: many ? `${picked.length} rows selected` : `Row ${n}` });
+      if (!showLive) {
+        out.push({ label: "Insert row above", onSelect: () => insertRowBeside(picked[0]!.id, false) });
+        out.push({ label: "Insert row below", onSelect: () => insertRowBeside(picked[picked.length - 1]!.id, true) });
+        out.push({ label: `Duplicate ${noun}`, onSelect: duplicateSelected });
+      }
+      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, onSelect: () => setSelectedLocked(!allLocked) });
+      out.push({ label: allStruck ? `Put ${noun} back` : `Strike ${noun}`, onSelect: strikeSelected });
+      out.push({ label: "Copy to sheet…", onSelect: () => setCopyRowIds(picked.map((x) => x.id)) });
+      if (!showLive) {
+        out.push("sep");
+        out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
+      }
+    }
+    return out;
+  };
+
   // A time or length box that closed takes what was typed onto it with it.
   useEffect(() => {
     if (editingTime == null && durationPopover == null) setTypedSeed(null);
@@ -4667,10 +4820,6 @@ export function RundownEditor({
           )}
           {isShow && showKnown && (
             <div className="show-state-row">
-              {/* A message to the person on stage, on the timer and prompter.
-                  The caller's to send; what is up now is always shown here so
-                  nothing is left on a screen by accident. */}
-              {mayDrive && <SpeakerControl message={channel.speaker} onSay={channel.say} />}
               {/* Before the doors: rehearsing and going live are the two things
                   you do here, so they share one box. Walkthrough used to sit in
                   the sheet's toolbar among Undo, Redo and Add row — editing
@@ -4681,6 +4830,12 @@ export function RundownEditor({
                   nothing to rehearse, and the transport keeps the row to
                   itself. */}
               <div className={isShow && !showLive && rows.length > 0 ? "preshow-group" : undefined}>
+                {/* A message to the person on stage, on the timer and prompter
+                    — in the same box as the show's other controls, where the
+                    caller is already looking (asked for 6 Oct). The caller's
+                    to send; what is up now is always shown here so nothing is
+                    left on a screen by accident. */}
+                {mayDrive && <SpeakerControl message={channel.speaker} onSay={channel.say} openSignal={speakerOpen} />}
                 <ShowStateControls
                   channel={channel}
                   orderedRowIds={rows.filter((r) => stepsOnto(r) || r.id === activeRowId).map((r) => r.id)}
@@ -4705,7 +4860,8 @@ export function RundownEditor({
                           className="chip"
                           data-tip={`Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees${at >= 0 ? ` · ${at + 1} of ${walkable.length} steps` : ""}`}
                         >
-                          Walkthrough{label ? ` ${label}` : ""}
+                          {/* "Walkthrough 1" read as a count; it is the row the highlight is on. */}
+                          Walkthrough{label ? ` · row ${label}` : ""}
                         </span>
                         <button
                           className="btn"
@@ -5334,7 +5490,7 @@ export function RundownEditor({
           </div>
           );
         })()}
-        {canEditContent && selected.size > 0 && (
+        {canEditContent && selected.size > 0 && !rowMenu && (
           // Floats just below the last selected row — the actions clearly
           // belong to the rows they act on without covering any of them.
           //
@@ -5425,25 +5581,7 @@ export function RundownEditor({
             <button
               className="btn btn-sm"
               data-tip="Strike: keeps the row visible but takes it out of the timing and the transport — every printed time below moves up by its length. Press again to put it back."
-              onClick={() => {
-                // A printed time is an anchor. Flip the flag alone and the row
-                // leaves the cascade but the row under it still says 8:47,
-                // because 8:47 is written on it — so the struck minutes came
-                // straight back and nothing below moved. The strike is a
-                // change of length, and ripples like one.
-                const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-                doc.transact(() =>
-                  selected.forEach((id) => {
-                    const yRow = yRows.get(id);
-                    if (!yRow) return;
-                    const struck = !(yRow.get("skipped") as boolean | undefined);
-                    yRow.set("skipped", struck);
-                    const idx = rows.findIndex((r) => r.id === id);
-                    const delta = strikeShift(rows, idx, struck, liveIdx);
-                    if (delta !== 0) shiftFixedTimes(idx + 1, rows.length - 1, delta);
-                  }),
-                );
-              }}
+              onClick={strikeSelected}
             >
               {/* "Strike", not "Skip". The row is not passed over and forgotten
                   — it stays on the sheet with a line through it, which is what
@@ -6293,6 +6431,7 @@ export function RundownEditor({
         show={{ connected: channel.connected, role: channel.role, timezone: channel.timezone }}
       />
 
+      {rowMenu && <RowMenu x={rowMenu.x} y={rowMenu.y} entries={rowMenuEntries(rowMenu.rowId)} onClose={closeRowMenu} />}
       {grid.note && (
         <div className="grid-note no-print" role="status">
           {grid.note}

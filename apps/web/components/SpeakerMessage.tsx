@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SpeakerMessage } from "@opencall/protocol";
 
 /** One-tap messages a showcaller sends most. */
-const QUICK = ["Wrap up", "30 seconds", "Stretch 2 minutes", "Stand by", "Slow down", "Speed up"];
+export const QUICK = ["Wrap up", "30 seconds", "Stretch 2 minutes", "Stand by", "Slow down", "Speed up"];
 
 /**
  * The message, large, across the top of a stage screen (timer, prompter).
@@ -34,8 +34,20 @@ export function SpeakerBanner({ message }: { message: SpeakerMessage | null }) {
  * Shows what is on the screens now, so a message is never left up by
  * accident.
  */
-export function SpeakerControl({ message, onSay }: { message: SpeakerMessage | null; onSay: (text: string | null) => void }) {
+export function SpeakerControl({
+  message,
+  onSay,
+  openSignal = 0,
+}: {
+  message: SpeakerMessage | null;
+  onSay: (text: string | null) => void;
+  /** Bumped to open the message box from elsewhere (the row menu's "Type a message…"). */
+  openSignal?: number;
+}) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (openSignal > 0) setOpen(true);
+  }, [openSignal]);
   const [text, setText] = useState("");
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {

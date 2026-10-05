@@ -153,6 +153,16 @@ export function LiveBadge({ paused }: { paused: boolean }) {
   );
 }
 
+/**
+ * Go live — the one way, shared by Start show and the row menu. See `start`
+ * in ShowStateControls for why it opens with nothing cued when the first item
+ * is still to come, and why it hands straight to the clock.
+ */
+export function startShow(channel: ShowChannel, orderedRowIds: string[], untilShowSec: number | null): void {
+  channel.sendCmd("start", untilShowSec != null ? undefined : orderedRowIds[0]);
+  channel.sendCmd("clock_on");
+}
+
 export function ShowStateControls({
   channel,
   orderedRowIds,
@@ -259,7 +269,7 @@ export function ShowStateControls({
    * from a standing start.
    */
   const start = () => {
-    channel.sendCmd("start", untilShowSec != null ? undefined : orderedRowIds[0]);
+    startShow(channel, orderedRowIds, untilShowSec);
     /**
      * …and hand it straight to the clock.
      *
@@ -281,7 +291,6 @@ export function ShowStateControls({
      * Still a toggle: anybody calling the show by hand presses it off, and
      * that choice sticks for the session.
      */
-    channel.sendCmd("clock_on");
   };
 
   return (

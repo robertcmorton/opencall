@@ -453,6 +453,16 @@ export const errorLogs = pgTable("error_logs", {
   url: text("url"),
   userAgent: text("user_agent"),
   context: jsonb("context").$type<Record<string, unknown>>(),
+  /**
+   * Marked fixed: hidden from the log's normal view but kept, with what fixed
+   * it, so a "fixed" fault that comes back can be seen to have been here
+   * before. Ages out with everything else (retention.ts).
+   */
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  /** Who marked it: a name, or "<assistant> for <name>". */
+  resolvedBy: text("resolved_by"),
+  /** What fixed it, in a sentence — e.g. "PUBLIC_WEB_URL set on 5 Oct". */
+  resolution: text("resolution"),
 });
 
 // ── Per-user personalization (never in the CRDT) ───────────────────────────────

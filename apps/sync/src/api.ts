@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
   authContext,
@@ -812,9 +812,9 @@ export function createApiHandler(
         // Changing sheets is only offered to an account that can change some.
         const mayWrite = ctx?.kind === "admin" || (ctx?.kind === "user" && ctx.grants.some((g) => g.kind === "company" || g.kind === "event" || g.kind === "edit"));
         // The error log is the server's, not a sheet's: System Administrators only.
-        const offered = (key: string) => (key === "sheets:write" ? mayWrite : key === "errors:read" ? ctx?.kind === "admin" : true);
+        const offered = (key: string) => (key === "sheets:write" ? mayWrite : key.startsWith("errors:") ? ctx?.kind === "admin" : true);
         const whyNot = (key: string) =>
-          key === "errors:read" ? "Only a System Administrator can read the error log, so this is not offered." : "Your account can only read sheets, so this is not offered.";
+          key.startsWith("errors:") ? "Only a System Administrator can see the error log, so this is not offered." : "Your account can only read sheets, so this is not offered.";
         const base = syncBase(req);
         try {
           if (pathname.endsWith("/check")) {
@@ -992,7 +992,16 @@ export function createApiHandler(
       if (req.method === "GET" && pathname === "/errors") {
         if (!(await requireAdmin())) return true;
         const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit") ?? 200)));
-        const rows = await db.query.errorLogs.findMany({ orderBy: desc(schema.errorLogs.at), limit });
+        // Resolved entries are kept but shown only when asked for.
+        const wantResolved = url.searchParams.get("resolved") === "1";
+        const rows = await db.query.errorLogs.findMany({
+          where: wantResolved ? isNotNull(schema.errorLogs.resolvedAt) : isNull(schema.errorLogs.resolvedAt),
+          orderBy: desc(schema.errorLogs.at),
+          limit,
+        });
+        const resolvedCount = (await db.select({ n: count() }).from(schema.errorLogs).where(isNotNull(schema.errorLogs.resolvedAt)))[0]?.n ?? 0;
+        res.setHeader("x-resolved-count", String(resolvedCount));
+        res.setHeader("access-control-expose-headers", "x-source-name,x-resolved-count");
         json(
           res,
           200,
@@ -1004,6 +1013,9 @@ export function createApiHandler(
             stack: r.stack ?? (r.context as { stack?: string } | null)?.stack ?? null,
             url: r.url,
             userAgent: r.userAgent,
+            resolvedAt: r.resolvedAt?.toISOString() ?? null,
+            resolvedBy: r.resolvedBy,
+            resolution: r.resolution,
           })),
         );
         return true;

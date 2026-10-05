@@ -25,7 +25,11 @@ export const SCOPES = {
   },
   "errors:read": {
     title: "Read the error log",
-    detail: "See the server's error log, to check the app is healthy. Read only — it cannot clear or change it.",
+    detail: "See the server's error log, to check the app is healthy.",
+  },
+  "errors:resolve": {
+    title: "Mark fixed errors as resolved",
+    detail: "Hide errors that have been fixed from the log's normal view, always with a note of what fixed them. Nothing is deleted; resolved errors can still be shown.",
   },
 } as const;
 export type Scope = keyof typeof SCOPES;

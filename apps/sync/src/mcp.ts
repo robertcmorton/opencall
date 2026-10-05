@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { and, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import * as Y from "yjs";
 import { z } from "zod";
@@ -373,19 +373,20 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         {
           title: "Read the error log",
           description:
-            "The server's error log, newest first: server exceptions, crashes at the process level, and errors reported by browsers. Give `since` (an ISO time) to see only entries after a previous review. Read only.",
+            "The server's error log, newest first: server exceptions, crashes at the process level, and errors reported by browsers. Entries already marked resolved are left out unless include_resolved is set. Give `since` (an ISO time) to see only entries after a previous review. Read only.",
           inputSchema: {
             since: z.string().max(40).optional().describe("Only entries after this time, e.g. 2026-10-05T08:00:00Z."),
             source: z.enum(["server", "process", "client"]).optional().describe("Only one kind of entry."),
             limit: z.number().int().min(1).max(200).optional().describe("At most this many entries (default 50)."),
+            include_resolved: z.boolean().optional().describe("Also show entries already marked resolved (with what fixed them)."),
           },
           annotations: { readOnlyHint: true, openWorldHint: false },
         },
-        guarded(async ({ since, source, limit }: { since?: string; source?: "server" | "process" | "client"; limit?: number }) => {
+        guarded(async ({ since, source, limit, include_resolved }: { since?: string; source?: "server" | "process" | "client"; limit?: number; include_resolved?: boolean }) => {
           const after = since ? new Date(since) : null;
           if (after && Number.isNaN(after.getTime())) return fail(`"${since}" is not a time. Use e.g. 2026-10-05T08:00:00Z.`);
           const t = schema.errorLogs;
-          const where = and(after ? gt(t.at, after) : undefined, source ? eq(t.source, source) : undefined);
+          const where = and(after ? gt(t.at, after) : undefined, source ? eq(t.source, source) : undefined, include_resolved ? undefined : isNull(t.resolvedAt));
           const rows = await db.select().from(t).where(where).orderBy(desc(t.at)).limit(limit ?? 50);
           const total = (await db.select({ n: count() }).from(t).where(where))[0]?.n ?? 0;
           audit(handle, { actor: caller.userId, action: "mcp.read_error_log", target: null, ip, detail: { assistant: caller.clientName, since: since ?? null, returned: rows.length } });
@@ -393,14 +394,64 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
             total,
             shown: rows.length,
             entries: rows.map((r) => ({
+              id: r.id,
               at: r.at.toISOString(),
               source: r.source,
               message: r.message,
               where: r.url ?? undefined,
               stack: r.stack ? r.stack.split("\n").slice(0, 6).join("\n") : undefined,
               browser: r.userAgent ? r.userAgent.slice(0, 120) : undefined,
+              resolved: r.resolvedAt ? { at: r.resolvedAt.toISOString(), by: r.resolvedBy, fix: r.resolution } : undefined,
             })),
             note: rows.length === 0 ? "Nothing in the log for that period." : undefined,
+          });
+        }),
+      );
+    }
+
+    // Fixed errors marked resolved — hidden from the normal view, never
+    // deleted, and always with what fixed them, so a fault that comes back can
+    // be seen to have been here before. Only System Administrators who allowed it.
+    if (caller.scopes.includes("errors:resolve") && ctx?.kind === "admin") {
+      server.registerTool(
+        "resolve_errors",
+        {
+          title: "Mark fixed errors as resolved",
+          description:
+            "Marks error-log entries as resolved once whatever caused them has been fixed. Give the entries' ids (from read_error_log), or `matching` — text every entry to resolve contains — optionally only those `before` a time. `fix` is required: one sentence on what fixed them, e.g. \"PUBLIC_WEB_URL set on the sync service, 5 Oct\". Nothing is deleted; resolved entries can still be shown. Only resolve what is actually fixed.",
+          inputSchema: {
+            ids: z.array(z.string().min(1).max(64)).min(1).max(200).optional(),
+            matching: z.string().min(4).max(200).optional().describe("Resolve every unresolved entry whose message contains this text."),
+            before: z.string().max(40).optional().describe("Only entries before this time (ISO)."),
+            fix: z.string().min(8).max(300).describe("What fixed them, in a sentence."),
+          },
+          annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        },
+        guarded(async ({ ids, matching, before, fix }: { ids?: string[]; matching?: string; before?: string; fix: string }) => {
+          if (!ids?.length && !matching) return fail("Say which entries: give their ids, or `matching` text they contain.");
+          const until = before ? new Date(before) : null;
+          if (until && Number.isNaN(until.getTime())) return fail(`"${before}" is not a time.`);
+          const t = schema.errorLogs;
+          const who = (await db.query.users.findFirst({ where: eq(schema.users.id, caller.userId), columns: { name: true } }))?.name ?? "an administrator";
+          const done = await db
+            .update(t)
+            .set({ resolvedAt: new Date(), resolvedBy: `${caller.clientName} for ${who}`, resolution: fix.trim() })
+            .where(
+              and(
+                isNull(t.resolvedAt),
+                ids?.length ? inArray(t.id, ids) : undefined,
+                matching ? sql`position(${matching} in ${t.message}) > 0` : undefined,
+                until ? lt(t.at, until) : undefined,
+              ),
+            )
+            .returning();
+          audit(handle, { actor: caller.userId, action: "mcp.resolve_errors", target: null, ip, detail: { assistant: caller.clientName, resolved: done.length, fix: fix.trim() } });
+          const left = (await db.select({ n: count() }).from(t).where(isNull(t.resolvedAt)))[0]?.n ?? 0;
+          return ok({
+            resolved: done.length,
+            messages: [...new Set(done.map((d) => d.message))].slice(0, 10),
+            stillOpen: left,
+            note: done.length === 0 ? "Nothing matched among the unresolved entries." : "Resolved entries are hidden from the log but kept, with this fix noted.",
           });
         }),
       );
@@ -757,6 +808,10 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
     );
     if (called.some((n) => WRITE_TOOLS.has(n)) && !caller.scopes.includes("sheets:write")) {
       challenge(403, { code: "insufficient_scope", description: "This connection may only read sheets. Reconnect and allow changes." }, "sheets:read sheets:write");
+      return true;
+    }
+    if (called.includes("resolve_errors") && !caller.scopes.includes("errors:resolve")) {
+      challenge(403, { code: "insufficient_scope", description: "This connection may not resolve errors. A System Administrator can reconnect and allow it." }, "sheets:read sheets:write errors:read errors:resolve");
       return true;
     }
     if (called.includes("read_error_log") && !caller.scopes.includes("errors:read")) {

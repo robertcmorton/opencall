@@ -29,6 +29,7 @@ import { createDocServer, docStoresSettled, parseDocName } from "./doc-server.ts
 import { createApiHandler, GUESS_PER_IP, HttpError, LOGIN_WINDOW_SEC, logServerError } from "./api.ts";
 import { createMcpRoutes } from "./mcp.ts";
 import { createEditTracker } from "./sheetChanges.ts";
+import { createCueSignals } from "./cueSignals.ts";
 import { readFileSync } from "node:fs";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
@@ -154,7 +155,10 @@ const send = (ws: WebSocket, msg: ServerMsg): void => {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 };
 
+/** Set once the cue-signal sender exists (below); every show state passes through it. */
+let onShowStateForCues: ((rundownId: string, state: { state: string; activeRowId: string | null }) => void) | null = null;
 const broadcast = (rundownId: string, msg: ServerMsg): void => {
+  if (msg.t === "show_state") onShowStateForCues?.(rundownId, msg as unknown as { state: string; activeRowId: string | null });
   for (const [ws, ctx] of clients) if (ctx.rundownId === rundownId) send(ws, msg);
 };
 
@@ -321,14 +325,18 @@ const editTracker = createEditTracker(dbHandle, parseDocName);
 const docServer = createDocServer(dbHandle, editTracker);
 /** What the show on a sheet is doing right now. */
 const liveState = async (rundownId: string) => {
-  const { state, activeRowId } = (await showStore.get(rundownId)).current;
-  return { state, activeRowId };
+  const { state, activeRowId, playedRowIds } = (await showStore.get(rundownId)).current;
+  return { state, activeRowId, playedRowIds };
 };
+// Fire on cue: webhooks when a row goes on air, and the "now" answer.
+const cueSignals = createCueSignals(dbHandle, docServer, liveState);
+onShowStateForCues = cueSignals.onShowState;
 
 // HTTP: JSON API for the web app.
 const handleApi = createApiHandler(dbHandle, docServer, {
   liveState,
   editTracker,
+  cueSignals,
   // "End event" from the sheet or the dashboard: the show stops with it.
   stopShow: async (rundownId) => {
     const machine = await showStore.get(rundownId);

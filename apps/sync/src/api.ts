@@ -28,6 +28,7 @@ import { consume, peek, release, clearStartingWith } from "./throttle.ts";
 import { audit } from "./audit.ts";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
+import { MAX_WEBHOOKS, webhookProblem, type CueSignals } from "./cueSignals.ts";
 import { accountIdForToken, contextForAccount } from "./auth.ts";
 import { checkAuthorize, decideAuthorize, listConnections, OAuthError, revokeGrant, revokeUserGrants, SCOPES, syncBase, type AuthorizeRequest } from "./oauth.ts";
 import { allowedOrigins, originAllowed } from "./origins.ts";
@@ -226,6 +227,8 @@ export function createApiHandler(
     liveState?: (rundownId: string) => Promise<{ state: string; activeRowId: string | null }>;
     /** People's editing sessions, closed into the change log at the right moments. */
     editTracker?: EditTracker;
+    /** Fire on cue: webhooks, deliveries, and what is on air now. */
+    cueSignals?: CueSignals;
   } = {},
 ) {
   const { db } = handle;
@@ -2872,6 +2875,61 @@ export function createApiHandler(
           200,
           rows.map((r) => ({ id: r.id, label: r.label, kind: r.kind, by: r.createdBy ? (names.get(r.createdBy) ?? null) : null, createdAt: r.createdAt })),
         );
+        return true;
+      }
+
+      // ── Fire on cue ──
+      // The sheet's webhook list, with the recent deliveries. Whoever may edit
+      // the sheet may set it; the addresses never leave the server otherwise.
+      if (/^\/rundowns\/[^/]+\/signals$/.test(pathname) && (req.method === "GET" || req.method === "PUT")) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireRundownEdit(rundownId))) return true;
+        if (req.method === "PUT") {
+          const body = await readJson(req);
+          const urls = (Array.isArray(body.webhooks) ? body.webhooks.map((u: unknown) => String(u).trim()).filter(Boolean) : []) as string[];
+          if (urls.length > MAX_WEBHOOKS) {
+            json(res, 400, { error: `At most ${MAX_WEBHOOKS} addresses.` });
+            return true;
+          }
+          for (const u of urls) {
+            const problem = await webhookProblem(u);
+            if (problem) {
+              json(res, 400, { error: `${u}: ${problem}` });
+              return true;
+            }
+          }
+          await db.update(schema.rundowns).set({ cueWebhooks: [...new Set(urls)] }).where(eq(schema.rundowns.id, rundownId));
+          const who = await authContext(handle, req, rundownId);
+          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.signals_changed", target: rundownId, ip, detail: { count: urls.length } });
+        }
+        const r = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId), columns: { cueWebhooks: true } });
+        json(res, 200, { webhooks: r?.cueWebhooks ?? [], deliveries: hooks.cueSignals?.deliveries(rundownId) ?? [] });
+        return true;
+      }
+      if (req.method === "POST" && /^\/rundowns\/[^/]+\/signals\/test$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        if (!(await requireRundownEdit(rundownId))) return true;
+        json(res, 200, { deliveries: (await hooks.cueSignals?.test(rundownId)) ?? [] });
+        return true;
+      }
+      // What is on air now, for equipment to ask (Companion, a graphics
+      // machine). Anyone who may see the sheet — a view-only code works, in
+      // the x-join-code header or as ?code= for tools that cannot set headers.
+      if (req.method === "GET" && /^\/rundowns\/[^/]+\/now$/.test(pathname)) {
+        const rundownId = pathname.split("/")[2]!;
+        const qcode = url.searchParams.get("code");
+        if (qcode && !req.headers["x-join-code"]) req.headers["x-join-code"] = qcode;
+        const ctx = await authContext(handle, req, rundownId);
+        const rd = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId), columns: { eventId: true, viewingClosedAt: true } });
+        const ev = rd ? await db.query.events.findFirst({ where: eq(schema.events.id, rd.eventId), columns: { id: true, teamId: true } }) : null;
+        const allowed =
+          !!rd && !!ev && ((ctx?.kind === "code" && ctx.rundownId === rundownId && !rd.viewingClosedAt) || (await canSeeEvent(handle, ctx, ev.id, ev.teamId)));
+        if (!allowed) {
+          json(res, 401, { error: "A view-only code or a sign-in for this sheet is needed." });
+          return true;
+        }
+        res.setHeader("access-control-allow-origin", "*");
+        json(res, 200, (await hooks.cueSignals?.now(rundownId)) ?? {});
         return true;
       }
 

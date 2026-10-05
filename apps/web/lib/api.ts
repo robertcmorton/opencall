@@ -395,6 +395,17 @@ export const api = {
   revokeJoinCode: (rundownId: string, codeId: string) =>
     request<{ id: string }>(`/rundowns/${rundownId}/join-codes/${codeId}`, { method: "DELETE" }),
   snapshots: (rundownId: string) => request<SnapshotSummary[]>(`/rundowns/${rundownId}/snapshots`),
+  /** Fire on cue: the sheet's webhook addresses and recent deliveries. */
+  signals: (rundownId: string) =>
+    request<{ webhooks: string[]; deliveries: { at: string; host: string; ok: boolean; status: number | null; ms: number; error?: string; test?: boolean }[] }>(
+      `/rundowns/${rundownId}/signals`,
+    ),
+  saveSignals: (rundownId: string, webhooks: string[]) =>
+    request<{ webhooks: string[]; deliveries: { at: string; host: string; ok: boolean; status: number | null; ms: number; error?: string; test?: boolean }[] }>(
+      `/rundowns/${rundownId}/signals`,
+      { method: "PUT", body: JSON.stringify({ webhooks }) },
+    ),
+  testSignals: (rundownId: string) => request<{ deliveries: unknown[] }>(`/rundowns/${rundownId}/signals/test`, { method: "POST" }),
   /** Sheets in the same company these rows may be copied into. */
   copyTargets: (rundownId: string) => request<{ id: string; name: string; event: string }[]>(`/rundowns/${rundownId}/copy-targets`),
   copyRows: (rundownId: string, toRundownId: string, rowIds: string[]) =>

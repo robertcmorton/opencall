@@ -1,0 +1,1 @@
+ALTER TABLE "rundowns" ADD COLUMN "cue_webhooks" jsonb DEFAULT '[]'::jsonb NOT NULL;

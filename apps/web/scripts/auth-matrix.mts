@@ -681,6 +681,22 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp: connections and changes are in the audit log", actions.has("mcp.connected") && actions.has("mcp.add_rows") && actions.has("mcp.disconnected"), [...actions].filter((a) => a.startsWith("mcp")));
 }
 
+// ── Fire on cue ───────────────────────────────────────────────────────────────
+{
+  const priv = await req(`/rundowns/${rdA.body.id}/signals`, eventMgr.accessToken, { method: "PUT", body: JSON.stringify({ webhooks: ["https://169.254.169.254/latest/meta-data"] }) });
+  check("cues: a private-network address is refused", priv.status === 400 && /private network/.test(priv.body?.error ?? ""), priv.body);
+  const plain = await req(`/rundowns/${rdA.body.id}/signals`, eventMgr.accessToken, { method: "PUT", body: JSON.stringify({ webhooks: ["http://example.com/hook"] }) });
+  check("cues: a plain-http address is refused", plain.status === 400, plain.body);
+  check("cues: crew cannot see or set the addresses", (await req(`/rundowns/${rdA.body.id}/signals`, viewer.accessToken)).status === 401);
+  const code = await req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "cue device" }) });
+  const viaCode = await fetch(`${API}/rundowns/${rdA.body.id}/now?code=${code.body?.code}`);
+  const nowBody = await viaCode.json().catch(() => null);
+  check("cues: equipment with a view-only code can ask what is on air", viaCode.status === 200 && typeof nowBody?.state === "string" && "onAir" in nowBody, nowBody);
+  check("cues: without a code it cannot", (await fetch(`${API}/rundowns/${rdA.body.id}/now`)).status === 401);
+  check("cues: a code for one sheet does not open another", (await fetch(`${API}/rundowns/${rdB.body.id}/now?code=${code.body?.code}`)).status === 401);
+  if (code.body?.id) await req(`/rundowns/${rdA.body.id}/join-codes/${code.body.id}`, ADMIN, { method: "DELETE" });
+}
+
 // ── Copy rows between sheets ──────────────────────────────────────────────────
 {
   const rdA2 = await req("/rundowns", ADMIN, { method: "POST", body: JSON.stringify({ eventId: eventA.body.id, name: "Matrix RD A2" }) });

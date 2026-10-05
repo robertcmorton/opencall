@@ -81,6 +81,7 @@ import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
 import { JumpPalette } from "./JumpPalette";
 import { FindReplacePanel } from "./FindReplacePanel";
 import { CopyRowsPanel } from "./CopyRowsPanel";
+import { SignalsPanel } from "./SignalsPanel";
 import { SpeakerControl } from "./SpeakerMessage";
 import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
@@ -3602,6 +3603,7 @@ export function RundownEditor({
   // Find and replace: Cmd/Ctrl+Shift+F (plain Cmd+F stays the browser's).
   const [findOpen, setFindOpen] = useState(false);
   const [copyRowIds, setCopyRowIds] = useState<string[] | null>(null);
+  const [signalsOpen, setSignalsOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
@@ -4200,6 +4202,10 @@ export function RundownEditor({
             <span className="check" />
             Changes
           </Link>
+          <button type="button" className="menu-item" onClick={() => setSignalsOpen(true)}>
+            <span className="check" />
+            On-cue signals
+          </button>
         </SideNavSection>
       )}
       {isShow && mayDrive && (
@@ -4222,6 +4228,10 @@ export function RundownEditor({
             <span className="check" />
             Changes
           </Link>
+          <button type="button" className="menu-item" onClick={() => setSignalsOpen(true)}>
+            <span className="check" />
+            On-cue signals
+          </button>
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "join" ? null : "join")}>
             <span className="check" />
             View-only links
@@ -5003,6 +5013,7 @@ export function RundownEditor({
         </div>
       )}
       {jumpOpen && <JumpPalette items={jumpItems} onJump={goToRow} onClose={() => setJumpOpen(false)} />}
+      {signalsOpen && <SignalsPanel rundownId={rundownId} onClose={() => setSignalsOpen(false)} />}
       {copyRowIds && <CopyRowsPanel rundownId={rundownId} rowIds={copyRowIds} onClose={() => setCopyRowIds(null)} />}
       {findOpen && (
         <FindReplacePanel

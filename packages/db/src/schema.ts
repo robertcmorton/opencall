@@ -180,6 +180,12 @@ export const rundowns = pgTable("rundowns", {
    */
   viewingClosedAt: timestamp("viewing_closed_at", { withTimezone: true }),
   /**
+   * Addresses told when a row goes on air ("fire on cue"). Kept here, not in
+   * the sheet's document, because a webhook address can carry a secret and
+   * the document is readable by every viewer.
+   */
+  cueWebhooks: jsonb("cue_webhooks").$type<string[]>().notNull().default([]),
+  /**
    * Who is editing this sheet, if anybody.
    *
    * One editor at a time. Not because the document would corrupt — it is a

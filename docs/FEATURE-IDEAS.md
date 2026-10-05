@@ -39,7 +39,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
 9. **Lock a row** — BUILT 5 Oct 2026. so an approved cue cannot be edited during the show.
 10. **Display view.** — BUILT 5 Oct 2026 ("Backstage display"). A big-screen strip for backstage: the item on air, the
     next three, one chosen column, the clock.
-11. **Fire something on cue.** When a row goes on air, send an OSC or HTTP
+11. **Fire something on cue.** — BUILT 5 Oct 2026 (webhooks out; "now on air" address in). OSC is not sent: a cloud server cannot reach a venue LAN. When a row goes on air, send an OSC or HTTP
     message so graphics, lighting or a Stream Deck follow the sheet.
 12. **Collapsible groups with sub-numbering** for long sheets.
 13. **Files, links and images in cells**, with links that survive into the

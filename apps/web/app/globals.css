@@ -5362,3 +5362,37 @@ td.peer-cell::after {
 .find-n {
   color: var(--text-3);
 }
+
+/* On-cue signals panel. */
+.signals-panel {
+  width: min(440px, calc(100vw - 32px));
+  overflow-y: auto;
+}
+.signals-sec {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.signals-h {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+.signals-p {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.signals-code {
+  font-size: var(--fs-sm);
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  overflow-wrap: anywhere;
+}
+.signals-log {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  padding: 3px 0;
+}

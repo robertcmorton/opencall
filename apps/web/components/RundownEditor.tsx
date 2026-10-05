@@ -4098,14 +4098,14 @@ export function RundownEditor({
             job with more context, so the timer now carries the item before and
             after and the follower has gone. One fewer thing to explain to a
             crew, and one fewer screen to be looking at the wrong one of. */}
-        {(["timer", "prompter"] as const).map((view) => (
+        {(["timer", "prompter", "display"] as const).map((view) => (
           <a
             key={view}
             className="menu-item"
             href={`/${view}/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
           >
             <span className="check" />
-            {view[0]!.toUpperCase() + view.slice(1)}
+            {view === "display" ? "Backstage display" : view[0]!.toUpperCase() + view.slice(1)}
           </a>
         ))}
       </SideNavSection>

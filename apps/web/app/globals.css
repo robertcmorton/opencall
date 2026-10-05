@@ -5124,3 +5124,125 @@ tr.jump-flash > td {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* Backstage display: a wall screen — on air, next three, the clock. */
+.display-view {
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+  color: var(--text);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 2.5vmin 3vmin;
+  gap: 2vmin;
+  cursor: default;
+  user-select: none;
+}
+.display-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2vmin;
+}
+.display-name {
+  font-size: 3.2vmin;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.display-clock {
+  flex-shrink: 0;
+  font-size: 7vmin;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.display-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 3vmin;
+  min-height: 0;
+}
+.display-now {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2vmin;
+  padding: 3vmin;
+  border-radius: 2vmin;
+  background: #111;
+  min-width: 0;
+}
+.display-status {
+  font-size: 3.2vmin;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.display-status.live {
+  color: var(--live);
+}
+.display-title {
+  font-size: 7vmin;
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.display-count {
+  font-size: 14vmin;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.display-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.4vmin;
+  min-width: 0;
+}
+.display-next-head {
+  font-size: 3.2vmin;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.display-next li:not(.display-next-head) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 2vmin;
+  align-items: baseline;
+  font-size: 4.2vmin;
+  border-top: 1px solid #222;
+  padding-top: 2vmin;
+}
+.display-next-time,
+.display-next-dur {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  font-size: 3.4vmin;
+}
+.display-next-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.display-back {
+  position: fixed;
+  left: 1.5vmin;
+  bottom: 1.5vmin;
+  opacity: 0.25;
+}
+.display-back:hover {
+  opacity: 1;
+}
+@media (orientation: portrait) {
+  .display-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+}

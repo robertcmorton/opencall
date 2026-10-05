@@ -37,7 +37,7 @@ Suggested order when the time comes: 1, 2, 3, then 4 and 7 together, then
 8. **Per-cell history with restore.** Who changed this cell, when, and put
    it back. Cheap: the document keeps every update already.
 9. **Lock a row** — BUILT 5 Oct 2026. so an approved cue cannot be edited during the show.
-10. **Display view.** A big-screen strip for backstage: the item on air, the
+10. **Display view.** — BUILT 5 Oct 2026 ("Backstage display"). A big-screen strip for backstage: the item on air, the
     next three, one chosen column, the clock.
 11. **Fire something on cue.** When a row goes on air, send an OSC or HTTP
     message so graphics, lighting or a Stream Deck follow the sheet.

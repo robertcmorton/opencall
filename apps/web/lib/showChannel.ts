@@ -40,6 +40,8 @@ export interface ShowChannel {
    */
   clockReady: boolean;
   role: Role | null;
+  /** Who this connection is, as the server names it ("Sam Lee", "Administrator"). */
+  userLabel: string | null;
   /** IANA timezone of the event — governs every clock on this surface. */
   timezone: string | null;
   /**
@@ -96,6 +98,7 @@ export interface ShowChannel {
 export function useShowChannel(rundownId: string, device: "console" | "companion", joinCode?: string): ShowChannel {
   const [connected, setConnected] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
+  const [userLabel, setUserLabel] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
   const [homeImage, setHomeImage] = useState<string | null>(null);
@@ -185,6 +188,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
           case "welcome": {
             setConnected(true);
             setRole(msg.role);
+            setUserLabel(msg.userLabel ?? null);
             setTimezone(msg.timezone ?? null);
             setSport(msg.sport ?? null);
             setHomeImage(msg.homeImage ?? null);
@@ -306,6 +310,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     connected,
     clockReady,
     role,
+    userLabel,
     timezone,
     sport,
     homeImage,

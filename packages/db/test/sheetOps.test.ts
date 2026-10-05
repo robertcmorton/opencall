@@ -86,3 +86,21 @@ describe("sheet operations (the assistant's edits)", () => {
     expect(row(doc, "Kick-off").hardStartSec).toBe(18 * 3600 + 30 * 60);
   });
 });
+
+describe("locked rows", () => {
+  it("refuse text, time, move and delete, but can still be struck", () => {
+    const doc = sheet();
+    const w = row(doc, "Welcome").id;
+    const r = doc.getMap<Y.Map<unknown>>("rows").get(w)!;
+    r.set("locked", true);
+    r.set("lockedBy", "Sam");
+    expect(() => setCellText(doc, w, "Title", "x")).toThrow(/locked by Sam/);
+    expect(() => setDuration(doc, w, 10)).toThrow(SheetOpError);
+    expect(() => setStartTime(doc, w, 10)).toThrow(SheetOpError);
+    expect(() => moveRow(doc, w, null)).toThrow(SheetOpError);
+    expect(() => deleteRow(doc, w)).toThrow(SheetOpError);
+    strikeRow(doc, w, true);
+    expect(row(doc, "Welcome").skipped).toBe(true);
+    expect(row(doc, "Welcome").locked).toBe(true);
+  });
+});

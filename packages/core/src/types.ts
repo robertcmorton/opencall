@@ -78,6 +78,14 @@ export interface PlanRow {
   /** Display-only flag; does not affect math. */
   durationHidden?: boolean;
   /**
+   * Approved and locked: its text, length, start, place and existence are not
+   * to be changed until somebody unlocks it. Striking it is still allowed —
+   * dropping a cue is a live call, never something to be blocked.
+   */
+  locked?: boolean;
+  /** Who locked it, as a name, for the padlock's tooltip. */
+  lockedBy?: string | null;
+  /**
    * Which alternate ending this row belongs to ("win", "lose", "draw",
    * "golden"). Rows tagged with different endings are ALTERNATIVES: only one of
    * them is ever played, so they share a start rather than following one

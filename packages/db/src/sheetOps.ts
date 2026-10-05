@@ -50,6 +50,16 @@ function rowOrThrow(doc: Y.Doc, rowId: string): Y.Map<unknown> {
   return row;
 }
 
+/** A locked row is approved: only somebody in the app may unlock it. */
+function unlockedOrThrow(doc: Y.Doc, rowId: string): Y.Map<unknown> {
+  const row = rowOrThrow(doc, rowId);
+  if (row.get("locked")) {
+    const by = row.get("lockedBy") as string | undefined;
+    throw new SheetOpError(`That row is locked${by ? ` by ${by}` : ""} — approved and not to be changed. Someone has to unlock it in OpenCall first.`);
+  }
+  return row;
+}
+
 /** Replaces a fragment's content with plain text, one paragraph per line. */
 function writeFragment(fragment: Y.XmlFragment, text: string): void {
   if (fragment.length > 0) fragment.delete(0, fragment.length);
@@ -98,7 +108,7 @@ export function readSheet(doc: Y.Doc, opts: { activeRowId?: string | null } = {}
 
 /** Sets one cell's text. The title is a cell like any other. */
 export function setCellText(doc: Y.Doc, rowId: string, columnRef: string, text: string): void {
-  const row = rowOrThrow(doc, rowId);
+  const row = unlockedOrThrow(doc, rowId);
   const col = findColumn(doc, columnRef);
   if (col.kind === "startTime" || col.kind === "duration") {
     throw new SheetOpError(`"${col.title}" is a time, not text — use set_start_time or set_duration.`);
@@ -121,7 +131,7 @@ export function setCellText(doc: Y.Doc, rowId: string, columnRef: string, text: 
  * editor — unless the row is muted or struck and so outside the running order.
  */
 export function setDuration(doc: Y.Doc, rowId: string, sec: number | null): void {
-  const row = rowOrThrow(doc, rowId);
+  const row = unlockedOrThrow(doc, rowId);
   const oldSec = (row.get("durationSec") as number | null | undefined) ?? null;
   const inTiming = !row.get("durationMuted") && !row.get("skipped");
   row.set("durationSec", sec);
@@ -138,7 +148,7 @@ export function setDuration(doc: Y.Doc, rowId: string, sec: number | null): void
 
 /** A fixed start time (or none). Ripples below only when the editor's rule says so. */
 export function setStartTime(doc: Y.Doc, rowId: string, sec: number | null): void {
-  const row = rowOrThrow(doc, rowId);
+  const row = unlockedOrThrow(doc, rowId);
   const current = (row.get("hardStartSec") as number | null | undefined) ?? null;
   if (sec == null) {
     row.set("hardStartSec", null);
@@ -193,7 +203,7 @@ export function addRow(doc: Y.Doc, afterRowId: string | null, spec: NewRow): str
 }
 
 export function deleteRow(doc: Y.Doc, rowId: string): void {
-  rowOrThrow(doc, rowId);
+  unlockedOrThrow(doc, rowId);
   const order = orderOf(doc);
   const idx = order.toArray().indexOf(rowId);
   if (idx >= 0) order.delete(idx, 1);
@@ -205,7 +215,7 @@ export function deleteRow(doc: Y.Doc, rowId: string): void {
  * a drag in the editor does.
  */
 export function moveRow(doc: Y.Doc, rowId: string, afterRowId: string | null, liveRowId: string | null = null): void {
-  rowOrThrow(doc, rowId);
+  unlockedOrThrow(doc, rowId);
   const { meta, rows } = projectRundownDoc(doc);
   const order = orderOf(doc).toArray();
   const from = order.indexOf(rowId);

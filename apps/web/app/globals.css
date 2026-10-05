@@ -5053,3 +5053,11 @@ a.change-line:hover {
 tr.jump-flash > td {
   animation: jump-flash 1.6s ease-out;
 }
+
+/* A locked (approved) row: a small padlock in the row number. */
+.row-lock {
+  display: inline-flex;
+  margin-right: 3px;
+  color: var(--warn);
+  vertical-align: -1px;
+}

@@ -367,6 +367,8 @@ export function projectRundownDoc(doc: Y.Doc): {
       acceptedGapSec: (row.get("acceptedGapSec") as number | null) ?? null,
       sourceNumber: row.get("sourceNumber") as string | undefined,
       durationHidden: (row.get("durationHidden") as boolean | undefined) ?? false,
+      locked: (row.get("locked") as boolean | undefined) ?? false,
+      lockedBy: (row.get("lockedBy") as string | undefined) ?? null,
       title: cells["title"] ?? "",
       cells,
       cellsRich,

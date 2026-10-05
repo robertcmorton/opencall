@@ -251,7 +251,8 @@ function SortableRow({
       document.removeEventListener("pointerdown", off, true);
     };
   }, [unplayArmed]);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled });
+  // A locked row is approved: it stays where it is.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id, disabled: disabled || !!row.locked });
   return (
     <tr
       ref={setNodeRef}
@@ -316,6 +317,18 @@ function SortableRow({
         {...listeners}
         aria-label={`Select or drag ${displayNumber ? `row ${displayNumber}` : row.title ? `row: ${row.title}` : "this row"}`}
       >
+        {row.locked && (
+          <span
+            className="row-lock"
+            data-tip={`Locked${row.lockedBy ? ` by ${row.lockedBy}` : ""} — approved, not to be changed. Select the row and choose Unlock to change it.`}
+            aria-label="Locked"
+          >
+            <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden>
+              <rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" />
+              <path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </span>
+        )}
         {/* The played tick. It rides the row number for the same reason the
             note badge does: it is about the row, not about anything in it.
             A caller can click it to have the row offered again. */}
@@ -3048,18 +3061,40 @@ export function RundownEditor({
     // here later should not be able to delete a row out of a running show
     // because nobody remembered this.
     if (showLive) return;
+    // Locked rows are approved: they are left where they are, and said so.
+    const lockedPicked = [...selected].filter((id) => yRows.get(id)?.get("locked"));
+    if (lockedPicked.length > 0) {
+      window.alert(`${lockedPicked.length === 1 ? "That row is" : `${lockedPicked.length} of those rows are`} locked, so ${lockedPicked.length === 1 ? "it was" : "they were"} not deleted. Unlock first to delete.`);
+    }
+    const deletable = [...selected].filter((id) => !lockedPicked.includes(id));
+    if (deletable.length === 0) return;
     doc.transact(() => {
       const order = yOrder.toArray();
       // Delete back-to-front so indices stay valid.
-      [...selected]
+      deletable
         .map((id) => order.indexOf(id))
         .filter((i) => i >= 0)
         .sort((a, b) => b - a)
         .forEach((i) => yOrder.delete(i, 1));
-      selected.forEach((id) => yRows.delete(id));
+      deletable.forEach((id) => yRows.delete(id));
     });
     setSelected(new Set());
     setLastSelected(null);
+  };
+
+  /** Lock (or unlock) the selected rows. Anyone who can edit may do either. */
+  const setSelectedLocked = (locked: boolean): void => {
+    if (selected.size === 0) return;
+    const who = channel.userLabel ?? (lock.mine ? "this editor" : null);
+    doc.transact(() => {
+      for (const id of selected) {
+        const r = yRows.get(id);
+        if (!r) continue;
+        r.set("locked", locked);
+        if (locked) r.set("lockedBy", who ?? "someone");
+        else r.delete("lockedBy");
+      }
+    });
   };
 
   const duplicateSelected = (): void => {
@@ -3211,6 +3246,7 @@ export function RundownEditor({
   const onDragEnd = (event: DragEndEvent): void => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (yRows.get(String(active.id))?.get("locked")) return;
     doc.transact(() => {
       const order = yOrder.toArray();
       const from = order.indexOf(String(active.id));
@@ -3872,7 +3908,7 @@ export function RundownEditor({
       <td
         key={column.id}
         className={richColClass(column)}
-        onDoubleClick={canEditContent ? () => setActiveCell({ rowId: rowRecord.id, columnId: column.id }) : undefined}
+        onDoubleClick={canEditContent && !rowRecord.locked ? () => setActiveCell({ rowId: rowRecord.id, columnId: column.id }) : undefined}
       >
         {/* A read written to be spoken is a paragraph, and a paragraph in a
             grid row pushes every other row off the screen. The sheet shows the
@@ -3926,7 +3962,7 @@ export function RundownEditor({
       <td
         className="mono"
         style={{ position: "relative", cursor: "default" }}
-        onDoubleClick={canEditContent ? () => setDurationPopover(rowRecord.id) : undefined}
+        onDoubleClick={canEditContent && !rowRecord.locked ? () => setDurationPopover(rowRecord.id) : undefined}
       >
         {rowRecord.type === "milestone" ? (
           <span className="duration-hidden-marker">—</span>
@@ -5125,6 +5161,21 @@ export function RundownEditor({
             style={{ position: "absolute", top: selBarTop, left: 0, right: 0, margin: "0 auto", width: "fit-content", zIndex: 6 }}
           >
             <span className="count">{selected.size} selected</span>
+            {(() => {
+              // Lock is offered live as well: approving a cue mid-show is
+              // exactly when it matters that nobody then fiddles with it.
+              const picked = rows.filter((r) => selected.has(r.id));
+              const allLocked = picked.length > 0 && picked.every((r) => r.locked);
+              return (
+                <button
+                  className={`btn btn-sm ${allLocked ? "is-on" : ""}`}
+                  data-tip={allLocked ? "Allow changes to these rows again" : "Approved: nobody can change the text, length, start or place of these rows until they are unlocked. Striking still works."}
+                  onClick={() => setSelectedLocked(!allLocked)}
+                >
+                  {allLocked ? "Unlock" : "Lock"}
+                </button>
+              );
+            })()}
             {/* Live, the bar is Strike and the colours and nothing else.
                 Duplicate, Group, Milestone and the endings builder change the
                 SHAPE of the sheet, and the show is not the moment for that —
@@ -5631,7 +5682,7 @@ export function RundownEditor({
                             key={col.id}
                             className="mono"
                             style={{ position: "relative" }}
-                            onDoubleClick={canEditContent ? () => setEditingTime(rowRecord.id) : undefined}
+                            onDoubleClick={canEditContent && !rowRecord.locked ? () => setEditingTime(rowRecord.id) : undefined}
                           >
                             {editingTime === rowRecord.id ? (
                               // The editor OVERLAYS the cell; the invisible copy of the

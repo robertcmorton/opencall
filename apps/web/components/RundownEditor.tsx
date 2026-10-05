@@ -78,7 +78,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
   loading: () => <span className="cell-standin" aria-hidden="true" />,
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
-import { LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
+import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
@@ -4317,6 +4317,18 @@ export function RundownEditor({
               sheet down for a control that is used a few times a night. Local
               to this screen: the cue timer above it is the shared truth, and a
               second shared clock would be a second thing to be wrong about. */}
+          {/* Crew on a view-only link see whether the show is on air, under
+              the timer where the caller sees it. Their link opens this view
+              page, not the show page, so sharing the badge on the show page
+              (1 Sep) never reached them — found 5 Oct. Only the badge: the
+              controls in the row below are the caller's. */}
+          {!isShow && showKnown && showLive && (
+            <div className="show-state-row">
+              <div className="show-state">
+                <LiveBadge paused={channel.show?.state === "paused"} />
+              </div>
+            </div>
+          )}
           {isShow && showKnown && (
             <div className="show-state-row">
               {/* Before the doors: rehearsing and going live are the two things

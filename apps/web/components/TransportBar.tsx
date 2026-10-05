@@ -136,6 +136,23 @@ export function LiveReadouts({
  * eye already is. Stepping the cue (Prev/Next) is a different job and lives in
  * the toolbar with the rest of the working controls.
  */
+/**
+ * LIVE, or PAUSED — whether the show is on air, for anybody looking.
+ *
+ * Always as wide as the longer word (the same cell trick as the buttons), so
+ * pausing never shoves whatever sits beside it.
+ */
+export function LiveBadge({ paused }: { paused: boolean }) {
+  return (
+    <span className={`live-badge ${paused ? "paused" : ""}`}>
+      <span className="label-swap">
+        <span className={paused ? "is-off" : undefined}>LIVE</span>
+        <span className={paused ? undefined : "is-off"}>PAUSED</span>
+      </span>
+    </span>
+  );
+}
+
 export function ShowStateControls({
   channel,
   orderedRowIds,
@@ -305,12 +322,7 @@ export function ShowStateControls({
               Fixing the button beside it was not enough; measuring showed Stop
               still moving 11.8px, and this was the rest of it. Same cell trick:
               the badge is always as wide as the longer word. */}
-          <span className={`live-badge ${liveState === "paused" ? "paused" : ""}`}>
-            <span className="label-swap">
-              <span className={liveState === "paused" ? "is-off" : undefined}>LIVE</span>
-              <span className={liveState === "paused" ? undefined : "is-off"}>PAUSED</span>
-            </span>
-          </span>
+          <LiveBadge paused={liveState === "paused"} />
           {/* NO PAUSE. It froze the clock on the item on air and marked every
               screen PAUSED — while time of day and the printed times beneath
               kept going, so on resume everything under the cue was wrong by

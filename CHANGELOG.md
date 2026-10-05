@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Crew on a view-only link now see LIVE or PAUSED** under the timer while the show is on air. It was shared with crew on the show page on 1 September, but crew links open the view page, which never showed it.
+- **Dependencies:** twelve small patch updates (Next.js 16.3.8, Tiptap 3.31.4, Vitest 5.0.3, Vite 8.3.2, Turbo 2.11.6, pg 8.23.1), tested merged with the current code before going in.
 - **Deleting an account no longer fails for people who have used the app.** Anyone who had ever held a sheet for editing or called a show could not be deleted — the server answered with an error. Their records now stay, unattributed, and the account goes.
 - **Assistant actions on Account activity read as words** ("AI assistant added rows") instead of internal codes.
 - **Small labels are bigger, and row numbers on a phone are whole again.** Nothing that carries information is set smaller than about 11px any more: column headings, the big timer's caption and "next" line, Proj. end, the sheet/show status, the WHO label and the prompter's PREVIOUS / CUE labels were 9–10px. On a phone, a sheet with a match-phase rail gave its row-number column 3px for the number, so numbers were cut to a sliver; the column now makes room for the rail. Milestone rows (TEAM LIST DUE, gates open) were amber on amber at 3.6:1 in light mode and now read at 5:1. Disabled buttons are a little less faded, still plainly unavailable.

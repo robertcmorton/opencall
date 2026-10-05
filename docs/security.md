@@ -117,10 +117,9 @@ Disconnect stops it at once.
 
 ## Open items
 
-- **Backups.** The production database is Railway Postgres. Encrypted off-site
-  backups (as Kitshare keeps) need somewhere to put them; until that is chosen,
-  rely on Railway's own volume backups and check they are enabled for the
-  Postgres service.
+- **Backups.** Not kept off-site: the production deployment is a test server
+  (decided 5 Oct 2026). Railway's own volume backups are all there is. Revisit
+  before real shows depend on it.
 - **Deploy only after CI passes.** Turn on Railway's "Wait for CI" for both
   services once the CI workflow has run green once.
 - **Restricted database login.** Run `setup-app-role.ts` once and switch the

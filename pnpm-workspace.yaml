@@ -4,3 +4,10 @@ packages:
 allowBuilds:
   core-js: false
   esbuild: true
+# Security floors for packages we only get through other packages. Each says
+# why, and can go once the package that brings it in requires the fixed version.
+overrides:
+  # GHSA-68fv-2mgg-jv7q (high): event-loop DoS via crafted source-map offsets.
+  # Comes in via next > postcss; 1.2.2 (30 Sep 2026) is the fix. Build-time
+  # only for us, but the audit gate rightly refuses it.
+  source-map-js: ">=1.2.2"

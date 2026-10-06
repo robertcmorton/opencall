@@ -6110,7 +6110,8 @@ a > svg,
   color: var(--accent-text);
 }
 .jump-item.is-action .jump-start {
-  color: var(--text-3);
+  /* --text-2, not --text-3: on the highlighted line --text-3 fell under 4.5:1. */
+  color: var(--text-2);
   font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;

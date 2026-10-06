@@ -110,6 +110,10 @@ export function JumpPalette({
           className="input jump-input"
           placeholder="A row number, some words, or something to do — like start or prompter"
           aria-label="Find a row or an action"
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls="jump-results"
+          aria-activedescendant={results[at] ? `jump-opt-${at}` : undefined}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
@@ -128,12 +132,13 @@ export function JumpPalette({
             }
           }}
         />
-        <ul ref={list} className="jump-list" role="listbox">
+        <ul ref={list} id="jump-results" className="jump-list" role="listbox" aria-label="Rows and actions" tabIndex={-1}>
           {results.length === 0 && <li className="jump-empty">Nothing on this sheet matches “{q}”.</li>}
           {results.map((r, i) => (
             <li
               key={r.kind === "action" ? `a:${r.action.id}` : r.item.id}
               data-i={i}
+              id={`jump-opt-${i}`}
               role="option"
               aria-selected={i === at}
               className={`jump-item ${r.kind === "action" ? "is-action" : ""} ${i === at ? "is-on" : ""}`}

@@ -7,6 +7,7 @@ import { api, API_URL, type AssistantConnection } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
 import { Icon } from "../../components/ui";
+import { ask, say, sayError } from "../../lib/dialogs";
 
 /** My account: who I am, what I can access, and my details. */
 export default function AccountPage() {
@@ -109,7 +110,7 @@ export default function AccountPage() {
               e.preventDefault();
               const problem = passwordProblem(next, email);
               if (problem) {
-                window.alert(problem);
+                say(problem, "error");
                 return;
               }
               void api
@@ -117,9 +118,9 @@ export default function AccountPage() {
                 .then(() => {
                   setCurrent("");
                   setNext("");
-                  window.alert("Your password is changed. Any other phones or computers signed in as you have been signed out, and so have any AI assistants you connected.");
+                  say("Your password is changed. Any other phones or computers signed in as you have been signed out, and so have any AI assistants you connected.", "success");
                 })
-                .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
+                .catch((err) => sayError(err));
             }}
           >
             <strong>Change password</strong>
@@ -211,12 +212,20 @@ function AssistantsPanel() {
             <button
               className="btn"
               type="button"
-              onClick={() => {
-                if (!window.confirm(`Disconnect ${a.name}? It will stop working straight away and won't be able to see your sheets.`)) return;
+              onClick={async () => {
+                if (
+                  !(await ask({
+                    title: `Disconnect ${a.name}?`,
+                    message: "It will stop working straight away and won't be able to see your sheets.",
+                    confirmLabel: "Disconnect",
+                    danger: true,
+                  }))
+                )
+                  return;
                 void api
                   .disconnectAssistant(a.id)
                   .then(load)
-                  .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
+                  .catch((err) => sayError(err));
               }}
             >
               Disconnect

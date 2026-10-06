@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { isValidTimeZone, zoneAbbreviation } from "@opencall/core";
 import { api } from "../lib/api";
+import { sayError } from "../lib/dialogs";
 
 /**
  * IANA timezone input with the full zone list to pick from and a live preview
@@ -104,7 +105,7 @@ export function LocationDialog({
                 .patchEvent(event.id, { location, timezone: tz })
                 .then(onSaved)
                 .catch((err) => {
-                  window.alert(err instanceof Error ? err.message : String(err));
+                  sayError(err);
                   setSaving(false);
                 });
             }}

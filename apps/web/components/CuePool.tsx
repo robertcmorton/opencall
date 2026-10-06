@@ -6,6 +6,7 @@ import { ulid } from "ulid";
 import type { ShowChannel } from "../lib/showChannel";
 import type { EditorMode } from "./RundownEditor";
 import { Icon } from "./ui";
+import { askText } from "../lib/dialogs";
 
 interface PoolItem {
   id: string;
@@ -34,8 +35,8 @@ export function CuePool({ doc, mode, channel }: { doc: Y.Doc; mode: EditorMode; 
 
   if (items.length === 0 && !canEdit) return null;
 
-  const add = () => {
-    const title = window.prompt("Pool cue title (e.g. Goal sting, Crowd chant)");
+  const add = async () => {
+    const title = await askText({ title: "Add a pool cue", label: "Cue name", placeholder: "Goal sting, Crowd chant…", confirmLabel: "Add" });
     if (!title?.trim()) return;
     doc.transact(() => {
       const item = new Y.Map();

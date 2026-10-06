@@ -6,6 +6,7 @@ import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant
 import { Icon } from "./ui";
 import { passwordProblem, PASSWORD_HINT, PASSWORD_MIN } from "@opencall/core";
 import { ConfirmButton } from "./ConfirmButton";
+import { askText, say, sayError, showSecret } from "../lib/dialogs";
 
 /**
  * Users & access (admin only): the user database — who has control of what.
@@ -39,17 +40,19 @@ export function UsersPanel({
     if (!name.trim() || grants.length === 0) return;
     const problem = password ? passwordProblem(password, email) : null;
     if (problem) {
-      window.alert(`${problem} (Or leave the password box empty, and they can sign in with an access token instead.)`);
+      say(`${problem} (Or leave the password box empty, and they can sign in with an access token instead.)`, "error");
       return;
     }
     void api
       .createUser({ name: name.trim(), email: email.trim() || undefined, password: password || undefined, grants: withPending(grants, pending) })
       .then(({ accessToken }) => {
-        window.alert(
-          password
-            ? `Account made. They sign in with their email and password.\n\nHere is their access token too: a long sign-in code they can use instead. Keep it private, like a password:\n${accessToken}`
-            : `Account made. This is their access token, a long sign-in code. Send it to them privately, like a password:\n\n${accessToken}\n\nThey paste it into the box on the front page. Or set them a password so they can sign in with their email.`,
-        );
+        void showSecret({
+          title: "Account made",
+          message: password
+            ? "They sign in with their email and password. Here is their access token too: a long sign-in code they can use instead. Keep it private, like a password."
+            : "This is their access token, a long sign-in code. Send it to them privately, like a password. They paste it into the box on the front page. Or set them a password so they can sign in with their email.",
+          secret: accessToken,
+        });
         setName("");
         setEmail("");
         setPassword("");
@@ -144,7 +147,11 @@ export function UsersPanel({
               className="btn btn-sm btn-ghost"
               onClick={() =>
                 void api.rotateUserToken(u.id).then(({ accessToken }) => {
-                  window.alert(`New access token for ${u.name}. Their old one has stopped working. Send them this one privately:\n\n${accessToken}`);
+                  void showSecret({
+                    title: `New access token for ${u.name}`,
+                    message: "Their old one has stopped working. Send them this one privately.",
+                    secret: accessToken,
+                  });
                   reload();
                 })
               }
@@ -155,21 +162,24 @@ export function UsersPanel({
             <button
               className="btn btn-sm btn-ghost"
               title={u.hasPassword ? "Give this person a new password. They will be signed out on their other devices." : "Set a password so they can sign in with their email"}
-              onClick={() => {
-                const pw = window.prompt(`${u.hasPassword ? "New" : "Set"} password for ${u.name} (${PASSWORD_HINT.toLowerCase()})`);
+              onClick={async () => {
+                // Hidden as it is typed — the browser prompt this replaced
+                // showed the password in plain text on the admin's screen.
+                const pw = await askText({
+                  title: `${u.hasPassword ? "New" : "Set a"} password for ${u.name}`,
+                  label: "Password",
+                  hint: PASSWORD_HINT,
+                  inputType: "password",
+                  validate: (v) => passwordProblem(v, u.email),
+                });
                 if (!pw) return;
-                const problem = passwordProblem(pw, u.email);
-                if (problem) {
-                  window.alert(problem);
-                  return;
-                }
                 void api
                   .setUserPassword(u.id, pw)
                   .then(() => {
-                    window.alert(`Password ${u.hasPassword ? "changed" : "set"} for ${u.name}. They have been signed out everywhere else.`);
+                    say(`Password ${u.hasPassword ? "changed" : "set"} for ${u.name}. They have been signed out everywhere else.`, "success");
                     reload();
                   })
-                  .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
+                  .catch((err) => sayError(err));
               }}
             >
               {u.hasPassword ? "Reset password" : "Set password"}

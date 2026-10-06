@@ -106,6 +106,7 @@ import { InkLayer } from "./InkLayer";
 import { formatOverUnder, INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
+import { ask, askText, say, sayError } from "../lib/dialogs";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -3068,7 +3069,10 @@ export function RundownEditor({
     // Locked rows are approved: they are left where they are, and said so.
     const lockedPicked = [...selected].filter((id) => yRows.get(id)?.get("locked"));
     if (lockedPicked.length > 0) {
-      window.alert(`${lockedPicked.length === 1 ? "That row is" : `${lockedPicked.length} of those rows are`} locked, so ${lockedPicked.length === 1 ? "it was" : "they were"} not deleted. Unlock first to delete.`);
+      say(
+        `${lockedPicked.length === 1 ? "That row is" : `${lockedPicked.length} of those rows are`} locked, so ${lockedPicked.length === 1 ? "it was" : "they were"} not deleted. Unlock first to delete.`,
+        "error",
+      );
     }
     const deletable = [...selected].filter((id) => !lockedPicked.includes(id));
     if (deletable.length === 0) return;
@@ -3184,8 +3188,8 @@ export function RundownEditor({
     });
   };
 
-  const addColumn = (): void => {
-    const title = window.prompt("Column name");
+  const addColumn = async (): Promise<void> => {
+    const title = (await askText({ title: "Add a column", label: "Column name", placeholder: "Lighting, Graphics, Sound…", confirmLabel: "Add column" }))?.trim();
     if (!title) return;
     doc.transact(() => {
       const col = new Y.Map();
@@ -3275,24 +3279,31 @@ export function RundownEditor({
       .then((r) => setViewingClosed(r.viewingClosed))
       .catch(() => {});
   }, [rundownId, initialViewingClosed]);
-  const setViewing = (closed: boolean): void => {
+  const setViewing = async (closed: boolean): Promise<void> => {
     if (
       closed &&
-      !window.confirm(
-        "End this event?\n\nThe show stops if it is running. View-only links and read-only accounts will stop opening this run sheet. You and anyone who can edit it keep their access, and you can reopen it from here.",
-      )
+      !(await ask({
+        title: "End this event?",
+        message:
+          "The show stops if it is running. View-only links and read-only accounts will stop opening this run sheet. You and anyone who can edit it keep their access, and you can reopen it from here.",
+        confirmLabel: "End event",
+        danger: true,
+      }))
     )
       return;
     void api
       .setViewing(rundownId, closed)
       .then(() => setViewingClosed(closed))
-      .catch((err: unknown) => window.alert(`Couldn't change this: ${String((err as Error)?.message ?? err)}`));
+      .catch((err: unknown) => sayError(err, "Couldn't change this:"));
   };
 
-  const saveAsTemplate = (): void => {
-    const name = window.prompt("Template name", `${meta.name} template`);
+  const saveAsTemplate = async (): Promise<void> => {
+    const name = (await askText({ title: "Save as a template", label: "Template name", value: `${meta.name} template`, confirmLabel: "Save template" }))?.trim();
     if (!name) return;
-    void api.saveTemplate({ rundownId, name }).then(() => window.alert(`Template "${name}" saved.`));
+    void api
+      .saveTemplate({ rundownId, name })
+      .then(() => say(`Template "${name}" saved. You'll find it when you make a new show.`, "success"))
+      .catch((err) => sayError(err));
   };
 
   const onDragEnd = (event: DragEndEvent): void => {
@@ -4826,19 +4837,18 @@ export function RundownEditor({
             className="header-clock mono"
             style={canEditContent ? { cursor: "pointer" } : undefined}
             data-tip={canEditContent ? "Click to change the planned start time (an anchored first row overrides it)" : undefined}
-            onClick={() => {
+            onClick={async () => {
               if (!canEditContent) return;
-              const raw = window.prompt(
-                "Planned start time",
-                timing.startSec != null ? formatTimeOfDay(timing.startSec, true) : "9:00 am",
-              );
+              const raw = await askText({
+                title: "When does the show start?",
+                label: "Planned start time",
+                value: timing.startSec != null ? formatTimeOfDay(timing.startSec, true) : "9:00 am",
+                hint: "For example 7:30 pm or 19:30",
+                validate: (v) => (parseTimeOfDay(v.trim()) == null ? `That isn't a time we can read — try 7:30 pm or 19:30.` : null),
+              });
               if (raw === null) return;
               const sec = parseTimeOfDay(raw.trim());
-              if (sec == null) {
-                window.alert(`Couldn't read "${raw}" as a time — try e.g. 7:30 pm or 19:30.`);
-                return;
-              }
-              doc.getMap("meta").set("plannedStartSec", sec);
+              if (sec != null) doc.getMap("meta").set("plannedStartSec", sec);
             }}
           >
             {/* No "Planned" heading. Start, Dur and End each say what they
@@ -4872,24 +4882,24 @@ export function RundownEditor({
                     ? "Where the sheet ends as it stands. It freezes as the plan when the show starts; click to set it now."
                     : undefined
               }
-              onClick={(e) => {
+              onClick={async (e) => {
                 if (!canEditContent) return;
                 e.stopPropagation();
-                const raw = window.prompt(
-                  "Planned end time",
-                  meta.plannedEndSec != null
-                    ? formatTimeOfDay(meta.plannedEndSec, true)
-                    : timing.endSec != null
-                      ? formatTimeOfDay(timing.endSec, true)
-                      : "10:00 pm",
-                );
+                const raw = await askText({
+                  title: "When should the show end?",
+                  label: "Planned end time",
+                  value:
+                    meta.plannedEndSec != null
+                      ? formatTimeOfDay(meta.plannedEndSec, true)
+                      : timing.endSec != null
+                        ? formatTimeOfDay(timing.endSec, true)
+                        : "10:00 pm",
+                  hint: "For example 10:30 pm or 22:30",
+                  validate: (v) => (parseTimeOfDay(v.trim()) == null ? `That isn't a time we can read — try 10:30 pm or 22:30.` : null),
+                });
                 if (raw === null) return;
                 const sec = parseTimeOfDay(raw.trim());
-                if (sec == null) {
-                  window.alert(`Couldn't read "${raw}" as a time — try e.g. 10:30 pm or 22:30.`);
-                  return;
-                }
-                doc.getMap("meta").set("plannedEndSec", sec);
+                if (sec != null) doc.getMap("meta").set("plannedEndSec", sec);
               }}
             >
             {(() => {

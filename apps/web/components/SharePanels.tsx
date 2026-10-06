@@ -6,6 +6,7 @@ import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
 import { ConfirmButton } from "./ConfirmButton";
+import { askText, sayError } from "../lib/dialogs";
 
 const panelStyle: React.CSSProperties = {
   margin: "0 0 12px",
@@ -375,7 +376,7 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
         void api
           .restoreSnapshotInPlace(snapshotId)
           .then(() => window.location.reload())
-          .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
+          .catch((err) => sayError(err));
       }}
     >
       {armed ? "Press again to replace the sheet" : "Restore here"}
@@ -478,9 +479,14 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
           <button
             className="btn btn-sm"
             data-tip="Save a copy of the sheet as it is right now, so you can go back to it later"
-            onClick={() => {
-              const label = window.prompt("Give this version a name so you can find it later", "Saved by hand");
-              if (label !== null) void api.createSnapshot(rundownId, label || undefined).then(reload);
+            onClick={async () => {
+              const label = await askText({
+                title: "Save a version now",
+                label: "Name it, so you can find it later",
+                value: "Saved by hand",
+                confirmLabel: "Save version",
+              });
+              if (label !== null) void api.createSnapshot(rundownId, label || undefined).then(reload).catch((err) => sayError(err));
             }}
           >
             Save version now

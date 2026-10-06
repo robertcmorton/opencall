@@ -409,7 +409,7 @@ export function useSheetGrid(opts: {
   // into the rest of the page never land in a cell.
   const onOutside = useEffectEvent((e: MouseEvent) => {
     const t = e.target as HTMLElement;
-    if (gridEl?.contains(t) || t.closest?.(".popover, [data-popover], .format-bar, .grid-note, .row-menu")) return;
+    if (gridEl?.contains(t) || t.closest?.(".popover, [data-popover], .format-bar, .grid-note, .row-menu, .app-dialog, .app-notes")) return;
     setCursor(null);
     setAnchor(null);
   });

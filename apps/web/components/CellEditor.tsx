@@ -9,6 +9,7 @@ import { CharacterCount } from "@tiptap/extensions";
 import { splitBlock } from "@tiptap/pm/commands";
 import type * as Y from "yjs";
 import { Icon } from "./ui";
+import { askText } from "../lib/dialogs";
 
 function FormatButton({
   editor,
@@ -53,11 +54,18 @@ function FormatBar({ editor, suppressBlur }: { editor: Editor; suppressBlur: Mut
     };
   }, [editor]);
 
-  const setLink = () => {
-    // window.prompt blurs the editor; keep the cell open through it.
+  const setLink = async () => {
+    // The dialog takes the keyboard from the editor; keep the cell open through it.
     suppressBlur.current = true;
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL (empty to remove)", prev ?? "https://");
+    const url = await askText({
+      title: prev ? "Change the link" : "Add a link",
+      label: "Web address",
+      value: prev ?? "https://",
+      hint: "Leave it empty to take the link off",
+      inputType: "url",
+      confirmLabel: "Save link",
+    });
     if (url !== null) {
       if (url === "" || url === "https://") editor.chain().focus().unsetLink().run();
       else editor.chain().focus().setLink({ href: url }).run();

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ErrorReporter } from "../components/ErrorReporter";
 import { ViewportLock } from "../components/ViewportLock";
+import { DialogHost } from "../components/DialogHost";
 import { THEME_BOOT_SCRIPT } from "../lib/theme";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <ErrorReporter />
         <ViewportLock />
+        <DialogHost />
         {children}
       </body>
     </html>

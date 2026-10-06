@@ -14,6 +14,7 @@ import { AdminNavSection, CredentialsNavSection } from "../../components/AdminNa
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
 import { isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
+import { ask, askText, say, sayError, showSecret } from "../../lib/dialogs";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
 function ImageSlot({ value, hint, onChange }: { value: string | null; hint: string; onChange: (img: string | null) => void }) {
@@ -542,26 +543,6 @@ function MobileActions({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Prompt-based date editing for the mobile menu (desktop has the inline editor). */
-function promptDates(event: { id: string; startDate: string; endDate: string }, onSaved: () => void): void {
-  const start = window.prompt("Start date (year-month-day, like 2026-08-17)", event.startDate);
-  if (start === null) return;
-  const end = window.prompt("End date (year-month-day, like 2026-08-17)", event.endDate < start ? start : event.endDate);
-  if (end === null) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
-    window.alert("Type each date as year-month-day, like 2026-08-17.");
-    return;
-  }
-  if (end < start) {
-    window.alert("The end date can't be before the start date.");
-    return;
-  }
-  void api
-    .patchEvent(event.id, { startDate: start, endDate: end })
-    .then(onSaved)
-    .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
-}
-
 /**
  * Armed two-click destructive button (no browser dialogs).
  *
@@ -841,10 +822,12 @@ export default function AdminPage() {
     return () => clearInterval(id);
   }, [error, reload]);
 
-  const rename = (kind: "event" | "rundown", id: string, current: string) => {
-    const name = window.prompt(kind === "event" ? "New name for this event" : "New name for this show", current);
+  const rename = async (kind: "event" | "rundown", id: string, current: string) => {
+    const name = (
+      await askText({ title: kind === "event" ? "Rename this event" : "Rename this show", label: "New name", value: current, confirmLabel: "Rename" })
+    )?.trim();
     if (!name || name === current) return;
-    void (kind === "event" ? api.patchEvent(id, { name }) : api.patchRundown(id, { name })).then(reload);
+    void (kind === "event" ? api.patchEvent(id, { name }) : api.patchRundown(id, { name })).then(reload).catch((err) => sayError(err));
   };
 
   // What this sign-in may do, mirroring the server's rules so the dashboard
@@ -1002,10 +985,9 @@ export default function AdminPage() {
                 <span className="chip">{group.events.length} event{group.events.length === 1 ? "" : "s"}</span>
                 <span style={{ flex: 1 }} />
                 {me?.role === "admin" && group.real && (() => {
-                  const renameCompany = () => {
-                    const name = window.prompt("New name for this company", group.name);
-                    if (name?.trim() && name.trim() !== group.name)
-                      void api.patchCompany(group.id, { name: name.trim() }).then(reload);
+                  const renameCompany = async () => {
+                    const name = (await askText({ title: "Rename this company", label: "New name", value: group.name, confirmLabel: "Rename" }))?.trim();
+                    if (name && name !== group.name) void api.patchCompany(group.id, { name }).then(reload).catch((err) => sayError(err));
                   };
                   const pickLogo = () =>
                     void pickImage().then((logo) => {
@@ -1013,7 +995,11 @@ export default function AdminPage() {
                     });
                   const rotate = () =>
                     void api.rotateCompanyToken(group.id).then(({ companyToken }) => {
-                      window.alert(`Here is the company's new access token. The old one has stopped working, so give this one to anyone who used the old one. You will only see it this once.\n\n${companyToken}`);
+                      void showSecret({
+                        title: "The company's new access token",
+                        message: "The old one has stopped working, so give this one to anyone who used the old one. You will only see it this once.",
+                        secret: companyToken,
+                      });
                       reload();
                     });
                   return (
@@ -1301,8 +1287,17 @@ export default function AdminPage() {
                                     ? "Let people with view-only links or look-only accounts open this sheet again."
                                     : "Use this when the event is over. It stops the show if it is still running, and people with view-only links or look-only accounts can no longer open the sheet. You can still open it."
                                 }
-                                onClick={() => {
-                                  if (!r.viewingClosed && !window.confirm(`End "${r.name}"? If the show is running it will stop, and people with view-only links or look-only accounts won't be able to open it any more. You can reopen it later.`)) return;
+                                onClick={async () => {
+                                  if (
+                                    !r.viewingClosed &&
+                                    !(await ask({
+                                      title: `End "${r.name}"?`,
+                                      message: "If the show is running it will stop, and people with view-only links or look-only accounts won't be able to open it any more. You can reopen it later.",
+                                      confirmLabel: "End event",
+                                      danger: true,
+                                    }))
+                                  )
+                                    return;
                                   void api.setViewing(r.id, !r.viewingClosed).then(reload);
                                 }}
                               >
@@ -1323,8 +1318,8 @@ export default function AdminPage() {
                               className="menu-item"
                               data-tip="Copy a link that lets crew, like camera operators, look at this run sheet. They can't change it."
                               onClick={() =>
-                                void copyViewOnlyLink(r.id).then((url) =>
-                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with this link can follow the show live, but can't change anything.`),
+                                void copyViewOnlyLink(r.id).then(() =>
+                                  say("View-only link copied. Anyone with it can follow the show live, but can't change anything.", "success"),
                                 )
                               }
                             >

@@ -5043,12 +5043,19 @@ export function RundownEditor({
                     const label = here >= 0 ? numberOf(here) : "";
                     return (
                       <>
+                        {/* Just "Walkthrough" (6 Oct, Robert's pick). The row number
+                            was here, and read as a count; crew follow the blue
+                            highlight on the row itself, which every screen
+                            shows. The row and the step count are in the tip. */}
                         <span
-                          className="chip"
-                          data-tip={`Rehearse the sheet before the show — Prev/Next move a highlight that every open screen sees${at >= 0 ? ` · ${at + 1} of ${walkable.length} steps` : ""}`}
+                          className={`chip ${at >= 0 ? "is-on" : ""}`}
+                          data-tip={
+                            at >= 0
+                              ? `A practice run: every screen highlights row ${label} (step ${at + 1} of ${walkable.length}). Prev and Next move it.`
+                              : "A practice run before the show: Next starts it, and every screen highlights the same row"
+                          }
                         >
-                          {/* "Walkthrough 1" read as a count; it is the row the highlight is on. */}
-                          Walkthrough{label ? ` · row ${label}` : ""}
+                          Walkthrough
                         </span>
                         <button
                           className="btn"

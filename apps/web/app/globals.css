@@ -5951,3 +5951,10 @@ a > svg,
   flex-wrap: wrap;
   justify-content: center;
 }
+/* The Walkthrough chip while one is running: lit, so "it is on" is still
+   visible now the row number has gone from it. */
+.preshow-group .chip.is-on {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}

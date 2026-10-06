@@ -662,7 +662,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Lets you rehearse with the crew before the show. A blue highlight moves down the sheet, and every connected screen sees it.",
         steps: [
           "On the show page, press **Next** to put the highlight on the first row.",
-          "Press **Next** and **Prev** to move it. The box says which row it is on — “Walkthrough · row 3”.",
+          "Press **Next** and **Prev** to move it. The highlighted row shows on every screen; point at **Walkthrough** to see its row number.",
           "To start from a particular row, open the row menu on it and choose **Walk through from row …**. Once the walkthrough is going, click (or tap) any row to walk there.",
           "Press **End walkthrough** to take the highlight away.",
         ],

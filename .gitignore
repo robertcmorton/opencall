@@ -23,3 +23,6 @@ competitors/
 
 # vitest browser-mode run artifacts
 apps/web/.vitest/
+
+# layout check build (scripts/layout-check.sh)
+.next-layout/

@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { ulid } from "ulid";
+import { eq } from "drizzle-orm";
 import { computeTiming, formatDuration, formatTimeOfDay } from "@opencall/core";
 import { createDb } from "./client.ts";
 import { ensureSchema } from "./migrate.ts";
@@ -76,15 +77,19 @@ async function main(): Promise<void> {
   console.log(`Seeding via ${handle.driver}…`);
   await ensureSchema(db);
 
-  const userId = ulid();
   const teamId = ulid();
   const eventId = ulid();
   const rundownId = ulid();
 
+  // The demo producer may already exist (a second seed, or the email taken):
+  // insert-or-skip, then use whichever row holds the email. Using the id we
+  // MEANT to insert broke the team_members foreign key whenever the insert
+  // was skipped (found 6 Oct when the layout check seeded a fresh database).
   await db
     .insert(users)
-    .values({ id: userId, email: "producer@example.com", name: "Demo Producer" })
+    .values({ id: ulid(), email: "producer@example.com", name: "Demo Producer" })
     .onConflictDoNothing();
+  const userId = (await db.select({ id: users.id }).from(users).where(eq(users.email, "producer@example.com")))[0]!.id;
   await db
     .insert(teams)
     .values({ id: teamId, name: "OpenCall Demo", slug: `demo-${teamId.slice(-6).toLowerCase()}` })

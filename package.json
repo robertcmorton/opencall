@@ -13,7 +13,8 @@
     "seed": "pnpm --filter @opencall/db run seed",
     "typecheck": "turbo run typecheck",
     "prepare": "git config core.hooksPath .githooks || true",
-    "test:security": "bash scripts/security-check.sh"
+    "test:security": "bash scripts/security-check.sh",
+    "test:layout": "bash scripts/layout-check.sh"
   },
   "devDependencies": {
     "turbo": "^2.11.6",

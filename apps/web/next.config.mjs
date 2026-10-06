@@ -38,6 +38,9 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The layout check (scripts/layout-check.sh) builds into its own folder so
+  // it can run beside a dev server without touching its .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   async headers() {
     return [

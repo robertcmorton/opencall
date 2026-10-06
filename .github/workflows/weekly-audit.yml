@@ -1,0 +1,51 @@
+# Every Monday morning: are any of the libraries the app runs on newly known
+# to be unsafe? The same audit CI runs on each push — but on 6 Oct a fault was
+# published between two pushes, and the first anybody heard of it was a
+# blocked deploy. Run weekly, it opens an issue labelled "security-audit" with
+# the details (and closes it again once the audit is clean), so the alert
+# arrives through GitHub's own notifications.
+name: Weekly security audit
+
+on:
+  schedule:
+    - cron: "0 22 * * 0" # Sunday 22:00 UTC = Monday 08:00/09:00 Sydney
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0 — version from packageManager
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Audit production dependencies (high and above)
+        id: audit
+        run: |
+          set +e
+          pnpm audit --prod --audit-level high > audit.txt 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat audit.txt
+      - name: Open, update or close the audit issue
+        env:
+          CODE: ${{ steps.audit.outputs.code }}
+        run: |
+          gh label create security-audit --color D93F0B --description "A library the app uses has a known fault" --force >/dev/null
+          open=$(gh issue list --label security-audit --state open --json number --jq '.[0].number')
+          if [ "$CODE" != "0" ]; then
+            body="$(printf 'The weekly audit found a known fault in a library the app uses (%s).\n\nWhat to do: ask Claude to fix it, or update the library named below and push. CI will refuse to deploy until it is fixed.\n\n```\n%s\n```' "$(date -u +%F)" "$(tail -c 6000 audit.txt)")"
+            if [ -n "$open" ]; then gh issue comment "$open" --body "$body"; else gh issue create --title "Security audit: a library needs updating" --label security-audit --body "$body"; fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Clean again on $(date -u +%F)."
+          fi

@@ -466,37 +466,77 @@ export function useSheetGrid(opts: {
 /** A table copied from Google Sheets or Excel, read from its HTML so line breaks inside cells survive. */
 function gridFromHtml(html: string): PastedCell[][] | null {
   if (!html || !/<table/i.test(html)) return null;
-  const table = new DOMParser().parseFromString(html, "text/html").querySelector("table");
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  const table = parsed.querySelector("table");
   if (!table) return null;
-  const grid = [...table.rows].map((tr) => [...tr.cells].map(readCell));
+  const classes = classStyles(parsed);
+  const grid = [...table.rows].map((tr) => [...tr.cells].map((td) => readCell(td, classes)));
   return grid.length > 0 ? grid : null;
 }
 
+/** The style properties a pasted cell's formatting is read from. */
+type StyleProp = "fontWeight" | "fontStyle" | "textDecoration" | "textDecorationLine" | "backgroundColor";
+
 /**
- * One copied cell, with its formatting where the spreadsheet wrote it inline
- * (Google Sheets does; Excel mostly uses class names, which come through as
- * plain text). Bold, italic, underline and strikethrough from tags or styles;
- * a coloured cell background becomes the highlight. A cell with no formatting
- * stays a plain string, exactly as before (6 Oct).
+ * Excel's named styles. Excel writes a cell's formatting once, as a class in a
+ * <style> block at the top of what it copies (`.xl65 {font-weight:700;}` and
+ * `<td class=xl65>`), not on the cell itself — so without this a paste from
+ * Excel arrived plain. Each class's declarations are handed to a scratch
+ * element so the browser parses them, shorthands included (Excel writes
+ * `background:yellow`); Office-only properties (`mso-…`) are simply dropped.
  */
-function readCell(td: HTMLTableCellElement): PastedCell {
+function classStyles(doc: Document): Map<string, CSSStyleDeclaration> {
+  const map = new Map<string, CSSStyleDeclaration>();
+  const css = [...doc.querySelectorAll("style")]
+    .map((el) => el.textContent ?? "")
+    .join("\n")
+    .replace(/<!--|-->/g, "");
+  for (const [, selectors, decls] of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    for (const sel of selectors!.split(",")) {
+      const name = /^\s*[a-z]*\.([\w-]+)\s*$/i.exec(sel)?.[1];
+      if (!name) continue;
+      const probe = document.createElement("span");
+      probe.style.cssText = decls!;
+      map.set(name.toLowerCase(), probe.style);
+    }
+  }
+  return map;
+}
+
+/**
+ * One copied cell, with its formatting — written inline (Google Sheets) or as
+ * a named style (Excel, see `classStyles`; an inline style wins over the
+ * class, as it would on a web page). Bold, italic, underline and
+ * strikethrough from tags or styles; a coloured cell background becomes the
+ * highlight. A cell with no formatting stays a plain string, exactly as
+ * before (6 Oct).
+ */
+function readCell(td: HTMLTableCellElement, classes: Map<string, CSSStyleDeclaration>): PastedCell {
   type Run = { text: string; marks: Mark[] };
   const lines: Run[][] = [[]];
+  const styleOf = (el: HTMLElement, prop: StyleProp): string => {
+    if (el.style[prop]) return el.style[prop];
+    for (const name of [...el.classList].reverse()) {
+      const value = classes.get(name.toLowerCase())?.[prop];
+      if (value) return value;
+    }
+    return "";
+  };
   const marksOf = (el: HTMLElement, inherited: Mark[]): Mark[] => {
     const m = new Set(inherited);
     const tag = el.tagName;
-    const st = el.style;
-    const weight = st.fontWeight;
+    const weight = styleOf(el, "fontWeight");
+    const italic = styleOf(el, "fontStyle");
     if (tag === "B" || tag === "STRONG" || weight === "bold" || Number(weight) >= 600) m.add("bold");
     if (weight === "normal" || (Number(weight) > 0 && Number(weight) < 600)) m.delete("bold");
-    if (tag === "I" || tag === "EM" || st.fontStyle === "italic") m.add("italic");
-    if (st.fontStyle === "normal") m.delete("italic");
-    const deco = `${st.textDecoration} ${st.textDecorationLine}`;
+    if (tag === "I" || tag === "EM" || italic === "italic") m.add("italic");
+    if (italic === "normal") m.delete("italic");
+    const deco = `${styleOf(el, "textDecoration")} ${styleOf(el, "textDecorationLine")}`;
     if (tag === "U" || /underline/.test(deco)) m.add("underline");
     if (tag === "S" || tag === "STRIKE" || tag === "DEL" || /line-through/.test(deco)) m.add("strike");
     return [...m];
   };
-  const bg = td.style.backgroundColor.replace(/\s/g, "").toLowerCase();
+  const bg = styleOf(td, "backgroundColor").replace(/\s/g, "").toLowerCase();
   const tinted = bg !== "" && !/^(transparent|#fff(fff)?|white|rgb\(255,255,255\)|rgba\(0,0,0,0\))$/.test(bg);
   const walk = (node: Node, marks: Mark[]) => {
     if (node.nodeType === Node.TEXT_NODE) {

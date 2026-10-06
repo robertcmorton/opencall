@@ -172,6 +172,63 @@ describe("spreadsheet keys", () => {
     expect(b!.cells.audio).toBe("Plain");
   });
 
+  it("a paste from Excel keeps the formatting Excel writes as named styles", () => {
+    const doc = sheet();
+    mount(doc);
+    act(() => cell(0, 0).click());
+    // The shape Excel puts on the clipboard: formatting lives in a <style>
+    // block as classes, the cells only name them, and a run of differently
+    // formatted words inside one cell is a <font class=…>.
+    const excel = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style><!--table
+	{mso-displayed-decimal-separator:"\\.";}
+@page
+	{margin:.75in .7in .75in .7in;}
+td
+	{padding-top:1px;font-weight:400;font-style:normal;text-decoration:none;}
+.xl65
+	{font-weight:700;
+	mso-font-charset:0;}
+.xl66
+	{font-style:italic;}
+.xl67
+	{background:yellow;
+	mso-pattern:black none;}
+.font5
+	{font-weight:700;}
+.font6
+	{font-weight:400;}
+--></style></head><body><table border=0 cellpadding=0 cellspacing=0><!--StartFragment-->
+ <tr height=21 style='height:16.0pt'>
+  <td height=21 class=xl65 style='height:16.0pt'>Gates open</td>
+  <td>60</td>
+  <td class=xl66>quiet please</td>
+ </tr>
+ <tr height=21 style='height:16.0pt'>
+  <td height=21 class=xl67>Sponsor A read</td>
+  <td></td>
+  <td>Cue <font class="font5">VT 3</font><font class="font6"> now</font></td>
+ </tr>
+ <tr>
+  <td class=xl65 style='font-weight:400'>Plain after all</td>
+ </tr>
+<!--EndFragment--></table></body></html>`;
+    const dt = new DataTransfer();
+    dt.setData("text/html", excel);
+    dt.setData("text/plain", "Gates open\t60\tquiet please\nSponsor A read\t\tCue VT 3 now\nPlain after all");
+    act(() => void document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })));
+    const [a, b, c] = projectRundownDoc(doc).rows;
+    expect(a!.title).toBe("Gates open");
+    expect(a!.cellsRich?.title).toContain("<bold>");
+    expect(a!.cellsRich?.audio).toContain("<italic>quiet please</italic>");
+    expect(b!.cellsRich?.title).toContain("<highlight>");
+    expect(b!.cells.audio).toBe("Cue VT 3 now");
+    expect(b!.cellsRich?.audio).toContain("<bold>VT 3</bold>");
+    expect(b!.cellsRich?.audio).not.toContain("<bold> now");
+    // An inline style beats the class, as it would on a web page.
+    expect(c!.title).toBe("Plain after all");
+    expect(c!.cellsRich?.title ?? "").not.toContain("<bold>");
+  });
+
   it("copies a block as text a spreadsheet reads back", () => {
     mount(sheet());
     act(() => cell(0, 0).click());

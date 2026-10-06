@@ -608,7 +608,7 @@ export const SECTIONS: HelpSection[] = [
           "Click the cell where the top-left corner should go.",
           "Press `Cmd+V`.",
         ],
-        good: "Times like “6:30 pm” and lengths like “2:30” are read into the time and length columns. Bold, italic, underline, strikethrough and a coloured cell come across too (from Google Sheets; Excel's come across as plain text). If the block is taller than the sheet, new rows are added at the end.",
+        good: "Times like “6:30 pm” and lengths like “2:30” are read into the time and length columns. Bold, italic, underline, strikethrough and a coloured cell come across too, from Google Sheets or Excel. If the block is taller than the sheet, new rows are added at the end.",
       },
       {
         id: "fill-down",

@@ -5063,9 +5063,13 @@ export function RundownEditor({
                   somewhere else entirely. Stepping the crew through the sheet
                   and then starting the show is one sequence, and it now reads
                   as one. The group is gone once the show is live: there is
-                  nothing to rehearse, and the transport keeps the row to
-                  itself. */}
-              <div className={isShow && !showLive && rows.length > 0 ? "preshow-group" : undefined}>
+                  nothing to rehearse — but the box stays for the caller, because
+                  Message stage is still in it: without the box it was a loose
+                  block that put Message stage on a line of its own, sitting on
+                  the LIVE / Stop box's top edge (6 Oct). Only for whoever
+                  drives the show: for anyone else everything in it is hidden,
+                  and the box would be an empty frame. */}
+              <div className={isShow && rows.length > 0 && mayDrive ? "preshow-group" : undefined}>
                 {/* A message to the person on stage, on the timer and prompter
                     — in the same box as the show's other controls, where the
                     caller is already looking (asked for 6 Oct). The caller's
@@ -5106,8 +5110,14 @@ export function RundownEditor({
                         >
                           Walkthrough
                         </span>
+                        {/* Labels drop to arrows on a laptop-width screen (see
+                            .btn-label): six controls in this box wrapped onto
+                            two lines at 1024px (6 Oct). The words stay as the
+                            accessible name and the tooltip. */}
                         <button
                           className="btn"
+                          aria-label="Previous row"
+                          data-tip="Previous row"
                           disabled={at <= 0}
                           onClick={() => {
                             if (at <= 0) return;
@@ -5118,21 +5128,24 @@ export function RundownEditor({
                             channel.sendCmd("walk", walkable[at - 1]!.id);
                           }}
                         >
-                          {Icon.prev} Prev
+                          {Icon.prev} <span className="btn-label">Prev</span>
                         </button>
                         <button
                           className="btn"
+                          aria-label="Next row"
+                          data-tip="Next row"
                           disabled={at >= walkable.length - 1}
                           onClick={() => {
                             setFollowScroll(true);
                             channel.sendCmd("walk", walkable[Math.min(at + 1, walkable.length - 1)]!.id);
                           }}
                         >
-                          Next {Icon.next}
+                          <span className="btn-label">Next</span> {Icon.next}
                         </button>
                         {walkRowId && (
-                          <button className="btn btn-ghost" data-tip="Clear the walkthrough highlight on every screen" onClick={() => channel.sendCmd("walk")}>
-                            End walkthrough
+                          <button className="btn btn-ghost" aria-label="End walkthrough" data-tip="End the walkthrough: clears the highlight on every screen" onClick={() => channel.sendCmd("walk")}>
+                            {Icon.close}
+                            <span className="btn-label">End walkthrough</span>
                           </button>
                         )}
                       </>

@@ -1515,9 +1515,9 @@ export default function AdminPage() {
             />
           </div>
         )}
+        <VersionBadge />
       </main>
       </WithSideNav>
-      <VersionBadge />
       {locEvent && (
         <LocationDialog
           event={locEvent}

@@ -54,11 +54,12 @@ export function VersionBadge() {
       className="no-print"
       title={`${full}. Click to see what's new.`}
       onClick={() => setOpen(true)}
+      // In the page's flow, at the end of the dashboard — not pinned to the
+      // screen's corner, where it sat over whatever scrolled under it: Open
+      // show and More on every event near the bottom of the window (6 Oct).
       style={{
-        position: "fixed",
-        right: 12,
-        bottom: 8,
-        zIndex: 30,
+        display: "block",
+        margin: "var(--space-5) 0 var(--space-2) auto",
         background: "none",
         border: "none",
         // 24px tall at least, so a finger can hit it (it was 20).

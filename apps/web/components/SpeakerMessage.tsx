@@ -50,13 +50,26 @@ export function SpeakerControl({
   }, [openSignal]);
   const [text, setText] = useState("");
   const box = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  // Closes on a press anywhere else, and on Escape (6 Oct: it had no key, so
+  // a keyboard user — or a stray open on a phone, where it covers Stop — had
+  // to find somewhere else to tap). Escape hands focus back to the button.
   useEffect(() => {
     if (!open) return;
     const off = (e: PointerEvent) => {
       if (!box.current?.contains(e.target as Node)) setOpen(false);
     };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggle.current?.focus();
+    };
     document.addEventListener("pointerdown", off, true);
-    return () => document.removeEventListener("pointerdown", off, true);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", off, true);
+      document.removeEventListener("keydown", key);
+    };
   }, [open]);
   const send = (t: string) => {
     const v = t.trim().slice(0, 120);
@@ -75,7 +88,7 @@ export function SpeakerControl({
           </button>
         </span>
       ) : (
-        <button type="button" className="btn btn-sm" onClick={() => setOpen((v) => !v)} data-tip="Show a short message in big letters on the presenter's timer and prompter screens">
+        <button ref={toggle} type="button" className="btn btn-sm" aria-expanded={open} onClick={() => setOpen((v) => !v)} data-tip="Show a short message in big letters on the presenter's timer and prompter screens">
           Message stage
         </button>
       )}

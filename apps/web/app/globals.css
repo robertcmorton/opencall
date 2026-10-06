@@ -1348,6 +1348,12 @@ kbd {
   position: absolute;
   inset: -9px -8px;
 }
+/* A fingertip's 44px on a touch screen, still without moving the row. */
+@media (pointer: coarse) {
+  .fork-peek::before {
+    inset: -17px -15px;
+  }
+}
 .fork-peek.is-open {
   transform: rotate(90deg);
   color: var(--text-1);
@@ -1986,9 +1992,60 @@ kbd {
   color: var(--warn);
   font-weight: 650;
 }
+/* Laptop widths with a mouse: the walkthrough's Prev / Next / End drop their
+   words and keep their arrows (and their names, for screen readers and the
+   tooltip). The header's middle has about 500px there, and the six pre-show
+   controls at full length need 600+. A touch screen keeps the words: its
+   controls are docked along the bottom with the whole width to themselves. */
+@media (max-width: 1279px) and (pointer: fine) {
+  .preshow-group .btn-label {
+    display: none;
+  }
+}
+/* A drop-down under Start, not a block in the row. Sitting in the controls'
+   own flex row it was 334px of note between Start anyway and Walkthrough, and
+   the row wrapped: Prev and Next fell to a second line and the header grew
+   from 40 to 114px for as long as the warning was up (6 Oct). Floating, it
+   covers the top of the sheet for the few seconds it matters and moves
+   nothing. */
+.show-state {
+  position: relative;
+}
+.show-state .preflight {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  width: max-content;
+  max-width: min(46ch, calc(100vw - 32px));
+  /* The warning tint over a solid fill, so the sheet doesn't show through. */
+  background: linear-gradient(var(--warn-soft, rgba(232, 176, 60, 0.08)), var(--warn-soft, rgba(232, 176, 60, 0.08))), var(--overlay);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.35));
+}
+/* On a phone the controls box is the screen's width and Start sits in the
+   middle of it, so a 46ch note hung from Start ran 156px off the right edge
+   (6 Oct). There it hangs from the whole box and takes its width. */
 @media (max-width: 760px) {
-  .preflight {
-    max-width: 100%;
+  .preshow-group {
+    position: relative;
+  }
+  .preshow-group .show-state {
+    position: static;
+  }
+  .preshow-group .show-state .preflight {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+  }
+}
+/* Docked at the bottom of an iPad, the controls have no room below them.
+   Same media query as the dock itself: `.caller-dock` is on the caller's row
+   at every size, and only docks there. */
+@media (pointer: coarse) and (min-width: 761px) {
+  .show-page .caller-dock .show-state .preflight {
+    top: auto;
+    bottom: calc(100% + 6px);
   }
 }
 
@@ -2486,6 +2543,32 @@ kbd {
   .show-page .topbar-left {
     padding-left: 0;
   }
+  /* The cue timer and the caller's controls, first in the stack, clear the
+     menu button too. It is 44px wide on a touch screen (10…54), not the 34
+     the 48px above was measured against, and the timer's 300px floor centred
+     it from x=40 — 14px under the button (6 Oct). So this row runs from just
+     past the button to the right edge: 307px on a 375 phone, room for
+     Message stage, LIVE and Stop on one line. Off the page's centre by half
+     the button, which reads better than a box under a button. */
+  .show-page .topbar-center {
+    justify-self: stretch;
+    width: auto;
+    min-width: 0;
+    /* Past the column on the right, so no 100% cap. The head's content
+       starts 63px in (page gutter + 52px) and the button ends at 54, so
+       this starts 4px past the button: 58. */
+    max-width: none;
+    left: 0;
+    margin-left: -5px;
+    margin-right: -48px;
+  }
+  .show-page .topbar-center .preshow-group,
+  .show-page .topbar-center .preshow-group .show-state {
+    gap: var(--space-1);
+  }
+  .show-page .topbar-center .preshow-group {
+    padding-inline: 4px;
+  }
   .show-page .sheet-name.tap-back {
     cursor: pointer;
     text-decoration: underline;
@@ -2658,7 +2741,7 @@ select:disabled {
 .notes-panel {
   position: fixed;
   right: calc(12px + env(safe-area-inset-right));
-  bottom: calc(12px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
+  bottom: calc(12px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)));
   width: min(360px, calc(100vw - 24px));
   max-height: min(60vh, 520px);
   overflow: auto;
@@ -4057,7 +4140,7 @@ th.col-drop-target {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)));
   z-index: 95;
   display: flex;
   align-items: center;
@@ -5081,6 +5164,20 @@ tr.jump-flash > td {
   gap: var(--space-2);
   padding: 10px;
 }
+/* A phone has no 300px beside the button: anchored to it, Send ended 50px
+   off the right edge (6 Oct). There it is a panel along the bottom, like the
+   row menu, above the crew tab bar if one is showing. */
+@media (max-width: 760px) {
+  .speaker-pop {
+    position: fixed;
+    top: auto;
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + env(safe-area-inset-bottom));
+    width: auto;
+    z-index: 300;
+  }
+}
 .speaker-quick {
   display: flex;
   flex-wrap: wrap;
@@ -5931,7 +6028,9 @@ a > svg,
   position: fixed;
   left: var(--space-3);
   right: var(--space-3);
-  bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
+  /* Above every bar down there, the result chooser and End event too: on a
+     phone after a show it sat on the End event bar (6 Oct). */
+  bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)));
   z-index: 64;
   display: flex;
   align-items: center;
@@ -6029,6 +6128,21 @@ a > svg,
   .show-page .caller-dock .preshow-group {
     border: 0;
     background: none;
+  }
+  /* Everything in the dock is one height. LIVE (a badge) and the
+     Walkthrough chip kept their 26 and 32px beside 52px buttons (6 Oct). */
+  .show-page .caller-dock .live-badge,
+  .show-page .caller-dock .preshow-group .chip {
+    height: 52px;
+    padding: 0 var(--space-5);
+    font-size: var(--fs-lg);
+  }
+  /* With the controls docked, the header's middle holds nothing until a
+     timer appears, and its 300px floor was empty space the sheet's name was
+     being cut short beside ("Finals …" with 300px free). */
+  .show-page .topbar-center:not(:has(> :not(.caller-dock))) {
+    min-width: 0;
+    width: 0;
   }
 }
 /* ⌘K actions sit above matching rows and read as things to do. */

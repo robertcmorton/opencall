@@ -171,7 +171,7 @@ export const SECTIONS: HelpSection[] = [
         name: "What’s new",
         forWhat: "Shows what has changed in OpenCall since the last update.",
         steps: [
-          "On the dashboard, click the version number in the bottom right corner.",
+          "On the dashboard, scroll to the bottom and click the version number at the right.",
           "A list of changes opens. Click one to read more.",
         ],
         good: "A dot on the version number means a newer OpenCall is ready. Press **Update this tab** to load it.",
@@ -1222,7 +1222,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Gets something that is broken in front of the person who can fix it.",
         steps: [
           "Write down what you pressed, what you expected, and what happened instead.",
-          "Note the version number from the bottom right of the dashboard.",
+          "Note the version number at the bottom right of the dashboard (scroll to the end of the page).",
           "Send it to your System Administrator.",
         ],
         good: "Many errors are written to the error log by themselves, so the details may already be waiting there.",

@@ -4073,12 +4073,10 @@ export function RundownEditor({
    */
   /** `bar`: opened from the selection's own Row actions button — rows only, no show controls. */
   const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number; from: "row" | "bar"; touch?: boolean } | null>(null);
-  const [menuArmStart, setMenuArmStart] = useState(false);
   const [menuResultsOpen, setMenuResultsOpen] = useState(false);
   const [speakerOpen, setSpeakerOpen] = useState(0);
   const closeRowMenu = useCallback(() => {
     setRowMenu(null);
-    setMenuArmStart(false);
     setMenuResultsOpen(false);
   }, []);
   const menuShow = isShow && mayDrive && !showLive && rows.length > 0;
@@ -4096,7 +4094,6 @@ export function RundownEditor({
     }
     const colId = t.closest<HTMLElement>("td[data-colid]")?.dataset.colid;
     if (gridOn && colId) grid.place({ rowId, columnId: colId });
-    setMenuArmStart(false);
     setRowMenu({ rowId, x, y, from: "row", touch });
   };
   /** A long press just opened the menu: the click its release makes is not a tap. */
@@ -4237,30 +4234,15 @@ export function RundownEditor({
     if (menuShow && from === "row") {
       const walkable = rows.filter(stepsOnto);
       const at = walkRowId ? walkable.findIndex((x) => x.id === walkRowId) : -1;
-      const ordered = rows.filter((x) => stepsOnto(x) || x.id === activeRowId).map((x) => x.id);
       const walk = (id: string) => {
         setFollowScroll(true);
         channel.sendCmd("walk", id);
       };
-      out.push({ heading: "The show" });
-      out.push({
-        label: (
-          <>
-            {Icon.play} {menuArmStart ? "Start anyway" : "Start show"}
-          </>
-        ),
-        tone: menuArmStart ? "warn" : "positive",
-        hint: menuArmStart
-          ? `Worth checking first: ${preflight[0]}${preflight.length > 1 ? ` (and ${preflight.length - 1} more)` : ""}`
-          : undefined,
-        keepOpen: preflight.length > 0 && !menuArmStart,
-        disabled: !channel.connected || ordered.length === 0,
-        onSelect: () => {
-          // Warned about, never blocked — the same bargain as the button.
-          if (preflight.length > 0 && !menuArmStart) return setMenuArmStart(true);
-          startShow(channel, ordered, untilShowSec);
-        },
-      });
+      out.push({ heading: "Walkthrough" });
+      // No Start show here (6 Oct, Robert: "why start the show from that row
+      // when the show is based on time"). It never used the row — the show
+      // starts on the clock — but in a row's own menu it read as "start from
+      // this row". It stays on the green button and in ⌘K.
       if (stepsOnto(r))
         out.push({
           label: walkRowId === r.id ? "The walkthrough is on this row" : walkRowId ? "Move the walkthrough to this row" : "Start the walkthrough from this row",

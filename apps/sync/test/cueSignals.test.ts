@@ -85,5 +85,9 @@ describe("firing on cue", () => {
       await handle.close();
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+    // The database is built inside this test — every migration, on a fresh
+    // PGlite — which took over the default 5 s on a CI runner (6 Oct) though
+    // well under it here. The other database tests do it in beforeAll, which
+    // has a longer allowance.
+  }, 30_000);
 });

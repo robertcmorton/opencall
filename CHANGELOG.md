@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Shows on the dashboard are cards that say what you need at a glance.** Side by side — three across a big screen, two on an iPad, one on a phone — each card says when the show starts, how long it runs and when it ends; how many rows it has and when it was last changed; and, once it has been run, the day of the last show and how far over or under it ran (the same figure as **Ran** on the sheet, red for over and green for under). The logos, the kind of show, **Live**, **Open show** and the **⋯** menu are where they were, and Open show sits at the foot of every card.
 - **Start show is no longer in a row's right-click menu.** It never started from the row you clicked — a show starts on the clock — but sitting in a row's menu it looked as if it did. It stays on the green **Start show** button (and in ⌘K). The menu's top part is now headed **Walkthrough**.
 - **Print-ready run sheets.** Printing (menu → Print) now puts the show's name at the top of every page and "Page 3 of 7" at the bottom, and never leaves a heading or fixed time stranded at the bottom of a page away from its rows. Export PDF now says "page 3 of 7" too, and never splits a row across two pages.
 - **Paste keeps formatting.** Cells copied from Google Sheets or Excel bring their bold, italic, underline and strikethrough with them, and a coloured cell arrives highlighted. A cell where only some words are bold keeps just those words bold.

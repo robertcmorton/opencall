@@ -34,6 +34,7 @@ import { checkAuthorize, decideAuthorize, listConnections, OAuthError, revokeGra
 import { allowedOrigins, originAllowed } from "./origins.ts";
 import { companiesAdministeredBy, grantInScope, mergeGrants, refusedGrants, resolveGrants, type PeopleScope } from "./scope.ts";
 import { customEventTypes } from "./eventTypes.ts";
+import { sheetSummaries } from "./sheetSummary.ts";
 import { customEventTypeCode, describeLock, heldByMe, INK_MAX_BYTES, isInkDoc, lockIsFree, mayClaim, type EditLock } from "@opencall/core";
 
 /**
@@ -1790,6 +1791,11 @@ export function createApiHandler(
           const prev = lastEnded.get(s.rundownId);
           if (!prev || s.endedAt > prev) lastEnded.set(s.rundownId, s.endedAt);
         }
+        const shown = events.flatMap((event) =>
+          rundowns.filter((r) => r.eventId === event.id && (includeArchived || !r.archivedAt)),
+        );
+        // What each show's card says at a glance — see sheetSummary.ts.
+        const summaries = await sheetSummaries(db, shown.map((r) => r.id));
         json(
           res,
           200,
@@ -1801,6 +1807,7 @@ export function createApiHandler(
                 ...r,
                 viewingClosed: viewingClosedAt != null,
                 lastEndedAt: lastEnded.get(r.id)?.toISOString() ?? null,
+                summary: summaries.get(r.id) ?? null,
               })),
           })),
         );

@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrandWordmark, EmptyState } from "../../components/ui";
-import { api, ApiError, API_URL, copyViewOnlyLink, type AccessPerson, type EventSummary, type RundownSummary, type TemplateSummary } from "../../lib/api";
+import { api, ApiError, API_URL, copyViewOnlyLink, type AccessPerson, type EventSummary, type RundownSummary, type SheetSummary, type TemplateSummary } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
 import { ImportPanel } from "../../components/ImportPanel";
@@ -13,7 +13,7 @@ import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
 import { AdminNavSection, CredentialsNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
-import { isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
+import { formatTimeOfDay, formatTimeOfDayWithDay, isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
 import { ask, askText, say, sayError, showSecret } from "../../lib/dialogs";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
@@ -685,6 +685,91 @@ function ageSince(iso: string): string {
  * pulsing). Red with a beating dot means on air, and a show sitting in a
  * changeover is not that.
  */
+/** "2 h 24 m", "40 m", "45 s". */
+function lengthWords(sec: number): string {
+  if (sec < 60) return `${Math.round(sec)} s`;
+  // Round to whole minutes FIRST, so 23 h 59 m 40 s reads "24 h", not "23 h 60 m".
+  const total = Math.round(sec / 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h > 0) return m > 0 ? `${h} h ${m} m` : `${h} h`;
+  return `${m} m`;
+}
+
+/** A sheet time for a card: "6:30 pm" — the seconds only when they aren't :00. */
+function cardTime(sec: number, use24h: boolean, withDay = false): string {
+  const t = withDay ? formatTimeOfDayWithDay(sec, use24h) : formatTimeOfDay(sec, use24h);
+  return t.replace(/^(\d{1,2}:\d\d):00\b/, "$1");
+}
+
+/** "3 min over", "40 s under", "right on time". */
+function overUnderWords(sec: number): string {
+  if (sec === 0) return "right on time";
+  const abs = Math.abs(sec);
+  const amount =
+    abs < 60 ? `${abs} s` : abs >= 3600 ? lengthWords(abs) : abs % 60 === 0 || abs >= 600 ? `${Math.round(abs / 60)} min` : `${Math.floor(abs / 60)} min ${abs % 60} s`;
+  return `${amount} ${sec > 0 ? "over" : "under"}`;
+}
+
+/** "just now", "5 min ago", "2 h ago", "3 days ago". */
+function agoWords(iso: string): string {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h} h ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}
+
+/**
+ * A show's card, at a glance: when it starts and how long it runs, its size
+ * and last change, and how the last show went — the "Ran" figure the sheet's
+ * own header shows. Rendered only once the events have loaded in the
+ * browser, so the "ago" words never meet a server render.
+ */
+function SheetFacts({ summary: s, use24h }: { summary: SheetSummary; use24h: boolean }) {
+  return (
+    <div className="sr-facts">
+      {s.startSec != null && (
+        <span>
+          {/* Each piece stays whole: "12:54 AM" with "+1d" on the next line read as two things. */}
+          <span className="nb">
+            Starts <b>{cardTime(s.startSec, use24h)}</b>
+          </span>
+          {s.durationSec > 0 && (
+            <>
+              {" · "}
+              <span className="nb">runs {lengthWords(s.durationSec)}</span>
+            </>
+          )}
+          {s.endSec != null && s.endSec > s.startSec && (
+            <>
+              {" · "}
+              <span className="nb">ends {cardTime(s.endSec, use24h, true)}</span>
+            </>
+          )}
+        </span>
+      )}
+      <span>
+        {s.rows === 0 ? "No rows yet" : `${s.rows} row${s.rows === 1 ? "" : "s"}`}
+        {s.editedAt && <> · edited {agoWords(s.editedAt)}</>}
+      </span>
+      {s.lastRun && (
+        <span>
+          Last run {new Date(s.lastRun.endedAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+          {s.lastRun.ranSec != null && (
+            <>
+              {" · "}
+              <span className={s.lastRun.ranSec > 0 ? "ran-over" : s.lastRun.ranSec < 0 ? "ran-under" : undefined}>{overUnderWords(s.lastRun.ranSec)}</span>
+            </>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function LiveChip({ session }: { session: LiveSession | undefined }) {
   if (!session) return null;
 
@@ -1199,7 +1284,10 @@ export default function AdminPage() {
                   The name block holds the title, the status line and the kind
                   of show; the actions are one group that never breaks apart, and
                   drop under the name as a whole below tablet width. */}
-              <ul style={{ listStyle: "none", padding: "0 6px", margin: "6px 0 0" }}>
+              {/* Cards, side by side (6 Oct): each one says when the show
+                  starts and how long it runs, how many rows it has, when it
+                  was last changed and how its last show went. */}
+              <ul className="sheet-cards">
                 {event.rundowns.map((r) => (
                   <li key={r.id} className="sheet-row" style={{ opacity: r.archivedAt ? 0.55 : 1 }}>
                     <div className="sr-images">
@@ -1289,6 +1377,7 @@ export default function AdminPage() {
                         )}
                         {r.archivedAt && <span className="chip">archived</span>}
                       </div>
+                      {r.summary && <SheetFacts summary={r.summary} use24h={event.use24h} />}
                     </div>
                     {/* One primary action and one menu, at every width. The row
                         was a toolbar of five buttons and a select, and a toolbar

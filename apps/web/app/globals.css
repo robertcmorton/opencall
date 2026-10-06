@@ -4834,6 +4834,59 @@ tr.played-row td {
     max-width: none;
   }
 }
+/* ── Shows as cards (6 Oct) ───────────────────────────────────────────────────
+   Tiles side by side — three across a big screen, two on an iPad, one on a
+   phone — each the same shape as the row it replaces, stacked: logos, name
+   and chips, the facts, then Open show and ⋯ at the foot. */
+.sheet-cards {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0 var(--space-2) var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-3);
+}
+.sheet-cards .sheet-row {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "images"
+    "main"
+    "actions";
+  /* The name block takes the slack, so Open show sits at the foot of every
+     card in a row, whatever each one has to say. */
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface-2, var(--bg-elevated, transparent));
+  align-content: start;
+}
+.sheet-cards .sheet-row .sr-actions {
+  align-self: end;
+  flex-wrap: wrap;
+  padding-top: var(--space-1);
+}
+.sheet-cards .sheet-row .sr-actions .btn-primary {
+  flex: 1;
+  justify-content: center;
+}
+.sheet-row .sr-facts {
+  display: grid;
+  gap: 2px;
+  margin-top: var(--space-1);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-row .sr-facts .nb {
+  white-space: nowrap;
+}
+.sheet-row .sr-facts b {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* A chip that is also a menu trigger (the kind of show on a sheet row). */
 .chip-btn {
   cursor: pointer;
@@ -5008,10 +5061,12 @@ a.change-line:hover {
   color: var(--under);
   background: var(--under-soft);
 }
-.shape-val.ran-over {
+.shape-val.ran-over,
+.sr-facts .ran-over {
   color: var(--over);
 }
-.shape-val.ran-under {
+.shape-val.ran-under,
+.sr-facts .ran-under {
   color: var(--under);
 }
 

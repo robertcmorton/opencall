@@ -34,6 +34,18 @@ export interface RundownSummary {
   awayImage: string | null;
   /** Filename of the run sheet it was imported from, when it was. */
   sourceName: string | null;
+  /** What the dashboard card says at a glance, read from the sheet by the server. */
+  summary?: SheetSummary | null;
+}
+
+/** A sheet at a glance (the server's sheetSummary.ts). Times are sheet seconds from midnight. */
+export interface SheetSummary {
+  rows: number;
+  startSec: number | null;
+  endSec: number | null;
+  durationSec: number;
+  editedAt: string | null;
+  lastRun: { startedAt: string; endedAt: string; ranSec: number | null } | null;
 }
 
 /**

@@ -795,7 +795,7 @@ export const SECTIONS: HelpSection[] = [
           "The big timer in the middle counts down the item on air: green, then amber near the end, then red counting up if it runs over.",
           "On the left: **Start**, **Dur** and **End** — the plan. **Ran** shows how far over or under the items so far have run.",
           "On the right: **Proj. end** — when the show will really finish — and the time of day.",
-          "The two dots, **sheet** and **show**, are green when you are connected.",
+          "Top right, **✓ Saved** means every change is saved and shared. If the connection drops it says **Offline · changes kept here** — keep working; your changes are sent when it reconnects. **Show link reconnecting…** means Start, Next and the clock are reconnecting by themselves.",
         ],
       },
       {

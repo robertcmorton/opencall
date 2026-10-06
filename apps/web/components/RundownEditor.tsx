@@ -5117,32 +5117,40 @@ export function RundownEditor({
               activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null
             }
           />
-          {/* Both connection lamps together, stacked, hard right — they are one
-              reading ("am I connected?"), not two readouts, and they are the
-              only thing here that is a state rather than a number. Kept out of
-              the row of clocks so the eye can skip them until something goes
-              red, which is the only time they matter. */}
-          <div className="header-dots hide-mobile">
-            <span className={`status-dot ${unsavedShown ? "pending" : connected ? "ok" : ""}`}>sheet</span>
-            <span className={`status-dot ${channel.connected ? "ok" : ""}`}>show</span>
-          </div>
-          {/* Shown on every screen size: the dots are hidden on a phone, and a
-              phone on venue wifi is the screen most likely to need this. */}
-          {unsavedShown && (
-            <span
-              className="unsaved-chip"
-              role="status"
-              data-tip={
-                connected
-                  ? "Sending your changes to the server. They are kept on this device until it confirms."
-                  : "Not connected. Your changes are kept on this device and go to the server when it reconnects; leaving this tab now keeps them here for next time."
-              }
-            >
-              {/* No count: while it reconnects the client reports one pending
-                  change whether or not anybody edited anything. */}
-              {connected ? "Saving…" : "Offline · changes kept here"}
-            </span>
-          )}
+          {/* Saved, in words (6 Oct). This was two lamps labelled "sheet" and
+              "show" — a green dot means nothing to someone who has not been
+              told — plus a separate chip for unsaved edits. One line now says
+              what is true. "Saved" is quiet and hidden on a phone; anything
+              that needs attention shows on every screen, because a phone on
+              venue wifi is the screen most likely to need it. */}
+          {(() => {
+            const sheetState = unsavedShown
+              ? connected
+                ? { cls: "is-pending", text: "Saving…", tip: "Sending your changes. They are kept on this device until the server confirms." }
+                : {
+                    cls: "is-offline",
+                    text: "Offline · changes kept here",
+                    tip: "Not connected. Your changes are kept on this device and are sent when it reconnects. Leaving this tab now keeps them here for next time.",
+                  }
+              : !synced
+                ? { cls: "is-connecting", text: "Connecting…", tip: "Opening the run sheet." }
+                : !connected
+                  ? { cls: "is-offline", text: "Offline · reconnecting…", tip: "Not connected right now. Anything you change is kept on this device and sent when it reconnects." }
+                  : { cls: "is-ok", text: "Saved", tip: "Every change is saved and shared with everyone on this sheet." };
+            return (
+              <>
+                <span className={`save-status ${sheetState.cls} ${sheetState.cls === "is-ok" ? "hide-mobile" : ""}`} role="status" data-tip={sheetState.tip}>
+                  {sheetState.cls === "is-ok" && Icon.check}
+                  {sheetState.text}
+                </span>
+                {isShow && synced && !channel.connected && (
+                  <span className="save-status is-offline" role="status" data-tip="The link that runs the show (Start, Next, the clock) has dropped. It reconnects by itself.">
+                    Show link reconnecting…
+                  </span>
+                )}
+              </>
+            );
+          })()}
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />
         </div>
       </header>

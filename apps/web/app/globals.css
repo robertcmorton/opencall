@@ -5875,3 +5875,27 @@ a > svg,
   justify-content: flex-end;
   gap: var(--space-2);
 }
+
+/* Saved, in words (replaces the sheet/show lamps and the unsaved chip). */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.save-status.is-ok {
+  color: var(--under);
+}
+.save-status.is-pending,
+.save-status.is-offline {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+.save-status.is-connecting {
+  color: var(--text-3);
+}

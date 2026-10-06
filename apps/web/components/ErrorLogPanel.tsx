@@ -16,6 +16,13 @@ interface ErrorRow {
   resolution: string | null;
 }
 
+/** Where it went wrong, in words: the app's server, or somebody's browser. */
+const SOURCE_WORD: Record<string, string> = {
+  server: "server",
+  process: "server",
+  client: "browser",
+};
+
 const SOURCE_COLOR: Record<string, string> = {
   server: "var(--over)",
   process: "var(--over)",
@@ -55,7 +62,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
         <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0 }}>
           Error log{" "}
           <span style={{ color: "var(--text-3)", fontWeight: 400, fontSize: "var(--fs-sm)" }}>
-            — server, process, and browser errors, newest first
+            — things that went wrong on the server or in someone&apos;s browser, newest first
           </span>
         </h2>
         <span style={{ flex: 1 }} />
@@ -64,18 +71,19 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
             className={`btn btn-sm ${showResolved ? "is-on" : ""}`}
             aria-pressed={showResolved}
             onClick={() => setShowResolved((v) => !v)}
-            data-tip="Errors marked fixed, with what fixed them"
+            data-tip="Show the problems already marked as fixed, and what fixed them"
           >
             {showResolved ? "Hide" : "Show"} resolved ({resolved.length})
           </button>
         )}
-        <button className="btn btn-sm" onClick={reload}>
+        <button className="btn btn-sm" onClick={reload} data-tip="Check for new entries">
           Refresh
         </button>
         <button
           className="btn btn-sm btn-danger"
           disabled={!rows || rows.length === 0}
           onClick={() => void api.clearErrors().then(reload)}
+          data-tip="Empty the error log for good. Do this once you have dealt with everything in it."
         >
           Clear log
         </button>
@@ -86,12 +94,13 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
 
       {failed && (
         <p style={{ color: "var(--over)", fontSize: "var(--fs-sm)", margin: "10px 0 0" }}>
-          Couldn’t load the error log — is the sync server reachable (and are you a System Administrator)?
+          Couldn’t load the error log. Either the app can’t reach its server, or you are not signed in as a System
+          Administrator. Reload the page to try again.
         </p>
       )}
       {shown != null && shown.length === 0 && !failed && (
         <p style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", margin: "10px 0 0" }}>
-          {resolved.length > 0 ? "No open errors — everything recorded has been marked fixed." : "No errors recorded. Come back after the next show."}
+          {resolved.length > 0 ? "Nothing is wrong right now. Everything in the log has been marked as fixed." : "Nothing has gone wrong. Check again after the next show."}
         </p>
       )}
 
@@ -118,7 +127,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
                   className="chip"
                   style={{ color: SOURCE_COLOR[r.source] ?? "var(--text-2)", borderColor: SOURCE_COLOR[r.source] ?? "var(--border)" }}
                 >
-                  {r.source}
+                  {SOURCE_WORD[r.source] ?? r.source}
                 </span>
                 <span
                   style={{
@@ -133,7 +142,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
                 >
                   {r.message}
                 </span>
-                {r.resolvedAt && <span className="chip" style={{ color: "var(--under)", borderColor: "var(--under)" }}>resolved</span>}
+                {r.resolvedAt && <span className="chip" style={{ color: "var(--under)", borderColor: "var(--under)" }}>fixed</span>}
               </button>
               {r.resolvedAt && (
                 <div style={{ margin: "3px 0 0", fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>

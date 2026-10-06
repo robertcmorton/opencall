@@ -47,9 +47,9 @@ export function AcceptInvite({ token }: { token: string }) {
       <main className="viewer-gate">
         <div className="vg-card">
           <BrandWordmark size={20} />
-          <h1 className="vg-title">This invitation has expired</h1>
+          <h1 className="vg-title">This invitation link doesn&apos;t work any more</h1>
           <p className="vg-blurb">
-            Invitations work once and last seven days. Ask whoever sent it to invite you again.
+            Each invitation link works once, and only for seven days. Ask the person who invited you to send a new one.
           </p>
         </div>
       </main>
@@ -72,7 +72,7 @@ export function AcceptInvite({ token }: { token: string }) {
         router.push("/admin");
       })
       .catch((err: unknown) => {
-        setError(String((err as Error)?.message ?? err));
+        setError(err instanceof Error ? err.message : String(err));
         setBusy(false);
       });
   };
@@ -83,7 +83,7 @@ export function AcceptInvite({ token }: { token: string }) {
         <BrandWordmark size={20} />
         <h1 className="vg-title">{invite.company ? `Join ${invite.company}` : "Join"}</h1>
         <p className="vg-blurb">
-          You have been given access to <strong>{invite.access}</strong>. Set a name and a password and it is yours.
+          You have been invited to <strong>{invite.access}</strong>. Choose your name and a password to finish joining.
         </p>
         <form onSubmit={submit} className="vg-form">
           <label className="field-label">Your name</label>

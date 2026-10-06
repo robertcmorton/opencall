@@ -37,7 +37,7 @@ export function EventTypesPanel() {
               <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
               <span style={{ color: "var(--text-2)" }}>{describeEndings(t)}</span>
               {(t.resultDuePhrases?.length ?? 0) > 0 && (
-                <span className="chip" data-tip="No result is asked for before the show reaches a row worded like this">
+                <span className="chip" data-tip="The result buttons won't appear until the show reaches a row with these words in it">
                   not before “{t.resultDuePhrases!.join("” / “")}”
                 </span>
               )}
@@ -48,7 +48,7 @@ export function EventTypesPanel() {
                 <button
                   className="btn btn-sm btn-ghost"
                   style={{ color: "var(--over)" }}
-                  data-tip="Sheets already set to this keep the setting, but it stops being offered"
+                  data-tip="Stop offering this kind of show. Sheets that already use it keep it."
                   onClick={() => void api.deleteEventType(t.rowId).then(reload)}
                 >
                   Remove
@@ -62,8 +62,8 @@ export function EventTypesPanel() {
       <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <strong>Built in</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          These come with the app and cannot be changed. Add your own above if none of them ends the way your
-          competition does.
+          These come with the app and can&apos;t be changed. If none of them ends the way your competition does, add
+          your own above.
         </span>
         {EVENT_TYPES.map((t) => (
           <div key={t.id} className={t.provisional ? "type-soon" : undefined} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
@@ -76,11 +76,11 @@ export function EventTypesPanel() {
   );
 }
 
-const OUTCOME_LABEL: Record<string, string> = { win: "Win", lose: "Lose", draw: "Draw", golden: "an extra period" };
+const OUTCOME_LABEL: Record<string, string> = { win: "Win", lose: "Lose", draw: "Draw", golden: "extra time" };
 const describeEndings = (t: EventTypeSpec): string => {
   const at = t.fullTime.map((o) => OUTCOME_LABEL[o] ?? o).join(", ");
-  if (t.afterExtra.length === 0) return `Ends as: ${at}`;
-  return `Ends as: ${at}; after ${t.extraLabel || "extra time"}: ${t.afterExtra.map((o) => OUTCOME_LABEL[o] ?? o).join(", ")}`;
+  if (t.afterExtra.length === 0) return `Can end as: ${at}`;
+  return `Can end as: ${at}. After ${t.extraLabel || "extra time"}: ${t.afterExtra.map((o) => OUTCOME_LABEL[o] ?? o).join(", ")}`;
 };
 
 /**
@@ -103,7 +103,7 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
 
   const missing = [
     !label.trim() && "A name for this kind of show",
-    shape !== "single" && shape !== "draw" && !extraLabel.trim() && "What the extra period is called",
+    shape !== "single" && shape !== "draw" && !extraLabel.trim() && "What extra time is called",
   ].filter((v): v is string => typeof v === "string");
 
   if (!open)
@@ -147,8 +147,8 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
       <div style={{ flexBasis: "100%" }}>
         <strong>Add a kind of show</strong>
         <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          What this decides is what the result chooser offers when the match ends. Everything else about a sheet comes
-          from the sheet.
+          This only decides which result buttons you get when the match ends (win, lose, draw…). Everything else comes
+          from the run sheet itself.
         </span>
       </div>
       <div>
@@ -165,15 +165,15 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
       <div>
         <label className="field-label">How it ends</label>
         <select className="input" value={shape} onChange={(e) => setShape(e.target.value as typeof shape)} style={{ minWidth: 300 }}>
-          <option value="draw">Win, lose or draw — a level score is the result</option>
-          <option value="extra-must-settle">Level goes to an extra period, played until somebody leads</option>
-          <option value="extra-can-draw">Level goes to an extra period, which can still end level</option>
-          <option value="single">One ending — it is whatever is on the sheet</option>
+          <option value="draw">Win, lose or draw. If the scores are level, it is a draw.</option>
+          <option value="extra-must-settle">If the scores are level, they play extra time until someone is ahead</option>
+          <option value="extra-can-draw">If the scores are level, they play extra time, and it can still be a draw</option>
+          <option value="single">Only one ending: whatever is on the sheet</option>
         </select>
       </div>
       {(shape === "extra-can-draw" || shape === "extra-must-settle") && (
         <div>
-          <label className="field-label">The extra period is called</label>
+          <label className="field-label">Extra time is called</label>
           <input
             className={"input " + (tried && !extraLabel.trim() ? "field-missing" : "")}
             value={extraLabel}
@@ -188,9 +188,9 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
         <div>
           <label
             className="field-label"
-            data-tip="Words as they appear on your run sheets. The chooser appears in the last 30 seconds of the item before the endings — this stops it appearing before the match has reached the period where a result is possible at all."
+            data-tip="Type words exactly as they appear on your run sheets. The result buttons normally appear 30 seconds before the endings. This stops them appearing until the match reaches the part where it could actually end."
           >
-            Hold the result chooser until (optional)
+            Wait for this row before showing the result buttons (optional)
           </label>
           <input
             className="input"
@@ -200,14 +200,14 @@ function AddEventTypeForm({ onDone }: { onDone: () => void }) {
             style={{ minWidth: 240 }}
           />
           <span className="field-hint">
-            Separate with commas. Matched against the row titles on your sheet — leave empty and the chooser simply
-            appears 30 seconds before the endings.
+            Put a comma between each one. We look for these words in your row titles. Leave it empty and the result
+            buttons appear 30 seconds before the endings.
           </span>
         </div>
       )}
       <div className="field-actions">
         <button className="btn btn-primary" type="submit">
-          Add
+          Add this kind of show
         </button>
         <button className="btn btn-ghost" type="button" onClick={() => setOpen(false)}>
           Cancel
@@ -252,8 +252,8 @@ export function ImportedSheetsPanel({ custom = [] }: { custom?: EventTypeSpec[] 
       <div>
         <strong>Imported run sheets</strong>
         <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          Every sheet imported here is kept as it arrived. Grouped by kind of show, because that is what says where the
-          import rules have been tested and where they have only been guessed at.
+          We keep a copy of every file imported here, just as it arrived. They are grouped by kind of show, so you can
+          see which kinds of sheet have been tried and which haven&apos;t.
         </span>
       </div>
       {sheets.length === 0 && <span style={{ color: "var(--text-3)" }}>Nothing imported yet.</span>}
@@ -279,7 +279,7 @@ export function ImportedSheetsPanel({ custom = [] }: { custom?: EventTypeSpec[] 
                 <a
                   className="btn btn-sm btn-ghost"
                   href={`${API_URL}/rundowns/${s.rundownId}/source`}
-                  data-tip="The file exactly as it was imported"
+                  data-tip="Download the file exactly as it was imported"
                 >
                   Download
                 </a>

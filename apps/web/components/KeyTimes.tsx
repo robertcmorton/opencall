@@ -62,7 +62,7 @@ export function KeyTimesEditor({
         type="button"
         className={`chip ${open ? "is-on" : ""}`}
         style={{ cursor: "pointer" }}
-        data-tip="Key times — doors, soundcheck, on-air…"
+        data-tip="Important times for the day, like doors, soundcheck and on air. Click to see them."
         onClick={() => setOpen((o) => !o)}
       >
         {summary || (canEdit ? "+ key times" : "key times")}
@@ -75,7 +75,7 @@ export function KeyTimesEditor({
           </div>
           {keyTimes.length === 0 && (
             <div style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", padding: "2px 0 8px" }}>
-              None yet — doors, soundcheck, on-air…
+              None yet. Add times like doors, soundcheck or on air.
             </div>
           )}
           {keyTimes.map((kt) => (
@@ -85,7 +85,7 @@ export function KeyTimesEditor({
                 {formatTimeOfDay(kt.sec, use24h)}
               </span>
               {canEdit && (
-                <button className="btn btn-sm btn-ghost" onClick={() => remove(kt.id)}>
+                <button className="btn btn-sm btn-ghost" onClick={() => remove(kt.id)} aria-label={`Remove ${kt.label}`} data-tip="Remove this time">
                   ✕
                 </button>
               )}
@@ -95,7 +95,7 @@ export function KeyTimesEditor({
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
               <input
                 className="input"
-                placeholder="Label"
+                placeholder="What happens (e.g. Doors)"
                 style={{ flex: 1, minWidth: 90 }}
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -109,7 +109,7 @@ export function KeyTimesEditor({
                 onKeyDown={(e) => e.key === "Enter" && add()}
               />
               <button className="btn btn-sm" onClick={add} disabled={!label.trim() || parseTimeLoose(time) == null}>
-                Add
+                Add time
               </button>
             </div>
           )}

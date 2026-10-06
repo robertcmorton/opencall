@@ -4677,15 +4677,6 @@ export function RundownEditor({
           </button>
         </SideNavSection>
       )}
-      {/* Last on every sheet's menu, for everyone — crew on a view-only link
-          included: what every button does, in plain words. No "?" shortcut:
-          on the show page a stray key would take the caller off the console. */}
-      <SideNavSection heading="Help">
-        <Link className="menu-item" href="/help" style={{ textDecoration: "none" }}>
-          <span className="check" />
-          How OpenCall works
-        </Link>
-      </SideNavSection>
     </>
   );
 

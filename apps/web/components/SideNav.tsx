@@ -105,7 +105,7 @@ export function WithSideNav({
         </Link>
         {title && <div className="sidenav-title">{title}</div>}
         <nav className="sidenav-section">
-          <div className="menu-heading">Navigate</div>
+          <div className="menu-heading">Go to</div>
           {/* No "Login" item here.
               It pointed at "/", which is where the wordmark directly above it
               already goes, and it offered to sign in to somebody who was
@@ -115,6 +115,12 @@ export function WithSideNav({
           <Link className="menu-item" href="/admin" prefetch={false}>
             <span className="check" />
             Dashboard
+          </Link>
+          {/* On every page's menu, crew on a view-only link included: what
+              every button does, in plain words. */}
+          <Link className="menu-item" href="/help" prefetch={false}>
+            <span className="check" />
+            Help — how OpenCall works
           </Link>
         </nav>
         {settings}

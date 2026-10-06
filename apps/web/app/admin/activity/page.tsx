@@ -12,30 +12,30 @@ type Entry = Awaited<ReturnType<typeof api.audit>>[number];
 /** What each recorded action means, in words. */
 const ACTION_LABEL: Record<string, string> = {
   "login.ok": "Signed in",
-  "login.failed": "Failed sign-in",
-  "login.throttled": "Sign-in paused (too many attempts)",
+  "login.failed": "Tried to sign in, but the email or password was wrong",
+  "login.throttled": "Sign-in blocked for a minute (too many tries)",
   "password.changed": "Changed their password",
-  "password.change_failed": "Wrong current password",
+  "password.change_failed": "Tried to change password, but typed the old one wrong",
   "password.reset_by_admin": "Password reset by an administrator",
   "invite.sent": "Invitation sent",
-  "invite.withdrawn": "Invitation withdrawn",
+  "invite.withdrawn": "Invitation cancelled",
   "invite.accepted": "Accepted an invitation",
-  "user.created": "Account created",
+  "user.created": "Account made",
   "user.updated": "Account details changed",
   "user.deleted": "Account deleted",
-  "access.changed": "Access changed",
-  "token.user_rotated": "Personal token replaced",
-  "token.company_rotated": "Company token replaced",
-  "company.created": "Company created",
+  "access.changed": "Changed what someone can open",
+  "token.user_rotated": "Personal access token replaced",
+  "token.company_rotated": "Company access token replaced",
+  "company.created": "Company made",
   "company.deleted": "Company deleted",
   "event.deleted": "Event deleted",
   "event.archived": "Event archived",
   "sheet.deleted": "Show deleted",
   "sheet.archived": "Show archived",
-  "sheet.reimported": "Show re-imported",
-  "sheet.viewing_changed": "Show closed or reopened to viewers",
-  "code.created": "View-only link created",
-  "code.revoked": "View-only link revoked",
+  "sheet.reimported": "Show rebuilt from its file",
+  "sheet.viewing_changed": "Show closed to viewers, or opened again",
+  "code.created": "View-only link made",
+  "code.revoked": "View-only link switched off",
   "kind_of_show.deleted": "Kind of show deleted",
   "error_log.cleared": "Error log cleared",
   "sheet.change_undone": "Undid one change to a show",
@@ -46,7 +46,7 @@ const ACTION_LABEL: Record<string, string> = {
   "mcp.set_start_time": "AI assistant changed a start time",
   "mcp.add_rows": "AI assistant added rows",
   "mcp.move_row": "AI assistant moved a row",
-  "mcp.strike_row": "AI assistant struck or restored a row",
+  "mcp.strike_row": "AI assistant struck a row, or put one back",
   "mcp.delete_rows": "AI assistant deleted rows",
 };
 
@@ -73,7 +73,7 @@ export default function AdminActivityPage() {
       .catch(() => setFailed(true));
   }, [router]);
 
-  const who = (r: Entry) => r.actorName ?? (r.actor === "admin" ? "System Administrator" : r.actor?.startsWith("company:") ? "Company token" : r.actor ? "Account" : "Not signed in");
+  const who = (r: Entry) => r.actorName ?? (r.actor === "admin" ? "System Administrator" : r.actor?.startsWith("company:") ? "Company access token" : r.actor ? "Account" : "Not signed in");
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
@@ -82,11 +82,11 @@ export default function AdminActivityPage() {
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Account activity</h1>
             <p style={{ color: "var(--text-2)", margin: "2px 0 0", fontSize: "var(--fs-sm)" }}>
-              Sign-ins, passwords, access and anything deleted. Failed sign-ins are kept 90 days, everything else two years.
+              Who signed in, changed a password, changed someone&apos;s access or deleted something. Failed sign-ins are kept for 90 days, everything else for two years.
             </p>
           </header>
           {failed ? (
-            <div className="cmd-error" role="alert">Can't load the activity log — is the sync server reachable?</div>
+            <div className="cmd-error" role="alert">Can&apos;t load the activity list because the app can&apos;t reach its server. Reload the page in a moment.</div>
           ) : rows == null ? (
             <div className="panel" style={{ color: "var(--text-2)" }}>Loading…</div>
           ) : rows.length === 0 ? (
@@ -99,7 +99,7 @@ export default function AdminActivityPage() {
                     <th>When</th>
                     <th>Who</th>
                     <th>What</th>
-                    <th>From</th>
+                    <th data-tip="The internet address the person used">From</th>
                   </tr>
                 </thead>
                 <tbody>

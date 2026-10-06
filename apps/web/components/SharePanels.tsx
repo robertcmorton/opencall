@@ -54,7 +54,7 @@ function ColumnChoice({
   const locked = (c: ColumnDef) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration";
   return (
     <div className="panel" style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 4 }}>
-      <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Shows:</span>
+      <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>This link shows:</span>
       {columns.map((c) => (
         <label key={c.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, opacity: locked(c) ? 0.6 : 1 }}>
           <input
@@ -73,7 +73,7 @@ function ColumnChoice({
       ))}
       {chosen && chosen.length > 0 && (
         <button className="btn btn-sm btn-ghost" onClick={() => onChange(null)}>
-          Back to the default
+          Go back to the usual columns
         </button>
       )}
     </div>
@@ -163,8 +163,8 @@ export function JoinCodesPanel({
       <div className="panel" style={panelStyle}>
         <strong>View-only links</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          A link opens this run sheet read-only, and it is the same link for everybody — send it to whoever needs to
-          watch. Running or editing the show needs an account.
+          A view-only link lets people look at this run sheet without changing anything. Everyone gets the same link,
+          so send it to anyone who needs to follow along. To run or edit the show, people need an account.
         </span>
         {/* One button, and it always works.
             There was a "who is this link for?" box first, which asked a question
@@ -176,7 +176,7 @@ export function JoinCodesPanel({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button
             className="btn btn-sm btn-primary"
-            data-tip="Copies a link that opens this run sheet read-only. Anyone with it can watch; nobody with it can change anything."
+            data-tip="Copy a link that lets people look at this run sheet. Anyone with it can follow the show, but nobody can change anything with it."
             onClick={() =>
               void copyViewOnlyLink(rundownId).then((url) => {
                 setCopied(url);
@@ -187,7 +187,7 @@ export function JoinCodesPanel({
             Copy view-only link
           </button>
           {copied && (
-            <span style={{ color: "var(--under)", fontSize: "var(--fs-sm)" }}>Copied — paste it wherever your crew is.</span>
+            <span style={{ color: "var(--under)", fontSize: "var(--fs-sm)" }}>Copied. Paste it into a message to your crew.</span>
           )}
         </div>
 
@@ -204,7 +204,7 @@ export function JoinCodesPanel({
                 <a
                   href={urlFor(c.joinCode)}
                   style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}
-                  data-tip="Opens the read-only view, exactly as a recipient sees it"
+                  data-tip="Open the link to see exactly what your crew will see"
                 >
                   /view/{rundownId}?code={c.joinCode}
                 </a>
@@ -215,13 +215,13 @@ export function JoinCodesPanel({
                 </button>
               )}
               {c.joinCode && (
-                <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }} data-tip="Can be typed on the sign-in page instead of following the link">
+                <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }} data-tip="People can type this code on the front page instead of using the link">
                   or type {c.joinCode}
                 </span>
               )}
               <button
                 className="btn btn-sm"
-                data-tip="Choose what this link shows. The default is what fits a phone — when, what, and whose job."
+                data-tip="Choose which columns people see with this link. Normally it shows what fits on a phone: when, what, and whose job it is."
                 onClick={() => setEditingCols(editingCols === c.id ? null : c.id)}
               >
                 Columns
@@ -229,10 +229,10 @@ export function JoinCodesPanel({
               <button
                 className="btn btn-sm btn-ghost"
                 style={{ color: "var(--over)" }}
-                data-tip="Revoke: this link stops working everywhere immediately, and its viewer list goes with it"
+                data-tip="Turn this link off. It stops working for everyone straight away, and the list of who opened it is cleared."
                 onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
               >
-                Revoke
+                Turn off
               </button>
               {editingCols === c.id && (
                 <ColumnChoice
@@ -245,20 +245,21 @@ export function JoinCodesPanel({
             </li>
           ))}
         </ul>
-        {live.length === 0 && <span style={{ color: "var(--text-3)" }}>No links yet.</span>}
+        {live.length === 0 && <span style={{ color: "var(--text-3)" }}>No links yet. Press Copy view-only link to make one.</span>}
 
         {guests.length > 0 && (
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
             <strong style={{ color: "var(--warn)" }}>Older guest links — still open</strong>
             <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)", marginBottom: 6 }}>
-              Guest passes are no longer issued. These still open the sheet read-only, but they never asked for a name, so
-              whoever is holding them will not appear below. Revoke them once you have replaced them with a view-only link.
+              We don&apos;t make guest passes any more. These old ones still let people look at the sheet, but they never
+              asked for a name, so you can&apos;t see who is using them in the list below. Once you have sent people a
+              view-only link instead, turn these off.
             </span>
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               {guests.map((c) => (
                 <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                   <span style={{ color: "var(--text-2)", minWidth: 120 }}>
-                    {c.label ?? <span style={{ color: "var(--text-3)" }}>unnamed Guest</span>}
+                    {c.label ?? <span style={{ color: "var(--text-3)" }}>Guest with no name</span>}
                   </span>
                   {c.token && (
                     <button
@@ -271,10 +272,10 @@ export function JoinCodesPanel({
                   <button
                     className="btn btn-sm btn-ghost"
                     style={{ color: "var(--over)" }}
-                    data-tip="Revoke: this link stops working immediately, for everyone holding it"
+                    data-tip="Turn this link off. It stops working for everyone straight away."
                     onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
                   >
-                    Revoke
+                    Turn off
                   </button>
                 </li>
               ))}
@@ -286,15 +287,16 @@ export function JoinCodesPanel({
           <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
             <strong style={{ color: "var(--warn)" }}>No longer working</strong>
             <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)", marginBottom: 6 }}>
-              Showcaller and Producer codes have been withdrawn. Anyone holding one is told to sign in. Revoke them to tidy up.
+              Showcaller and Producer codes don&apos;t work any more. Anyone who uses one is asked to sign in instead. Turn
+              them off to tidy up.
             </span>
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
               {withdrawn.map((c) => (
                 <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
                   <code style={{ opacity: 0.6, letterSpacing: "0.15em" }}>{c.joinCode}</code>
-                  <span style={{ color: "var(--text-3)" }}>{c.role}</span>
+                  <span style={{ color: "var(--text-3)" }}>{c.role === "caller" ? "Showcaller code" : c.role === "editor" ? "Producer code" : c.role}</span>
                   <button className="btn btn-sm btn-ghost" onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}>
-                    Revoke
+                    Turn off
                   </button>
                 </li>
               ))}
@@ -321,7 +323,7 @@ export function JoinCodesPanel({
         </div>
 
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          <strong>Who has it open</strong>
+          <strong>Who has opened a link</strong>
           {viewers.length === 0 ? (
             <span style={{ display: "block", color: "var(--text-3)" }}>Nobody has opened a link yet.</span>
           ) : (
@@ -332,7 +334,7 @@ export function JoinCodesPanel({
                   {v.roles && (
                     <span
                       style={{ color: "var(--accent-text)", background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: 4, padding: "0 5px", fontWeight: 600 }}
-                      data-tip="What they picked as their role — their own words, not an assignment"
+                      data-tip="The job they said they do when they opened the link. They chose it themselves."
                     >
                       {v.roles}
                     </span>
@@ -362,7 +364,7 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
   return (
     <button
       className={`btn btn-sm ${armed ? "btn-danger is-on" : ""}`}
-      data-tip="Replace this run sheet's content with this version (a 'Before restore' snapshot is saved first)"
+      data-tip="Make the sheet look like this version again. A copy of how it looks now is saved first, called Before restore."
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -372,10 +374,10 @@ function RestoreHereButton({ snapshotId }: { snapshotId: string }) {
         void api
           .restoreSnapshotInPlace(snapshotId)
           .then(() => window.location.reload())
-          .catch((err) => window.alert(String(err)));
+          .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
       }}
     >
-      {armed ? "Replace current content?" : "Restore here"}
+      {armed ? "Press again to replace the sheet" : "Restore here"}
     </button>
   );
 }
@@ -422,7 +424,7 @@ function WhatRestoringUndoes({ snapshotId }: { snapshotId: string }) {
     );
   const lines: string[] = [];
   if (c) {
-    if (c.same) lines.push("Nothing — the sheet is the same as this version.");
+    if (c.same) lines.push("Nothing. The sheet already matches this version.");
     const n = c.counts;
     if (n.removed) lines.push(`Removes ${rowWord(n.removed)} added since: ${names(c.removed, n.removed)}`);
     if (n.added) lines.push(`Brings back ${rowWord(n.added)} deleted since: ${names(c.added, n.added)}`);
@@ -433,7 +435,7 @@ function WhatRestoringUndoes({ snapshotId }: { snapshotId: string }) {
   }
   return (
     <span style={{ fontSize: "var(--fs-sm)", color: "var(--text-2)", display: "grid", gap: 2, paddingTop: 2 }}>
-      {failed ? failed : !c ? "Comparing…" : lines.map((l, i) => <span key={i}>{l}</span>)}
+      {failed ? failed : !c ? "Checking…" : lines.map((l, i) => <span key={i}>{l}</span>)}
     </span>
   );
 }
@@ -474,8 +476,9 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
         <div>
           <button
             className="btn btn-sm"
+            data-tip="Save a copy of the sheet as it is right now, so you can go back to it later"
             onClick={() => {
-              const label = window.prompt("Version label", "Manual save");
+              const label = window.prompt("Give this version a name so you can find it later", "Saved by hand");
               if (label !== null) void api.createSnapshot(rundownId, label || undefined).then(reload);
             }}
           >
@@ -488,13 +491,14 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
             style={{ textDecoration: "none" }}
             href={`${API_URL}/rundowns/${rundownId}/report?format=csv`}
             download
+            data-tip="A spreadsheet file of what really happened: when each row actually started and how long it ran"
           >
             Download as-run report (CSV)
           </a>
         </div>
         {snapshots.length === 0 && (
           <span style={{ color: "var(--text-3)" }}>
-            No versions yet. One is saved automatically when a show starts, and before every change an AI assistant makes.
+            No versions yet. A version is saved for you when a show starts, and before every change an AI assistant makes.
           </span>
         )}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10, maxHeight: "55vh", overflowY: "auto" }}>
@@ -518,7 +522,7 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
                 <RestoreHereButton snapshotId={s.id} />
                 <button
                   className="btn btn-sm"
-                  data-tip="Copy this version into a new show, leaving this one untouched"
+                  data-tip="Make a new show from this version. This show stays as it is."
                   onClick={() =>
                     void api
                       .restoreSnapshot(s.id)

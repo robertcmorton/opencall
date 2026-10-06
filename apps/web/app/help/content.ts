@@ -227,12 +227,12 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "new-show",
-        name: "Add a show (+ Rundown)",
+        name: "Add a show (+ Create show)",
         forWhat: "Makes a new, empty run sheet inside an event.",
         steps: [
           "At the foot of the event, under **Add a show**, type a **Show name**.",
           "Choose **Start blank**, or pick a saved template to copy.",
-          "Press **+ Rundown**.",
+          "Press **+ Create show**.",
         ],
       },
       {
@@ -910,7 +910,7 @@ export const SECTIONS: HelpSection[] = [
           "On the show page, open the menu (☰) and choose **View-only links**.",
           "Press **Copy view-only link** and send it to your crew.",
           "Press **Columns** on a link to choose what it shows.",
-          "Press **Revoke** to stop a link working, everywhere, at once.",
+          "Press **Turn off** to stop a link working, everywhere, at once.",
         ],
         who: CALLER,
         good: "The panel also lists who can open the sheet with an account, and who has it open right now. You can also copy a link from the show's ⋯ menu on the dashboard.",
@@ -975,7 +975,7 @@ export const SECTIONS: HelpSection[] = [
         id: "old-guest-links",
         name: "Older guest links",
         forWhat: "Guest links handed out before view-only links existed still open the sheet.",
-        how: "They are listed in the **View-only links** panel. Press **Revoke** to close one.",
+        how: "They are listed in the **View-only links** panel. Press **Turn off** to close one.",
         who: CALLER,
       },
     ],
@@ -1144,7 +1144,7 @@ export const SECTIONS: HelpSection[] = [
         name: "Users & access",
         forWhat: "Lists the people who can sign in, and what each one can open.",
         steps: [
-          "Press **+ User**, type a name and email, and press **Create user and issue token**.",
+          "Press **+ User**, type a name and email, and press **Create account**.",
           "Press **Change access** beside anyone to give or take away a company or an event, then **Save access**.",
           "Press **Delete** to remove someone.",
         ],

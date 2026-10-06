@@ -39,27 +39,27 @@ export default function AccountPage() {
   if (!me)
     return (
       <main style={{ padding: "4rem", textAlign: "center", color: "var(--text-3)" }}>
-        {unreachable ? "Can't reach the sync server — you are still signed in. Reload in a moment." : "Loading…"}
+        {unreachable ? "The app can't reach its server right now. You are still signed in. Reload the page in a moment." : "Loading…"}
       </main>
     );
 
   const access =
     me.role === "admin"
-      ? "Administrator — full access to every company, event, and show."
+      ? "System Administrator. You can open and change every company, event and show."
       : me.role === "company"
-        ? `Company access for ${me.teamName ?? "your company"} — create events and views, run shows.`
+        ? `You are signed in for ${me.teamName ?? "your company"}. You can make events, share view-only links and run shows.`
         : me.role === "user"
           ? (me.grants ?? []).length > 0
-            ? `Access: ${(me.grants ?? []).map((g) => g.kind).join(", ")}`
-            : "No grants yet — ask your admin."
-          : "Not signed in.";
+            ? `What you can do: ${[...new Set((me.grants ?? []).map((g) => ACCESS_WORDS[g.kind] ?? g.kind))].join(", ")}.`
+            : "You can't open anything yet. Ask your System Administrator to give you access."
+          : "You are not signed in.";
 
   return (
     <main style={{ maxWidth: 560, margin: "6vh auto", padding: "0 1.2rem", display: "grid", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
         <h1 style={{ fontSize: "1.3rem", margin: 0 }}>My account</h1>
         <span style={{ flex: 1 }} />
-        <Link href="/admin" style={{ color: "var(--accent-text)", fontSize: "var(--fs-sm)" }}>
+        <Link href="/admin" style={{ color: "var(--accent-text)", fontSize: "var(--fs-sm)", display: "inline-block", padding: "4px 0" }}>
           ← Dashboard
         </Link>
       </div>
@@ -81,7 +81,7 @@ export default function AccountPage() {
               void api
                 .updateMe({ name: name.trim() || undefined, email: email.trim() || undefined })
                 .then(() => setSaved("Details saved."))
-                .catch((err) => setSaved(String(err)));
+                .catch((err) => setSaved(err instanceof Error ? err.message : String(err)));
             }}
           >
             <strong>My details</strong>
@@ -116,9 +116,9 @@ export default function AccountPage() {
                 .then(() => {
                   setCurrent("");
                   setNext("");
-                  window.alert("Password changed. Other signed-in devices and connected assistants were signed out.");
+                  window.alert("Your password is changed. Any other phones or computers signed in as you have been signed out, and so have any AI assistants you connected.");
                 })
-                .catch((err) => window.alert(String(err)));
+                .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
             }}
           >
             <strong>Change password</strong>
@@ -139,9 +139,9 @@ export default function AccountPage() {
         </>
       ) : (
         <div className="panel" style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          You're signed in with a {me.role === "admin" ? "server admin" : me.role === "company" ? "company" : ""} token —
-          token sign-ins have no editable profile. Email accounts (created under Users &amp; access) can edit their name,
-          email, and password here.
+          You signed in with {me.role === "admin" ? "an administrator" : me.role === "company" ? "a company" : "an"} access
+          token (a long sign-in code), so there is no name, email or password to change here. People who sign in with an
+          email and password can change their details on this page.
         </div>
       )}
 
@@ -149,6 +149,16 @@ export default function AccountPage() {
     </main>
   );
 }
+
+/** What each kind of access lets you do, in words, for the summary at the top. */
+const ACCESS_WORDS: Record<string, string> = {
+  admin: "everything in this app",
+  company: "run every event at a company",
+  company_view: "look at every event at a company",
+  event: "run one event",
+  edit: "write the run sheets for one event",
+  view: "look at the run sheets for one event",
+};
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
@@ -172,8 +182,9 @@ function AssistantsPanel() {
     <div className="panel" style={{ display: "grid", gap: 10 }}>
       <strong>AI assistants</strong>
       <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-        An assistant such as Claude can read your run sheets and, if you allow it, change them — only the sheets you can, never
-        running the show. To connect one, add a custom connector with this address and sign in when it asks:
+        You can connect an AI assistant (a chat helper) to your account. It can read your run sheets and, if you say yes,
+        change them. It can only reach the sheets you can, and it can never run a show. To connect one, add this web
+        address in your assistant&apos;s settings as a new connector, then sign in when it asks:
       </span>
       <code style={{ fontSize: "var(--fs-sm)", padding: "6px 8px", borderRadius: 6, background: "var(--surface-2, rgba(127,127,127,.12))", overflowWrap: "anywhere" }}>
         {mcpUrl}
@@ -181,7 +192,7 @@ function AssistantsPanel() {
       {list == null ? (
         <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Loading…</span>
       ) : list.length === 0 ? (
-        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>No assistants connected.</span>
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>You have not connected any AI assistants.</span>
       ) : (
         list.map((a) => (
           <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -191,20 +202,20 @@ function AssistantsPanel() {
                 {a.host ? <span style={{ color: "var(--text-3)" }}> · {a.host}</span> : null}
               </span>
               <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-                {a.scopes.includes("sheets:write") ? "Reads and changes sheets" : "Reads sheets"}
-                {a.scopes.includes("errors:read") ? ", reads the error log" : ""} · connected {day(a.connectedAt)}
-                {a.lastUsedAt ? ` · last used ${day(a.lastUsedAt)}` : ""} · ends {day(a.endsAt)}
+                {a.scopes.includes("sheets:write") ? "Can read and change your sheets" : "Can read your sheets"}
+                {a.scopes.includes("errors:read") ? ", can read the error log" : ""} · connected {day(a.connectedAt)}
+                {a.lastUsedAt ? ` · last used ${day(a.lastUsedAt)}` : ""} · stops working {day(a.endsAt)}
               </span>
             </div>
             <button
               className="btn"
               type="button"
               onClick={() => {
-                if (!window.confirm(`Disconnect ${a.name}? It will stop working at once.`)) return;
+                if (!window.confirm(`Disconnect ${a.name}? It will stop working straight away and won't be able to see your sheets.`)) return;
                 void api
                   .disconnectAssistant(a.id)
                   .then(load)
-                  .catch((err) => window.alert(String(err)));
+                  .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
               }}
             >
               Disconnect

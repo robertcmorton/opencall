@@ -40,12 +40,12 @@ export function describeShowDrift(
   const raw = activeTitle?.split("\n")[0]?.trim() ?? "";
   const named = raw && raw !== "—" ? `“${raw.slice(0, 40)}”` : "the row on air";
   const planned = activePlannedSec != null ? formatTimeOfDayWithDay(activePlannedSec, use24h) : null;
-  const on = planned ? `${named}, which the sheet puts at ${planned}` : named;
+  const on = planned ? `${named}, which the sheet says starts at ${planned}` : named;
   const late =
     Math.abs(live.showDriftSec) < 1
       ? "on time"
       : `${signed(live.showDriftSec)} ${live.showDriftSec > 0 ? "behind" : "ahead"}`;
-  const over = live.rowOverSec > 1 ? ` It has also run ${formatDuration(live.rowOverSec)} past its length.` : "";
+  const over = live.rowOverSec > 1 ? ` That row has also run ${formatDuration(live.rowOverSec)} longer than planned.` : "";
   /**
    * And what time that actually puts you off.
    *
@@ -58,9 +58,9 @@ export function describeShowDrift(
    */
   const off =
     live.projectedEndSec != null
-      ? ` At this rate the show comes off at ${formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h)}.`
+      ? ` At this rate the show will finish at ${formatTimeOfDayWithDay(Math.round(live.projectedEndSec), use24h)}.`
       : "";
-  return `The show is ${late}, measured on ${on}.${over}${off}`;
+  return `The show is ${late}. We check this against ${on}.${over}${off}`;
 }
 
 export function LiveReadouts({
@@ -308,7 +308,7 @@ export function ShowStateControls({
               start();
             }}
             disabled={!channel.connected || orderedRowIds.length === 0}
-            data-tip={preflight.length > 0 ? "This sheet has something worth checking first" : undefined}
+            data-tip={preflight.length > 0 ? "There is something on this sheet you should check before you start" : undefined}
           >
             {Icon.play} {armStart ? "Start anyway" : "Start show"}
           </button>
@@ -345,7 +345,7 @@ export function ShowStateControls({
             <button
               className="btn btn-sm btn-positive"
               aria-label="Resume the show"
-              data-tip="Resume"
+              data-tip="Carry on with the show from where it was paused"
               onClick={() => channel.sendCmd("resume")}
             >
               {Icon.play} Resume
@@ -369,7 +369,7 @@ export function ShowStateControls({
             // the next press, and that is the one thing a screen reader must
             // not have to infer. See the Pause button above.
             aria-label={armStop ? "Confirm — end the show now" : "Stop the show"}
-            data-tip={armStop ? "Press again to end the show — or touch anything else to cancel" : "Stop the show — asks once to confirm"}
+            data-tip={armStop ? "Press again to end the show. Touch anything else to cancel." : "End the show. You press it twice, so it can't happen by accident."}
             onClick={() => {
               if (armStop) {
                 channel.sendCmd("stop");

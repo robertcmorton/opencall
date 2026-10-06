@@ -52,7 +52,7 @@ export function VersionBadge() {
     <button
       type="button"
       className="no-print"
-      title={`${full} — click to see what's new`}
+      title={`${full}. Click to see what's new.`}
       onClick={() => setOpen(true)}
       style={{
         position: "fixed",
@@ -61,7 +61,9 @@ export function VersionBadge() {
         zIndex: 30,
         background: "none",
         border: "none",
-        padding: "2px 4px",
+        // 24px tall at least, so a finger can hit it (it was 20).
+        padding: "4px 6px",
+        minHeight: 24,
         cursor: "pointer",
         font: "inherit",
         fontSize: 11,

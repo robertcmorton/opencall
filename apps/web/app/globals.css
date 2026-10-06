@@ -5626,3 +5626,30 @@ td.peer-cell::after {
   white-space: nowrap;
   border: 0;
 }
+
+/* Phone width (screen-size check, 6 Oct). The sheet's kind-of-show button
+   ("Rugby league (NRL) — regular season ▾") would not wrap, so it ran past the
+   screen and the whole dashboard slid 3px sideways. It wraps now; the words
+   matter more than one line. */
+.sheet-row .sr-meta > div {
+  min-width: 0;
+  max-width: 100%;
+}
+.sheet-row .sr-meta .chip-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+/* Finger-sized: nothing you can press is under 24px tall (WCAG 2.5.8). */
+@media (pointer: coarse) {
+  .sidenav-credit a {
+    display: inline-block;
+    padding-block: 4px;
+  }
+  input[type="range"] {
+    min-height: 32px;
+  }
+}
+.sheet-row .sr-meta .chip-btn {
+  border-radius: 10px; /* a pill on two lines reads as a stadium, not a button */
+}

@@ -57,7 +57,7 @@ export default function AuthorizePage() {
   if (problem || request?.fatal)
     return shell(
       <div className="panel" style={{ display: "grid", gap: 8 }}>
-        <strong>This connection can't go ahead</strong>
+        <strong>This assistant can&apos;t be connected</strong>
         <span style={{ color: "var(--text-2)" }}>{request?.fatal ?? problem}</span>
       </div>,
     );
@@ -69,8 +69,8 @@ export default function AuthorizePage() {
       <h1 style={{ fontSize: "1.3rem", margin: 0 }}>Connect {client.name} to OpenCall?</h1>
       <div className="panel" style={{ display: "grid", gap: 4, fontSize: "var(--fs-sm)" }}>
         <span style={{ color: "var(--text-2)" }}>
-          It will act as <strong>{account?.name ?? account?.email ?? "you"}</strong>
-          {account?.name && account.email ? ` (${account.email})` : ""}, and can only reach the sheets this account can.
+          It will work as <strong>{account?.name ?? account?.email ?? "you"}</strong>
+          {account?.name && account.email ? ` (${account.email})` : ""}. It can only open the sheets you can open.
         </span>
         <span style={{ color: "var(--text-3)" }}>
           {client.loopbackOnly
@@ -82,7 +82,7 @@ export default function AuthorizePage() {
       </div>
 
       <div className="panel" style={{ display: "grid", gap: 12 }}>
-        <strong>It asks to</strong>
+        <strong>It wants to:</strong>
         {scopes.map((s) => (
           <label key={s.key} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 10px", alignItems: "start", opacity: s.available ? 1 : 0.6 }}>
             <input
@@ -95,23 +95,23 @@ export default function AuthorizePage() {
             <span>{s.title}</span>
             <span />
             <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-              {s.available ? s.detail : (s.whyNot ?? "Your account cannot do this, so it is not offered.")}
+              {s.available ? s.detail : (s.whyNot ?? "Your account can't do this, so you can't let the assistant do it either.")}
             </span>
           </label>
         ))}
       </div>
 
       <ul style={{ margin: 0, paddingLeft: "1.2rem", color: "var(--text-2)", fontSize: "var(--fs-sm)", display: "grid", gap: 4 }}>
-        <li>It can never start, step or stop a show.</li>
-        <li>While a show is live it can only edit text and strike rows.</li>
-        <li>It cannot change a sheet somebody else is editing.</li>
-        <li>Before every change it makes, the sheet as it was is saved in Versions, so any change can be undone.</li>
+        <li>It can never start a show, move it on, or stop it.</li>
+        <li>While a show is running, it can only change words and strike rows.</li>
+        <li>It can&apos;t change a sheet while someone else is editing it.</li>
+        <li>Before each change it makes, a copy of the sheet is saved in Version history, so you can always undo it.</li>
         <li>You can disconnect it at any time from My account.</li>
       </ul>
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button className="btn" type="button" disabled={busy} onClick={() => decide(false)}>
-          Deny
+          Don&apos;t allow
         </button>
         <button className="btn btn-primary" type="button" disabled={busy || ticked.length === 0} onClick={() => decide(true)}>
           Allow

@@ -35,17 +35,17 @@ export default function AdminErrorsPage() {
         <main className="admin-main">
           {unreachable && (
             <div className="cmd-error" role="alert" style={{ marginBottom: 12 }}>
-              Can't reach the sync server — you are still signed in. Reload in a moment.
+              The app can&apos;t reach its server right now. You are still signed in. Reload the page in a moment.
             </div>
           )}
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Error log</h1>
             <p style={{ color: "var(--text-2)", margin: "2px 0 0", fontSize: "var(--fs-sm)" }}>
-              Server, process, and browser errors — check regularly, fix what repeats.
+              A list of things that went wrong, on the server or in people&apos;s browsers. Check it now and then, and fix anything that keeps happening.
             </p>
           </header>
           {me != null && me.role !== "admin" ? (
-            <div className="panel" style={{ color: "var(--text-2)" }}>System Administrators only.</div>
+            <div className="panel" style={{ color: "var(--text-2)" }}>Only System Administrators can see the error log.</div>
           ) : (
             <ErrorLogPanel onClose={() => router.push("/admin")} />
           )}

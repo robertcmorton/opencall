@@ -57,7 +57,7 @@ export function ReconcilePanel({
     ignored.length === 0 ? null : (
       <div style={{ display: "grid", gap: 6 }}>
         <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-          Deliberate holds — check these again if you want them back:
+          Gaps you said are on purpose. Press Check it again to have the timing check look at one again:
         </span>
         {ignored.map((r) => (
           <div key={r.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
@@ -84,8 +84,8 @@ export function ReconcilePanel({
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <strong>✓ Timings agree</strong>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1 }}>
-            Every anchored time now agrees with the durations between them
-            {ignored.length > 0 && ", apart from the holds you have said are deliberate"}.
+            Every fixed time now matches the lengths of the rows in between
+            {ignored.length > 0 && ", apart from the gaps you said are on purpose"}.
           </span>
           <button className="btn btn-sm" onClick={onClose}>
             Done
@@ -147,7 +147,7 @@ export function ReconcilePanel({
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <strong>Timing check</strong>
         <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>
-          {open.length} of {gaps.length} to resolve
+          {open.length} of {gaps.length} still to sort out
         </span>
         <span style={{ flex: 1 }} />
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
@@ -156,14 +156,14 @@ export function ReconcilePanel({
       </div>
 
       <div style={{ fontSize: "var(--fs-sm)", lineHeight: 1.6, color: "var(--text-2)" }}>
-        The sheet's TIME column and its DURATION column disagree here. Starting from{" "}
+        The start times and the lengths of the rows don&apos;t add up here. Starting from{" "}
         <strong style={{ color: "var(--text)" }}>{from.title || "untitled"}</strong> at{" "}
         <span className="mono">{from.hardStartSec != null ? formatTimeOfDay(from.hardStartSec, use24h) : "—"}</span> and adding
-        up every duration between, <strong style={{ color: "var(--text)" }}>{to.title || "untitled"}</strong> should start at{" "}
+        up every length in between, <strong style={{ color: "var(--text)" }}>{to.title || "untitled"}</strong> should start at{" "}
         <strong className="mono" style={{ color: "var(--text)" }}>
           {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}
         </strong>{" "}
-        — but its printed time says{" "}
+        — but the sheet says{" "}
         <strong className="mono" style={{ color: "var(--text)" }}>
           {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec, use24h) : "—"}
         </strong>
@@ -172,9 +172,9 @@ export function ReconcilePanel({
           {formatDuration(Math.abs(current.gapSec))}
         </strong>{" "}
         {overlap
-          ? "MORE content than the clock allows — the items above run past the printed time."
-          : "of unaccounted time — the sheet sits idle before the printed time."}{" "}
-        Choose which number to trust:
+          ? "too much: the rows above it run past the time written on the sheet."
+          : "of empty time: nothing is planned before the time written on the sheet."}{" "}
+        Pick which number is right:
       </div>
 
       <div style={{ display: "grid", gap: 8 }}>
@@ -189,12 +189,12 @@ export function ReconcilePanel({
                 });
               }}
             >
-              “{(from.title || "untitled").slice(0, 24)}” spans the rows beneath it
+              “{(from.title || "untitled").slice(0, 24)}” happens during the rows under it
             </button>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-              Its <span className="mono">{formatDuration(from.durationSec ?? 0)}</span> covers the rows under it rather
-              than running before them, so it is counted once instead of twice. The length stays on the sheet — half
-              time is still fifteen minutes — it just leaves the running order.
+              Its <span className="mono">{formatDuration(from.durationSec ?? 0)}</span> happens at the same time as the
+              rows under it, not before them, so it should only be counted once. The length stays on the sheet (half
+              time is still fifteen minutes), but it no longer pushes the later rows back.
             </span>
           </div>
         )}
@@ -210,13 +210,12 @@ export function ReconcilePanel({
               });
             }}
           >
-            Change “{(absorb.title || "untitled").slice(0, 24)}” duration to {formatDuration(absorbNew)}
+            Change “{(absorb.title || "untitled").slice(0, 24)}” length to {formatDuration(absorbNew)}
           </button>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            Trust the printed times: “{(absorb.title || "untitled").slice(0, 24)}” goes from{" "}
+            The start times are right: “{(absorb.title || "untitled").slice(0, 24)}” changes from{" "}
             <span className="mono">{absorb.durationSec != null ? formatDuration(absorb.durationSec) : "—"}</span> to{" "}
-            <span className="mono">{formatDuration(absorbNew)}</span>, and the durations then meet the printed time
-            exactly.
+            <span className="mono">{formatDuration(absorbNew)}</span> long, and then everything adds up.
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
@@ -236,14 +235,14 @@ export function ReconcilePanel({
               });
             }}
           >
-            Change “{(to.title || "untitled").slice(0, 24)}” start to{" "}
-            {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"} &amp; shift below
+            Move “{(to.title || "untitled").slice(0, 24)}” to{" "}
+            {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}, and the rows below with it
           </button>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            Trust the durations: this row moves to{" "}
+            The lengths are right: this row moves to{" "}
             <span className="mono">{to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}</span>{" "}
-            and <strong>every fixed time below shifts with it</strong> — one fix, the whole sheet agrees again. One undo
-            reverses it all.
+            and <strong>every fixed time below moves with it</strong>. One fix and the whole sheet adds up again. One
+            Undo puts it all back.
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
@@ -263,13 +262,13 @@ export function ReconcilePanel({
               yRows.get(to.id)?.set("acceptedGapSec", current.gapSec);
             }}
           >
-            Ignore — the gap is deliberate
+            Leave it — the gap is on purpose
           </button>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            Both numbers are right — the sheet really does hold for{" "}
-            <span className="mono">{formatDuration(Math.abs(current.gapSec))}</span> here (doors, walk-in, a changeover).
-            Nothing changes and nothing moves. The check stops flagging it, for everybody, until the size of the gap
-            changes — edit a duration above it and it will ask again.
+            Both numbers are right. The show really does wait for{" "}
+            <span className="mono">{formatDuration(Math.abs(current.gapSec))}</span> here (for doors, walk-in or a
+            changeover). Nothing changes or moves. The check stops warning about it, for everyone, until the gap changes
+            size. If you change a length above it, it will ask again.
           </span>
         </div>
         {deliberateHolds}

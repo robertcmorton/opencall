@@ -163,7 +163,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
 
       {d.truncated && (
         <p style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", margin: 0 }}>
-          This change was large, so only its first rows of each kind are listed here. The counts are complete.
+          This was a big change, so only the first few rows of each kind are shown. The numbers in the headings count them all.
         </p>
       )}
     </main>
@@ -216,7 +216,7 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
   const n = preview?.counts;
   const previewLines = preview
     ? [
-        preview.same ? "Nothing — the sheet is already as it was before this change." : null,
+        preview.same ? "Nothing. The sheet already looks the way it did before this change." : null,
         n?.removed ? `Removes ${n.removed} row${n.removed === 1 ? "" : "s"} added since` : null,
         n?.added ? `Brings back ${n.added} row${n.added === 1 ? "" : "s"} deleted since` : null,
         n?.changed ? `Puts back ${n.changed} changed row${n.changed === 1 ? "" : "s"}` : null,
@@ -226,11 +226,11 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
 
   return (
     <div className="panel" style={{ display: "grid", gap: 10 }}>
-      <strong>Take it back</strong>
+      <strong>Ways to take it back</strong>
       <div style={{ display: "grid", gap: 6 }}>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          <strong>Undo just this change</strong> puts back what this change altered and keeps everything anybody has done since. Anything
-          changed again since is left alone and listed.
+          <strong>Undo just this change</strong> puts back only what this change did. Everything people have done since
+          stays. If something was changed again after this, it is left as it is and listed below.
         </span>
         {change.canUndo ? (
           <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -250,7 +250,7 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
         {outcome && (
           <span style={{ display: "grid", gap: 2, fontSize: "var(--fs-sm)" }}>
             <span>
-              {outcome.undone > 0 ? `Done — ${outcome.undone} thing${outcome.undone === 1 ? "" : "s"} put back.` : "Nothing could be put back."}
+              {outcome.undone > 0 ? `Done. ${outcome.undone} thing${outcome.undone === 1 ? "" : "s"} put back.` : "Nothing could be put back."}
               {outcome.entryId && (
                 <>
                   {" "}
@@ -272,8 +272,8 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
       {change.beforeSnapshotId && (
         <div style={{ display: "grid", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-            <strong>Restore to just before this</strong> puts the whole sheet back to how it was before this change — which also undoes
-            every change made since.
+            <strong>Restore to just before this</strong> puts the whole sheet back the way it was before this change. That
+            also undoes every change made after it.
           </span>
           {restored ? (
             <span>
@@ -285,7 +285,7 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
           ) : preview ? (
             <>
               <span style={{ display: "grid", gap: 2, fontSize: "var(--fs-sm)" }}>
-                <span>Restoring now would:</span>
+                <span>If you restore now, it will:</span>
                 {previewLines.map((l) => (
                   <span key={l} style={{ color: "var(--text-2)" }}>
                     · {l}

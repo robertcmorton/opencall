@@ -21,7 +21,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
   return (
     <div
       className="img-slot"
-      data-tip={value ? `${hint} — click to replace` : `${hint} — click to add, or drop an image`}
+      data-tip={value ? `${hint}. Click to change it.` : `${hint}. Click to add one, or drag a picture here.`}
       onClick={() => void pickImage().then((img) => img && onChange(img))}
       onDragOver={(e) => {
         e.preventDefault();
@@ -56,7 +56,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
         <button
           type="button"
           className="img-slot-x"
-          data-tip="Remove image"
+          data-tip="Remove this picture"
           onClick={(e) => {
             e.stopPropagation();
             onChange(null);
@@ -91,7 +91,7 @@ function EventTypeSelect({
   compact,
   invalid,
   custom = [],
-  placeholder = "Choose an event type…",
+  placeholder = "Choose a kind of show…",
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -106,7 +106,8 @@ function EventTypeSelect({
     <span style={{ display: "inline-flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
       <select
         className={`input ${invalid ? "field-missing" : ""}`}
-        data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch"
+        aria-label="Kind of show"
+        data-tip="This decides which result buttons you get when the show ends. A rugby league match ends differently from a product launch."
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
         style={compact ? { height: 30, fontSize: "var(--fs-sm)", padding: "0 8px" } : undefined}
@@ -173,14 +174,15 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
         <strong>Company created</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          Its access token is below. It is shown once — copy it somewhere safe before closing this.
+          Below is the company&apos;s access token: a long code that signs the company in. You will only see it this
+          once, so copy it somewhere safe before you close this.
         </span>
         <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
           {token}
         </code>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-sm btn-primary" onClick={() => void navigator.clipboard.writeText(token)}>
-            Copy token
+            Copy access token
           </button>
           <button
             className="btn btn-sm"
@@ -199,7 +201,7 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
 
   if (!open)
     return (
-      <button className="btn btn-primary" onClick={() => setOpen(true)}>
+      <button className="btn btn-primary" onClick={() => setOpen(true)} data-tip="Add a company. A company owns its own events and people.">
         {Icon.plus} Company
       </button>
     );
@@ -280,7 +282,7 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
     !location.trim() && "Event location",
     !startDate && "Start date",
     !endDate && "End date",
-    !isValidTimeZone(timezone) && "A valid time zone",
+    !isValidTimeZone(timezone) && "A time zone from the list",
   ].filter((v): v is string => typeof v === "string");
 
   if (!open)
@@ -361,12 +363,12 @@ function CreateEventForm({ onCreated, teamId }: { onCreated: () => void; teamId?
       <TimezoneField value={timezone} onChange={setTimezone} atDate={startDate} />
       <div>
         <label className="field-label">Usual kind of show</label>
-        <EventTypeSelect value={sport} onChange={setSport} placeholder="Leave to each run sheet…" />
+        <EventTypeSelect value={sport} onChange={setSport} placeholder="Choose on each run sheet instead…" />
       </div>
       {tried && <MissingFields missing={missing} />}
       {error && (
         <div role="alert" style={{ color: "var(--danger-text, #ffd9d9)", fontSize: "var(--fs-sm)", flexBasis: "100%" }}>
-          <strong>Not created</strong> — {error}
+          <strong>The event wasn&apos;t made.</strong> {error}
         </div>
       )}
       <div className="field-actions">
@@ -416,7 +418,8 @@ function CreateRundownForm({
       {templates.length > 0 && (
         <select
           className="input"
-          data-tip="Start the new show empty, or copy a saved template"
+          aria-label="Start from"
+          data-tip="Start with an empty sheet, or copy a sheet you saved as a template"
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
         >
@@ -428,8 +431,8 @@ function CreateRundownForm({
           ))}
         </select>
       )}
-      <button className="btn" type="submit">
-        {Icon.plus} Rundown
+      <button className="btn" type="submit" data-tip="Make a new, empty show with this name">
+        {Icon.plus} Create show
       </button>
     </form>
   );
@@ -504,7 +507,7 @@ function DatesEditor({
         className="btn btn-sm btn-primary"
         onClick={() => {
           if (end < start) {
-            setError("End date cannot be before the start date.");
+            setError("The end date can't be before the start date.");
             return;
           }
           void api
@@ -514,7 +517,7 @@ function DatesEditor({
               setError(null);
               onSaved();
             })
-            .catch((err) => setError(String(err)));
+            .catch((err) => setError(err instanceof Error ? err.message : String(err)));
         }}
       >
         Save
@@ -541,22 +544,22 @@ function MobileActions({ children }: { children: React.ReactNode }) {
 
 /** Prompt-based date editing for the mobile menu (desktop has the inline editor). */
 function promptDates(event: { id: string; startDate: string; endDate: string }, onSaved: () => void): void {
-  const start = window.prompt("Start date (YYYY-MM-DD)", event.startDate);
+  const start = window.prompt("Start date (year-month-day, like 2026-08-17)", event.startDate);
   if (start === null) return;
-  const end = window.prompt("End date (YYYY-MM-DD)", event.endDate < start ? start : event.endDate);
+  const end = window.prompt("End date (year-month-day, like 2026-08-17)", event.endDate < start ? start : event.endDate);
   if (end === null) return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
-    window.alert("Dates must be YYYY-MM-DD.");
+    window.alert("Type each date as year-month-day, like 2026-08-17.");
     return;
   }
   if (end < start) {
-    window.alert("End date cannot be before the start date.");
+    window.alert("The end date can't be before the start date.");
     return;
   }
   void api
     .patchEvent(event.id, { startDate: start, endDate: end })
     .then(onSaved)
-    .catch((err) => window.alert(String(err)));
+    .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
 }
 
 /**
@@ -617,7 +620,7 @@ function DangerButton({
       </button>
       {error && (
         <span role="alert" style={{ color: "var(--over)", fontSize: "var(--fs-xs)", maxWidth: 360, lineHeight: 1.35 }}>
-          Not deleted — {error}
+          It wasn&apos;t deleted. {error}
         </span>
       )}
     </>
@@ -699,7 +702,7 @@ function LiveChip({ session }: { session: LiveSession | undefined }) {
         // long ago that was. Three or four characters after a separator is the
         // smallest thing that answers "how stale?"; a second line of text beside
         // every chip would cost more room than the row has to give.
-        data-tip={`Still marked as ${session.state}, but nothing has moved for ${age}. A session ends only when someone presses Stop — if this show is over, open it and stop it.`}
+        data-tip={`This show still says it is ${session.state}, but nothing has happened in it for ${age}. A show only ends when someone presses Stop. If it is over, open it and press Stop.`}
       >
         {session.state === "paused" ? "left paused" : "left running"} · {age}
       </span>
@@ -839,7 +842,7 @@ export default function AdminPage() {
   }, [error, reload]);
 
   const rename = (kind: "event" | "rundown", id: string, current: string) => {
-    const name = window.prompt(`Rename ${kind}`, current);
+    const name = window.prompt(kind === "event" ? "New name for this event" : "New name for this show", current);
     if (!name || name === current) return;
     void (kind === "event" ? api.patchEvent(id, { name }) : api.patchRundown(id, { name })).then(reload);
   };
@@ -944,8 +947,8 @@ export default function AdminPage() {
               {me == null
                 ? "\u00a0"
                 : me.role === "company"
-                  ? "Your company's events and shows. Only your own data is visible here."
-                  : "One run sheet that calls the show — every screen follows, and the night stays on time."}
+                  ? "Your company's events and shows. Only your company's things are shown here."
+                  : "One shared run sheet for the whole show. Everyone sees the same thing at the same time, so the night stays on time."}
             </p>
           </div>
           {me?.role === "admin" && <CreateCompanyForm onCreated={reload} />}
@@ -957,11 +960,11 @@ export default function AdminPage() {
             momentary blip was told to run commands that mean nothing there. */}
         {error && (
           <div className="panel" style={{ borderColor: "var(--over)", color: "var(--over)", marginBottom: 16 }}>
-            Can’t reach the sync server — retrying.
+            Can’t reach the app’s server. Trying again every few seconds.
             {/^https?:\/\/(localhost|127\.0\.0\.1)/.test(API_URL) && (
               <>
                 {" "}
-                Run <code>pnpm dev</code> (and <code>pnpm seed</code> first).
+                For developers on this computer: run <code>pnpm dev</code> (and <code>pnpm seed</code> first).
               </>
             )}
           </div>
@@ -975,7 +978,10 @@ export default function AdminPage() {
         )}
 
 
-        <div style={{ display: "grid", gap: 20 }}>
+        {/* minmax(0, 1fr): a grid track otherwise grows to its widest content,
+            which at phone width was 0.6px wider than the screen — the whole
+            dashboard slid sideways by a pixel (layout audit, 6 Oct). */}
+        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 1fr)" }}>
           {groups.map((group) => (
             <section key={group.id}>
               {/* Lands the company's own actions on the same right edge as
@@ -997,7 +1003,7 @@ export default function AdminPage() {
                 <span style={{ flex: 1 }} />
                 {me?.role === "admin" && group.real && (() => {
                   const renameCompany = () => {
-                    const name = window.prompt("Rename company", group.name);
+                    const name = window.prompt("New name for this company", group.name);
                     if (name?.trim() && name.trim() !== group.name)
                       void api.patchCompany(group.id, { name: name.trim() }).then(reload);
                   };
@@ -1007,35 +1013,40 @@ export default function AdminPage() {
                     });
                   const rotate = () =>
                     void api.rotateCompanyToken(group.id).then(({ companyToken }) => {
-                      window.alert(`New token (the old one stops working):\n\n${companyToken}`);
+                      window.alert(`Here is the company's new access token. The old one has stopped working, so give this one to anyone who used the old one. You will only see it this once.\n\n${companyToken}`);
                       reload();
                     });
                   return (
                     <>
                       <Dropdown label="⋯" align="right" className="btn btn-sm">
-                        <button type="button" className="menu-item" onClick={renameCompany}>
+                        <button type="button" className="menu-item" onClick={renameCompany} data-tip="Change this company's name">
                           <span className="check" />
                           Rename
                         </button>
-                        <button type="button" className="menu-item" onClick={pickLogo} data-tip="Company logo — shown beside the company and on its events">
+                        <button type="button" className="menu-item" onClick={pickLogo} data-tip="Add the company logo. It shows next to the company name and on its events.">
                           <span className="check" />
                           Logo…
                         </button>
-                        <button type="button" className="menu-item" onClick={rotate}>
+                        <button
+                          type="button"
+                          className="menu-item"
+                          onClick={rotate}
+                          data-tip="Make a new access token for this company. The old one stops working straight away."
+                        >
                           <span className="check" />
                           New token…
                         </button>
                       </Dropdown>
                       <DangerButton
                         label="Delete company"
-                        confirmLabel={`Delete this company and its ${group.events.length} event${group.events.length === 1 ? "" : "s"}?`}
+                        confirmLabel={`Press again to delete this company and its ${group.events.length} event${group.events.length === 1 ? "" : "s"} for good`}
                         onConfirm={() => api.deleteCompany(group.id).then(reload)}
                       />
                     </>
                   );
                 })()}
               </div>
-              <div style={{ display: "grid", gap: 12, paddingLeft: 12, borderLeft: "2px solid var(--border-subtle)" }}>
+              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)", paddingLeft: 12, borderLeft: "2px solid var(--border-subtle)" }}>
                 {group.events.map((event) => (
             <section key={event.id} className="card">
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 4px", opacity: event.archivedAt ? 0.55 : 1 }}>
@@ -1044,7 +1055,7 @@ export default function AdminPage() {
                     date — they are the run sheet's, and they sit on its row. */}
                 <ImageSlot
                   value={event.image1}
-                  hint="Event brand — one image for the event"
+                  hint="Event logo"
                   onChange={(img) => void api.patchEvent(event.id, { image1: img }).then(reload)}
                 />
                 <div style={{ minWidth: 0 }}>
@@ -1062,24 +1073,24 @@ export default function AdminPage() {
                   <button
                     type="button"
                     className="menu-item"
-                    data-tip="Everyone whose access reaches this event — through the server, the company or the event itself"
+                    data-tip="See everyone who can open this event, and how they got that access"
                     onClick={() => setPeopleFor(peopleFor === event.id ? null : event.id)}
                   >
                     <span className="check">{peopleFor === event.id && Icon.check}</span>
                     People
                   </button>
-                  <button type="button" className="menu-item" onClick={() => rename("event", event.id, event.name)}>
+                  <button type="button" className="menu-item" onClick={() => rename("event", event.id, event.name)} data-tip="Change this event's name">
                     <span className="check" />
                     Rename
                   </button>
-                  <button type="button" className="menu-item" onClick={() => setDatesFor(event.id)}>
+                  <button type="button" className="menu-item" onClick={() => setDatesFor(event.id)} data-tip="Change the days this event runs">
                     <span className="check" />
                     Dates…
                   </button>
                   <button
                     type="button"
                     className="menu-item"
-                    data-tip="The event's location decides its timezone — clocks follow the daylight-saving rules in force there on the show date"
+                    data-tip="Where the event is. This sets its time zone, so every clock shows the local time there, daylight saving included."
                     onClick={() => setLocEvent(event)}
                   >
                     <span className="check" />
@@ -1089,6 +1100,7 @@ export default function AdminPage() {
                     type="button"
                     className="menu-item"
                     onClick={() => void api.archiveEvent(event.id, !event.archivedAt).then(reload)}
+                    data-tip={event.archivedAt ? "Put this event back on the dashboard" : "Hide this event from the dashboard. Nothing is deleted. Turn on Show archived to see it again."}
                   >
                     <span className="check" />
                     {event.archivedAt ? "Unarchive" : "Archive"}
@@ -1097,7 +1109,7 @@ export default function AdminPage() {
                                       <DangerButton
                               asMenuItem
                       label="Delete event"
-                      confirmLabel="Delete this event and its shows?"
+                      confirmLabel="Press again to delete this event and all its shows for good"
                       onConfirm={() => api.deleteEvent(event.id).then(reload)}
                     />
                 </Dropdown>
@@ -1118,7 +1130,7 @@ export default function AdminPage() {
                 <div className="panel" style={{ margin: "6px 0 10px", padding: "8px 12px" }}>
                   <strong style={{ fontSize: "var(--fs-sm)" }}>Who can open this event</strong>
                   {people == null ? (
-                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Looking…</span>
+                    <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Loading…</span>
                   ) : people.length === 0 ? (
                     <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Only the System Administrator.</span>
                   ) : (
@@ -1134,7 +1146,7 @@ export default function AdminPage() {
                     </ul>
                   )}
                   <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: 4 }}>
-                    Join codes and guest passes are listed on each sheet, under View-only links. The whole company is on Users &amp; access.
+                    Join codes and guest passes for a sheet are under View-only links on that sheet. To see everyone at the company, go to Users &amp; access.
                   </span>
                 </div>
               )}
@@ -1151,12 +1163,12 @@ export default function AdminPage() {
                     <div className="sr-images">
                       <ImageSlot
                         value={r.homeImage}
-                        hint="Home team — this show's first team"
+                        hint="Home team logo (the first team)"
                         onChange={(img) => void api.patchRundown(r.id, { homeImage: img }).then(reload)}
                       />
                       <ImageSlot
                         value={r.awayImage}
-                        hint="Away team — this show's second team"
+                        hint="Away team logo (the second team)"
                         onChange={(img) => void api.patchRundown(r.id, { awayImage: img }).then(reload)}
                       />
                     </div>
@@ -1179,7 +1191,7 @@ export default function AdminPage() {
                           >
                             <div className="menu-heading">Kind of show</div>
                             <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "2px 9px 6px", maxWidth: 240, lineHeight: 1.4 }}>
-                              Decides what the live result chooser offers — a rugby league match ends differently from a product launch.
+                              This decides which result buttons you get when the show ends. A rugby league match ends differently from a product launch.
                             </div>
                             {(["Sport", "Production"] as const).map((g) => (
                               <Fragment key={g}>
@@ -1225,7 +1237,7 @@ export default function AdminPage() {
                         {r.description && <span className="chip">{r.description}</span>}
                         <LiveChip session={live.get(r.id)} />
                         {r.viewingClosed && (
-                          <span className="chip chip-warn" data-tip="View-only links and read-only accounts are shut out. Reopen from the ⋯ menu.">
+                          <span className="chip chip-warn" data-tip="People with view-only links or look-only accounts can no longer open this sheet. To let them back in, choose Reopen to viewers in the ⋯ menu.">
                             Event ended
                           </span>
                         )}
@@ -1241,7 +1253,7 @@ export default function AdminPage() {
                           href={`/show/${r.id}`}
                           className="btn btn-sm btn-primary"
                           style={{ textDecoration: "none" }}
-                          data-tip="The showcaller console: run the show (start, pause, next) and edit live — everything in one screen"
+                          data-tip="Open the showcaller screen. From here you run the show (start, pause, next) and can change the sheet as you go."
                         >
                           Open show
                         </Link>
@@ -1250,7 +1262,7 @@ export default function AdminPage() {
                           href={`/edit/${r.id}`}
                           className="btn btn-sm btn-primary"
                           style={{ textDecoration: "none" }}
-                          data-tip="Edit the run sheet — your access changes the sheets of this event but never runs the show"
+                          data-tip="Change what is on the run sheet. You can edit this event's sheets, but you can't run the show."
                         >
                           Edit run sheet
                         </Link>
@@ -1259,17 +1271,17 @@ export default function AdminPage() {
                           href={`/view/${r.id}`}
                           className="btn btn-sm btn-primary"
                           style={{ textDecoration: "none" }}
-                          data-tip="Read-only: follows the live show — your access level for this event"
+                          data-tip="Watch the run sheet as the show runs. You can look, but you can't change anything."
                         >
                           View
                         </Link>
                       )}
                       <Dropdown label="⋯" align="right" className="btn btn-sm">
-                        <Link href={`/timer/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Full-screen timer for phones and confidence monitors — the item on air, what came before it and what is next">
+                        <Link href={`/timer/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="A big full-screen timer for phones and screens facing the stage. It shows what is on now, what just finished and what is next.">
                           <span className="check" />
                           Timer
                         </Link>
-                        <Link href={`/prompter/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Script prompter — large scrolling script that follows the caller">
+                        <Link href={`/prompter/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="The script in big letters for presenters to read. It scrolls along as the show moves on.">
                           <span className="check" />
                           Prompter
                         </Link>
@@ -1282,11 +1294,11 @@ export default function AdminPage() {
                                 className="menu-item"
                                 data-tip={
                                   r.viewingClosed
-                                    ? "View-only links and read-only accounts are shut out. Let them open this sheet again."
-                                    : "The event is done: stop the show if it is still running, and shut out view-only links and read-only accounts. You keep yours."
+                                    ? "Let people with view-only links or look-only accounts open this sheet again."
+                                    : "Use this when the event is over. It stops the show if it is still running, and people with view-only links or look-only accounts can no longer open the sheet. You can still open it."
                                 }
                                 onClick={() => {
-                                  if (!r.viewingClosed && !window.confirm(`End "${r.name}"? The show stops if it is running, and view-only links and read-only accounts stop opening it.`)) return;
+                                  if (!r.viewingClosed && !window.confirm(`End "${r.name}"? If the show is running it will stop, and people with view-only links or look-only accounts won't be able to open it any more. You can reopen it later.`)) return;
                                   void api.setViewing(r.id, !r.viewingClosed).then(reload);
                                 }}
                               >
@@ -1294,21 +1306,21 @@ export default function AdminPage() {
                                 {r.viewingClosed ? "Reopen to viewers" : "End event"}
                               </button>
                             )}
-                            <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Edit the sheet with no transport controls — safe while preparing content">
+                            <Link href={`/edit/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Change what is on the sheet, without the buttons that run the show. Safe to use while you get ready.">
                               <span className="check" />
                               Edit run sheet
                             </Link>
-                            <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="Read-only: follows the live show, nothing can be changed">
+                            <Link href={`/view/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="See the sheet the way crew see it. Nothing can be changed from here.">
                               <span className="check" />
                               Read-only view
                             </Link>
                             <button
                               type="button"
                               className="menu-item"
-                              data-tip="Copy a link that opens this run sheet read-only — for camera operators and crew"
+                              data-tip="Copy a link that lets crew, like camera operators, look at this run sheet. They can't change it."
                               onClick={() =>
                                 void copyViewOnlyLink(r.id).then((url) =>
-                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with it can watch this show live.`),
+                                  window.alert(`View-only link copied:\n\n${url}\n\nAnyone with this link can follow the show live, but can't change anything.`),
                                 )
                               }
                             >
@@ -1319,17 +1331,17 @@ export default function AdminPage() {
                             <button
                               type="button"
                               className="menu-item"
-                              data-tip="Read the stored file again with the latest import rules — links and codes keep working"
+                              data-tip="Build this sheet again from the file it was first made from. Links and join codes keep working."
                               onClick={() => setImportFor({ eventId: event.id, replace: { id: r.id, name: r.name } })}
                             >
                               <span className="check" />
                               Re-import file…
                             </button>
-                            <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)}>
+                            <button type="button" className="menu-item" onClick={() => rename("rundown", r.id, r.name)} data-tip="Change this show's name">
                               <span className="check" />
                               Rename
                             </button>
-                            <button type="button" className="menu-item" onClick={() => void api.duplicateRundown(r.id).then(reload)}>
+                            <button type="button" className="menu-item" onClick={() => void api.duplicateRundown(r.id).then(reload)} data-tip="Make a copy of this show and its sheet">
                               <span className="check" />
                               Duplicate
                             </button>
@@ -1337,6 +1349,7 @@ export default function AdminPage() {
                               type="button"
                               className="menu-item"
                               onClick={() => void api.archiveRundown(r.id, !r.archivedAt).then(reload)}
+                              data-tip={r.archivedAt ? "Put this show back on the dashboard" : "Hide this show from the dashboard. Nothing is deleted. Turn on Show archived to see it again."}
                             >
                               <span className="check" />
                               {r.archivedAt ? "Unarchive" : "Archive"}
@@ -1345,7 +1358,7 @@ export default function AdminPage() {
                                                           <DangerButton
                               asMenuItem
                                 label="Delete show"
-                                confirmLabel="Delete this show?"
+                                confirmLabel="Press again to delete this show for everyone"
                                 onConfirm={() => api.deleteRundown(r.id).then(reload)}
                               />
                           </>
@@ -1356,7 +1369,7 @@ export default function AdminPage() {
                 ))}
                 {event.rundowns.length === 0 && (
                   <li style={{ padding: "8px 10px", color: "var(--text-3)", fontSize: "var(--fs-sm)", borderTop: "1px solid var(--border-subtle)" }}>
-                    No shows yet.
+                    No shows yet. Add one below.
                   </li>
                 )}
               </ul>
@@ -1398,7 +1411,7 @@ export default function AdminPage() {
                     <button
                       type="button"
                       className="btn btn-import"
-                      data-tip="Create a show from an Excel, Numbers, CSV or PDF run sheet"
+                      data-tip="Make a show from a run sheet you already have, in a spreadsheet or PDF file"
                       onClick={() => setImportFor({ eventId: event.id })}
                     >
                       ⤒ Import run sheet…
@@ -1411,7 +1424,7 @@ export default function AdminPage() {
                 ))}
                 {group.events.length === 0 && (
                   <div style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", padding: "2px 0" }}>
-                    No events yet for this company.
+                    This company has no events yet.
                   </div>
                 )}
                 {canCreateEventsIn(group.real ? group.id : null) && (
@@ -1427,7 +1440,7 @@ export default function AdminPage() {
         {events?.length === 0 && (
           <div className="empty card">
             <div className="glyph">◴</div>
-            <div>No events yet — create your first event to get started.</div>
+            <div>There are no events yet. Make your first event to get started.</div>
           </div>
         )}
       </main>

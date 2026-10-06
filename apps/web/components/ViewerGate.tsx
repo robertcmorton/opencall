@@ -49,8 +49,8 @@ export function ViewerGate({ code, children }: { code?: string; children: React.
         <BrandWordmark size={20} />
         <h1 className="vg-title">Who&rsquo;s watching?</h1>
         <p className="vg-blurb">
-          This link opens the run sheet read-only. Your name goes on the crew list so the showcaller knows the sheet reached
-          you.
+          This link lets you look at the run sheet. You can&apos;t change anything. Type your name so the showcaller can
+          see that you have it.
         </p>
         <form onSubmit={submit} className="vg-form">
           <input
@@ -66,8 +66,9 @@ export function ViewerGate({ code, children }: { code?: string; children: React.
           </button>
         </form>
         <p className="vg-note">
-          Recorded with your name: the browser and operating system you are using, your screen size, and the network
-          address you connected from. It is shown to whoever runs this run sheet, and goes when the link is revoked.
+          Along with your name, we note the kind of phone or computer and browser you are using, your screen size, and
+          your internet address. Only the people who run this run sheet can see it, and it is deleted when the link is
+          turned off.
         </p>
       </div>
     </main>

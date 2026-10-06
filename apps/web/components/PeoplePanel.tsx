@@ -57,16 +57,17 @@ export function PeoplePanel({
           {data.invites.map((i) => (
             <div key={i.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
               <span style={{ minWidth: 200 }}>{i.email}</span>
-              <span style={{ color: "var(--text-3)" }}>expires {new Date(i.expiresAt).toLocaleDateString()}</span>
-              <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(i.url)}>
+              <span style={{ color: "var(--text-3)" }}>link stops working {new Date(i.expiresAt).toLocaleDateString()}</span>
+              <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(i.url)} data-tip="Copy their invitation link, so you can send it to them yourself">
                 Copy link
               </button>
               <button
                 className="btn btn-sm btn-ghost"
                 style={{ color: "var(--over)" }}
                 onClick={() => void api.revokeInvite(i.id).then(reload)}
+                data-tip="Cancel this invitation. The link stops working straight away."
               >
-                Withdraw
+                Cancel invitation
               </button>
             </div>
           ))}
@@ -75,13 +76,13 @@ export function PeoplePanel({
 
       <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <strong>{companyName ? `People at ${companyName}` : "People"}</strong>
-        {data.people.length === 0 && <span style={{ color: "var(--text-3)" }}>Nobody yet — invite someone above.</span>}
+        {data.people.length === 0 && <span style={{ color: "var(--text-3)" }}>Nobody yet. Invite someone using the form above.</span>}
         {data.people.map((p) => (
           <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
             <strong style={{ minWidth: 150 }}>{p.name}</strong>
             <span style={{ color: "var(--text-2)", minWidth: 200 }}>{p.email}</span>
             {!p.hasPassword && (
-              <span className="chip" data-tip="They have not set a password yet — the invitation is still open">
+              <span className="chip" data-tip="They haven't chosen a password yet, so they haven't finished joining">
                 no password yet
               </span>
             )}
@@ -95,7 +96,7 @@ export function PeoplePanel({
             {/* Access stopped being permanent. Somebody put on the wrong event
                 had to be deleted and invited again, which loses their password
                 and their history for a typo. */}
-            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(p)}>
+            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(p)} data-tip="Choose which events this person can open">
               Change access
             </button>
           </div>
@@ -116,7 +117,7 @@ export function PeoplePanel({
           person={editing}
           companies={companies}
           events={events}
-          note="Only the access you can see is listed, and only that is changed. Anything this person holds elsewhere is left alone."
+          note="You only see their access at your company, and only that changes. If they also work for another company, that stays as it is."
           allowAdmin={false}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -157,8 +158,8 @@ function InviteForm({
   const [error, setError] = useState<string | null>(null);
 
   const missing = [
-    !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && "A valid email address",
-    !scope && "What they may open",
+    !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && "A complete email address",
+    !scope && "What they can open",
   ].filter((v) => typeof v === "string") as string[];
 
   const submit = (e: React.FormEvent) => {
@@ -184,13 +185,14 @@ function InviteForm({
       <div style={{ flexBasis: "100%" }}>
         <strong>Invite someone</strong>
         <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          They set their own name and password. What you choose here is exactly what they get.
+          We send them a link. They choose their own name and password. They can open exactly what you pick here, and
+          nothing else.
         </span>
       </div>
       <div>
         <label className="field-label">Email address</label>
         <input
-          className={"input " + (tried && missing.includes("A valid email address") ? "field-missing" : "")}
+          className={"input " + (tried && missing.includes("A complete email address") ? "field-missing" : "")}
           type="email"
           placeholder="sam@example.com"
           value={email}
@@ -202,6 +204,7 @@ function InviteForm({
         <label className="field-label">They may open</label>
         <select
           className={"input " + (tried && !scope ? "field-missing" : "")}
+          aria-label="They may open"
           value={scope}
           onChange={(e) => setScope(e.target.value)}
           style={{ minWidth: 240 }}
@@ -215,7 +218,7 @@ function InviteForm({
               id was not refused: it was written down as a grant that matches
               nothing, or failed the invitation outright. */}
           {companies.length > 0 ? (
-            <optgroup label="Showcaller — every event at one company">
+            <optgroup label="Showcaller — runs every event at one company">
               {companies.map((c) => (
                 <option key={c.id} value={`company:${c.id}`}>
                   {c.name}
@@ -226,7 +229,7 @@ function InviteForm({
             <option value="company:">Everything at this company</option>
           )}
           {events.length > 0 && (
-            <optgroup label="Showcaller — one event">
+            <optgroup label="Showcaller — runs one event">
               {events.map((ev) => (
                 <option key={ev.id} value={`event:${ev.id}`}>
                   {ev.name}
@@ -235,7 +238,7 @@ function InviteForm({
             </optgroup>
           )}
           {events.length > 0 && (
-            <optgroup label="Producer — builds the sheets of one event, never presses Start">
+            <optgroup label="Producer — writes the run sheets for one event, but can't start the show">
               {events.map((ev) => (
                 <option key={`e${ev.id}`} value={`edit:${ev.id}`}>
                   {ev.name} — Producer
@@ -244,7 +247,7 @@ function InviteForm({
             </optgroup>
           )}
           {events.length > 0 && (
-            <optgroup label="Crew — follows one event">
+            <optgroup label="Crew — can look at the run sheets for one event">
               {events.map((ev) => (
                 <option key={`v${ev.id}`} value={`view:${ev.id}`}>
                   {ev.name} — Crew
@@ -263,18 +266,18 @@ function InviteForm({
       {error && <div className="missing-fields" style={{ borderColor: "var(--over)" }}>{error}</div>}
       {result?.added && (
         <div className="panel" style={{ flexBasis: "100%" }}>
-          <strong>{result.name}</strong> already has an account — the access has been added to it.
+          <strong>{result.name}</strong> already has an account, so we added this access to it. They don&apos;t need to do anything.
         </div>
       )}
       {result?.url && (
         <div className="panel" style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
-          <strong>{result.emailed ? "Invitation sent" : "Invitation ready — send this link"}</strong>
+          <strong>{result.emailed ? "Invitation sent" : "Invitation ready. Send them this link."}</strong>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
             {result.emailed
-              ? "It is on its way. The link works once and expires in seven days."
+              ? "The email is on its way. The link works once, and stops working after seven days."
               : mailConfigured
-                ? `The email could not be sent (${result.reason}). Pass this link on instead — it is still valid.`
-                : "No mail server is set up on this install, so pass this link on however you like. It works once and expires in seven days."}
+                ? `We couldn't send the email (${result.reason}). Send them this link yourself instead. It still works.`
+                : "This app can't send emails, so send them this link yourself, in any message. The link works once, and stops working after seven days."}
           </span>
           <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
             {result.url}

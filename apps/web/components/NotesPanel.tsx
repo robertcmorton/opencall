@@ -49,7 +49,7 @@ export function NotesPanel({
     <li key={n.id} className={`note-item ${resolved ? "is-done" : ""}`}>
       <button type="button" className="note-row" onClick={() => onGoToRow(n.rowId)} data-tip="Go to this row">
         <span className="note-num">{numberOf(n.rowId) || "—"}</span>
-        <span className="note-title">{titleOf(n.rowId) ?? "row no longer on the sheet"}</span>
+        <span className="note-title">{titleOf(n.rowId) ?? "this row has been deleted"}</span>
       </button>
       {n.body && <p className="note-body">{n.body}</p>}
       <div className="note-meta">
@@ -58,7 +58,7 @@ export function NotesPanel({
           {n.byRole ? ` · ${n.byRole}` : ""} · {when(n.at)}
         </span>
         {!resolved && (
-          <button type="button" className="btn btn-sm" onClick={() => onResolve(n.id)} data-tip="Dealt with — it stays on the record">
+          <button type="button" className="btn btn-sm" onClick={() => onResolve(n.id)} data-tip="Mark this note as dealt with. It moves to the done list. It isn't deleted.">
             Resolve
           </button>
         )}
@@ -98,13 +98,13 @@ export function NotesPanel({
             ) : (
               // Nothing to attach it to: a note with no row is the comments
               // column again, which is the thing this exists to replace.
-              <span className="note-hint">Pick a row on the sheet first — a note belongs to a line.</span>
+              <span className="note-hint">Tap a row on the sheet first. Each note is about one row.</span>
             )}
           </label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value.slice(0, 280))}
-            placeholder="Optional — the tap is the message, this is the detail"
+            placeholder="Add more detail if you like. Sending the note on its own is enough to flag the row."
             rows={2}
             maxLength={280}
             disabled={!compose.rowId}
@@ -119,7 +119,7 @@ export function NotesPanel({
       )}
 
       {open.length === 0 ? (
-        <p className="notes-empty">Nothing raised.</p>
+        <p className="notes-empty">No notes right now.</p>
       ) : (
         <ul className="notes-list">{open.map((n) => line(n, false))}</ul>
       )}
@@ -127,7 +127,7 @@ export function NotesPanel({
       {done.length > 0 && (
         <>
           <button type="button" className="btn btn-sm btn-ghost notes-done-toggle" onClick={() => setShowDone((v) => !v)}>
-            {showDone ? "Hide" : "Show"} {done.length} resolved
+            {showDone ? "Hide" : "Show"} {done.length} dealt with
           </button>
           {showDone && <ul className="notes-list">{done.map((n) => line(n, true))}</ul>}
         </>

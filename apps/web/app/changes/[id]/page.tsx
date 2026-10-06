@@ -40,8 +40,9 @@ export default function ChangesPage({ params }: { params: Promise<{ id: string }
         </h1>
       </div>
       <p style={{ margin: 0, color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-        Every change to this sheet, newest first. A person's edits are grouped into one line per sitting; an AI assistant's are one
-        line per change. Open a change to see exactly what it did, undo just that change, or put the sheet back to how it was before it.
+        Every change to this sheet, newest at the top. All the edits a person makes in one go share one line. An AI
+        assistant gets one line for each change. Open a line to see exactly what changed. From there you can undo just
+        that change, or put the whole sheet back the way it was before it.
       </p>
 
       {problem && <div className="panel" style={{ color: "var(--text-2)" }}>{problem}</div>}

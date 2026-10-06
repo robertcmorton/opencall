@@ -38,7 +38,7 @@ export function UsersPanel({
     if (!name.trim() || grants.length === 0) return;
     const problem = password ? passwordProblem(password, email) : null;
     if (problem) {
-      window.alert(`${problem} (Or leave the password empty.)`);
+      window.alert(`${problem} (Or leave the password box empty, and they can sign in with an access token instead.)`);
       return;
     }
     void api
@@ -46,8 +46,8 @@ export function UsersPanel({
       .then(({ accessToken }) => {
         window.alert(
           password
-            ? `User created. They sign in with their email and password.\n\nBackup access token (share securely if needed):\n${accessToken}`
-            : `User created. Their personal access token (share it securely):\n\n${accessToken}\n\nThey enter it on the sign-in page — or set a password so they can sign in with email.`,
+            ? `Account made. They sign in with their email and password.\n\nHere is their access token too: a long sign-in code they can use instead. Keep it private, like a password:\n${accessToken}`
+            : `Account made. This is their access token, a long sign-in code. Send it to them privately, like a password:\n\n${accessToken}\n\nThey paste it into the box on the front page. Or set them a password so they can sign in with their email.`,
         );
         setName("");
         setEmail("");
@@ -64,10 +64,10 @@ export function UsersPanel({
         <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, flex: 1 }}>
           Users & access{" "}
           <span style={{ color: "var(--text-3)", fontWeight: 400, fontSize: "var(--fs-sm)" }}>
-            — who has control of what
+            — who can open and change what
           </span>
         </h2>
-        <button className="btn btn-sm" onClick={() => setCreating((c) => !c)}>
+        <button className="btn btn-sm" onClick={() => setCreating((c) => !c)} data-tip="Make an account for someone">
           {Icon.plus} User
         </button>
       </div>
@@ -76,7 +76,7 @@ export function UsersPanel({
         <div className="panel" style={{ margin: "10px 0", display: "grid", gap: 10 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className="input" placeholder="Email (needed for password sign-in)" value={email} onChange={(e) => setEmail(e.target.value)} style={{ minWidth: 230 }} />
+            <input className="input" placeholder="Email (needed to sign in with a password)" value={email} onChange={(e) => setEmail(e.target.value)} style={{ minWidth: 230 }} />
             <input
               className="input"
               type="password"
@@ -106,7 +106,7 @@ export function UsersPanel({
           )}
           <div>
             <button className="btn btn-primary btn-sm" onClick={create} disabled={!name.trim() || (grants.length === 0 && !pending)}>
-              Create user and issue token
+              Create account
             </button>
           </div>
         </div>
@@ -120,7 +120,7 @@ export function UsersPanel({
           >
             <strong style={{ minWidth: 140 }}>{u.name}</strong>
             <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>{u.email}</span>
-            <span className="chip" title={u.hasPassword ? "Signs in with email + password" : "Token-only — set a password to enable email sign-in"}>
+            <span className="chip" title={u.hasPassword ? "Signs in with email and password" : "Can only sign in with an access token. Set a password so they can sign in with their email."}>
               {u.hasPassword ? "password ✓" : "no password"}
             </span>
             <span style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -136,23 +136,24 @@ export function UsersPanel({
                 fed the create form. Putting somebody on the wrong event meant
                 deleting the account and making it again, which throws away their
                 password and their token. */}
-            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(u)}>
+            <button className="btn btn-sm btn-ghost" onClick={() => setEditing(u)} data-tip="Choose which companies and events this person can open">
               Change access
             </button>
             <button
               className="btn btn-sm btn-ghost"
               onClick={() =>
                 void api.rotateUserToken(u.id).then(({ accessToken }) => {
-                  window.alert(`New token for ${u.name} (the old one stops working):\n\n${accessToken}`);
+                  window.alert(`New access token for ${u.name}. Their old one has stopped working. Send them this one privately:\n\n${accessToken}`);
                   reload();
                 })
               }
+              data-tip="Make a new access token for this person. Their old one stops working straight away."
             >
               New token
             </button>
             <button
               className="btn btn-sm btn-ghost"
-              title={u.hasPassword ? "Reset this user's password (signs out their devices)" : "Set a password so they can sign in with email"}
+              title={u.hasPassword ? "Give this person a new password. They will be signed out on their other devices." : "Set a password so they can sign in with their email"}
               onClick={() => {
                 const pw = window.prompt(`${u.hasPassword ? "New" : "Set"} password for ${u.name} (${PASSWORD_HINT.toLowerCase()})`);
                 if (!pw) return;
@@ -164,22 +165,22 @@ export function UsersPanel({
                 void api
                   .setUserPassword(u.id, pw)
                   .then(() => {
-                    window.alert(`Password ${u.hasPassword ? "reset" : "set"} for ${u.name}. Their other sessions were signed out.`);
+                    window.alert(`Password ${u.hasPassword ? "changed" : "set"} for ${u.name}. They have been signed out everywhere else.`);
                     reload();
                   })
-                  .catch((err) => window.alert(String(err)));
+                  .catch((err) => window.alert(err instanceof Error ? err.message : String(err)));
               }}
             >
               {u.hasPassword ? "Reset password" : "Set password"}
             </button>
-            <button className="btn btn-sm btn-danger" onClick={() => void api.deleteUser(u.id).then(reload)}>
-              Delete
+            <button className="btn btn-sm btn-danger" onClick={() => void api.deleteUser(u.id).then(reload)} data-tip="Delete this person's account straight away. You can't undo it.">
+              Delete account
             </button>
           </li>
         ))}
         {users.length === 0 && (
           <li style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", padding: "6px 0" }}>
-            No users yet — create one and hand them their personal access token.
+            No accounts yet. Press + User to make one.
           </li>
         )}
       </ul>
@@ -196,7 +197,7 @@ export function UsersPanel({
           person={editing}
           companies={companies}
           events={events}
-          note="This is all of it. Anything taken away here is taken away everywhere — their company, their events, and any other company they work for."
+          note="This is everything they can open. Anything you take away here is gone everywhere: their company, their events, and any other company they work for."
           allowAdmin
           onClose={() => setEditing(null)}
           onSaved={() => {

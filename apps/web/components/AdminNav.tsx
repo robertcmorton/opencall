@@ -74,11 +74,11 @@ export function CredentialsNavSection({
   useEffect(() => setHasToken(getAdminToken() != null), [me]);
 
   return (
-    <SideNavSection heading="Credentials">
+    <SideNavSection heading="Your sign-in">
       <div className="sidenav-identity">
         <strong>
           {me?.role === "admin"
-            ? "Administrator"
+            ? "System Administrator"
             : me?.role === "company"
               ? me.teamName
               : me?.role === "user"
@@ -87,16 +87,16 @@ export function CredentialsNavSection({
         </strong>
         <span>
           {me?.role === "admin"
-            ? "Full access"
+            ? "Can do everything"
             : me?.role === "company"
-              ? "Company access"
+              ? "Signed in for the whole company"
               : me?.role === "user"
                 ? me.canManage
-                  ? "Manager"
-                  : "View access"
+                  ? "Can manage people and events"
+                  : "Signed in with your account"
                 : hasToken
-                  ? "Session not recognised"
-                  : "Dev-open server — no sign-in needed"}
+                  ? "Your sign-in has run out. Sign out, then sign in again."
+                  : "Test setup: nobody needs to sign in"}
         </span>
       </div>
       <Link className="menu-item" href="/account">

@@ -196,6 +196,10 @@
 }
 .tocList a {
   color: var(--accent-text);
+  /* At least 24px tall to tap (measured 20px at phone width, 6 Oct). */
+  display: inline-block;
+  min-height: 24px;
+  padding-block: 2px;
 }
 .tocList li {
   padding: 2px 0;

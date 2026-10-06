@@ -44,11 +44,11 @@ export const grantKey = (g: Grant): string => `${g.kind}:${g.targetId}`;
  * still works for anyone who holds it but is no longer offered here.
  */
 const KIND_LABEL: Record<string, string> = {
-  admin: "System Administrator — everything on this server",
-  company: "Showcaller — every event at one company",
-  event: "Showcaller — one event",
-  edit: "Producer — builds the sheets of one event, never presses Start",
-  view: "Crew — follows one event",
+  admin: "System Administrator — can do everything in this app",
+  company: "Showcaller — runs every event at one company",
+  event: "Showcaller — runs one event",
+  edit: "Producer — writes the run sheets for one event, but can't start the show",
+  view: "Crew — can look at the run sheets for one event",
 };
 
 /**
@@ -195,7 +195,7 @@ export function GrantPicker({
   if (kinds.length === 0)
     return (
       <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-        Nothing to give yet — make a company or an event first.
+        There is nothing to give access to yet. Make a company or an event first.
       </span>
     );
 
@@ -227,6 +227,7 @@ export function GrantPicker({
           event, which the server has no way to recognise as wrong. */}
       <select
         className="input"
+        aria-label="What they can do"
         value={kind}
         onChange={(e) => {
           setWanted(e.target.value);
@@ -240,7 +241,7 @@ export function GrantPicker({
         ))}
       </select>
       {(kind === "company" || kind === "company_view") && (
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+        <select className="input" aria-label="Which company" value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">Choose company…</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>
@@ -250,7 +251,7 @@ export function GrantPicker({
         </select>
       )}
       {(kind === "event" || kind === "edit" || kind === "view") && (
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+        <select className="input" aria-label="Which event" value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">Choose event…</option>
           {events.map((e) => (
             <option key={e.id} value={e.id}>
@@ -269,7 +270,7 @@ export function GrantPicker({
       {incomplete && (
         <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Choose which {kind === "company" || kind === "company_view" ? "company" : "event"} first.</span>
       )}
-      {pending && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Included when you save.</span>}
+      {pending && <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>This gets added when you press Save access.</span>}
     </div>
   );
 }
@@ -336,12 +337,12 @@ export function AccessEditor({
   return (
     <PanelModal onClose={onClose}>
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 340, maxWidth: 560 }}>
-        <strong>What {person.name} may open</strong>
+        <strong>What {person.name} can open</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>{note}</span>
 
         {grants.length === 0 ? (
           <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
-            Nothing — they will not be able to open anything.
+            No access yet. They won&apos;t be able to open anything.
           </span>
         ) : (
           <GrantChips

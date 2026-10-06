@@ -295,7 +295,7 @@ export function RolePicker({
               }
             : undefined
         }
-        data-tip="Pick your assigned roles — your items highlight and the bar below tracks your next one"
+        data-tip="Pick your job, like Camera 1. Your rows light up, and a bar shows how long until your next one."
         onClick={() => setOpen((o) => !o)}
       >
         {myRoles.length === 0
@@ -307,12 +307,12 @@ export function RolePicker({
       {open && (
         <div ref={menuRef} className="menu" style={{ top: "calc(100% + 5px)", right: 0, minWidth: 250, padding: 10 }}>
           <div className="menu-heading" style={{ padding: "0 0 6px" }}>
-            Your assigned roles — pick any number
+            Your jobs on this show — pick as many as you have
           </div>
           <input
             className="input"
             autoFocus
-            placeholder="e.g. Camera 1, BGM, PA"
+            placeholder="Type a job, e.g. Camera 1, Music, PA"
             style={{ width: "100%" }}
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -454,7 +454,7 @@ export function RoleBar({
     return (
       <div className="role-bar no-print" ref={publishHeight}>
         <span className="rb-role" style={roleInk(roleColorFor(myRoles[0]!))}>{rolesLabel}</span>
-        <span className="rb-done">No more items for you in this show.</span>
+        <span className="rb-done">You have nothing else to do in this show.</span>
       </div>
     );
   }

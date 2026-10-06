@@ -15,7 +15,7 @@ export function TimezoneField({
   value,
   onChange,
   atDate,
-  label = "Timezone",
+  label = "Time zone",
 }: {
   value: string;
   onChange: (tz: string) => void;
@@ -55,8 +55,8 @@ export function TimezoneField({
       </select>
       <div className="field-hint" style={valid ? undefined : { color: "var(--over)" }}>
         {valid
-          ? `${zoneAbbreviation(value, Number.isNaN(previewMs) ? Date.now() : previewMs)}${atDate ? ` on ${atDate}` : ""} — every clock and the run of show follow this zone, daylight saving included.`
-          : "Pick a zone from the list."}
+          ? `${zoneAbbreviation(value, Number.isNaN(previewMs) ? Date.now() : previewMs)}${atDate ? ` on ${atDate}` : ""}. Every clock on this event uses this time zone, including daylight saving.`
+          : "Choose a time zone from the list."}
       </div>
     </div>
   );
@@ -104,7 +104,7 @@ export function LocationDialog({
                 .patchEvent(event.id, { location, timezone: tz })
                 .then(onSaved)
                 .catch((err) => {
-                  window.alert(String(err));
+                  window.alert(err instanceof Error ? err.message : String(err));
                   setSaving(false);
                 });
             }}

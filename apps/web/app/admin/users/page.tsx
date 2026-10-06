@@ -47,8 +47,8 @@ export default function AdminUsersPage() {
             </h1>
             <p style={{ color: "var(--text-2)", margin: "2px 0 0", fontSize: "var(--fs-sm)" }}>
               {me?.role === "admin"
-                ? "Who has control of what — accounts, passwords, and grants."
-                : "Who at your company can open what. People who also work elsewhere keep that to themselves: you see only the access that points at you."}
+                ? "Who can open and change what: accounts, passwords and access."
+                : "Who at your company can open what. If someone also works for another company, you only see the access they have at yours."}
             </p>
           </header>
           {/* Everyone with people to administer gets the scoped view; an
@@ -56,14 +56,14 @@ export default function AdminUsersPage() {
               tokens and passwords, which is a different and larger thing. */}
           {me != null && me.role !== "admin" && me.role !== "company" && !me.canManage ? (
             <div className="panel" style={{ color: "var(--text-2)" }}>
-              You do not manage anyone here. Ask whoever runs your company to give you access.
+              You can&apos;t manage anyone&apos;s access. Ask the person who runs your company if you need to.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
               <PeoplePanel companyName={me?.role === "company" ? me.teamName : null} companies={companies} />
               {me?.role === "admin" && (
                 <div>
-                  <h2 style={{ fontSize: "1.05rem", fontWeight: 650, margin: "0 0 8px" }}>Every account on this server</h2>
+                  <h2 style={{ fontSize: "1.05rem", fontWeight: 650, margin: "0 0 8px" }}>Every account in this app</h2>
                   <UsersPanel companies={companies} events={events} />
                 </div>
               )}

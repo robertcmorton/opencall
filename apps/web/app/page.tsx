@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, getAdminToken, setAdminToken } from "../lib/api";
+import { api, ApiError, getAdminToken, setAdminToken } from "../lib/api";
 import { BrandWordmark } from "../components/ui";
 import { safeNext } from "../lib/session";
 
@@ -50,9 +50,11 @@ export default function Landing() {
       })
       .catch((err) => {
         setLoginError(
-          err instanceof Error && err.message.includes("429")
-            ? "Too many attempts — wait a minute and try again."
-            : "Invalid email or password.",
+          // The server's answer is a sentence now, not "429 …", so the status is
+          // what says the sign-in was throttled rather than refused.
+          err instanceof ApiError && err.status === 429
+            ? err.message || "Too many tries. Wait a minute, then try again."
+            : "That email and password don't match an account. Check them and try again.",
         );
         setLoginBusy(false);
       });
@@ -75,7 +77,7 @@ export default function Landing() {
         .then((me) => {
           if (me.role == null) {
             setAdminToken(previous);
-            setError("That access token isn't valid (or has been rotated). Check with your admin.");
+            setError("That access token doesn't work. It may be mistyped, or it has been replaced with a new one. Ask your System Administrator for the current one.");
             setBusy(false);
             return;
           }
@@ -83,7 +85,7 @@ export default function Landing() {
         })
         .catch(() => {
           setAdminToken(previous);
-          setError("Couldn't verify that token — is the server reachable?");
+          setError("We couldn't check that access token because the app can't reach its server. Check your internet connection and try again.");
           setBusy(false);
         });
       return;
@@ -96,7 +98,7 @@ export default function Landing() {
         router.push(`/${ROUTE_BY_ROLE[role]}/${rundownId}?code=${encodeURIComponent(joinCode)}`);
       })
       .catch(() => {
-        setError("That code isn't valid (or has been revoked). Check with your showcaller.");
+        setError("That code doesn't open a show. It may be mistyped, or it has been switched off. Ask your showcaller for the right code.");
         setBusy(false);
       });
   };
@@ -118,7 +120,7 @@ export default function Landing() {
           <BrandWordmark size={32} />
         </h1>
         <p style={{ color: "var(--text-2)", margin: "6px 0 0" }}>
-          One run sheet that calls the show — every screen follows, and the night stays on time.
+          One shared run sheet for the whole show. Everyone sees the same thing at the same time, so the night stays on time.
         </p>
       </div>
 
@@ -147,9 +149,9 @@ export default function Landing() {
           {busy ? "Checking…" : "Join"}
         </button>
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
-          A code opens the run sheet <strong>read-only</strong> — that is the only thing a code does. Running or
-          editing a show needs an account, because a code gets photographed off a wall and forwarded out of a group
-          chat. Personal and company tokens (<code>usr_…</code>, <code>co_…</code>) sign you in to the dashboard.
+          A join code lets you <strong>look at</strong> the run sheet. It can&apos;t change anything. To run or edit a
+          show you need an account, because codes get shared around. An access token is a long sign-in code that
+          starts with <code>usr_…</code> or <code>co_…</code>. Paste one here to go to your dashboard.
           {/* An administrator's token still works in this box — the server decides
               what a token is worth, not this sentence. It is simply not named
               here: this is the public face of the app, and it should describe
@@ -184,7 +186,7 @@ export default function Landing() {
           {loginBusy ? "Signing in…" : "Sign in"}
         </button>
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
-          Accounts are created by your System Administrator. No password yet? Your personal access token works in the box above.
+          Your System Administrator makes accounts. No password yet? Paste your personal access token in the box above instead.
         </p>
       </form>
 

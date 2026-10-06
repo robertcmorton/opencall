@@ -42,8 +42,8 @@ export default function AdminEventTypesPage() {
           <header style={{ marginBottom: "1.25rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0 }}>Kinds of show</h1>
             <p style={{ color: "var(--text-2)", margin: "2px 0 0", fontSize: "var(--fs-sm)" }}>
-              What a run sheet is for decides how it can end. Each sheet carries its own, so one event can hold two
-              sports at once.
+              The kind of show (a sport, a concert, a launch) decides how a run sheet can end, and which result buttons
+              you get. Each sheet has its own, so one event can have two different sports in it.
             </p>
           </header>
           {mayManage ? (
@@ -53,7 +53,7 @@ export default function AdminEventTypesPage() {
             </div>
           ) : (
             <div className="panel" style={{ color: "var(--text-2)" }}>
-              Ask whoever runs your company to add a kind of show.
+              You can&apos;t add kinds of show. Ask the person who runs your company to add one.
             </div>
           )}
         </main>

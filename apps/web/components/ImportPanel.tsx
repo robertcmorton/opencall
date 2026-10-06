@@ -136,15 +136,15 @@ function IssueFixRow({
         placeholder={issue.kind === "start" ? "e.g. 7:30 pm" : "e.g. 5:00"}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        data-tip={issue.suggestion ? `Suggested: ${issue.suggestion}` : "No automatic suggestion — type the intended value"}
+        data-tip={issue.suggestion ? `Our best guess: ${issue.suggestion}` : "We couldn't guess this one. Type what it should say."}
       />
-      <button className="btn btn-sm btn-primary" disabled={!parses} data-tip={parses ? "Replace the cell with this value" : "Doesn't parse yet"} onClick={() => onApply(issue, value)}>
+      <button className="btn btn-sm btn-primary" disabled={!parses} data-tip={parses ? "Put this in the cell instead" : (issue.kind === "start" ? "We can't read that as a time yet. Try something like 7:30 pm." : "We can't read that as a length yet. Try something like 5:00.")} onClick={() => onApply(issue, value)}>
         Apply
       </button>
-      <button className="btn btn-sm btn-ghost" data-tip="Import this cell as empty" onClick={() => onApply(issue, "")}>
+      <button className="btn btn-sm btn-ghost" data-tip="Leave this cell empty on the sheet" onClick={() => onApply(issue, "")}>
         Clear
       </button>
-      <button className="btn btn-sm btn-ghost" data-tip="Leave it — the cell imports empty but the text stays visible here" onClick={onKeep}>
+      <button className="btn btn-sm btn-ghost" data-tip="Leave it as it is. The cell will be empty on the sheet, but you can still see the text here." onClick={onKeep}>
         Keep as is
       </button>
     </div>
@@ -153,7 +153,7 @@ function IssueFixRow({
         ? `after “${issue.anchorBefore.title.slice(0, 34)}” at ${issue.anchorBefore.time}`
         : "before the first timed row"}
       <details style={{ display: "inline-block", marginLeft: 10 }}>
-        <summary style={{ cursor: "pointer", display: "inline" }}>surrounding rows</summary>
+        <summary style={{ cursor: "pointer", display: "inline" }}>rows around it</summary>
         <table style={{ margin: "4px 0 2px", borderCollapse: "collapse" }}>
           <tbody>
             {issue.around.map((s) => (
@@ -174,9 +174,9 @@ function IssueFixRow({
 
 const KIND_STYLE: Record<ClassifiedRow["kind"], { label: string; color: string }> = {
   cue: { label: "cue", color: "var(--accent-text)" },
-  milestone: { label: "milestone", color: "var(--warn)" },
-  banner: { label: "section", color: "var(--text-2)" },
-  spacer: { label: "spacer", color: "var(--text-3)" },
+  milestone: { label: "fixed time", color: "var(--warn)" },
+  banner: { label: "heading", color: "var(--text-2)" },
+  spacer: { label: "blank", color: "var(--text-3)" },
 };
 
 /**
@@ -479,8 +479,8 @@ export function ImportPanel({
   /** Everything this import still needs. Named, so nobody hunts the form. */
   const missing = [
     !replaceRundown && !name.trim() && "A name for this run sheet",
-    !type && "Event type",
-    importable.length === 0 && "A sheet with at least one row",
+    !type && "Kind of show",
+    importable.length === 0 && "A file with at least one row in it",
   ].filter((v) => typeof v === "string") as string[];
 
   const doImport = () => {
@@ -520,12 +520,12 @@ export function ImportPanel({
               .then(() => (type && type !== initialType ? api.patchRundown(replaceRundown.id, { sport: type }) : null))
               .then(() => replaceRundown.id)
           : api
-              .createRundown({ eventId, name: name.trim() || "Imported rundown", sport: type, ...payload })
+              .createRundown({ eventId, name: name.trim() || "Imported show", sport: type, ...payload })
               .then(({ id }) => id),
       )
       .then((id) => onDone(id))
       .catch((err) => {
-        setError(String(err));
+        setError(err instanceof Error ? err.message : String(err));
         setBusy(false);
       });
   };
@@ -601,8 +601,8 @@ export function ImportPanel({
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <strong style={{ flex: 1 }}>
           {replaceRundown
-            ? `Update “${replaceRundown.name}” from a run sheet — the new import replaces its content (links and codes keep working; the old content is snapshotted first)`
-            : "Import a run sheet (XLSX, XLS, CSV, or PDF)"}
+            ? `Update “${replaceRundown.name}” from a file. What is in the file replaces what is on the sheet now. Links and join codes keep working, and a copy of the old sheet is saved first.`
+            : "Import a run sheet from a spreadsheet (.xlsx, .xls, .csv) or a PDF"}
         </strong>
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
           ✕
@@ -611,8 +611,8 @@ export function ImportPanel({
 
       {autoLoaded && grid && (
         <div style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-          Read the stored file <strong>{autoLoaded}</strong> again with the latest import rules — review below, then
-          update. Or drop a newer file with Different file.
+          We read the original file, <strong>{autoLoaded}</strong>, again. Check it below, then press Update. To use a
+          newer file instead, press Use a different file.
         </div>
       )}
 
@@ -654,7 +654,7 @@ export function ImportPanel({
               ? "Reading file…"
               : dragOver
                 ? "Drop it here"
-                : "Drop a file here or click to choose — spreadsheets and text-based PDFs work; nothing uploads until you confirm."}
+                : "Drag a file here, or click to choose one. Spreadsheets work, and so do PDFs with real text in them (not scanned pictures). Nothing is saved until you press Import."}
           </div>
         </label>
       )}
@@ -674,7 +674,7 @@ export function ImportPanel({
                 ))}
               </ul>
               <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
-                Check the header row and the column mapping below. You can import it anyway.
+                Check the Header row number and the column choices below. You can still import it.
               </span>
             </div>
           )}
@@ -691,7 +691,7 @@ export function ImportPanel({
               </div>
             )}
             <div>
-              <label className="field-label" data-tip="Decides what the live result chooser offers — a rugby league match ends differently from a product launch. It is set per run sheet, so one event can hold two sports.">
+              <label className="field-label" data-tip="This decides which result buttons you get when the show ends. A rugby league match ends differently from a product launch. Each run sheet has its own, so one event can have two sports.">
                 Kind of show
               </label>
               <select
@@ -722,7 +722,7 @@ export function ImportPanel({
               </select>
             </div>
             <div>
-              <label className="field-label" data-tip="Which source row holds the column headers — adjust if detection picked the wrong one">
+              <label className="field-label" data-tip="The row in your file that has the column names in it. Change this number if we picked the wrong row.">
                 Header row
               </label>
               <input
@@ -740,16 +740,16 @@ export function ImportPanel({
               />
             </div>
             <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", paddingBottom: 7 }}>
-              {importable.length} rows ({importable.filter((r) => r.kind === "milestone").length} milestones,{" "}
-              {importable.filter((r) => r.kind === "banner").length} sections)
+              {importable.length} rows ({importable.filter((r) => r.kind === "milestone").length} fixed times,{" "}
+              {importable.filter((r) => r.kind === "banner").length} headings)
               {warnings > 0 && (
-                <span style={{ color: "var(--warn)" }}> · {warnings} cell{warnings === 1 ? "" : "s"} couldn’t be parsed — fix below</span>
+                <span style={{ color: "var(--warn)" }}> · {warnings} cell{warnings === 1 ? "" : "s"} couldn’t be read. Fix them below.</span>
               )}
             </span>
             {tried && missing.length > 0 && <MissingFields missing={missing} />}
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button className="btn btn-ghost" onClick={() => setGrid(null)}>
-                Different file
+                Use a different file
               </button>
               {/* Demoted, not disabled, when the sheet looks wrong: the faults
                   above are heuristics, and the person holding the PDF knows
@@ -763,7 +763,7 @@ export function ImportPanel({
           {issues.length > 0 && (
             <div className="panel" style={{ display: "grid", gap: 8, borderColor: "var(--warn)" }}>
               <strong style={{ fontSize: "var(--fs-sm)" }}>
-                {issues.length} cell{issues.length === 1 ? "" : "s"} couldn’t be parsed — fix, clear, or keep each one
+                {issues.length} time{issues.length === 1 ? "" : "s"} couldn’t be read. For each one: fix it, clear it, or keep it as it is.
               </strong>
               <div style={{ display: "grid", gap: 8, maxHeight: "38vh", overflow: "auto" }}>
                 {issues.map((issue) => (
@@ -782,7 +782,7 @@ export function ImportPanel({
           {roles.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               <span className="field-label" style={{ margin: 0 }}>
-                Detected roles
+                Roles we found
               </span>
               {roles.map((r) => (
                 <span
@@ -838,7 +838,7 @@ export function ImportPanel({
                         <div
                           className="col-label"
                           draggable
-                          data-tip="Double-click to rename this column. Drag to move it — the order here is the order in the run sheet, and what survives on a narrow screen"
+                          data-tip="Double-click to rename this column. Drag it to move it. The order here is the order on the run sheet. On small screens, columns on the right are hidden first."
                           style={{ marginBottom: 4, cursor: "grab" }}
                           onDoubleClick={() => setEditingHeader(i)}
                           onDragStart={(e) => {
@@ -855,7 +855,7 @@ export function ImportPanel({
                         className="input"
                         title={
                           targetToValue(mapping[i] ?? { kind: "skip" }) === "custom"
-                            ? "Imported as its own column, keeping this heading"
+                            ? "This becomes its own column, with this heading"
                             : undefined
                         }
                         style={{ padding: "2px 6px", fontSize: "0.72rem" }}
@@ -906,7 +906,7 @@ export function ImportPanel({
                               background: bad ? "var(--over-soft)" : undefined,
                               color: bad ? "var(--over)" : undefined,
                             }}
-                            data-tip={bad ? `Couldn't parse "${raw}" — it will import empty` : undefined}
+                            data-tip={bad ? `We couldn't understand "${raw}", so this cell will be empty after import` : undefined}
                           >
                             {display}
                           </td>
@@ -918,7 +918,7 @@ export function ImportPanel({
               </tbody>
             </table>
             <p style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", margin: "6px 0 0" }}>
-              All {rows.length} rows shown — {importable.length} will import.
+              All {rows.length} rows are shown. {importable.length} will be imported.
             </p>
           </div>
         </>

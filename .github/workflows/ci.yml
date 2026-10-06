@@ -35,6 +35,11 @@ jobs:
         run: pnpm -r --parallel exec tsc --noEmit -p .
       - name: Unit tests
         run: pnpm -r test
+      # In a real browser (the runner's own Google Chrome — nothing downloaded):
+      # the spreadsheet keys, drag, paste and the row menu, which a simulated
+      # DOM cannot test. Added 6 Oct after a 14px sideways slide shipped.
+      - name: Browser tests
+        run: pnpm --filter @opencall/web test:browser
       - name: Security suite (locked server, access matrix)
         run: pnpm test:security
       - name: Dependency audit (production dependencies, high and above)

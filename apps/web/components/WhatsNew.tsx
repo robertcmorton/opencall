@@ -61,14 +61,14 @@ export function WhatsNew({ open, onClose }: { open: boolean; onClose: () => void
 
         {behind && (
           <p className="whatsnew-behind">
-            A newer version is running on the server. This tab is still showing the one it downloaded when you
-            opened it.
+            There is a newer version of the app. This tab is still using the older one. Press Update this tab to get
+            the new one.
           </p>
         )}
 
         <div className="whatsnew-body">
-          {unavailable && <p className="whatsnew-empty">This build cannot find its changelog.</p>}
-          {!unavailable && releases == null && <p className="whatsnew-empty">Reading the changelog…</p>}
+          {unavailable && <p className="whatsnew-empty">We can&apos;t find the list of changes right now.</p>}
+          {!unavailable && releases == null && <p className="whatsnew-empty">Loading the list of changes…</p>}
           {releases?.map((release) => (
             <section key={release.version} className="whatsnew-release">
               <h3>
@@ -100,10 +100,10 @@ export function WhatsNew({ open, onClose }: { open: boolean; onClose: () => void
 
         <footer className="whatsnew-foot">
           <span className="whatsnew-build">
-            You are running <span className="mono">{LOADED_SHA}</span>
+            Your version: <span className="mono">{LOADED_SHA}</span>
             {behind && (
               <>
-                {" · "}server has <span className="mono">{liveSha}</span>
+                {" · "}newest: <span className="mono">{liveSha}</span>
               </>
             )}
           </span>

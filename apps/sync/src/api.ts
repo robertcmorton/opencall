@@ -198,7 +198,7 @@ async function describeGrants(
   const names: string[] = [];
   for (const g of grants) {
     if (g.kind === "admin") {
-      names.push("every event on this server");
+      names.push("every event in this app");
       continue;
     }
     if (g.kind === "company" || g.kind === "company_view") {
@@ -248,12 +248,12 @@ export function createApiHandler(
     const isImport = (req.method === "POST" && path === "/rundowns") || /^\/rundowns\/[^/]+\/replace-content$/.test(path);
     const limit = isImport ? IMPORT_BODY_MAX : BODY_MAX;
     const declared = Number(req.headers["content-length"] ?? 0);
-    if (declared > limit) throw new HttpError(413, "request too large");
+    if (declared > limit) throw new HttpError(413, "That is too big to send. If it is a file, try a smaller one.");
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of req) {
       size += (chunk as Buffer).length;
-      if (size > limit) throw new HttpError(413, "request too large");
+      if (size > limit) throw new HttpError(413, "That is too big to send. If it is a file, try a smaller one.");
       chunks.push(chunk as Buffer);
     }
     const raw = Buffer.concat(chunks).toString("utf8");
@@ -262,9 +262,9 @@ export function createApiHandler(
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new HttpError(400, "the request body is not valid JSON");
+      throw new HttpError(400, "The app sent something the server couldn't read. Reload the page and try again.");
     }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new HttpError(400, "expected a JSON object");
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new HttpError(400, "The app sent something the server couldn't read. Reload the page and try again.");
     return parsed as Record<string, unknown>;
   };
 
@@ -369,7 +369,7 @@ export function createApiHandler(
     /** Admin-only routes (across every company). */
     const requireAdmin = async (): Promise<boolean> => {
       if ((await authContext(handle, req))?.kind === "admin") return true;
-      json(res, 401, { error: "admin token required" });
+      json(res, 401, { error: "Only a System Administrator can do this. Sign in as one and try again." });
       return false;
     };
 
@@ -397,7 +397,7 @@ export function createApiHandler(
 
     const requirePeopleScope = async (): Promise<PeopleScope | null> => {
       const scope = await peopleScope();
-      if (!scope) json(res, 401, { error: "company or admin access required" });
+      if (!scope) json(res, 401, { error: "Only a company or a System Administrator can do this. Sign in as one and try again." });
       return scope;
     };
 
@@ -410,7 +410,7 @@ export function createApiHandler(
     const requireEventAccess = async (eventId: string): Promise<boolean> => {
       const ctx = await authContext(handle, req);
       if (await canManageEvent(handle, ctx, eventId)) return true;
-      json(res, 401, { error: "management access required" });
+      json(res, 401, { error: "You can't change this. Ask the person who runs your company to give you access." });
       return false;
     };
 
@@ -421,8 +421,8 @@ export function createApiHandler(
       if (eventId && (await canManageEvent(handle, ctx, eventId))) return true;
       // A missing rundown is "not found", not "no access" — but only say so
       // to authenticated callers, so anonymous probes can't test what exists.
-      if (!eventId && ctx) json(res, 404, { error: "rundown not found" });
-      else json(res, 401, { error: "management access required" });
+      if (!eventId && ctx) json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
+      else json(res, 401, { error: "You can't change this. Ask the person who runs your company to give you access." });
       return false;
     };
 
@@ -439,15 +439,15 @@ export function createApiHandler(
       const ctx = await authContext(handle, req, rundownId);
       const eventId = await eventIdForRundown(rundownId);
       if (eventId && (await canEditEvent(handle, ctx, eventId))) return true;
-      if (!eventId && ctx) json(res, 404, { error: "rundown not found" });
-      else json(res, 401, { error: "editor access required" });
+      if (!eventId && ctx) json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
+      else json(res, 401, { error: "You can't edit this run sheet. Ask the person who runs it to give you access." });
       return false;
     };
 
     const requireEventEdit = async (eventId: string): Promise<boolean> => {
       const ctx = await authContext(handle, req);
       if (await canEditEvent(handle, ctx, eventId)) return true;
-      json(res, 401, { error: "editor access required" });
+      json(res, 401, { error: "You can't edit this run sheet. Ask the person who runs it to give you access." });
       return false;
     };
 
@@ -483,12 +483,12 @@ export function createApiHandler(
         if (!prev || rank < prev.rank) byUser.set(userId, { access, via, rank });
       };
       for (const g of grants) {
-        if (g.kind === "admin") consider(g.userId, "System Administrator", "everything on this server", 0);
-        else if (g.kind === "company" && g.targetId === event.teamId) consider(g.userId, "Showcaller", "the whole company", 1);
-        else if (g.kind === "event" && g.targetId === eventId) consider(g.userId, "Showcaller", "this event", 2);
-        else if (g.kind === "edit" && g.targetId === eventId) consider(g.userId, "Producer", "this event", 3);
-        else if (g.kind === "company_view" && g.targetId === event.teamId) consider(g.userId, "Viewer", "the whole company", 4);
-        else if (g.kind === "view" && g.targetId === eventId) consider(g.userId, "Crew", "this event", 5);
+        if (g.kind === "admin") consider(g.userId, "System Administrator", "everything in this app", 0);
+        else if (g.kind === "company" && g.targetId === event.teamId) consider(g.userId, "Showcaller", "for the whole company", 1);
+        else if (g.kind === "event" && g.targetId === eventId) consider(g.userId, "Showcaller", "for this event", 2);
+        else if (g.kind === "edit" && g.targetId === eventId) consider(g.userId, "Producer", "for this event", 3);
+        else if (g.kind === "company_view" && g.targetId === event.teamId) consider(g.userId, "Viewer", "for the whole company", 4);
+        else if (g.kind === "view" && g.targetId === eventId) consider(g.userId, "Crew", "for this event", 5);
       }
       const people: { name: string; email: string | null; access: AccessName; via: string }[] = users
         .filter((u) => byUser.has(u.id))
@@ -497,7 +497,7 @@ export function createApiHandler(
         .map(({ rank: _rank, ...p }) => p);
       // The company's own token signs in as the company: whoever holds it runs
       // every show the company has. It is a way in, so it is listed as one.
-      if (team?.companyToken) people.push({ name: `${team.name} (company token)`, email: null, access: "Showcaller", via: "the company's own token" });
+      if (team?.companyToken) people.push({ name: `${team.name} (company access token)`, email: null, access: "Showcaller", via: "anyone with the company's access token" });
       return people;
     };
 
@@ -506,7 +506,7 @@ export function createApiHandler(
       if (ctx?.kind === "code" && ctx.rundownId === rundownId && ctx.role !== "follower") return true;
       const eventId = await eventIdForRundown(rundownId);
       if (eventId && (await canEditEvent(handle, ctx, eventId))) return true;
-      json(res, 401, { error: "editor access required" });
+      json(res, 401, { error: "You can't edit this run sheet. Ask the person who runs it to give you access." });
       return false;
     };
 
@@ -611,11 +611,11 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/codes\/[^/]+$/.test(pathname)) {
         const resolved = await guessing(() => resolveJoinCode(handle, pathname.split("/")[2]!));
         if (resolved === "throttled") {
-          json(res, 429, { error: "Too many wrong codes — try again in a few minutes." });
+          json(res, 429, { error: "Too many wrong codes. Wait a few minutes, then try again." });
           return true;
         }
         if (!resolved) {
-          json(res, 404, { error: "unknown code" });
+          json(res, 404, { error: "That code doesn't open anything. Check it and try again." });
           return true;
         }
         const row = await db.query.shareTokens.findFirst({ where: eq(schema.shareTokens.id, resolved.tokenId) });
@@ -629,7 +629,7 @@ export function createApiHandler(
       if (req.method === "GET" && pathname === "/live") {
         const ctx = await authContext(handle, req);
         if (ctx?.kind !== "admin" && ctx?.kind !== "company" && ctx?.kind !== "user") {
-          json(res, 401, { error: "access token required" });
+          json(res, 401, { error: "Please sign in first." });
           return true;
         }
         let sessions = await db.query.showSessions.findMany({
@@ -724,7 +724,7 @@ export function createApiHandler(
       if (req.method === "PATCH" && pathname === "/me") {
         const ctx = await resolveBearer(handle, bearerToken(req));
         if (ctx?.kind !== "user") {
-          json(res, 400, { error: "sign in with an email account to edit a profile" });
+          json(res, 400, { error: "Only people who sign in with an email and password can change their details here." });
           return true;
         }
         const body = await readJson(req);
@@ -734,7 +734,7 @@ export function createApiHandler(
         try {
           if (Object.keys(patch).length > 0) await db.update(schema.users).set(patch).where(eq(schema.users.id, ctx.userId));
         } catch {
-          json(res, 409, { error: "that email is already in use" });
+          json(res, 409, { error: "Another account already uses that email. Try a different one." });
           return true;
         }
         json(res, 200, { ok: true });
@@ -751,7 +751,7 @@ export function createApiHandler(
         const emailKey = `login:email:${email}`;
         const tooMany = (retryAfterSec: number, why: string) => {
           res.setHeader("retry-after", String(retryAfterSec));
-          json(res, 429, { error: `Too many sign-in attempts — try again in ${retryAfterSec < 90 ? `${retryAfterSec} seconds` : `${Math.ceil(retryAfterSec / 60)} minutes`}.` });
+          json(res, 429, { error: `Too many tries. Wait ${retryAfterSec < 90 ? `${retryAfterSec} seconds` : `${Math.ceil(retryAfterSec / 60)} minutes`}, then try again.` });
           audit(handle, { actor: null, action: "login.throttled", target: email ? `email:${email}` : null, ip, detail: { why } });
         };
         // Slowdown for an address under attack from anywhere: wait out the
@@ -783,7 +783,7 @@ export function createApiHandler(
         // the same time taken for both (verifyPassword checks a dummy hash).
         if (!verifyPassword(password, user?.passwordHash ?? null) || !user) {
           audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip });
-          json(res, 401, { error: "invalid email or password" });
+          json(res, 401, { error: "That email and password don't match an account. Check them and try again." });
           return true;
         }
         // Right password: the attempt was not a guess, so it does not count.
@@ -801,7 +801,7 @@ export function createApiHandler(
       if (req.method === "POST" && (pathname === "/oauth/authorize/check" || pathname === "/oauth/authorize/decide")) {
         const userId = await accountIdForToken(handle, bearerToken(req));
         if (!userId) {
-          json(res, 401, { error: "Sign in with your own account to connect an assistant." });
+          json(res, 401, { error: "Sign in with your own email and password to connect an AI assistant." });
           return true;
         }
         const ctx = await contextForAccount(handle, userId);
@@ -817,7 +817,7 @@ export function createApiHandler(
         // The error log is the server's, not a sheet's: System Administrators only.
         const offered = (key: string) => (key === "sheets:write" ? mayWrite : key.startsWith("errors:") ? ctx?.kind === "admin" : true);
         const whyNot = (key: string) =>
-          key.startsWith("errors:") ? "Only a System Administrator can see the error log, so this is not offered." : "Your account can only read sheets, so this is not offered.";
+          key.startsWith("errors:") ? "Only a System Administrator can see the error log, so you can't let the assistant do this." : "Your account can only look at sheets, not change them, so you can't let the assistant do this.";
         const base = syncBase(req);
         try {
           if (pathname.endsWith("/check")) {
@@ -850,7 +850,7 @@ export function createApiHandler(
       if (pathname === "/me/assistants" || pathname.startsWith("/me/assistants/")) {
         const userId = await accountIdForToken(handle, bearerToken(req));
         if (!userId) {
-          json(res, 401, { error: "sign in first" });
+          json(res, 401, { error: "Please sign in first." });
           return true;
         }
         if (req.method === "GET" && pathname === "/me/assistants") {
@@ -861,7 +861,7 @@ export function createApiHandler(
         if (req.method === "DELETE" && grantId) {
           const grant = await db.query.mcpGrants.findFirst({ where: eq(schema.mcpGrants.id, grantId) });
           if (!grant || grant.userId !== userId) {
-            json(res, 404, { error: "no such connection" });
+            json(res, 404, { error: "That assistant isn't connected any more." });
             return true;
           }
           await revokeGrant(handle, grant.id);
@@ -895,7 +895,7 @@ export function createApiHandler(
           userId = user?.id ?? null;
         }
         if (!userId) {
-          json(res, 401, { error: "sign in first" });
+          json(res, 401, { error: "Please sign in first." });
           return true;
         }
         const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
@@ -911,12 +911,12 @@ export function createApiHandler(
           const t = await consume(handle, pwKey, { max: 10, windowSec: 24 * 3600 });
           if (!t.ok) {
             res.setHeader("retry-after", String(t.retryAfterSec));
-            json(res, 429, { error: "Too many wrong passwords today — try again tomorrow." });
+            json(res, 429, { error: "Too many wrong passwords today. Try again tomorrow." });
             return true;
           }
           if (!verifyPassword(current, user.passwordHash)) {
             audit(handle, { actor: userId, action: "password.change_failed", target: `user:${userId}`, ip });
-            json(res, 401, { error: "current password is wrong" });
+            json(res, 401, { error: "Your current password isn't right. Type it again." });
             return true;
           }
           await release(handle, pwKey);
@@ -1112,17 +1112,17 @@ export function createApiHandler(
         const body = await readJson(req);
         const email = String(body.email ?? "").trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-          json(res, 400, { error: "A valid email address is required" });
+          json(res, 400, { error: "Type a complete email address." });
           return true;
         }
         const asked = Array.isArray(body.grants) ? (body.grants as { kind: string; targetId?: string }[]) : [];
         const grants = resolveGrants(scope, asked);
         if (grants.length === 0) {
-          json(res, 400, { error: "Choose what this person may open" });
+          json(res, 400, { error: "Choose what this person can open." });
           return true;
         }
         if (refusedGrants(scope, grants).length > 0) {
-          json(res, 403, { error: "That is not yours to give access to" });
+          json(res, 403, { error: "You can't give access to that, because it isn't yours." });
           return true;
         }
         /**
@@ -1144,15 +1144,15 @@ export function createApiHandler(
         const KINDS = ["admin", "company", "event", "edit", "view", "company_view"];
         const badKind = grants.find((g) => !KINDS.includes(g.kind));
         if (badKind) {
-          json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });
+          json(res, 400, { error: `"${badKind.kind}" isn't a kind of access this app knows about.` });
           return true;
         }
         if (grants.some((g) => (g.kind === "company" || g.kind === "company_view") && !g.targetId)) {
-          json(res, 400, { error: "Choose which company this person may open" });
+          json(res, 400, { error: "Choose which company this person can open." });
           return true;
         }
         if (grants.some((g) => (g.kind === "event" || g.kind === "edit" || g.kind === "view") && !g.targetId)) {
-          json(res, 400, { error: "Choose which event this person may open" });
+          json(res, 400, { error: "Choose which event this person can open." });
           return true;
         }
 
@@ -1219,7 +1219,7 @@ export function createApiHandler(
         const inviteId = pathname.split("/")[2]!;
         const row = await db.query.userInvites.findFirst({ where: eq(schema.userInvites.id, inviteId) });
         if (!row || (!scope.all && !(row.teamId && scope.teamIds.includes(row.teamId)))) {
-          json(res, 404, { error: "unknown invitation" });
+          json(res, 404, { error: "We can't find that invitation. The link may be wrong." });
           return true;
         }
         await db.update(schema.userInvites).set({ revokedAt: new Date() }).where(eq(schema.userInvites.id, inviteId));
@@ -1231,7 +1231,7 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/invites\/[^/]+$/.test(pathname)) {
         const found = await guessing(() => db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, pathname.split("/")[2]!) }));
         if (found === "throttled") {
-          json(res, 429, { error: "Too many attempts — try again later." });
+          json(res, 429, { error: "Too many tries. Wait a while, then try again." });
           return true;
         }
         const row = found;
@@ -1254,7 +1254,7 @@ export function createApiHandler(
         const token = pathname.split("/")[2]!;
         const found = await guessing(() => db.query.userInvites.findFirst({ where: eq(schema.userInvites.token, token) }));
         if (found === "throttled") {
-          json(res, 429, { error: "Too many attempts — try again later." });
+          json(res, 429, { error: "Too many tries. Wait a while, then try again." });
           return true;
         }
         const row = found;
@@ -1266,7 +1266,7 @@ export function createApiHandler(
         const name = String(body.name ?? "").trim();
         const password = String(body.password ?? "");
         if (!name) {
-          json(res, 400, { error: "Your name is required" });
+          json(res, 400, { error: "Type your name." });
           return true;
         }
         const problem = passwordProblem(password, row.email);
@@ -1309,7 +1309,7 @@ export function createApiHandler(
         const body = await readJson(req);
         const name = String(body.name ?? "").trim();
         if (!name) {
-          json(res, 400, { error: "name required" });
+          json(res, 400, { error: "Type a name first." });
           return true;
         }
         const id = ulid();
@@ -1358,7 +1358,7 @@ export function createApiHandler(
         // anonymous admin-maker — and the grants it wrote would outlive the
         // token being set later.
         if (isOpenAccess()) {
-          json(res, 403, { error: "set ADMIN_TOKEN before changing anyone's access" });
+          json(res, 403, { error: "Access can't be changed yet. Whoever set up this app needs to give it an administrator password first (the ADMIN_TOKEN setting)." });
           return true;
         }
         const scope = await requirePeopleScope();
@@ -1371,7 +1371,7 @@ export function createApiHandler(
         const theirs = scope.all || existing.some((g) => grantInScope(scope, g));
         const isAdmin = existing.some((g) => g.kind === "admin");
         if (!theirs || (!scope.all && isAdmin)) {
-          json(res, 404, { error: "unknown person" });
+          json(res, 404, { error: "We can't find that person. Their account may have been deleted." });
           return true;
         }
 
@@ -1381,7 +1381,7 @@ export function createApiHandler(
         const KINDS = ["admin", "company", "event", "edit", "view", "company_view"];
         const badKind = wanted.find((g) => !KINDS.includes(g.kind));
         if (badKind) {
-          json(res, 400, { error: `"${badKind.kind}" is not something anyone can be given` });
+          json(res, 400, { error: `"${badKind.kind}" isn't a kind of access this app knows about.` });
           return true;
         }
         if (wanted.some((g) => g.kind !== "admin" && !g.targetId)) {
@@ -1389,7 +1389,7 @@ export function createApiHandler(
           return true;
         }
         if (refusedGrants(scope, wanted).length > 0) {
-          json(res, 403, { error: "That is not yours to give access to" });
+          json(res, 403, { error: "You can't give access to that, because it isn't yours." });
           return true;
         }
 
@@ -1552,7 +1552,7 @@ export function createApiHandler(
         const body = await readJson(req);
         const name = String(body.name ?? "").trim();
         if (!name) {
-          json(res, 400, { error: "name required" });
+          json(res, 400, { error: "Type a name first." });
           return true;
         }
         const id = ulid();
@@ -1630,7 +1630,7 @@ export function createApiHandler(
         const body = await readJson(req);
         const current = await db.query.events.findFirst({ where: eq(schema.events.id, id) });
         if (!current) {
-          json(res, 404, { error: "event not found" });
+          json(res, 404, { error: "We can't find that event. It may have been deleted." });
           return true;
         }
         const patch: Record<string, unknown> = {};
@@ -1648,7 +1648,7 @@ export function createApiHandler(
           const nextStart = (patch.startDate as string | undefined) ?? current.startDate;
           const nextEnd = (patch.endDate as string | undefined) ?? current.endDate;
           if (nextEnd < nextStart) {
-            json(res, 400, { error: "end date cannot be before the start date" });
+            json(res, 400, { error: "The end date can't be before the start date." });
             return true;
           }
         }
@@ -1657,7 +1657,7 @@ export function createApiHandler(
           const locationChanged =
             typeof body.location === "string" && (body.location.trim() || null) !== current.location;
           if (!locationChanged) {
-            json(res, 400, { error: "timezone can only change together with the event location" });
+            json(res, 400, { error: "To change the time zone, change the event location too." });
             return true;
           }
           patch.timezone = body.timezone;
@@ -1685,7 +1685,7 @@ export function createApiHandler(
           const name = body.name.trim();
           const row = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, id) });
           if (!row) {
-            json(res, 404, { error: "rundown not found" });
+            json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
             return true;
           }
           const patch: { name: string; doc?: Uint8Array; docUpdatedAt?: Date } = { name };
@@ -1729,7 +1729,7 @@ export function createApiHandler(
         if (!(await requireRundownEdit(sourceId))) return true;
         const source = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, sourceId) });
         if (!source?.doc) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         const id = ulid();
@@ -1755,7 +1755,7 @@ export function createApiHandler(
       if (req.method === "GET" && pathname === "/events") {
         const ctx = await authContext(handle, req);
         if (ctx?.kind !== "admin" && ctx?.kind !== "company" && ctx?.kind !== "user") {
-          json(res, 401, { error: "access token required" });
+          json(res, 401, { error: "Please sign in first." });
           return true;
         }
         const includeArchived = url.searchParams.get("archived") === "1";
@@ -1815,14 +1815,14 @@ export function createApiHandler(
         const companyGrants =
           ctx?.kind === "user" ? ctx.grants.filter((g) => g.kind === "company").map((g) => g.targetId) : [];
         if (!ctx || (ctx.kind !== "admin" && ctx.kind !== "company" && companyGrants.length === 0)) {
-          json(res, 401, { error: "admin or company access required" });
+          json(res, 401, { error: "Only a company or a System Administrator can do this. Sign in as one and try again." });
           return true;
         }
         const body = await readJson(req);
         const createStart = String(body.startDate ?? new Date().toISOString().slice(0, 10));
         const createEnd = String(body.endDate ?? body.startDate ?? new Date().toISOString().slice(0, 10));
         if (createEnd < createStart) {
-          json(res, 400, { error: "end date cannot be before the start date" });
+          json(res, 400, { error: "The end date can't be before the start date." });
           return true;
         }
         const id = ulid();
@@ -1833,7 +1833,7 @@ export function createApiHandler(
           // An account holder creates only inside a company they manage.
           teamId = asked ?? companyGrants[0]!;
           if (!companyGrants.includes(teamId)) {
-            json(res, 403, { error: "that company is outside your access" });
+            json(res, 403, { error: "You can't add events to that company." });
             return true;
           }
         } else teamId = asked ?? (await defaultTeamId());
@@ -1848,7 +1848,7 @@ export function createApiHandler(
         const team = await db.query.teams.findFirst({ where: eq(schema.teams.id, teamId), columns: { id: true } });
         if (!team) {
           json(res, 409, {
-            error: "the company this account is granted access to no longer exists — an admin needs to grant access to a current company",
+            error: "The company your account belongs to has been deleted. Ask a System Administrator to give you access to a company that still exists.",
           });
           return true;
         }
@@ -1935,7 +1935,7 @@ export function createApiHandler(
         });
         // Another company's type is not merely un-deletable, it is not there.
         if (!row || (!scope.all && !(row.teamId && scope.teamIds.includes(row.teamId)))) {
-          json(res, 404, { error: "unknown event type" });
+          json(res, 404, { error: "We can't find that kind of show. It may have been removed." });
           return true;
         }
         await db.delete(schema.customEventTypes).where(eq(schema.customEventTypes.id, row.id));
@@ -1961,7 +1961,7 @@ export function createApiHandler(
         if (!(await requireEventEdit(eventId))) return true;
         const event = await db.query.events.findFirst({ where: eq(schema.events.id, eventId) });
         if (!event) {
-          json(res, 404, { error: "event not found" });
+          json(res, 404, { error: "We can't find that event. It may have been deleted." });
           return true;
         }
 
@@ -1984,7 +1984,7 @@ export function createApiHandler(
            * given id exists is not something to confirm to somebody guessing.
            */
           if (!template || (template.teamId !== null && template.teamId !== event.teamId)) {
-            json(res, 404, { error: "template not found" });
+            json(res, 404, { error: "We can't find that template. It may have been deleted." });
             return true;
           }
           doc = decodeDoc(template.doc);
@@ -2069,7 +2069,7 @@ export function createApiHandler(
               ? ctx.grants.filter((g) => g.kind === "company").map((g) => g.targetId)
               : [];
         if (!isAdmin && teamIds.length === 0) {
-          json(res, 401, { error: "company or admin access required" });
+          json(res, 401, { error: "Only a company or a System Administrator can do this. Sign in as one and try again." });
           return true;
         }
         const evs = await db.query.events.findMany({ columns: { id: true, name: true, teamId: true } });
@@ -2121,7 +2121,7 @@ export function createApiHandler(
           },
         });
         if (!row) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         const now = Date.now();
@@ -2157,7 +2157,7 @@ export function createApiHandler(
           // Yours by identity counts too: a tab that lost its token on a
           // reload must still be able to hand the sheet back.
           if (row.editLockToken && given !== row.editLockToken && row.editLockHolderKey !== requesterKey) {
-            json(res, 409, { error: "not yours to release", lock: publicLock(lock, now) });
+            json(res, 409, { error: "Someone else is editing this sheet, so you can't finish their editing for them.", lock: publicLock(lock, now) });
             return true;
           }
           await clearLock(db, id);
@@ -2171,7 +2171,7 @@ export function createApiHandler(
         const posted = await readJson(req);
         const given = typeof posted.token === "string" ? posted.token : null;
         if (!mayClaim(lock, given, row.editLockToken, now) && row.editLockHolderKey !== requesterKey) {
-          json(res, 409, { error: "someone else is editing", lock: publicLock(lock, now) });
+          json(res, 409, { error: "Someone else is editing this sheet right now. Wait until they press Done editing.", lock: publicLock(lock, now) });
           return true;
         }
         const ctx = who;
@@ -2220,7 +2220,7 @@ export function createApiHandler(
           columns: { sourceName: true, sourceFile: true },
         });
         if (!row?.sourceFile) {
-          json(res, 404, { error: "no stored source sheet — drop the file again (imports now store it)" });
+          json(res, 404, { error: "We don't have the original file for this sheet. Drag the file in again to update it." });
           return true;
         }
         res.statusCode = 200;
@@ -2240,13 +2240,13 @@ export function createApiHandler(
         const body = await readJson(req);
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, id) });
         if (!rundown) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         const event = await db.query.events.findFirst({ where: eq(schema.events.id, rundown.eventId) });
         const rows = Array.isArray(body.rows) && body.rows.length > 0 ? (body.rows as SeedRow[]) : null;
         if (!rows) {
-          json(res, 400, { error: "rows required" });
+          json(res, 400, { error: "There are no rows to save. Choose a file with rows in it." });
           return true;
         }
         const extraColumns = Array.isArray(body.columns)
@@ -2383,7 +2383,7 @@ export function createApiHandler(
         // with a stranger holding the transport.
         if (role !== "follower") {
           json(res, 400, {
-            error: "Codes are view-only. Running or editing a show needs an account.",
+            error: "A code only lets you look at the run sheet. To run or edit a show, you need an account.",
           });
           return true;
         }
@@ -2425,13 +2425,13 @@ export function createApiHandler(
         const code = pathname.split("/")[2]!;
         const resolved = await resolveJoinCode(handle, code);
         if (!resolved) {
-          json(res, 404, { error: "unknown code" });
+          json(res, 404, { error: "That code doesn't open anything. Check it and try again." });
           return true;
         }
         const body = await readJson(req);
         const rowId = typeof body.rowId === "string" ? body.rowId.trim() : "";
         if (!rowId) {
-          json(res, 400, { error: "rowId is required" });
+          json(res, 400, { error: "Choose a row first." });
           return true;
         }
         const trim = (v: unknown, max: number): string | null => {
@@ -2462,7 +2462,7 @@ export function createApiHandler(
         const rundownId = pathname.split("/")[2]!;
         const ctx = await authContext(handle, req, rundownId);
         if (!ctx) {
-          json(res, 401, { error: "access required" });
+          json(res, 401, { error: "Sign in, or open the sheet with its link, first." });
           return true;
         }
         if (ctx.kind !== "user") {
@@ -2479,11 +2479,11 @@ export function createApiHandler(
         const body = (await readJson(req)) as { ink?: unknown } | null;
         const ink = body?.ink;
         if (!isInkDoc(ink)) {
-          json(res, 400, { error: "ink is not in the expected shape" });
+          json(res, 400, { error: "The drawing couldn't be saved. Reload the page and try again." });
           return true;
         }
         if (JSON.stringify(ink).length > INK_MAX_BYTES) {
-          json(res, 413, { error: "too much ink on this sheet — clear some first" });
+          json(res, 413, { error: "There is too much drawing on this sheet. Clear some of it first." });
           return true;
         }
         await db
@@ -2501,7 +2501,7 @@ export function createApiHandler(
         const rundownId = pathname.split("/")[2]!;
         const ctx = await authContext(handle, req, rundownId);
         if (!ctx) {
-          json(res, 401, { error: "access required" });
+          json(res, 401, { error: "Sign in, or open the sheet with its link, first." });
           return true;
         }
         const notes = await db.query.rowNotes.findMany({
@@ -2536,12 +2536,12 @@ export function createApiHandler(
         const noteId = pathname.split("/")[2]!;
         const note = await db.query.rowNotes.findFirst({ where: eq(schema.rowNotes.id, noteId) });
         if (!note) {
-          json(res, 404, { error: "unknown note" });
+          json(res, 404, { error: "We can't find that note. It may have been removed." });
           return true;
         }
         const ctx = await authContext(handle, req, note.rundownId);
         if (!ctx) {
-          json(res, 401, { error: "access required" });
+          json(res, 401, { error: "Sign in, or open the sheet with its link, first." });
           return true;
         }
         await db.update(schema.rowNotes).set({ resolvedAt: new Date() }).where(eq(schema.rowNotes.id, noteId));
@@ -2553,7 +2553,7 @@ export function createApiHandler(
         const code = pathname.split("/")[2]!;
         const resolved = await resolveJoinCode(handle, code);
         if (!resolved) {
-          json(res, 404, { error: "unknown code" });
+          json(res, 404, { error: "That code doesn't open anything. Check it and try again." });
           return true;
         }
         const body = await readJson(req);
@@ -2564,7 +2564,7 @@ export function createApiHandler(
         const name = str(body.name, 60);
         const deviceId = str(body.deviceId, 64);
         if (!name || !deviceId) {
-          json(res, 400, { error: "name and deviceId are required" });
+          json(res, 400, { error: "Type your name first." });
           return true;
         }
         // Behind Railway's proxy the socket address is the proxy's; the first
@@ -2792,7 +2792,7 @@ export function createApiHandler(
        * the same panel as everything else.
        */
       if (req.method === "POST" && pathname === "/guest-passes") {
-        json(res, 410, { error: "Guest passes have been withdrawn. Use a view-only link." });
+        json(res, 410, { error: "Guest passes don't work any more. Ask for a view-only link instead." });
         return true;
       }
 
@@ -2801,12 +2801,12 @@ export function createApiHandler(
         const token = pathname.slice("/guest/".length);
         const pass = await db.query.shareTokens.findFirst({ where: eq(schema.shareTokens.token, token) });
         if (!pass || pass.kind !== "guest" || pass.revokedAt) {
-          json(res, 404, { error: "invalid or revoked guest pass" });
+          json(res, 404, { error: "This guest pass doesn't work. It may have been turned off. Ask for a view-only link instead." });
           return true;
         }
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, pass.rundownId) });
         if (!rundown?.doc) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         // Closed by the showcaller once the event was done. A pass that WAS
@@ -3071,7 +3071,7 @@ export function createApiHandler(
         if (!(await requireEditor(rundownId))) return true;
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId), columns: { id: true, name: true, eventId: true } });
         if (!rundown) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         const t = schema.sheetChanges;
@@ -3132,7 +3132,7 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/sheet-changes\/[^/]+$/.test(pathname)) {
         const change = await db.query.sheetChanges.findFirst({ where: eq(schema.sheetChanges.id, pathname.split("/")[2]!) });
         if (!change) {
-          json(res, 404, { error: "change not found" });
+          json(res, 404, { error: "We can't find that change." });
           return true;
         }
         if (!(await requireEditor(change.rundownId))) return true;
@@ -3157,7 +3157,7 @@ export function createApiHandler(
       if (req.method === "POST" && /^\/sheet-changes\/[^/]+\/undo$/.test(pathname)) {
         const change = await db.query.sheetChanges.findFirst({ where: eq(schema.sheetChanges.id, pathname.split("/")[2]!) });
         if (!change) {
-          json(res, 404, { error: "change not found" });
+          json(res, 404, { error: "We can't find that change." });
           return true;
         }
         if (!(await requireEditor(change.rundownId))) return true;
@@ -3230,14 +3230,14 @@ export function createApiHandler(
       if (req.method === "GET" && /^\/snapshots\/[^/]+\/compare$/.test(pathname)) {
         const snapshot = await db.query.rundownSnapshots.findFirst({ where: eq(schema.rundownSnapshots.id, pathname.split("/")[2]!) });
         if (!snapshot) {
-          json(res, 404, { error: "version not found" });
+          json(res, 404, { error: "We can't find that saved version. It may have been deleted." });
           return true;
         }
         if (!(await requireEditor(snapshot.rundownId))) return true;
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, snapshot.rundownId) });
         const now = rundown ? currentDocBytes(rundown) : null;
         if (!now) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         // The panel names a few rows of each kind and counts the rest; a whole
@@ -3261,7 +3261,7 @@ export function createApiHandler(
         const body = await readJson(req);
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId) });
         if (!rundown?.doc) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         const id = ulid();
@@ -3286,7 +3286,7 @@ export function createApiHandler(
           columns: { docEpoch: true, viewingClosedAt: true },
         });
         if (!row) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         // Every screen asks for the epoch before it opens a connection, so the
@@ -3305,13 +3305,13 @@ export function createApiHandler(
           where: eq(schema.rundownSnapshots.id, snapshotId),
         });
         if (!snapshot) {
-          json(res, 404, { error: "snapshot not found" });
+          json(res, 404, { error: "We can't find that saved version. It may have been deleted." });
           return true;
         }
         if (!(await requireEditor(snapshot.rundownId))) return true;
         const rundown = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, snapshot.rundownId) });
         if (!rundown) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         // Safety net: snapshot the pre-restore state first, so a restore is
@@ -3363,13 +3363,13 @@ export function createApiHandler(
           where: eq(schema.rundownSnapshots.id, snapshotId),
         });
         if (!snapshot) {
-          json(res, 404, { error: "snapshot not found" });
+          json(res, 404, { error: "We can't find that saved version. It may have been deleted." });
           return true;
         }
         if (!(await requireEditor(snapshot.rundownId))) return true;
         const source = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, snapshot.rundownId) });
         if (!source) {
-          json(res, 404, { error: "source rundown not found" });
+          json(res, 404, { error: "We can't find the sheet you are copying from." });
           return true;
         }
         const id = ulid();
@@ -3395,7 +3395,7 @@ export function createApiHandler(
       if (req.method === "GET" && pathname === "/templates") {
         const ctx = await authContext(handle, req);
         if (ctx?.kind !== "admin" && ctx?.kind !== "company") {
-          json(res, 401, { error: "admin or company token required" });
+          json(res, 401, { error: "Only a company or a System Administrator can do this. Sign in as one and try again." });
           return true;
         }
         const all = await db.query.templates.findMany({
@@ -3418,7 +3418,7 @@ export function createApiHandler(
           where: eq(schema.rundowns.id, String(body.rundownId ?? "")),
         });
         if (!rundown?.doc) {
-          json(res, 404, { error: "rundown not found" });
+          json(res, 404, { error: "We can't find that run sheet. It may have been deleted." });
           return true;
         }
         /**
@@ -3441,7 +3441,7 @@ export function createApiHandler(
           where: eq(schema.events.id, rundown.eventId),
         });
         if (!event) {
-          json(res, 404, { error: "event not found" });
+          json(res, 404, { error: "We can't find that event. It may have been deleted." });
           return true;
         }
         const id = ulid();
@@ -3467,7 +3467,7 @@ export function createApiHandler(
       // the raw text of a database or library error can describe the
       // schema, a query or a file path.
       logServerError(handle, "server", err, { url: `${req.method} ${pathname}` });
-      json(res, 500, { error: "Something went wrong on the server. It has been logged." });
+      json(res, 500, { error: "Something went wrong on our side. We have noted it. Try again in a moment." });
       return true;
     }
     return false;

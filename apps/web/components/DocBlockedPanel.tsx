@@ -21,7 +21,7 @@ export function DocBlockedPanel({ block, rundownPath }: { block: DocBlock; rundo
       </div>
       {block.identity && (
         <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: 8 }}>
-          This device's sign-in: {block.identity}
+          Signed in on this device as: {block.identity}
         </div>
       )}
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
@@ -36,7 +36,7 @@ export function DocBlockedPanel({ block, rundownPath }: { block: DocBlock; rundo
           </button>
         )}
       </div>
-      <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: 10 }}>Code: {block.reason}</div>
+      <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", marginTop: 10 }}>If you ask for help, tell them this: {block.reason}</div>
     </div>
   );
 }

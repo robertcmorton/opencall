@@ -720,55 +720,6 @@ input.inline-edit {
   }
 }
 
-/* One row of labels, so it reads as one row.
-   These sat a couple of pixels below SHOW / PROJ. END / EVENT TIME and in
-   different type, which is enough to look like a mistake. Two things caused
-   it: they were set in a different size and case from the labels beside them,
-   and the dot itself was a flex item — so the flex box took ITS box as the
-   baseline rather than the text's. The dot is now positioned out of the flow
-   and the type matches, so the whole right-hand side sits on one line. */
-.status-dot {
-  position: relative;
-  display: inline-block;
-  padding-left: 11px;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-3);
-}
-.status-dot::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--over);
-  transition: background var(--t-med) var(--ease);
-}
-.status-dot.ok::before {
-  background: var(--under);
-}
-.status-dot.pending::before {
-  background: var(--warn);
-}
-/* Edits waiting for the server. Amber, not red: nothing is lost yet. */
-.unsaved-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--warn);
-  background: var(--warn-soft);
-  color: var(--warn);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---------- Empty states & skeletons ---------- */
 
 .empty {
@@ -2413,9 +2364,6 @@ kbd {
 .topbar-right > .header-proj {
   grid-area: 1 / 2;
 }
-.topbar-right > .header-dots {
-  grid-area: 1 / 3;
-}
 
 /* One row only while there is room for one.
    The header is three cells — title, cue timer, readouts — and the readouts
@@ -2449,9 +2397,6 @@ kbd {
   .topbar-right > .header-clock-block {
     grid-area: 1 / 2;
   }
-  .topbar-right > .header-dots {
-    grid-area: 1 / 3;
-  }
 }
 /* A tablet: the projected end goes UNDER the time of day, in the same column,
    left edges aligned. Side by side, the two readouts plus the lamps were the
@@ -2473,9 +2418,6 @@ kbd {
   .topbar-right > .header-proj {
     grid-area: 2 / 1;
   }
-  .topbar-right > .header-dots {
-    grid-area: 1 / 2 / 3 / 3;
-  }
 }
 @media (max-width: 1120px) {
   /* Tighter still before anything is allowed to wrap. */
@@ -2487,21 +2429,6 @@ kbd {
 .topbar-right > .header-clock-block {
   justify-self: start;
 }
-/* The two connection lamps: one above the other, hard right, clear of the
-   numbers. They answer one question between them and are the only state in a
-   row of readings. */
-.header-dots {
-  /* NO explicit placement. The markup already puts the lamps after the
-     readouts, so auto-flow lands them in the next column — the far right,
-     which is where they belong. Naming a column (-2) instead FOUGHT the
-     auto-flow and parked them at the far LEFT, ahead of everything. Let the
-     order in the markup decide the order on the screen. */
-  display: grid;
-  gap: var(--space-1);
-  align-content: center;
-  justify-items: start;
-}
-
 @media (max-width: 760px) {
   /* Phones stack: timer first (still centred), then the title row, then readouts.
      And they stack CENTRED — left-aligned blocks under a centred timer read as
@@ -2799,7 +2726,6 @@ select:disabled {
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
-.notes-empty,
 .note-hint {
   color: var(--text-3);
   font-size: var(--fs-sm);

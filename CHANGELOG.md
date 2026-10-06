@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-10-06
+
 ### Changed
 - **Plain words on the older screens too:** the dashboard, sign-in, your account, the admin pages, importing a sheet, view-only links, version history, notes, the timing check and the server's own messages. For example "+ Rundown" is now **+ Create show**, "Revoke" is **Turn off**, "Deny" is **Don't allow**, and "rundown not found" is "We can't find that run sheet. It may have been deleted."
 - **Plainer words on everything new.** The row menu, the notes that appear after a paste or fill, find and replace, copying rows to another sheet, the stage message and the on-cue signals panel were rewritten in everyday language: "Turn into a heading" instead of "Make a heading (Group)", "Only play this if… we win" instead of "Plays for result", "Press ⌘Z to undo" (Ctrl+Z on Windows), and the on-cue signals panel explains what it is for before asking for a web address. The edit page's "EDIT — no transport" label now just says EDITING.

@@ -16,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 - **No more browser pop-ups.** All 37 places that used the browser's grey alert, "OK / Cancel" and type-in boxes now use the app's own: a short note at the top that goes by itself (errors stay longer and can be closed), a proper question box in the app's style, and a labelled type-in box that says what's wrong before it closes — "That isn't a time we can read — try 7:30 pm or 19:30." Nothing freezes the page any more. Questions that can't be undone, like ending an event, start with **Cancel** picked, so a stray Enter can't do it. Dates now use your phone's own date picker. Passwords set for someone else are hidden as you type (they used to show in plain text), and new access tokens appear in a box with a **Copy** button.
 
 ### Security
+- **A weekly security check.** Every Monday morning an automatic check looks for newly announced faults in the libraries the app uses, and opens a GitHub issue if it finds one — instead of the first sign being a blocked update.
 - **A library the build uses was patched.** `source-map-js` (brought in by the web framework's CSS tooling) had a newly published high-severity fault: crafted input could make it hang. The app now requires the fixed version. It only ran while the site was being built, never for visitors.
 
 ### Changed

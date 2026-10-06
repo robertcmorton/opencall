@@ -25,7 +25,7 @@ export function CopyRowsPanel({ rundownId, rowIds, onClose }: { rundownId: strin
     <div className="find-panel" role="dialog" aria-label="Copy rows to another sheet">
       <div className="find-row" style={{ alignItems: "center" }}>
         <strong style={{ flex: 1 }}>
-          Copy {rowIds.length} row{rowIds.length === 1 ? "" : "s"} to…
+          Copy {rowIds.length} row{rowIds.length === 1 ? "" : "s"} to the end of which sheet?
         </strong>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">
           ✕
@@ -38,7 +38,9 @@ export function CopyRowsPanel({ rundownId, rowIds, onClose }: { rundownId: strin
             Copied {result.added} row{result.added === 1 ? "" : "s"} to the end of {result.target.name}.
           </span>
           {result.unmatchedColumns.length > 0 && (
-            <span style={{ color: "var(--text-2)" }}>That sheet has no column for: {result.unmatchedColumns.join(", ")} — those cells were not copied.</span>
+            <span style={{ color: "var(--text-2)" }}>
+              That sheet has no {result.unmatchedColumns.join(", ")} column{result.unmatchedColumns.length === 1 ? "" : "s"}, so those cells were not copied.
+            </span>
           )}
           <Link href={`/edit/${result.target.id}`} style={{ color: "var(--accent-text)" }}>
             Open {result.target.name}

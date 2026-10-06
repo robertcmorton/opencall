@@ -67,7 +67,7 @@ export function JumpPalette({ items, onJump, onClose }: { items: JumpItem[]; onJ
         <input
           ref={input}
           className="input jump-input"
-          placeholder="Row number or words — Enter to go"
+          placeholder="Type a row number or some words, then press Enter"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {

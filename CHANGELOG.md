@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Plainer words on everything new.** The row menu, the notes that appear after a paste or fill, find and replace, copying rows to another sheet, the stage message and the on-cue signals panel were rewritten in everyday language: "Turn into a heading" instead of "Make a heading (Group)", "Only play this if… we win" instead of "Plays for result", "Press ⌘Z to undo" (Ctrl+Z on Windows), and the on-cue signals panel explains what it is for before asking for a web address. The edit page's "EDIT — no transport" label now just says EDITING.
+
 ### Fixed
 - **The sheet no longer slides 14px to the left.** Moving around the sheet with the arrow keys could shift the whole page sideways, cutting Undo off at the left edge and leaving a gap to the right of the scrollbar. The page can no longer be shifted, and the sheet's scrollbar now sits on the right edge of the screen. Checked at phone, tablet, 1024, 1280, 1393 and 1920 pixels wide, on the edit and show pages.
 - **A long sheet name on a phone no longer runs under the menu button**; it ends in "…" instead.

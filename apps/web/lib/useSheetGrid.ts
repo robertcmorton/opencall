@@ -153,8 +153,9 @@ export function useSheetGrid(opts: {
     step(how === "down" ? 1 : -1, 0);
   };
 
+  const undoKey = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘Z" : "Ctrl+Z";
   const report = (what: string, lockedSkipped: number, extra = "") =>
-    setNote(`${what}${lockedSkipped ? ` ${lockedSkipped} locked row${lockedSkipped === 1 ? "" : "s"} left alone.` : ""}${extra} Undo (⌘Z) takes it back.`);
+    setNote(`${what}${lockedSkipped ? ` Skipped ${lockedSkipped} locked row${lockedSkipped === 1 ? "" : "s"}.` : ""}${extra} Press ${undoKey} to undo.`);
 
   const busyTarget = (t: EventTarget | null) =>
     !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog]");
@@ -209,7 +210,7 @@ export function useSheetGrid(opts: {
         doc.transact(() => {
           r = clearCells(doc, b.rows, b.cols);
         });
-        if (multi || r.lockedSkipped) report(`Cleared ${r.cleared} cell${r.cleared === 1 ? "" : "s"}.`, r.lockedSkipped);
+        if (multi || r.lockedSkipped) report(`Emptied ${r.cleared} cell${r.cleared === 1 ? "" : "s"}.`, r.lockedSkipped);
         return;
       }
     }
@@ -223,7 +224,7 @@ export function useSheetGrid(opts: {
       doc.transact(() => {
         r = fillDown(doc, rows, b.cols);
       });
-      report(`Filled down ${r.filled} cell${r.filled === 1 ? "" : "s"}.`, r.lockedSkipped);
+      report(`Copied the top row into ${r.filled} cell${r.filled === 1 ? "" : "s"} below it.`, r.lockedSkipped);
       return;
     }
     if (printable && !e.altKey) {
@@ -245,8 +246,9 @@ export function useSheetGrid(opts: {
       doc.transact(() => {
         r = clearCells(doc, b.rows, b.cols);
       });
-      report(`Cut ${r.cleared} cell${r.cleared === 1 ? "" : "s"}.`, r.lockedSkipped);
-    } else if (multi) setNote(`Copied ${b.rows.length} × ${b.cols.length}.`);
+      report(`Cut ${r.cleared} cell${r.cleared === 1 ? "" : "s"}. Paste them where you want them.`, r.lockedSkipped);
+    } else if (multi)
+      setNote(`Copied ${b.rows.length} row${b.rows.length === 1 ? "" : "s"} and ${b.cols.length} column${b.cols.length === 1 ? "" : "s"}. You can paste them here or into Google Sheets.`);
   });
 
   const onPaste = useEffectEvent((e: ClipboardEvent) => {
@@ -265,12 +267,12 @@ export function useSheetGrid(opts: {
     const res = r as ReturnType<typeof pasteGrid> | null;
     if (!res) return;
     const extra =
-      (res.added.length ? ` Added ${res.added.length} row${res.added.length === 1 ? "" : "s"}.` : "") +
-      (res.unreadable ? ` ${res.unreadable} time${res.unreadable === 1 ? "" : "s"} or length${res.unreadable === 1 ? "" : "s"} could not be read and were left as they were.` : "") +
-      (res.droppedColumns ? ` ${res.droppedColumns} column${res.droppedColumns === 1 ? "" : "s"} past the end of the sheet left out.` : "");
+      (res.added.length ? ` Added ${res.added.length} new row${res.added.length === 1 ? "" : "s"} at the end.` : "") +
+      (res.unreadable ? ` ${res.unreadable} time${res.unreadable === 1 ? "" : "s"} or length${res.unreadable === 1 ? "" : "s"} didn't make sense, so ${res.unreadable === 1 ? "that cell was" : "those cells were"} not changed.` : "") +
+      (res.droppedColumns ? ` ${res.droppedColumns} column${res.droppedColumns === 1 ? " didn't" : "s didn't"} fit, so ${res.droppedColumns === 1 ? "it was" : "they were"} left out.` : "");
     const height = grid.length;
     if (height > 1 || res.columns > 1 || extra || res.lockedSkipped)
-      report(`Pasted ${height} row${height === 1 ? "" : "s"} × ${res.columns} column${res.columns === 1 ? "" : "s"}.`, res.lockedSkipped, extra);
+      report(`Pasted ${height} row${height === 1 ? "" : "s"} and ${res.columns} column${res.columns === 1 ? "" : "s"}.`, res.lockedSkipped, extra);
     // The pasted block becomes the selection.
     const lastRow = [...rowIds.slice(startRow), ...res.added][height - 1];
     const lastCol = columns[Math.min(columns.length - 1, startCol + res.columns - 1)];

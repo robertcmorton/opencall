@@ -61,28 +61,32 @@ function privateAddress(ip: string): boolean {
   );
 }
 
+const PRIVATE =
+  "That address is on a private network (like a venue's own Wi-Fi), which OpenCall can't reach. Use the address under “For equipment at the venue” instead.";
+
 /** Why an address may not be called, or null when it may. Resolves DNS. */
 export async function webhookProblem(raw: string): Promise<string | null> {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    return "That is not a web address.";
+    return "That is not a web address. It should start with https://";
   }
-  if (url.protocol !== "https:") return "Only https:// addresses can be used.";
-  if (url.username || url.password) return "Put credentials in the address's path or query, not before the host.";
+  if (url.protocol !== "https:") return "The address must start with https:// (the safe kind).";
+  if (url.username || url.password)
+    return "Take the name and password (credentials) out of the start of the address. If the other system needs a key, it goes after the first /.";
   const host = url.hostname.replace(/^\[|\]$/g, "");
-  if (/(^|\.)(localhost|local|internal|home\.arpa)$/i.test(host)) return "That address is on a private network, which OpenCall will not call.";
+  if (/(^|\.)(localhost|local|internal|home\.arpa)$/i.test(host)) return PRIVATE;
   let addresses: string[];
   if (isIP(host)) addresses = [host];
   else {
     try {
       addresses = (await lookup(host, { all: true })).map((a) => a.address);
     } catch {
-      return "That address's host could not be found.";
+      return "That address could not be found on the internet. Check it is typed right.";
     }
   }
-  if (addresses.length === 0 || addresses.some(privateAddress)) return "That address is on a private network, which OpenCall will not call.";
+  if (addresses.length === 0 || addresses.some(privateAddress)) return PRIVATE;
   return null;
 }
 
@@ -174,7 +178,7 @@ export function createCueSignals(
         ok: false,
         status: null,
         ms: Date.now() - started,
-        error: (err as Error)?.name === "TimeoutError" ? `no answer within ${TIMEOUT_MS / 1000} s` : String((err as Error)?.message ?? err).slice(0, 120),
+        error: (err as Error)?.name === "TimeoutError" ? `No answer within ${TIMEOUT_MS / 1000} seconds` : String((err as Error)?.message ?? err).slice(0, 120),
         test,
       });
     }

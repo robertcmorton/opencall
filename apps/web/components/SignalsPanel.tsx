@@ -39,9 +39,19 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
       </div>
 
       <section className="signals-sec">
-        <span className="signals-h">When a row goes on air, call these addresses</span>
-        <span className="signals-p">One per line, https only, up to five. OpenCall sends the row on air and the next one, as JSON. Private network addresses are refused.</span>
-        <textarea className="input" rows={3} placeholder="https://example.com/hooks/cue" value={text} onChange={(e) => setText(e.target.value)} />
+        <span className="signals-h">Tell other systems when a row goes on air</span>
+        <span className="signals-p">
+          Some systems, like a graphics computer or an online tool, can be told the moment a new row goes on air. They will give you a web address
+          for this. Paste it here — it starts with https:// — one per line, up to five. OpenCall sends them the row on air and the next one.
+        </span>
+        <textarea
+          className="input"
+          rows={3}
+          aria-label="Web addresses to tell, one per line"
+          placeholder="https://example.com/hooks/cue"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
         <span style={{ display: "flex", gap: 6 }}>
           <button
             type="button"
@@ -60,7 +70,7 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
                 )
                 .then((d) => {
                   setData(d);
-                  setNote({ ok: true, text: "Saved." });
+                  setNote({ ok: true, text: "Saved. Press Send a test to check it works." });
                 })
                 .catch((e: unknown) => setNote({ ok: false, text: e instanceof Error ? e.message : String(e) }))
                 .finally(() => setBusy(false));
@@ -88,16 +98,20 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
 
       {data && data.deliveries.length > 0 && (
         <section className="signals-sec">
-          <span className="signals-h">Recent</span>
+          <span className="signals-h">Recently sent</span>
           <ul className="find-list">
             {data.deliveries.map((d, i) => (
               <li key={i} className="signals-log">
-                <span style={{ color: d.ok ? "var(--under)" : "var(--over)" }}>{d.ok ? "✓" : "✕"}</span>
+                <span style={{ color: d.ok ? "var(--under)" : "var(--over)" }} aria-label={d.ok ? "Worked" : "Failed"}>
+                  {d.ok ? "✓" : "✕"}
+                </span>
                 <span className="find-where">
                   {d.host}
                   {d.test ? " (test)" : ""}
                 </span>
-                <span className="find-col">{d.ok ? `${d.status} · ${d.ms} ms` : (d.error ?? `HTTP ${d.status}`)}</span>
+                <span className="find-col">
+                  {d.ok ? `Got through (${d.ms} ms)` : (d.error ?? `It answered with an error (code ${d.status})`)}
+                </span>
               </li>
             ))}
           </ul>
@@ -107,8 +121,9 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
       <section className="signals-sec">
         <span className="signals-h">For equipment at the venue</span>
         <span className="signals-p">
-          Point Companion, a graphics machine or a script at this address to ask what is on air now (and next). Replace YOUR-VIEW-CODE with the code of a
-          view-only link for this sheet.
+          Equipment on the venue's own network can't be reached from the internet, but it can ask OpenCall. Give it this address and it can check what
+          is on air now, and what is next — Companion on a Stream Deck can do this, for example. Swap YOUR-VIEW-CODE for the code of one of this sheet's
+          view-only links.
         </span>
         <code className="signals-code">{nowUrl}</code>
       </section>

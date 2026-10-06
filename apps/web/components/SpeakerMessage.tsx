@@ -75,7 +75,7 @@ export function SpeakerControl({
           </button>
         </span>
       ) : (
-        <button type="button" className="btn btn-sm" onClick={() => setOpen((v) => !v)} data-tip="Flash a message on the timer and prompter screens">
+        <button type="button" className="btn btn-sm" onClick={() => setOpen((v) => !v)} data-tip="Show a short message in big letters on the presenter's timer and prompter screens">
           Message stage
         </button>
       )}

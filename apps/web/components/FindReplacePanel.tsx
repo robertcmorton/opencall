@@ -68,9 +68,9 @@ export function FindReplacePanel({
                 r = replaceInSheet(doc, find, replace, { matchCase });
               });
               setDone(
-                `Replaced ${r.replaced} in ${r.cells} cell${r.cells === 1 ? "" : "s"}.` +
-                  (r.lockedSkipped ? ` ${r.lockedSkipped} in locked rows left alone.` : "") +
-                  " Undo takes it back.",
+                `Changed ${r.replaced} in ${r.cells} cell${r.cells === 1 ? "" : "s"}.` +
+                  (r.lockedSkipped ? ` Skipped ${r.lockedSkipped} in locked rows.` : "") +
+                  " Press Undo to change it back.",
               );
             }}
           >
@@ -79,12 +79,12 @@ export function FindReplacePanel({
         </div>
       )}
       <label className="find-option">
-        <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
+        <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Capital letters must match
       </label>
       {done && <p className="find-done">{done}</p>}
       {find && (
         <p className="find-count">
-          {total === 0 ? "No matches." : `${total} match${total === 1 ? "" : "es"} in ${hits.length} cell${hits.length === 1 ? "" : "s"}`}
+          {total === 0 ? "Not found on this sheet." : `Found ${total} time${total === 1 ? "" : "s"}, in ${hits.length} cell${hits.length === 1 ? "" : "s"}. Click one to go to it.`}
         </p>
       )}
       <ul className="find-list">

@@ -327,7 +327,7 @@ function SortableRow({
         {row.locked && (
           <span
             className="row-lock"
-            data-tip={`Locked${row.lockedBy ? ` by ${row.lockedBy}` : ""} — approved, not to be changed. Select the row and choose Unlock to change it.`}
+            data-tip={`Locked${row.lockedBy ? ` by ${row.lockedBy}` : ""} so nobody changes it. To change it, right-click the row (or press and hold it) and choose Unlock.`}
             aria-label="Locked"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden>
@@ -4138,12 +4138,12 @@ export function RundownEditor({
         setFollowScroll(true);
         channel.sendCmd("walk", id);
       };
-      out.push({ heading: "Show" });
+      out.push({ heading: "The show" });
       out.push({
         label: menuArmStart ? "▶ Start anyway" : "▶ Start show",
         tone: menuArmStart ? "warn" : "positive",
         hint: menuArmStart
-          ? `${preflight.length} thing${preflight.length === 1 ? "" : "s"} to look at first: ${preflight[0]}${preflight.length > 1 ? " …" : ""}`
+          ? `Worth checking first: ${preflight[0]}${preflight.length > 1 ? ` (and ${preflight.length - 1} more)` : ""}`
           : undefined,
         keepOpen: preflight.length > 0 && !menuArmStart,
         disabled: !channel.connected || ordered.length === 0,
@@ -4155,7 +4155,8 @@ export function RundownEditor({
       });
       if (stepsOnto(r))
         out.push({
-          label: walkRowId === r.id ? `Walkthrough is on row ${n}` : walkRowId ? `Walk to row ${n}` : `Walk through from row ${n}`,
+          label: walkRowId === r.id ? "The walkthrough is on this row" : walkRowId ? "Move the walkthrough to this row" : "Start the walkthrough from this row",
+          hint: walkRowId === r.id ? undefined : "A practice run: everyone's screen highlights the same row",
           disabled: walkRowId === r.id,
           onSelect: () => {
             // Pointed at, so already on screen — see `walkFromClick`.
@@ -4163,17 +4164,17 @@ export function RundownEditor({
             channel.sendCmd("walk", r.id);
           },
         });
-      out.push({ label: "⏮ Prev", disabled: at <= 0, onSelect: () => at > 0 && walk(walkable[at - 1]!.id) });
+      out.push({ label: "⏮ Previous row", disabled: at <= 0, onSelect: () => at > 0 && walk(walkable[at - 1]!.id) });
       out.push({
-        label: "Next ⏭",
+        label: "Next row ⏭",
         disabled: at >= walkable.length - 1,
         onSelect: () => walk(walkable[Math.min(at + 1, walkable.length - 1)]!.id),
       });
-      if (walkRowId) out.push({ label: "End walkthrough", onSelect: () => channel.sendCmd("walk") });
+      if (walkRowId) out.push({ label: "End walkthrough", hint: "Takes the highlight off every screen", onSelect: () => channel.sendCmd("walk") });
       out.push(
         channel.speaker
-          ? { label: "Clear stage message", hint: `“${channel.speaker.text}”`, onSelect: () => channel.say(null) }
-          : { label: "Message stage…", onSelect: () => setSpeakerOpen((k) => k + 1) },
+          ? { label: "Take the stage message down", hint: `Showing now: “${channel.speaker.text}”`, onSelect: () => channel.say(null) }
+          : { label: "Message the stage…", hint: "Big words on the presenter's screens, like “Wrap up”", onSelect: () => setSpeakerOpen((k) => k + 1) },
       );
     }
     if (canEditContent) {
@@ -4184,69 +4185,69 @@ export function RundownEditor({
       const all = (f: (x: ProjectedRow) => boolean) => picked.length > 0 && picked.every(f);
       const setAll = (field: string, value: unknown) => doc.transact(() => ids.forEach((id) => yRows.get(id)?.set(field, value)));
       if (out.length > 0) out.push("sep");
-      out.push({ heading: many ? `${picked.length} rows selected` : `Row ${n}` });
+      out.push({ heading: many ? `${picked.length} rows picked` : `Row ${n}` });
       if (!showLive) {
-        out.push({ label: "Insert row above", onSelect: () => insertRowBeside(picked[0]!.id, false) });
-        out.push({ label: "Insert row below", onSelect: () => insertRowBeside(picked[picked.length - 1]!.id, true) });
-        out.push({ label: `Duplicate ${noun}`, onSelect: duplicateSelected });
+        out.push({ label: "Add a row above", onSelect: () => insertRowBeside(picked[0]!.id, false) });
+        out.push({ label: "Add a row below", onSelect: () => insertRowBeside(picked[picked.length - 1]!.id, true) });
+        out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: duplicateSelected });
         out.push("sep");
         // Labelling, where the rows already are — see `toggleTypeSelected`.
         const heading = all((x) => x.type === "group");
         const moment = all((x) => x.type === "milestone");
         out.push({
-          label: heading ? "Turn back into ordinary rows" : "Make a heading (Group)",
-          hint: heading ? undefined : "PRE-GAME, HALF TIME — no time of its own",
+          label: heading ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a heading",
+          hint: heading ? undefined : "A title like HALF TIME, with no time of its own",
           onSelect: () => toggleTypeSelected("group"),
         });
         out.push({
-          label: moment ? "Turn back into ordinary rows" : "Make a fixed moment (Milestone)",
-          hint: moment ? undefined : "DOORS 6:00 PM — a time to hit, no length",
+          label: moment ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a fixed time",
+          hint: moment ? undefined : "Something set for a time, like DOORS OPEN 6:00. Shown in yellow",
           onSelect: () => toggleTypeSelected("milestone"),
         });
       }
       out.push({
-        label: all((x) => !!x.skipped) ? `Put ${noun} back` : `Strike ${noun}`,
-        hint: all((x) => !!x.skipped) ? undefined : "Stays on the sheet, out of the timing",
+        label: all((x) => !!x.skipped) ? `Un-strike ${noun}` : `Strike out ${noun}`,
+        hint: all((x) => !!x.skipped) ? "Puts it back in the show" : "Crossed out and skipped. The times below move up",
         onSelect: strikeSelected,
       });
       const allLocked = all((x) => !!x.locked);
-      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? undefined : "Approved — nobody can change it", onSelect: () => setSelectedLocked(!allLocked) });
+      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: () => setSelectedLocked(!allLocked) });
       if (!showLive) {
-        out.push({ label: "Plays for result…", keepOpen: true, hint: menuResultsOpen ? undefined : "Win, lose, draw or extra time", onSelect: () => setMenuResultsOpen((v) => !v) });
+        out.push({ label: "Only play this if…", keepOpen: true, hint: menuResultsOpen ? undefined : "For rows that depend on the match result", onSelect: () => setMenuResultsOpen((v) => !v) });
         if (menuResultsOpen)
           (
             [
-              ["win", "When we WIN"],
-              ["lose", "When we LOSE"],
-              ["draw", "On a DRAW"],
-              ["golden", "In EXTRA TIME (golden point)"],
-              [null, "Always plays — not an ending"],
+              ["win", "…we win"],
+              ["lose", "…we lose"],
+              ["draw", "…it's a draw"],
+              ["golden", "…it goes to extra time (golden point)"],
+              [null, "Always play it"],
             ] as const
           ).forEach(([value, label]) =>
             out.push({ label, indent: true, checked: all((x) => (x.outcome ?? null) === value), onSelect: () => setAll("outcome", value) }),
           );
       }
-      out.push({ heading: "Highlight" });
+      out.push({ heading: "Colour" });
       out.push({
         swatches: [
           ...ROW_HIGHLIGHTS.map(({ stored, label, css }) => ({
             key: stored,
-            label: `Highlight ${label}`,
+            label: `Colour it ${label}`,
             css,
             on: all((x) => x.color === stored),
             onSelect: () => setAll("color", stored),
           })),
-          { key: "none", label: "No highlight", css: null, on: all((x) => !x.color), onSelect: () => setAll("color", null) },
+          { key: "none", label: "No colour", css: null, on: all((x) => !x.color), onSelect: () => setAll("color", null) },
         ],
       });
       out.push("sep");
-      out.push({ label: "Copy to sheet…", onSelect: () => setCopyRowIds(ids) });
-      if (showLive) out.push({ note: "Live: strike, lock or colour a row. Reshaping the sheet waits for the show to end." });
+      out.push({ label: "Copy to another sheet…", onSelect: () => setCopyRowIds(ids) });
+      if (showLive) out.push({ note: "The show is on. You can strike, lock or colour rows now. Adding and deleting rows waits until the show ends." });
       else out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
       out.push("sep");
       out.push({
-        label: "Clear selection",
-        hint: rowMenu?.touch && !many ? "Tip: tap row numbers to select more" : undefined,
+        label: many ? "Unpick these rows" : "Unpick this row",
+        hint: rowMenu?.touch && !many ? "Tip: tap more row numbers to pick several rows" : undefined,
         onSelect: () => {
           setSelected(new Set());
           setLastSelected(null);
@@ -4742,7 +4743,11 @@ export function RundownEditor({
               {meta.name || "Untitled sheet"}
             </h1>
           )}
-          {mode !== "show" && <span className="chip">{mode === "edit" ? "EDIT — no transport" : "VIEW ONLY"}</span>}
+          {mode !== "show" && (
+            <span className="chip" data-tip={mode === "edit" ? "This page is for changing the sheet. Use Open show to run the show." : "You can read this sheet but not change it"}>
+              {mode === "edit" ? "EDITING" : "VIEW ONLY"}
+            </span>
+          )}
           {/* Built the sheet, now walk it through or run it — without a trip
               back to the dashboard. Only for those who may run a show; the
               show page edits everything this one does, so nothing points back. */}
@@ -4751,7 +4756,7 @@ export function RundownEditor({
               className="btn btn-sm"
               style={{ textDecoration: "none" }}
               href={`/show/${rundownId}`}
-              data-tip="Open this sheet on the show page — walkthrough, Start show and the rest"
+              data-tip="Go to the show page, where you can practise the show or start it"
             >
               ▶ Open show
             </Link>

@@ -33,20 +33,36 @@ export type RowMenuEntry =
       tone?: "positive" | "warn";
     };
 
-export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entries: RowMenuEntry[]; onClose: () => void }) {
+export function RowMenu({
+  x,
+  y,
+  entries,
+  onClose,
+  touch = false,
+  sheet = false,
+}: {
+  x: number;
+  y: number;
+  entries: RowMenuEntry[];
+  onClose: () => void;
+  /** Opened by a finger: targets a finger can hit (44px, Apple's minimum). */
+  touch?: boolean;
+  /** On a phone: a panel up from the bottom, full width, where the thumb is. */
+  sheet?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState({ left: x, top: y });
 
   useLayoutEffect(() => {
     const el = box.current;
-    if (!el) return;
+    if (!el || sheet) return;
     const r = el.getBoundingClientRect();
     const gap = 8;
     setAt({
       left: x + r.width + gap > window.innerWidth ? Math.max(gap, x - r.width) : x,
       top: y + r.height + gap > window.innerHeight ? Math.max(gap, window.innerHeight - r.height - gap) : y,
     });
-  }, [x, y, entries.length]);
+  }, [x, y, entries.length, sheet]);
 
   useEffect(() => {
     const off = (e: PointerEvent) => {
@@ -82,9 +98,11 @@ export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entr
   }, [onClose]);
 
   // The first item takes the keyboard, so arrows and Enter work at once.
+  // Not for a finger: there is no keyboard, and a focus ring on the first
+  // item reads as "already chosen".
   useEffect(() => {
-    box.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
-  }, []);
+    if (!touch) box.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }, [touch]);
 
   const move = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -95,11 +113,15 @@ export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entr
   };
 
   return (
+    <>
+    {/* Behind a phone's sheet, so the sheet reads as on top and a tap above
+        it closes it rather than landing on the row underneath. */}
+    {sheet && <div className="row-menu-backdrop no-print" aria-hidden />}
     <div
       ref={box}
-      className="row-menu no-print"
+      className={`row-menu no-print ${touch ? "is-touch" : ""} ${sheet ? "is-sheet" : ""}`}
       role="menu"
-      style={{ left: at.left, top: at.top }}
+      style={sheet ? undefined : { left: at.left, top: at.top }}
       onKeyDown={move}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -157,6 +179,12 @@ export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entr
           </button>
         );
       })}
+      {sheet && (
+        <button type="button" className="row-menu-item row-menu-cancel" onClick={onClose}>
+          Cancel
+        </button>
+      )}
     </div>
+    </>
   );
 }

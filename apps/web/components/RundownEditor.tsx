@@ -1037,15 +1037,6 @@ export function RundownEditor({
   // row's own offset inside the scroller; where the strip is DRAWN is
   // `nudgeTop` below, which holds that offset clear of the pinned header.
   const [nudgeRowAt, setNudgeRowAt] = useState<{ id: string; top: number } | null>(null);
-  // The selection bar floats just BELOW the last selected row — never on top
-  // of the rows being acted on — inside the scroller so it moves with them.
-  const [selBarTop, setSelBarTop] = useState(36);
-  useEffect(() => {
-    if (selected.size === 0) return;
-    const trs = document.querySelectorAll(".rundown-grid tbody tr.selected");
-    const last = trs[trs.length - 1] as HTMLElement | undefined;
-    if (last) setSelBarTop(last.offsetTop + last.offsetHeight + 4);
-  }, [selected, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!gapFocus) return;
     const gapRow = document.querySelector("tr.gap-row-to");
@@ -4033,7 +4024,7 @@ export function RundownEditor({
    * actions mean the row that was clicked.
    */
   /** `bar`: opened from the selection's own Row actions button — rows only, no show controls. */
-  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number; from: "row" | "bar" } | null>(null);
+  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number; from: "row" | "bar"; touch?: boolean } | null>(null);
   const [menuArmStart, setMenuArmStart] = useState(false);
   const [menuResultsOpen, setMenuResultsOpen] = useState(false);
   const [speakerOpen, setSpeakerOpen] = useState(0);
@@ -4043,13 +4034,14 @@ export function RundownEditor({
     setMenuResultsOpen(false);
   }, []);
   const menuShow = isShow && mayDrive && !showLive && rows.length > 0;
-  const onRowContextMenu = useEffectEvent((e: MouseEvent) => {
-    const t = e.target as HTMLElement;
+  /** The row under a point, if a menu may open there. */
+  const menuRowAt = (t: HTMLElement): string | null => {
     // Inside a cell being edited the browser's own menu has spelling and paste.
-    if (t.closest("input, textarea, [contenteditable=true], a")) return;
-    const rowId = t.closest<HTMLElement>("tr[data-rowid]")?.dataset.rowid;
-    if (!rowId || !(menuShow || canEditContent)) return;
-    e.preventDefault();
+    if (t.closest("input, textarea, [contenteditable=true], a, button")) return null;
+    const rowId = t.closest<HTMLElement>("tr[data-rowid]")?.dataset.rowid ?? null;
+    return rowId && (menuShow || canEditContent) ? rowId : null;
+  };
+  const openRowMenu = (t: HTMLElement, rowId: string, x: number, y: number, touch: boolean) => {
     if (!selected.has(rowId)) {
       setSelected(new Set([rowId]));
       setLastSelected(rowId);
@@ -4057,13 +4049,80 @@ export function RundownEditor({
     const colId = t.closest<HTMLElement>("td[data-colid]")?.dataset.colid;
     if (gridOn && colId) grid.place({ rowId, columnId: colId });
     setMenuArmStart(false);
-    setRowMenu({ rowId, x: e.clientX, y: e.clientY, from: "row" });
+    setRowMenu({ rowId, x, y, from: "row", touch });
+  };
+  /** A long press just opened the menu: the click its release makes is not a tap. */
+  const swallowClick = useRef(0);
+  const onRowContextMenu = useEffectEvent((e: MouseEvent) => {
+    const t = e.target as HTMLElement;
+    const rowId = menuRowAt(t);
+    if (!rowId) return;
+    e.preventDefault();
+    // Android fires this on a long press as well; the press already opened it.
+    if (Date.now() - swallowClick.current < 1000) return;
+    openRowMenu(t, rowId, e.clientX, e.clientY, false);
   });
+  /**
+   * Press and hold with a finger: the same menu, for phones and tablets,
+   * which have no right button. Half a second, held still — a finger that
+   * moves is scrolling the sheet or dragging a row, and gets left alone.
+   * iPad Safari never fires `contextmenu` for a long press, so this is the
+   * only way in there.
+   */
+  const press = useRef<{ timer: number; x: number; y: number; id: number } | null>(null);
+  const onPressStart = useEffectEvent((e: PointerEvent) => {
+    if (e.pointerType === "mouse" || !e.isPrimary) return;
+    if (inkMode !== "off" && !inkHidden) return; // drawing on the sheet
+    const t = e.target as HTMLElement;
+    const rowId = menuRowAt(t);
+    if (!rowId) return;
+    const { clientX: x, clientY: y } = e;
+    press.current = {
+      x,
+      y,
+      id: e.pointerId,
+      timer: window.setTimeout(() => {
+        press.current = null;
+        swallowClick.current = Date.now();
+        navigator.vibrate?.(10);
+        openRowMenu(t, rowId, x, y, true);
+      }, 500),
+    };
+  });
+  const cancelPress = (e?: PointerEvent) => {
+    const p = press.current;
+    if (!p) return;
+    if (e && e.type === "pointermove" && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 10) return;
+    window.clearTimeout(p.timer);
+    press.current = null;
+  };
   useEffect(() => {
     if (!gridEl) return;
     const onMenu = (e: MouseEvent) => onRowContextMenu(e);
+    const down = (e: PointerEvent) => onPressStart(e);
+    const move = (e: PointerEvent) => cancelPress(e);
+    const end = () => cancelPress();
+    // The tap that ends a long press must not also select, walk or place the cursor.
+    const click = (e: MouseEvent) => {
+      if (Date.now() - swallowClick.current < 700) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     gridEl.addEventListener("contextmenu", onMenu);
-    return () => gridEl.removeEventListener("contextmenu", onMenu);
+    gridEl.addEventListener("pointerdown", down);
+    gridEl.addEventListener("pointermove", move);
+    gridEl.addEventListener("pointerup", end);
+    gridEl.addEventListener("pointercancel", end);
+    gridEl.addEventListener("click", click, true);
+    return () => {
+      gridEl.removeEventListener("contextmenu", onMenu);
+      gridEl.removeEventListener("pointerdown", down);
+      gridEl.removeEventListener("pointermove", move);
+      gridEl.removeEventListener("pointerup", end);
+      gridEl.removeEventListener("pointercancel", end);
+      gridEl.removeEventListener("click", click, true);
+    };
   }, [gridEl]);
   const rowMenuEntries = (rowId: string, from: "row" | "bar"): RowMenuEntry[] => {
     const i = rows.findIndex((r) => r.id === rowId);
@@ -4184,6 +4243,15 @@ export function RundownEditor({
       out.push({ label: "Copy to sheet…", onSelect: () => setCopyRowIds(ids) });
       if (showLive) out.push({ note: "Live: strike, lock or colour a row. Reshaping the sheet waits for the show to end." });
       else out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
+      out.push("sep");
+      out.push({
+        label: "Clear selection",
+        hint: rowMenu?.touch && !many ? "Tip: tap row numbers to select more" : undefined,
+        onSelect: () => {
+          setSelected(new Set());
+          setLastSelected(null);
+        },
+      });
     }
     return out;
   };
@@ -5545,70 +5613,11 @@ export function RundownEditor({
           </div>
           );
         })()}
-        {canEditContent && selected.size > 0 && !rowMenu && (
-          // Floats just below the last selected row — the actions clearly
-          // belong to the rows they act on without covering any of them.
-          //
-          // Centred across the sheet rather than tucked against its left edge.
-          // Pinned left it sat over the row numbers and the time column, which
-          // are the two things you read to check you have selected what you
-          // meant to; centred, it covers the middle of a row where the item's
-          // own name has already been read.
-          <div
-            className="selection-bar"
-            /**
-             * Centred WITHOUT a transform, which is not a style preference.
-             *
-             * A transformed element becomes the containing block for every
-             * `position: fixed` descendant — and the tooltips are fixed, on
-             * purpose, so they cannot be clipped by an ancestor's overflow.
-             * So `translateX(-50%)` quietly re-based every tooltip on every
-             * button in this bar against the bar itself: the viewport
-             * coordinates `keepTipsOnScreen` had carefully worked out were
-             * then measured from the bar's own top-left, and the bubble landed
-             * hundreds of pixels away from the button it belonged to.
-             * Measured: a `position: fixed; top: 0; left: 0` probe inside this
-             * bar resolved to (593, 355) instead of (0, 0).
-             *
-             * `left/right: 0` with `margin: 0 auto` centres the same way and
-             * creates no containing block. It is what `.sync-cue` already
-             * does, three hundred lines up.
-             */
-            style={{ position: "absolute", top: selBarTop, left: 0, right: 0, margin: "0 auto", width: "fit-content", zIndex: 6 }}
-          >
-            <span className="count">{selected.size} selected</span>
-            {/* One menu for a row's actions — the same one a right-click opens
-                (asked for 6 Oct: "these should be merged into one drop down").
-                The bar used to spell every action out as a button, and the
-                right-click menu then repeated half of them in a different
-                order; two lists of the same things is one of them wrong. */}
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                const last = rows.filter((x) => selected.has(x.id)).at(-1);
-                if (last) setRowMenu({ rowId: last.id, x: r.left, y: r.bottom + 4, from: "bar" });
-              }}
-            >
-              Row actions ▾
-            </button>
-            {/* The way out sits in the corner, where a way out belongs.
-                In the row of controls it was one more thing to read past, and
-                the second ✕ on a bar that already had one in the swatches. */}
-            <button
-              className="sel-close"
-              data-tip="Clear selection"
-              aria-label="Clear selection"
-              onClick={() => {
-                setSelected(new Set());
-                setLastSelected(null);
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
+        {/* The selection bar that floated under selected rows is gone (6 Oct:
+            "merge this into the other dropdown"). A row's actions live in ONE
+            menu: right-click with a mouse, press and hold with a finger.
+            Selected rows still show as selected; the menu's heading says how
+            many, and it has Clear selection. */}
         {/* ── The period of play, down the far left ────────────────────────
             A run sheet is one unbroken list, and the halves of football in it
             look exactly like the ad break before them. Written sideways so it
@@ -5864,6 +5873,14 @@ export function RundownEditor({
                     }
                     onSelect={(e) => {
                       if (!canEditContent) return;
+                      // A finger has no Cmd key: once something is selected, a tap on
+                      // another row number adds it (or takes it off), like ticking
+                      // a list. With nothing selected it selects, as before.
+                      const touch = (e.nativeEvent as PointerEvent).pointerType === "touch" || (e.nativeEvent as PointerEvent).pointerType === "pen";
+                      if (touch && selected.size > 0) {
+                        selectRow(rowRecord.id, { ...e, metaKey: true, shiftKey: false } as React.MouseEvent);
+                        return;
+                      }
                       selectRow(rowRecord.id, e);
                       /**
                        * Walking the sheet: click a row to go there.
@@ -6368,7 +6385,19 @@ export function RundownEditor({
         show={{ connected: channel.connected, role: channel.role, timezone: channel.timezone }}
       />
 
-      {rowMenu && <RowMenu x={rowMenu.x} y={rowMenu.y} entries={rowMenuEntries(rowMenu.rowId, rowMenu.from)} onClose={closeRowMenu} />}
+      {rowMenu && (
+        <RowMenu
+          x={rowMenu.x}
+          y={rowMenu.y}
+          entries={rowMenuEntries(rowMenu.rowId, rowMenu.from)}
+          onClose={closeRowMenu}
+          touch={rowMenu.touch}
+          // A phone gets the menu as a sheet from the bottom, where a thumb
+          // reaches; a tablet keeps it by the finger, with bigger targets —
+          // the way iPadOS shows its own menus.
+          sheet={rowMenu.touch && isPhone}
+        />
+      )}
       {grid.note && (
         <div className="grid-note no-print" role="status">
           {grid.note}

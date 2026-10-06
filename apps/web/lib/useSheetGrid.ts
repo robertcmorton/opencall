@@ -76,9 +76,25 @@ export function useSheetGrid(opts: {
   const b = block();
   const multi = !!b && (b.rows.length > 1 || b.cols.length > 1);
 
+  /**
+   * Into view WITHIN THE SHEET only. scrollIntoView scrolls every ancestor
+   * that can scroll — including the page's frame, which it shifted 14px
+   * sideways (6 Oct) — so the sheet's own scroller is moved by hand. The
+   * header row is sticky, so its height is kept clear at the top.
+   */
+  const scrollWithin = (td: HTMLElement) => {
+    if (!gridEl) return;
+    const box = gridEl.getBoundingClientRect();
+    const r = td.getBoundingClientRect();
+    const head = gridEl.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    if (r.top < box.top + head) gridEl.scrollTop -= box.top + head - r.top;
+    else if (r.bottom > box.bottom) gridEl.scrollTop += r.bottom - box.bottom;
+    if (r.left < box.left) gridEl.scrollLeft -= box.left - r.left;
+    else if (r.right > box.right) gridEl.scrollLeft += r.right - box.right;
+  };
   const reveal = (cell: GridCell) => {
     const td = gridEl?.querySelector<HTMLElement>(`tr[data-rowid="${cell.rowId}"] td[data-colid="${cell.columnId}"]`);
-    if (td) td.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (td) scrollWithin(td);
     else opts.scrollToIndex(rowIds.indexOf(cell.rowId));
   };
 
@@ -264,7 +280,8 @@ export function useSheetGrid(opts: {
       setCursor(end);
       // New rows are drawn a render later; the end of the block is where the eye goes.
       window.setTimeout(() => {
-        gridEl?.querySelector<HTMLElement>(`tr[data-rowid="${end.rowId}"] td[data-colid="${end.columnId}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        const td = gridEl?.querySelector<HTMLElement>(`tr[data-rowid="${end.rowId}"] td[data-colid="${end.columnId}"]`);
+        if (td) scrollWithin(td);
       }, 60);
     }
   });

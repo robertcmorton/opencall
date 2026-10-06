@@ -4032,12 +4032,15 @@ export function RundownEditor({
    * A row that is not already selected becomes the selection, so the row
    * actions mean the row that was clicked.
    */
-  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number } | null>(null);
+  /** `bar`: opened from the selection's own Row actions button — rows only, no show controls. */
+  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number; from: "row" | "bar" } | null>(null);
   const [menuArmStart, setMenuArmStart] = useState(false);
+  const [menuResultsOpen, setMenuResultsOpen] = useState(false);
   const [speakerOpen, setSpeakerOpen] = useState(0);
   const closeRowMenu = useCallback(() => {
     setRowMenu(null);
     setMenuArmStart(false);
+    setMenuResultsOpen(false);
   }, []);
   const menuShow = isShow && mayDrive && !showLive && rows.length > 0;
   const onRowContextMenu = useEffectEvent((e: MouseEvent) => {
@@ -4054,7 +4057,7 @@ export function RundownEditor({
     const colId = t.closest<HTMLElement>("td[data-colid]")?.dataset.colid;
     if (gridOn && colId) grid.place({ rowId, columnId: colId });
     setMenuArmStart(false);
-    setRowMenu({ rowId, x: e.clientX, y: e.clientY });
+    setRowMenu({ rowId, x: e.clientX, y: e.clientY, from: "row" });
   });
   useEffect(() => {
     if (!gridEl) return;
@@ -4062,13 +4065,13 @@ export function RundownEditor({
     gridEl.addEventListener("contextmenu", onMenu);
     return () => gridEl.removeEventListener("contextmenu", onMenu);
   }, [gridEl]);
-  const rowMenuEntries = (rowId: string): RowMenuEntry[] => {
+  const rowMenuEntries = (rowId: string, from: "row" | "bar"): RowMenuEntry[] => {
     const i = rows.findIndex((r) => r.id === rowId);
     const r = rows[i];
     if (!r) return [];
     const n = numberOf(i) || String(i + 1);
     const out: RowMenuEntry[] = [];
-    if (menuShow) {
+    if (menuShow && from === "row") {
       const walkable = rows.filter(stepsOnto);
       const at = walkRowId ? walkable.findIndex((x) => x.id === walkRowId) : -1;
       const ordered = rows.filter((x) => stepsOnto(x) || x.id === activeRowId).map((x) => x.id);
@@ -4116,24 +4119,71 @@ export function RundownEditor({
     }
     if (canEditContent) {
       const picked = rows.filter((x) => selected.has(x.id) || x.id === rowId);
+      const ids = picked.map((x) => x.id);
       const many = picked.length > 1;
       const noun = many ? `${picked.length} rows` : "row";
-      const allLocked = picked.every((x) => x.locked);
-      const allStruck = picked.every((x) => x.skipped);
+      const all = (f: (x: ProjectedRow) => boolean) => picked.length > 0 && picked.every(f);
+      const setAll = (field: string, value: unknown) => doc.transact(() => ids.forEach((id) => yRows.get(id)?.set(field, value)));
       if (out.length > 0) out.push("sep");
       out.push({ heading: many ? `${picked.length} rows selected` : `Row ${n}` });
       if (!showLive) {
         out.push({ label: "Insert row above", onSelect: () => insertRowBeside(picked[0]!.id, false) });
         out.push({ label: "Insert row below", onSelect: () => insertRowBeside(picked[picked.length - 1]!.id, true) });
         out.push({ label: `Duplicate ${noun}`, onSelect: duplicateSelected });
-      }
-      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, onSelect: () => setSelectedLocked(!allLocked) });
-      out.push({ label: allStruck ? `Put ${noun} back` : `Strike ${noun}`, onSelect: strikeSelected });
-      out.push({ label: "Copy to sheet…", onSelect: () => setCopyRowIds(picked.map((x) => x.id)) });
-      if (!showLive) {
         out.push("sep");
-        out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
+        // Labelling, where the rows already are — see `toggleTypeSelected`.
+        const heading = all((x) => x.type === "group");
+        const moment = all((x) => x.type === "milestone");
+        out.push({
+          label: heading ? "Turn back into ordinary rows" : "Make a heading (Group)",
+          hint: heading ? undefined : "PRE-GAME, HALF TIME — no time of its own",
+          onSelect: () => toggleTypeSelected("group"),
+        });
+        out.push({
+          label: moment ? "Turn back into ordinary rows" : "Make a fixed moment (Milestone)",
+          hint: moment ? undefined : "DOORS 6:00 PM — a time to hit, no length",
+          onSelect: () => toggleTypeSelected("milestone"),
+        });
       }
+      out.push({
+        label: all((x) => !!x.skipped) ? `Put ${noun} back` : `Strike ${noun}`,
+        hint: all((x) => !!x.skipped) ? undefined : "Stays on the sheet, out of the timing",
+        onSelect: strikeSelected,
+      });
+      const allLocked = all((x) => !!x.locked);
+      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? undefined : "Approved — nobody can change it", onSelect: () => setSelectedLocked(!allLocked) });
+      if (!showLive) {
+        out.push({ label: "Plays for result…", keepOpen: true, hint: menuResultsOpen ? undefined : "Win, lose, draw or extra time", onSelect: () => setMenuResultsOpen((v) => !v) });
+        if (menuResultsOpen)
+          (
+            [
+              ["win", "When we WIN"],
+              ["lose", "When we LOSE"],
+              ["draw", "On a DRAW"],
+              ["golden", "In EXTRA TIME (golden point)"],
+              [null, "Always plays — not an ending"],
+            ] as const
+          ).forEach(([value, label]) =>
+            out.push({ label, indent: true, checked: all((x) => (x.outcome ?? null) === value), onSelect: () => setAll("outcome", value) }),
+          );
+      }
+      out.push({ heading: "Highlight" });
+      out.push({
+        swatches: [
+          ...ROW_HIGHLIGHTS.map(({ stored, label, css }) => ({
+            key: stored,
+            label: `Highlight ${label}`,
+            css,
+            on: all((x) => x.color === stored),
+            onSelect: () => setAll("color", stored),
+          })),
+          { key: "none", label: "No highlight", css: null, on: all((x) => !x.color), onSelect: () => setAll("color", null) },
+        ],
+      });
+      out.push("sep");
+      out.push({ label: "Copy to sheet…", onSelect: () => setCopyRowIds(ids) });
+      if (showLive) out.push({ note: "Live: strike, lock or colour a row. Reshaping the sheet waits for the show to end." });
+      else out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
     }
     return out;
   };
@@ -4560,8 +4610,13 @@ export function RundownEditor({
             content width, so this row measured 419px inside a 253px parent and
             put "VIEW ONLY" twenty-four pixels past the edge of a phone. The
             name truncates (see `.sheet-name`) and the chip drops to a second
-            line rather than off the screen. */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minWidth: 0 }}>
+            line rather than off the screen.
+            `maxWidth: 100%` as well (6 Oct): on a phone the column centres
+            this row, which sizes it to fit its content — and the min-content
+            of a no-wrap name is the whole name, so the row measured 333px in a
+            253px box and the name ran under the menu button. Capped, the name
+            gets its ellipsis. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minWidth: 0, maxWidth: "100%" }}>
           {/* No back arrow. It sat in the same wrapping flex as the sheet name
               and squeezed it into a five-line tower on a tablet, for a job two
               other things already do: the sheet's name IS the way back on any
@@ -5522,140 +5577,22 @@ export function RundownEditor({
             style={{ position: "absolute", top: selBarTop, left: 0, right: 0, margin: "0 auto", width: "fit-content", zIndex: 6 }}
           >
             <span className="count">{selected.size} selected</span>
-            {(() => {
-              // Lock is offered live as well: approving a cue mid-show is
-              // exactly when it matters that nobody then fiddles with it.
-              const picked = rows.filter((r) => selected.has(r.id));
-              const allLocked = picked.length > 0 && picked.every((r) => r.locked);
-              return (
-                <button
-                  className={`btn btn-sm ${allLocked ? "is-on" : ""}`}
-                  data-tip={allLocked ? "Allow changes to these rows again" : "Approved: nobody can change the text, length, start or place of these rows until they are unlocked. Striking still works."}
-                  onClick={() => setSelectedLocked(!allLocked)}
-                >
-                  {allLocked ? "Unlock" : "Lock"}
-                </button>
-              );
-            })()}
+            {/* One menu for a row's actions — the same one a right-click opens
+                (asked for 6 Oct: "these should be merged into one drop down").
+                The bar used to spell every action out as a button, and the
+                right-click menu then repeated half of them in a different
+                order; two lists of the same things is one of them wrong. */}
             <button
-              className="btn btn-sm"
-              data-tip="Copy these rows to the end of another sheet in this company"
-              onClick={() => setCopyRowIds(rows.filter((r) => selected.has(r.id)).map((r) => r.id))}
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                const last = rows.filter((x) => selected.has(x.id)).at(-1);
+                if (last) setRowMenu({ rowId: last.id, x: r.left, y: r.bottom + 4, from: "bar" });
+              }}
             >
-              Copy to sheet…
+              Row actions ▾
             </button>
-            {/* Live, the bar is Strike and the colours and nothing else.
-                Duplicate, Group, Milestone and the endings builder change the
-                SHAPE of the sheet, and the show is not the moment for that —
-                an ending block added at 8:47 is a rehearsal that did not
-                happen. Strike is a call ("that is not happening"), and a
-                colour only tints a row and never moves a time, so both stay.
-                Everything else is back the moment the show is over. */}
-            {!showLive && (
-              <>
-            <button className="btn btn-sm" onClick={duplicateSelected}>
-              Duplicate
-            </button>
-            {/* Labelling, where the rows already are. The toolbar used to
-                offer "+ Group" and "+ Milestone", which ADD an empty row of
-                that kind — the wrong verb for a sheet that came in with its
-                rows on it, and two buttons whose difference was only legible
-                from their tooltips. Select the row that is already the
-                heading and say so. */}
-            <button
-              className="btn btn-sm"
-              data-tip="Make these rows section headings (PRE-GAME, HALF TIME) — no time of their own, and the transport steps past them. Press again to turn them back into ordinary rows."
-              onClick={() => toggleTypeSelected("group")}
-            >
-              Group
-            </button>
-            <button
-              className="btn btn-sm"
-              data-tip="Make these rows fixed moments on the clock (DOORS 6:00 PM, KICK-OFF) — a time to hit, with no duration of its own. Press again to turn them back into ordinary rows."
-              onClick={() => toggleTypeSelected("milestone")}
-            >
-              Milestone
-            </button>
-              </>
-            )}
-            <button
-              className="btn btn-sm"
-              data-tip="Strike: keeps the row visible but takes it out of the timing and the transport — every printed time below moves up by its length. Press again to put it back."
-              onClick={strikeSelected}
-            >
-              {/* "Strike", not "Skip". The row is not passed over and forgotten
-                  — it stays on the sheet with a line through it, which is what
-                  a paper run sheet does when something is cut, and what the
-                  copy two panels down has always called it. Skip described the
-                  transport's behaviour; strike describes what the crew see. */}
-              Strike
-            </button>
-            {!showLive && (
-            <Dropdown label="Result rows…" className="btn btn-sm">
-              <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "4px 9px", maxWidth: 230, lineHeight: 1.5 }}>
-                These rows only play for one game result. Pick which one they belong to — at full time you choose the
-                real result with the buttons at the top, and the rest skip themselves. Imports usually set this for you.
-              </div>
-              {(
-                [
-                  ["win", "Play these when we WIN"],
-                  ["lose", "Play these when we LOSE"],
-                  ["draw", "Play these on a DRAW"],
-                  ["golden", "Play these in EXTRA TIME (golden point)"],
-                  [null, "Not an ending — always plays"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={String(value)}
-                  type="button"
-                  className="menu-item"
-                  onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("outcome", value)))}
-                >
-                  <span className="check" />
-                  {label}
-                </button>
-              ))}
-            </Dropdown>
-            )}
-            {ROW_HIGHLIGHTS.map(({ stored, label, css }) => (
-              <button
-                key={stored}
-                className="color-swatch"
-                data-tip={`Highlight ${label}`}
-                style={{ background: css }}
-                onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", stored)))}
-              />
-            ))}
-            {/* NO COLOUR, drawn as the absence of one.
-                This was an ✕ sitting in the row of swatches, which reads as
-                "close" everywhere else on this bar — and there is a real close
-                button eight pixels away. An empty bordered square says the same
-                thing in the same visual language as the five beside it: it is
-                the swatch you pick when you want none. */}
-            <button
-              className="color-swatch color-swatch-none"
-              data-tip="No highlight"
-              aria-label="No highlight"
-              onClick={() => doc.transact(() => selected.forEach((id) => yRows.get(id)?.set("color", null)))}
-            />
-            {/* Not while the show is on.
-                Deleting a row mid-show takes its as-run history with it: what
-                was cued, when, and for how long. Afterwards nobody can explain
-                what happened, because the evidence went with the row. Striking
-                it leaves the row on the sheet, visibly struck, out of the
-                timing and out of the transport — which is what "we are not
-                doing that any more" actually means at 8:47. That is the Strike
-                button a few inches to the left, and it is why this one is not
-                here. */}
-            {showLive ? (
-              <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", maxWidth: 210, lineHeight: 1.35 }}>
-                Live: strike or colour a row. Reshaping the sheet waits for the show to end.
-              </span>
-            ) : (
-              <button className="btn btn-sm btn-danger" onClick={deleteSelected}>
-                Delete
-              </button>
-            )}
             {/* The way out sits in the corner, where a way out belongs.
                 In the row of controls it was one more thing to read past, and
                 the second ✕ on a bar that already had one in the swatches. */}
@@ -6431,7 +6368,7 @@ export function RundownEditor({
         show={{ connected: channel.connected, role: channel.role, timezone: channel.timezone }}
       />
 
-      {rowMenu && <RowMenu x={rowMenu.x} y={rowMenu.y} entries={rowMenuEntries(rowMenu.rowId)} onClose={closeRowMenu} />}
+      {rowMenu && <RowMenu x={rowMenu.x} y={rowMenu.y} entries={rowMenuEntries(rowMenu.rowId, rowMenu.from)} onClose={closeRowMenu} />}
       {grid.note && (
         <div className="grid-note no-print" role="status">
           {grid.note}

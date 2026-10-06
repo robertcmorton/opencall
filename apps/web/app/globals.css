@@ -2173,8 +2173,14 @@ kbd {
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
+  /* CLIP, not just hidden: a hidden box can still be scrolled by script, and
+     scrollIntoView did — 14px sideways, cutting Undo off on the left and
+     opening a gap right of the scrollbar (6 Oct). Clip cannot be scrolled. */
+  overflow: clip;
 }
 .show-page .grid-wrap {
+  /* The sheet's scrollbar on the screen's right edge, not 0.6rem in from it. */
+  margin-right: -0.6rem;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -2199,8 +2205,11 @@ kbd {
   top: 0;
   z-index: 45;
   background: var(--bg);
-  margin: 0 -1.5rem;
-  padding: 0 1.5rem 2px;
+  /* Bleeds to the screen edges by exactly the page's own side padding
+     (0.6rem, set on the <main>). It still said 1.5rem from when the page
+     padding was, so it overhung by 14px a side — scrollable overflow. */
+  margin: 0 -0.6rem;
+  padding: 0 0.6rem 2px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2989,6 +2998,9 @@ th.col-drop-target {
     padding-left: 0.7rem !important;
     padding-right: 0.7rem !important;
     overscroll-behavior: none;
+  }
+  .show-page .grid-wrap {
+    margin-right: -0.7rem;
   }
   .show-page .show-topbar {
     margin: 0 -0.7rem;
@@ -5433,7 +5445,7 @@ td.peer-cell::after {
 /* The right-click menu on a row (RowMenu). */
 .row-menu {
   position: fixed;
-  z-index: 80;
+  z-index: 300;
   min-width: 220px;
   max-width: 300px;
   padding: 5px;
@@ -5491,4 +5503,31 @@ td.peer-cell::after {
   font-size: var(--fs-xs);
   color: var(--text-2);
   font-weight: 400;
+}
+.row-menu-swatches {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 8px;
+}
+.row-menu-swatches .color-swatch.is-on {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.row-menu-note {
+  padding: 6px 10px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.row-menu-item.is-indent {
+  padding-left: 18px;
+}
+.row-menu-check {
+  display: inline-block;
+  width: 1.1em;
+  color: var(--accent);
+}
+.row-menu {
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }

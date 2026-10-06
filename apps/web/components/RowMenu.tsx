@@ -14,6 +14,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 export type RowMenuEntry =
   | { heading: string }
   | "sep"
+  /** A line of colour swatches — the row highlights. */
+  | { swatches: { key: string; label: string; css: string | null; on?: boolean; onSelect: () => void }[] }
+  /** A quiet line of explanation. */
+  | { note: ReactNode }
   | {
       label: ReactNode;
       onSelect: () => void;
@@ -21,6 +25,10 @@ export type RowMenuEntry =
       danger?: boolean;
       /** A short line under the label. */
       hint?: ReactNode;
+      /** Ticked: what the selection already is. */
+      checked?: boolean;
+      /** Set in from the left — the choices under an item that opened them. */
+      indent?: boolean;
       keepOpen?: boolean;
       tone?: "positive" | "warn";
     };
@@ -97,6 +105,31 @@ export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entr
     >
       {entries.map((entry, i) => {
         if (entry === "sep") return <div key={i} className="menu-sep" role="separator" />;
+        if ("swatches" in entry)
+          return (
+            <div key={i} className="row-menu-swatches">
+              {entry.swatches.map((sw) => (
+                <button
+                  key={sw.key}
+                  type="button"
+                  className={`color-swatch ${sw.css == null ? "color-swatch-none" : ""} ${sw.on ? "is-on" : ""}`}
+                  style={sw.css ? { background: sw.css } : undefined}
+                  data-tip={sw.label}
+                  aria-label={sw.label}
+                  onClick={() => {
+                    sw.onSelect();
+                    onClose();
+                  }}
+                />
+              ))}
+            </div>
+          );
+        if ("note" in entry)
+          return (
+            <div key={i} className="row-menu-note">
+              {entry.note}
+            </div>
+          );
         if ("heading" in entry)
           return (
             <div key={i} className="row-menu-heading">
@@ -108,14 +141,18 @@ export function RowMenu({ x, y, entries, onClose }: { x: number; y: number; entr
             key={i}
             type="button"
             role="menuitem"
-            className={`row-menu-item ${entry.danger ? "is-danger" : ""} ${entry.tone ? `is-${entry.tone}` : ""}`}
+            className={`row-menu-item ${entry.danger ? "is-danger" : ""} ${entry.tone ? `is-${entry.tone}` : ""} ${entry.indent ? "is-indent" : ""}`}
+            aria-checked={entry.checked}
             disabled={entry.disabled}
             onClick={() => {
               entry.onSelect();
               if (!entry.keepOpen) onClose();
             }}
           >
-            <span>{entry.label}</span>
+            <span>
+              {entry.checked != null && <span className="row-menu-check">{entry.checked ? "✓" : ""}</span>}
+              {entry.label}
+            </span>
             {entry.hint && <span className="row-menu-hint">{entry.hint}</span>}
           </button>
         );

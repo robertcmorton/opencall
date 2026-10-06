@@ -70,6 +70,35 @@ export function runTimes(transitions: readonly Transition[], nowMs: number | nul
   return out;
 }
 
+/** The fields of a row that `ranOverUnder` reads. */
+export interface RanRow {
+  id: string;
+  type: string;
+  durationSec: number | null;
+  parallel?: boolean;
+  durationMuted?: boolean;
+}
+
+/**
+ * The running total: over (+) or under (−) across the items played, counting
+ * only what counts in the running order — not rows alongside the show, muted
+ * ones, or rows with no planned length. Null when nothing counted has played.
+ *
+ * Shared so the sheet's "Ran" readout and the dashboard's "last run" say the
+ * same number.
+ */
+export function ranOverUnder(rows: readonly RanRow[], runOf: (rowId: string) => RowRun | undefined): number | null {
+  let total = 0;
+  let counted = 0;
+  for (const r of rows) {
+    const run = runOf(r.id);
+    if (!run || r.type !== "cue" || r.durationSec == null || r.parallel || r.durationMuted) continue;
+    total += run.sec - r.durationSec;
+    counted++;
+  }
+  return counted > 0 ? total : null;
+}
+
 /** Over (+) or under (−) the planned length, as a sheet shows it: "+0:12", "−1:05". */
 export function formatOverUnder(sec: number): string {
   if (sec === 0) return "±0:00";

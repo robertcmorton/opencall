@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatOverUnder, runTimes, type Transition } from "../src/runTimes";
+import { formatOverUnder, ranOverUnder, runTimes, type Transition } from "../src/runTimes";
 
 const s = (sec: number) => sec * 1000;
 const t = (atSec: number, type: string, rowId: string | null): Transition => ({ atMs: s(atSec), type, rowId });
@@ -47,5 +47,39 @@ describe("over and under, as the sheet shows it", () => {
     expect(formatOverUnder(-65)).toBe("−1:05");
     expect(formatOverUnder(0)).toBe("±0:00");
     expect(formatOverUnder(3725)).toBe("+1:02:05");
+  });
+});
+
+describe("the running total over or under", () => {
+  const row = (id: string, durationSec: number | null, extra: Partial<{ type: string; parallel: boolean; durationMuted: boolean }> = {}) => ({
+    id,
+    type: "cue",
+    durationSec,
+    ...extra,
+  });
+  const runs = new Map([
+    ["a", { sec: 70, runs: 1 }],
+    ["b", { sec: 50, runs: 1 }],
+    ["side", { sec: 999, runs: 1 }],
+    ["muted", { sec: 999, runs: 1 }],
+    ["head", { sec: 999, runs: 1 }],
+    ["open", { sec: 999, runs: 1 }],
+  ]);
+  it("adds what each played item ran past (or short of) its planned length", () => {
+    expect(ranOverUnder([row("a", 60), row("b", 60)], (id) => runs.get(id))).toBe(0);
+    expect(ranOverUnder([row("a", 60)], (id) => runs.get(id))).toBe(10);
+  });
+  it("leaves out rows alongside the show, muted ones, headings and rows with no length", () => {
+    const rows = [
+      row("a", 60),
+      row("side", 60, { parallel: true }),
+      row("muted", 60, { durationMuted: true }),
+      row("head", 60, { type: "group" }),
+      row("open", null),
+    ];
+    expect(ranOverUnder(rows, (id) => runs.get(id))).toBe(10);
+  });
+  it("is null when nothing counted has played", () => {
+    expect(ranOverUnder([row("x", 60)], (id) => runs.get(id))).toBeNull();
   });
 });

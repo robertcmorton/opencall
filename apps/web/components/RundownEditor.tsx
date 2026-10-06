@@ -103,7 +103,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { formatOverUnder, INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
+import { formatOverUnder, INK_COLOURS, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 import { ask, askText, say, sayError } from "../lib/dialogs";
@@ -4466,23 +4466,8 @@ export function RundownEditor({
     );
   };
 
-  /**
-   * The running total: over or under across the items played, counting only
-   * what counts in the running order — not rows alongside the show, muted
-   * ones, or rows with no planned length. Null when nothing has played.
-   */
-  const ranTotal = (() => {
-    if (!runTimes || Object.keys(runTimes.rows).length === 0) return null;
-    let total = 0;
-    let counted = 0;
-    for (const r of rows) {
-      const run = runTimes.rows[r.id];
-      if (!run || r.type !== "cue" || r.durationSec == null || r.parallel || r.durationMuted) continue;
-      total += run.sec - r.durationSec;
-      counted++;
-    }
-    return counted > 0 ? total : null;
-  })();
+  /** Over or under across the items played — see `ranOverUnder`. */
+  const ranTotal = runTimes ? ranOverUnder(rows, (id) => runTimes.rows[id]) : null;
 
   const renderDurationCell = (rowRecord: ProjectedRow) => {
     const open = durationPopover === rowRecord.id;

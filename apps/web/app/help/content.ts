@@ -923,6 +923,13 @@ export const SECTIONS: HelpSection[] = [
         good: "Crew can still pick **My role**, raise notes, use **Find**, and open the Timer, Prompter or Backstage display from the menu (☰).",
       },
       {
+        id: "crew-tabs",
+        name: "The tab bar on a phone",
+        forWhat: "Lets crew switch between the run sheet and the big timer with a thumb.",
+        finger: "At the bottom of the screen: **Sheet**, **Timer**, and **Notes** (or **Help** if you opened a view-only link, which can't read notes). Tap one to switch.",
+        who: "Crew on a phone. The showcaller's screen doesn't show it — their controls live at the top.",
+      },
+      {
         id: "timer",
         name: "Timer",
         forWhat: "A big, full-screen countdown for a speaker or a monitor on stage.",
@@ -1248,6 +1255,7 @@ export const SHORTCUTS: Shortcut[] = [
 
 export const GESTURES: Gesture[] = [
   { gesture: "Press and hold a row (half a second)", does: "Opens the row menu", where: "Phone and iPad" },
+  { gesture: "Tap Sheet, Timer or Notes at the bottom", does: "Switches between the run sheet, the big timer and notes", where: "Crew on a phone" },
   { gesture: "Pinch with two fingers", does: "Zooms in to make things bigger", where: "Every page — except the show page while a show is live, so a stray pinch can't hide the controls" },
   { gesture: "Tap a row number", does: "Picks the row; more taps add or remove rows", where: "Phone and iPad" },
   { gesture: "Double-tap a cell", does: "Opens the cell to type in", where: "iPad and other tablets" },

@@ -2731,7 +2731,7 @@ select:disabled {
 .notes-panel {
   position: fixed;
   right: calc(12px + env(safe-area-inset-right));
-  bottom: calc(12px + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
+  bottom: calc(12px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
   width: min(360px, calc(100vw - 24px));
   max-height: min(60vh, 520px);
   overflow: auto;
@@ -3271,7 +3271,7 @@ th.col-drop-target {
      exactly this. So a refusal could be drawn underneath them — and the
      chooser is up at full time, which is when a refused command is both most
      likely and most expensive to miss. */
-  bottom: calc(16px + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;
@@ -3429,7 +3429,7 @@ th.col-drop-target {
      for the middle of the screen. */
   left: 0;
   right: 0;
-  bottom: var(--rolebar-h, 0px);
+  bottom: calc(var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
   z-index: 94;
   display: flex;
   align-items: center;
@@ -4131,7 +4131,7 @@ th.col-drop-target {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(16px + var(--rolebar-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;
@@ -5957,4 +5957,45 @@ a > svg,
   color: var(--accent-text);
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* The crew's tab bar on a phone (CrewTabBar, 6 Oct). Thumb height, safe-area
+   aware, and the bottom of the stack: the role bar and docks sit above it. */
+.crew-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 66;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--overlay);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.crew-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  color: var(--text-2);
+  text-decoration: none;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  background: none;
+  border: 0;
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+.crew-tab svg {
+  width: 20px;
+  height: 20px;
+}
+.crew-tab.is-current {
+  color: var(--accent-text);
+}
+.role-bar {
+  bottom: var(--tabbar-h, 0px);
 }

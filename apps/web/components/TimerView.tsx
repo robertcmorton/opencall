@@ -8,6 +8,8 @@ import { useShowChannel } from "../lib/showChannel";
 import { SpeakerBanner } from "./SpeakerMessage";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
+import { CrewTabBar } from "./CrewTabBar";
+import { useIsPhone } from "../lib/useIsPhone";
 
 /**
  * Speaker Timer: fullscreen countdown for the active cue. Green while on time,
@@ -116,6 +118,9 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
       ? name(steppable[at + 1])
       : null;
 
+  // Crew on a phone get the tab bar back to the sheet (and on to notes).
+  const isPhone = useIsPhone();
+  const crewTabs = isPhone && channel.role !== "caller" && channel.role !== "admin";
   return (
     <main
       // Always black, so always the dark palette — see .force-dark.
@@ -135,6 +140,9 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
         cursor: "default",
         userSelect: "none",
         padding: "0 2vw",
+        // Clear of the crew tab bar on a phone (0 when there is none).
+        paddingBottom: "var(--tabbar-h, 0px)",
+        boxSizing: "border-box",
       }}
     >
       {/* A heading for screen readers; the screen itself is all clock. */}
@@ -205,6 +213,7 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
           )}
         </div>
       )}
+      {crewTabs && <CrewTabBar rundownId={rundownId} joinCode={joinCode} current="timer" />}
     </main>
   );
 }

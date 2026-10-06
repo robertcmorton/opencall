@@ -107,6 +107,7 @@ import { formatOverUnder, INK_COLOURS, nextCueRow, wrapTimeOfDay, type InkColour
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 import { ask, askText, say, sayError } from "../lib/dialogs";
+import { CrewTabBar } from "./CrewTabBar";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -3722,6 +3723,10 @@ export function RundownEditor({
    * seconds for a refusal is just noise on the wire.
    */
   const [notesOpen, setNotesOpen] = useState(false);
+  // Arriving from the crew tab bar's Notes tab on the timer page.
+  useEffect(() => {
+    if (window.location.hash === "#notes") setNotesOpen(true);
+  }, []);
   const rowNotes = useRowNotes(rundownId, { canRead: mode !== "view", joinCode });
   // Ink is private and needs no permission: it is this person's pen on their
   // own copy of the sheet, whatever their role.
@@ -4725,7 +4730,7 @@ export function RundownEditor({
       // The sheet is the page. Side padding was costing 48px of grid at every
       // width, and the bottom only has to clear whatever is docked there.
       style={{
-        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
+        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
       }}
     >
       <div className="show-topbar no-print">
@@ -6478,6 +6483,16 @@ export function RundownEditor({
           // reaches; a tablet keeps it by the finger, with bigger targets —
           // the way iPadOS shows its own menus.
           sheet={rowMenu.touch && isPhone}
+        />
+      )}
+      {/* The crew's tab bar: phones, anyone who is not running the show. */}
+      {isPhone && !mayDrive && mode !== "edit" && (
+        <CrewTabBar
+          rundownId={rundownId}
+          joinCode={joinCode}
+          current="sheet"
+          onNotes={mode !== "view" ? () => setNotesOpen((v) => !v) : undefined}
+          notesCount={rowNotes.openCount}
         />
       )}
       {grid.note && (

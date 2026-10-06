@@ -384,6 +384,20 @@ export const Icon = {
       <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" {...stroke} strokeWidth={1.5} />
     </svg>
   ),
+  /** A stopwatch: the timer screen. */
+  clock: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="9" r="5.5" {...stroke} strokeWidth={1.5} />
+      <path d="M8 6v3l2 1.5M6.5 1.8h3" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** A question mark in a circle: help. */
+  help: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="8" r="6" {...stroke} strokeWidth={1.5} />
+      <path d="M6.3 6.3a1.8 1.8 0 113 1.4c-.7.4-1.3.8-1.3 1.6M8 11.4v.1" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
   /** Rows on a sheet: a run sheet. */
   sheet: (
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>

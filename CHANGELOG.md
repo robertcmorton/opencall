@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Search and status on the dashboard.** A search box above your events filters events and shows as you type (an event's name or place keeps all its shows; otherwise only the shows whose names match). Each event now says when it is — **Today**, **Tomorrow**, **In 5 days** or **Past** — beside its name; shows that are on air still say **Live now**.
 - **⌘K does things, not just finds rows.** Type what you want — **start**, **prompter**, **timer**, **add row**, **version**, **message**, **help** — and press Enter. Actions you can do appear first; a number still goes straight to that row. Only things you're allowed to do right now are offered.
 - **Running the show on an iPad: the controls move to the bottom edge.** On a tablet, the showcaller's controls — Start show, the walkthrough and Message stage before the doors; LIVE, Hold and Stop during the show — sit in a bar along the bottom of the screen, where thumbs rest while you hold it, with bigger buttons. The sheet and the other bottom bars move up to make room. Computers and phones keep the controls at the top.
 - **Bigger targets on touch screens.** On an iPad or phone every button, menu item, text box and dropdown is now at least 44 pixels tall — the size Apple recommends for a fingertip — so the toolbar, the transport and the menus are easy to hit. With a mouse, everything keeps its compact size.

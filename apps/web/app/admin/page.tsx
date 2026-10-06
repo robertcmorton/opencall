@@ -544,6 +544,24 @@ function MobileActions({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * When an event is, at a glance (6 Oct): Today, Tomorrow, In 5 days, or Past.
+ * Dates are the event's own calendar days, compared with today here.
+ */
+function EventWhen({ start, end }: { start: string; end: string }) {
+  const [today, setToday] = useState<string | null>(null);
+  // After mount: the server's "today" (UTC) is not the viewer's.
+  useEffect(() => {
+    const d = new Date();
+    setToday(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  }, []);
+  if (!today) return null;
+  if (today >= start && today <= end) return <span className="chip when-today">Today</span>;
+  if (end < today) return <span className="chip when-past">Past</span>;
+  const days = Math.round((Date.parse(start) - Date.parse(today)) / 86_400_000);
+  return <span className="chip when-soon">{days === 1 ? "Tomorrow" : `In ${days} days`}</span>;
+}
+
+/**
  * Armed two-click destructive button (no browser dialogs).
  *
  * On confirm it goes at once, rather than sitting there until the server has
@@ -761,6 +779,7 @@ export default function AdminPage() {
     }
   }, [me]);
   const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
   const [companies, setCompanies] = useState<{ id: string; name: string; hasToken: boolean; logo: string | null; eventCount: number }[]>([]);
   /** Kinds of show this company added for itself, offered beside the built-ins. */
   const [customTypes, setCustomTypes] = useState<EventTypeSpec[]>([]);
@@ -872,7 +891,7 @@ export default function AdminPage() {
     list.push(event);
     eventsByTeam.set(event.teamId, list);
   }
-  const groups =
+  const allGroups =
     me?.role === "admin" && companies.length > 0
       ? companies.map((c) => ({
           id: c.id,
@@ -883,6 +902,26 @@ export default function AdminPage() {
           events: eventsByTeam.get(c.id) ?? [],
         }))
       : [{ id: "own", name: me?.teamName ?? "Events", hasToken: false, logo: null, real: false, events: events ?? [] }];
+  /**
+   * Search (6 Oct): an event stays when its name or place matches — with all
+   * its shows; otherwise it stays with just the shows whose names match.
+   * Companies with nothing left are hidden while searching.
+   */
+  const needle = search.trim().toLowerCase();
+  const groups = !needle
+    ? allGroups
+    : allGroups
+        .map((g) => ({
+          ...g,
+          events: g.events
+            .map((e) =>
+              `${e.name} ${e.location ?? ""}`.toLowerCase().includes(needle)
+                ? e
+                : { ...e, rundowns: e.rundowns.filter((r) => r.name.toLowerCase().includes(needle)) },
+            )
+            .filter((e) => `${e.name} ${e.location ?? ""}`.toLowerCase().includes(needle) || e.rundowns.length > 0),
+        }))
+        .filter((g) => g.events.length > 0 || g.name.toLowerCase().includes(needle));
 
   if (locked)
     return (
@@ -964,6 +1003,23 @@ export default function AdminPage() {
         {/* minmax(0, 1fr): a grid track otherwise grows to its widest content,
             which at phone width was 0.6px wider than the screen — the whole
             dashboard slid sideways by a pixel (layout audit, 6 Oct). */}
+        {(events?.length ?? 0) > 0 && (
+          <div className="dash-search">
+            <span aria-hidden>{Icon.search}</span>
+            <input
+              type="search"
+              className="input"
+              placeholder="Search events and shows"
+              aria-label="Search events and shows"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        )}
+        {needle && groups.length === 0 && (
+          <EmptyState icon={Icon.search} title={`Nothing matches “${search.trim()}”`} text="Try part of an event's name, its place, or a show's name." />
+        )}
+
         <div style={{ display: "grid", gap: "var(--space-5)", gridTemplateColumns: "minmax(0, 1fr)" }}>
           {groups.map((group) => (
             <section key={group.id}>
@@ -1047,7 +1103,7 @@ export default function AdminPage() {
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                     {event.name}
-                    {event.archivedAt && <span className="chip">archived</span>}
+                    {event.archivedAt ? <span className="chip">archived</span> : <EventWhen start={event.startDate} end={event.endDate} />}
                   </h2>
                   <div style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", marginTop: 2 }}>
                     {event.location ? `${event.location} · ` : ""}

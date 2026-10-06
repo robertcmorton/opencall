@@ -6115,3 +6115,33 @@ a > svg,
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+/* Dashboard search and event status (6 Oct). */
+.dash-search {
+  position: relative;
+  margin-bottom: var(--space-4);
+  max-width: 420px;
+}
+.dash-search > span {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  display: flex;
+}
+.dash-search .input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 34px;
+}
+.chip.when-today {
+  color: var(--under);
+  border-color: var(--under);
+}
+.chip.when-soon {
+  color: var(--accent-text);
+}
+.chip.when-past {
+  color: var(--text-3);
+}

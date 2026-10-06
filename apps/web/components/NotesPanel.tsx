@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { RowNote } from "../lib/useRowNotes";
-import { Icon } from "./ui";
+import { Icon, EmptyState } from "./ui";
 
 /**
  * Notes the crew have raised against rows, and the way to answer them.
@@ -120,7 +120,12 @@ export function NotesPanel({
       )}
 
       {open.length === 0 ? (
-        <p className="notes-empty">No notes right now.</p>
+        <EmptyState
+          compact
+          icon={Icon.note}
+          title="No notes right now"
+          text="When someone spots a problem on a row — a wrong name, a missing cue — they raise a note on it, and it shows up here."
+        />
       ) : (
         <ul className="notes-list">{open.map((n) => line(n, false))}</ul>
       )}

@@ -86,7 +86,7 @@ import { SpeakerControl } from "./SpeakerMessage";
 import { RowMenu, type RowMenuEntry } from "./RowMenu";
 import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift, startShow } from "./TransportBar";
-import { Dropdown, HeaderClock, Icon } from "./ui";
+import { Dropdown, HeaderClock, Icon, EmptyState } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
 import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
 import { RichCellText } from "./RichCellText";
@@ -6640,10 +6640,22 @@ export function RundownEditor({
         (docStatus.blocked ? (
           <DocBlockedPanel block={docStatus.blocked} rundownPath={`/${mode}/${rundownId}`} />
         ) : synced ? (
-          <div className="empty">
-            <div className="glyph">◴</div>
-            <div>Empty run sheet — add your first row above.</div>
-          </div>
+          <EmptyState
+            icon={Icon.sheet}
+            title="This run sheet is empty"
+            text={
+              canEditContent
+                ? "Add your first row, or copy rows from Google Sheets or Excel, click here and paste."
+                : "Nothing has been added to this sheet yet."
+            }
+            action={
+              canEditContent ? (
+                <button type="button" className="btn btn-primary" onClick={() => addRow("cue")}>
+                  {Icon.plus} Add the first row
+                </button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="empty">
             <div className="glyph">◴</div>

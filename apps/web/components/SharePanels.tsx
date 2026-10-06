@@ -7,6 +7,7 @@ import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
 import { ConfirmButton } from "./ConfirmButton";
 import { askText, sayError } from "../lib/dialogs";
+import { EmptyState, Icon } from "./ui";
 
 const panelStyle: React.CSSProperties = {
   margin: "0 0 12px",
@@ -504,9 +505,12 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
           </a>
         </div>
         {snapshots.length === 0 && (
-          <span style={{ color: "var(--text-3)" }}>
-            No versions yet. A version is saved for you when a show starts, and before every change an AI assistant makes.
-          </span>
+          <EmptyState
+            compact
+            icon={Icon.undo}
+            title="No versions yet"
+            text="A version is a copy of the sheet you can go back to. One is saved for you when a show starts and before an AI assistant changes anything — or press Save version now."
+          />
         )}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-3)", maxHeight: "55vh", overflowY: "auto" }}>
           {snapshots.map((s) => (

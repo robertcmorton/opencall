@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BrandWordmark } from "../../components/ui";
+import { BrandWordmark, EmptyState } from "../../components/ui";
 import { api, ApiError, API_URL, copyViewOnlyLink, type AccessPerson, type EventSummary, type RundownSummary, type TemplateSummary } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { BrandMark, Dropdown, Icon, MissingFields } from "../../components/ui";
@@ -1367,8 +1367,18 @@ export default function AdminPage() {
                   </li>
                 ))}
                 {event.rundowns.length === 0 && (
-                  <li style={{ padding: "8px 10px", color: "var(--text-3)", fontSize: "var(--fs-sm)", borderTop: "1px solid var(--border-subtle)" }}>
-                    No shows yet. Add one below.
+                  <li style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                    <EmptyState
+                      compact
+                      icon={Icon.sheet}
+                      title="No shows in this event yet"
+                      text={
+                        <>
+                          A show is one run sheet. Press <strong>+ Create show</strong> to start one, or <strong>Import run sheet</strong> to bring in a
+                          spreadsheet or PDF you already have.
+                        </>
+                      }
+                    />
                   </li>
                 )}
               </ul>
@@ -1437,9 +1447,16 @@ export default function AdminPage() {
         </div>
 
         {events?.length === 0 && (
-          <div className="empty card">
-            <div className="glyph">◴</div>
-            <div>There are no events yet. Make your first event to get started.</div>
+          <div className="card">
+            <EmptyState
+              icon={Icon.calendar}
+              title="No events yet"
+              text={
+                <>
+                  An event is one day or weekend of shows — a match day, a concert, a launch. Press <strong>New event</strong> to make the first one.
+                </>
+              }
+            />
           </div>
         )}
       </main>

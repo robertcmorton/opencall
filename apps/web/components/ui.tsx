@@ -377,6 +377,20 @@ export const Icon = {
       <path d="M9.2 6.8a3 3 0 00-4.2 0l-2 2a3 3 0 004.2 4.2l.9-.9" {...stroke} strokeWidth={1.5} />
     </svg>
   ),
+  /** A calendar page: events. */
+  calendar: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" {...stroke} strokeWidth={1.5} />
+      <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** Rows on a sheet: a run sheet. */
+  sheet: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" {...stroke} strokeWidth={1.5} />
+      <path d="M2 6h12M2 9.5h12M5.5 2.5v11" {...stroke} strokeWidth={1.3} />
+    </svg>
+  ),
   /** A T with a stroke through it: take the formatting off. */
   clearFormat: (
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
@@ -385,6 +399,38 @@ export const Icon = {
     </svg>
   ),
 };
+
+/**
+ * An empty screen that says what goes here and offers the first step (6 Oct).
+ *
+ * The app had eight different "No … yet" lines, each styled its own way and
+ * most leaving you to work out what to do next. One shape now: an icon, one
+ * plain line saying what this place is for, and — where there is one — the
+ * button that makes the first thing.
+ */
+export function EmptyState({
+  icon,
+  title,
+  text,
+  action,
+  compact = false,
+}: {
+  icon?: ReactNode;
+  title: string;
+  text?: ReactNode;
+  action?: ReactNode;
+  /** Inside a panel or list: less space around it. */
+  compact?: boolean;
+}) {
+  return (
+    <div className={`empty-state ${compact ? "is-compact" : ""}`}>
+      {icon && <div className="empty-state-icon">{icon}</div>}
+      <div className="empty-state-title">{title}</div>
+      {text && <div className="empty-state-text">{text}</div>}
+      {action && <div className="empty-state-action">{action}</div>}
+    </div>
+  );
+}
 
 /**
  * What is still missing, said before anyone presses the button.

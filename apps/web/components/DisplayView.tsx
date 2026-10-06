@@ -76,7 +76,8 @@ export function DisplayView({ rundownId, joinCode }: { rundownId: string; joinCo
     <main className="force-dark display-view">
       <SpeakerBanner message={channel.speaker} />
       <header className="display-top">
-        <span className="display-name">{meta.name}</span>
+        {/* The page's heading for a screen reader; on the wall it is just the name. */}
+        <h1 className="display-name">{meta.name}</h1>
         <span className="display-clock">{clock}</span>
       </header>
       <section className="display-main">

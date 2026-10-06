@@ -137,6 +137,8 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
         padding: "0 2vw",
       }}
     >
+      {/* A heading for screen readers; the screen itself is all clock. */}
+      <h1 className="sr-only">Show timer{meta.name ? ` — ${meta.name}` : ""}</h1>
       <SpeakerBanner message={channel.speaker} />
       {/* Held back to a whisper: this screen is pointed at a speaker or a
           confidence monitor, where a bright button beside the countdown would

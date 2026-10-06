@@ -4060,6 +4060,12 @@ export function RundownEditor({
     e.preventDefault();
     // Android fires this on a long press as well; the press already opened it.
     if (Date.now() - swallowClick.current < 1000) return;
+    // From the keyboard (Shift+F10 on a focused row number) there is no
+    // pointer position: open by the row instead of in the top-left corner.
+    if (e.clientX === 0 && e.clientY === 0) {
+      const r = t.getBoundingClientRect();
+      return openRowMenu(t, rowId, r.left + 8, r.bottom - 4, false);
+    }
     openRowMenu(t, rowId, e.clientX, e.clientY, false);
   });
   /**
@@ -4606,7 +4612,9 @@ export function RundownEditor({
       {/* On the editing page, whoever may edit the sheet can also get back to
           an earlier version of it — the producer whose AI assistant changed
           something by mistake most of all. The server checks the same right. */}
-      {!isShow && (
+      {/* The edit page only. `!isShow` let the VIEW page show these too, to
+          crew who can use none of them (found by the help-page audit, 6 Oct). */}
+      {mode === "edit" && (
         <SideNavSection heading="Sheet">
           <button type="button" className="menu-item" onClick={() => setPanel(panel === "history" ? null : "history")}>
             <span className="check" />
@@ -5689,6 +5697,9 @@ export function RundownEditor({
                   ["--rownum-w" as string]: `${COL_W_PHONE.rownum + railW + endingsW}px`,
                 }}
               >
+                {/* Read out, not shown: a screen reader announced this column
+                    as a blank heading (axe, 6 Oct). */}
+                <span className="sr-only">Row number</span>
                 {resizeHandle(prevColKey("rownum"), "rownum")}
               </th>
               {orderedColumns.map((c) => {

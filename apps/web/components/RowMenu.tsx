@@ -97,6 +97,15 @@ export function RowMenu({
     };
   }, [onClose]);
 
+  // Closing hands the keyboard back to wherever it was — a keyboard user
+  // must not be dropped at the top of the page.
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    return () => {
+      if (before && before !== document.body && before.isConnected) before.focus({ preventScroll: true });
+    };
+  }, []);
+
   // The first item takes the keyboard, so arrows and Enter work at once.
   // Not for a finger: there is no keyboard, and a focus ring on the first
   // item reads as "already chosen".
@@ -129,11 +138,13 @@ export function RowMenu({
         if (entry === "sep") return <div key={i} className="menu-sep" role="separator" />;
         if ("swatches" in entry)
           return (
-            <div key={i} className="row-menu-swatches">
+            <div key={i} className="row-menu-swatches" role="group" aria-label="Colour">
               {entry.swatches.map((sw) => (
                 <button
                   key={sw.key}
                   type="button"
+                  role="menuitemradio"
+                  aria-checked={!!sw.on}
                   className={`color-swatch ${sw.css == null ? "color-swatch-none" : ""} ${sw.on ? "is-on" : ""}`}
                   style={sw.css ? { background: sw.css } : undefined}
                   data-tip={sw.label}
@@ -148,13 +159,13 @@ export function RowMenu({
           );
         if ("note" in entry)
           return (
-            <div key={i} className="row-menu-note">
+            <div key={i} className="row-menu-note" role="note">
               {entry.note}
             </div>
           );
         if ("heading" in entry)
           return (
-            <div key={i} className="row-menu-heading">
+            <div key={i} className="row-menu-heading" role="presentation">
               {entry.heading}
             </div>
           );
@@ -162,7 +173,7 @@ export function RowMenu({
           <button
             key={i}
             type="button"
-            role="menuitem"
+            role={entry.checked != null ? "menuitemradio" : "menuitem"}
             className={`row-menu-item ${entry.danger ? "is-danger" : ""} ${entry.tone ? `is-${entry.tone}` : ""} ${entry.indent ? "is-indent" : ""}`}
             aria-checked={entry.checked}
             disabled={entry.disabled}

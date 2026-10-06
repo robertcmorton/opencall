@@ -174,7 +174,9 @@ export function useSheetGrid(opts: {
     setNote(`${what}${lockedSkipped ? ` Skipped ${lockedSkipped} locked row${lockedSkipped === 1 ? "" : "s"}.` : ""}${extra}`, true);
 
   const busyTarget = (t: EventTarget | null) =>
-    !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog]");
+    // A menu with the keyboard (the row menu) keeps its keys: Escape closing
+    // it was also putting the cursor away, and its arrows moved the cursor.
+    !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]");
 
   const onKey = useEffectEvent((e: KeyboardEvent) => {
     if (!live || e.defaultPrevented || e.isComposing) return;
@@ -218,6 +220,18 @@ export function useSheetGrid(opts: {
         setCursor(null);
         setAnchor(null);
         return;
+      case "ContextMenu":
+      case "F10": {
+        // The keyboard's way to the row menu (the Menu key, or Shift+F10):
+        // the menu a right-click opens, at the cell with the blue box.
+        if (e.key === "F10" && !e.shiftKey) return;
+        const td = gridEl?.querySelector<HTMLElement>(`tr[data-rowid="${live.rowId}"] td[data-colid="${live.columnId}"]`);
+        if (!td) return;
+        e.preventDefault();
+        const r = td.getBoundingClientRect();
+        td.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom - 4 }));
+        return;
+      }
       case "Backspace":
       case "Delete": {
         if (mod || !b) return;

@@ -5158,6 +5158,10 @@ tr.jump-flash > td {
   gap: 2vmin;
 }
 .display-name {
+  /* An <h1> now (a heading for screen readers): keep it looking as it did. */
+  margin: 0;
+  font-weight: 400;
+  line-height: inherit;
   font-size: 3.2vmin;
   color: var(--text-2);
   overflow: hidden;
@@ -5608,4 +5612,17 @@ td.peer-cell::after {
 }
 .rundown-grid td[data-cursor] {
   touch-action: none;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

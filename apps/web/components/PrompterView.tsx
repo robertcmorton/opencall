@@ -451,8 +451,12 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       if (e.code === "Space") {
         e.preventDefault();
         setScrolling((s) => !s);
-      } else if (e.key === "ArrowDown") setSpeed((s) => Math.min(300, s + 10));
-      else if (e.key === "ArrowUp") setSpeed((s) => Math.max(10, s - 10));
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        // Speed only. The script can take focus now (for screen readers), and
+        // a focused scroller would also jump on an arrow — the reader's place.
+        e.preventDefault();
+        setSpeed((s) => (e.key === "ArrowDown" ? Math.min(300, s + 10) : Math.max(10, s - 10)));
+      }
       else if (e.key === "+" || e.key === "=") setFontSize((f) => Math.min(96, f + 4));
       else if (e.key === "-") setFontSize((f) => Math.max(20, f - 4));
     };
@@ -534,6 +538,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
 
   return (
     <main className="force-dark" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#000" }}>
+      <h1 className="sr-only">Prompter{meta.name ? ` — ${meta.name}` : ""}</h1>
       <SpeakerBanner message={channel.speaker} />
       {/* What a reader needs without taking their eyes off the words: what
           they just read, how long until they are on, and what follows. Fixed
@@ -667,6 +672,11 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
       <div
         ref={containerRef}
         className="prompter-script"
+        // Reachable from the keyboard so a screen reader can find it (axe,
+        // 6 Oct). The arrows still set the speed — see the key handler.
+        tabIndex={0}
+        role="region"
+        aria-label="Script"
         style={{
           flex: 1,
           overflowY: "auto",

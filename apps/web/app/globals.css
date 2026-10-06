@@ -6038,3 +6038,39 @@ a > svg,
   color: var(--text-2);
   cursor: pointer;
 }
+
+/* Finger-sized on touch screens (6 Oct): everything you press is at least
+   44px tall — Apple's minimum for a fingertip — on an iPad or phone. A mouse
+   keeps the compact sizes. Rows keep their height: 44px rows would cost a
+   third of the sheet on screen, and a row number is still 35px and wide. */
+@media (pointer: coarse) {
+  .btn {
+    height: auto;
+    min-height: 44px;
+  }
+  .menu-item {
+    min-height: 44px;
+  }
+  .sidenav-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  .chip-btn {
+    min-height: 36px;
+  }
+  .color-swatch {
+    min-width: 32px;
+    min-height: 32px;
+  }
+  .input,
+  select.input {
+    min-height: 44px;
+  }
+  .sidenav-brand {
+    min-height: 44px;
+  }
+  .sidenav-credit a {
+    display: inline-block;
+    padding-block: 10px;
+  }
+}

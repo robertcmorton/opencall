@@ -30,11 +30,14 @@ export function Dropdown({
   children,
   align = "left",
   className = "btn",
+  ariaLabel,
 }: {
   label: ReactNode;
   children: ReactNode;
   align?: "left" | "right";
   className?: string;
+  /** For an icon-only trigger (the ⋯ menus): what a screen reader calls it. */
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
@@ -124,7 +127,7 @@ export function Dropdown({
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" className={`${className} ${open ? "is-on" : ""}`} onClick={() => setOpen((o) => !o)}>
+      <button type="button" aria-label={ariaLabel} aria-expanded={open} className={`${className} ${open ? "is-on" : ""}`} onClick={() => setOpen((o) => !o)}>
         {label}
       </button>
       {open && (
@@ -297,6 +300,88 @@ export const Icon = {
   check: (
     <svg width="12" height="12" viewBox="0 0 16 16">
       <path d="M2.5 8.5l3.5 3.5 7.5-8" {...stroke} strokeWidth={2} />
+    </svg>
+  ),
+  /*
+   * Added 6 Oct to replace the loose symbols (↺ ↻ ✎ ⚠ ⇣ ▤ ▾ ← ↑ 🔗 ⌫) that
+   * sat on buttons in whatever shape each font drew them — one set, one
+   * weight, one size, so the app reads as one thing.
+   */
+  undo: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M5.5 3.5L2.5 6.5l3 3" {...stroke} />
+      <path d="M2.5 6.5h7a4 4 0 010 8h-2" {...stroke} />
+    </svg>
+  ),
+  redo: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M10.5 3.5l3 3-3 3" {...stroke} />
+      <path d="M13.5 6.5h-7a4 4 0 000 8h2" {...stroke} />
+    </svg>
+  ),
+  /** A pencil: changing the sheet, writing a note. */
+  edit: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M11 2.5l2.5 2.5L5.5 13H3v-2.5z" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** A speech bubble: notes the crew raise against a row. */
+  note: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M2.5 3.5h11v7.5h-6l-3 2.5V11h-2z" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  warning: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M8 2.2L14.2 13H1.8z" {...stroke} strokeWidth={1.5} />
+      <path d="M8 6.5v3" {...stroke} strokeWidth={1.6} />
+      <circle cx="8" cy="11.3" r="0.9" fill="currentColor" />
+    </svg>
+  ),
+  /** Lines of text on a page: the prompter. */
+  prompter: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2.5" y="2" width="11" height="12" rx="1.5" {...stroke} strokeWidth={1.5} />
+      <path d="M5 5.5h6M5 8h6M5 10.5h4" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** Down to the live row — "follow the show". */
+  follow: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M8 2.5v8M4.5 7l3.5 3.5L11.5 7M3.5 13.5h9" {...stroke} />
+    </svg>
+  ),
+  arrowLeft: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M13 8H3.5M7.5 4L3.5 8l4 4" {...stroke} />
+    </svg>
+  ),
+  arrowUp: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M8 13V3.5M4 7.5l4-4 4 4" {...stroke} />
+    </svg>
+  ),
+  chevronDown: (
+    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden>
+      <path d="M3.5 6l4.5 4.5L12.5 6" {...stroke} strokeWidth={2} />
+    </svg>
+  ),
+  chevronRight: (
+    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden>
+      <path d="M6 3.5l4.5 4.5L6 12.5" {...stroke} strokeWidth={2} />
+    </svg>
+  ),
+  link: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M6.8 9.2a3 3 0 004.2 0l2-2a3 3 0 00-4.2-4.2l-.9.9" {...stroke} strokeWidth={1.5} />
+      <path d="M9.2 6.8a3 3 0 00-4.2 0l-2 2a3 3 0 004.2 4.2l.9-.9" {...stroke} strokeWidth={1.5} />
+    </svg>
+  ),
+  /** A T with a stroke through it: take the formatting off. */
+  clearFormat: (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M3.5 3.5h9M8 3.5V13" {...stroke} strokeWidth={1.5} />
+      <path d="M2.5 13.5l11-11" {...stroke} strokeWidth={1.3} />
     </svg>
   ),
 };

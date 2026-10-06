@@ -38,7 +38,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
         position: "relative",
         height: 40,
         width: 40,
-        borderRadius: 8,
+        borderRadius: "var(--r-sm)",
         cursor: "pointer",
         flexShrink: 0,
         display: "grid",
@@ -62,7 +62,7 @@ function ImageSlot({ value, hint, onChange }: { value: string | null; hint: stri
             onChange(null);
           }}
         >
-          ✕
+          {Icon.close}
         </button>
       )}
     </div>
@@ -171,16 +171,16 @@ function CreateCompanyForm({ onCreated }: { onCreated: () => void }) {
 
   if (token)
     return (
-      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", maxWidth: 420 }}>
         <strong>Company created</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
           Below is the company&apos;s access token: a long code that signs the company in. You will only see it this
           once, so copy it somewhere safe before you close this.
         </span>
-        <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
+        <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: "var(--r-xs)", wordBreak: "break-all" }}>
           {token}
         </code>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
           <button className="btn btn-sm btn-primary" onClick={() => void navigator.clipboard.writeText(token)}>
             Copy access token
           </button>
@@ -401,7 +401,7 @@ function CreateRundownForm({
   return (
     <form
       className="rundown-create"
-      style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 16px 14px" }}
+      style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center", padding: "10px 16px 14px" }}
       onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
@@ -478,7 +478,7 @@ function DatesEditor({
     );
 
   return (
-    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+    <span style={{ display: "inline-flex", gap: "var(--space-2)", alignItems: "center" }}>
       <input
         className="input"
         type="date"
@@ -523,7 +523,7 @@ function DatesEditor({
         Save
       </button>
       <button className="btn btn-sm btn-ghost" onClick={close}>
-        ✕
+        {Icon.close}
       </button>
       {error && <span style={{ color: "var(--over)", fontSize: "var(--fs-xs)" }}>{error}</span>}
     </span>
@@ -536,7 +536,7 @@ function DatesEditor({
  */
 function MobileActions({ children }: { children: React.ReactNode }) {
   return (
-    <Dropdown label="⋯" align="right" className="btn btn-sm mobile-only">
+    <Dropdown label={Icon.dots} ariaLabel="More" align="right" className="btn btn-sm mobile-only">
       {children}
     </Dropdown>
   );
@@ -933,9 +933,9 @@ export default function AdminPage() {
             past the viewport, and the whole page scrolled sideways to reach
             it. `minWidth: 0` lets the text give way; the wrap catches whatever
             is still too wide. */}
-        <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: "1.5rem" }}>
+        <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-4)", marginBottom: "1.5rem" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
               <BrandWordmark size={22} />{" "}
               {/* Who this is for. Until the server has answered, the word is
                   whatever it was last time in this browser — a refresh used
@@ -971,7 +971,7 @@ export default function AdminPage() {
         )}
 
         {events == null && !error && (
-          <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: "var(--space-3)" }}>
             <div className="skeleton" style={{ height: 110 }} />
             <div className="skeleton" style={{ height: 110 }} />
           </div>
@@ -981,7 +981,7 @@ export default function AdminPage() {
         {/* minmax(0, 1fr): a grid track otherwise grows to its widest content,
             which at phone width was 0.6px wider than the screen — the whole
             dashboard slid sideways by a pixel (layout audit, 6 Oct). */}
-        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 1fr)" }}>
+        <div style={{ display: "grid", gap: "var(--space-5)", gridTemplateColumns: "minmax(0, 1fr)" }}>
           {groups.map((group) => (
             <section key={group.id}>
               {/* Lands the company's own actions on the same right edge as
@@ -990,12 +990,12 @@ export default function AdminPage() {
                   2px by which their flex gap (12) exceeds this row's (10) —
                   both rows end in a mobile-only menu that is hidden here, so
                   the last visible button sits one gap in from the edge. */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 19px 8px 2px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "2px 19px 8px 2px" }}>
                 {"logo" in group && (group as { logo?: string | null }).logo && (
                   <img
                     src={(group as { logo?: string | null }).logo!}
                     alt=""
-                    style={{ height: 30, width: 30, objectFit: "contain", borderRadius: 6 }}
+                    style={{ height: 30, width: 30, objectFit: "contain", borderRadius: "var(--r-sm)" }}
                   />
                 )}
                 <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>{group.name}</h2>
@@ -1018,7 +1018,7 @@ export default function AdminPage() {
                     });
                   return (
                     <>
-                      <Dropdown label="⋯" align="right" className="btn btn-sm">
+                      <Dropdown label={Icon.dots} ariaLabel="More" align="right" className="btn btn-sm">
                         <button type="button" className="menu-item" onClick={renameCompany} data-tip="Change this company's name">
                           <span className="check" />
                           Rename
@@ -1046,10 +1046,10 @@ export default function AdminPage() {
                   );
                 })()}
               </div>
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)", paddingLeft: 12, borderLeft: "2px solid var(--border-subtle)" }}>
+              <div style={{ display: "grid", gap: "var(--space-3)", gridTemplateColumns: "minmax(0, 1fr)", paddingLeft: 12, borderLeft: "2px solid var(--border-subtle)" }}>
                 {group.events.map((event) => (
             <section key={event.id} className="card">
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 4px", opacity: event.archivedAt ? 0.55 : 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "14px 16px 4px", opacity: event.archivedAt ? 0.55 : 1 }}>
                 {/* One image on the event: its brand. The two teams are not
                     the event's — a round of football is the venue and the
                     date — they are the run sheet's, and they sit on its row. */}
@@ -1059,7 +1059,7 @@ export default function AdminPage() {
                   onChange={(img) => void api.patchEvent(event.id, { image1: img }).then(reload)}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                     {event.name}
                     {event.archivedAt && <span className="chip">archived</span>}
                   </h2>
@@ -1069,7 +1069,7 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <span style={{ flex: 1 }} />
-                <Dropdown label="⋯" align="right" className="btn btn-sm">
+                <Dropdown label={Icon.dots} ariaLabel="More" align="right" className="btn btn-sm">
                   <button
                     type="button"
                     className="menu-item"
@@ -1134,9 +1134,9 @@ export default function AdminPage() {
                   ) : people.length === 0 ? (
                     <span style={{ display: "block", color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Only the System Administrator.</span>
                   ) : (
-                    <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0, display: "grid", gap: 3, fontSize: "var(--fs-sm)" }}>
+                    <ul style={{ listStyle: "none", margin: "4px 0 0", padding: 0, display: "grid", gap: "var(--space-1)", fontSize: "var(--fs-sm)" }}>
                       {people.map((p) => (
-                        <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                        <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
                           <strong style={{ minWidth: 140 }}>{p.name}</strong>
                           {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
                           <span className="chip">{p.access}</span>
@@ -1185,7 +1185,11 @@ export default function AdminPage() {
                           <Dropdown
                             label={(() => {
                               const spec = resolveEventType(r.sport ?? event.sport, customTypes);
-                              return `${spec ? eventTypeLabel(spec) : "Kind of show…"} ▾`;
+                              return (
+                                <>
+                                  {spec ? eventTypeLabel(spec) : "Kind of show…"} {Icon.chevronDown}
+                                </>
+                              );
                             })()}
                             className="chip chip-btn"
                           >
@@ -1276,7 +1280,7 @@ export default function AdminPage() {
                           View
                         </Link>
                       )}
-                      <Dropdown label="⋯" align="right" className="btn btn-sm">
+                      <Dropdown label={Icon.dots} ariaLabel="More" align="right" className="btn btn-sm">
                         <Link href={`/timer/${r.id}`} className="menu-item" style={{ textDecoration: "none" }} data-tip="A big full-screen timer for phones and screens facing the stage. It shows what is on now, what just finished and what is next.">
                           <span className="check" />
                           Timer

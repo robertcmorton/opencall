@@ -4,6 +4,7 @@ import { BackLink } from "../../components/BackLink";
 import { GESTURES, SECTIONS, SHORTCUTS } from "./content";
 import { HelpBrowser } from "./HelpBrowser";
 import styles from "./help.module.css";
+import { Icon } from "../../components/ui";
 
 export const metadata: Metadata = {
   title: "Help — OpenCall",
@@ -31,7 +32,7 @@ export default function HelpPage() {
           Dashboard
         </Link>
         <a href="#main" className={styles.toTop}>
-          ↑ Top
+          {Icon.arrowUp} Top
         </a>
       </header>
       <main id="main" tabIndex={-1} className={styles.main}>

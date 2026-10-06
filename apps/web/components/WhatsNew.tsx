@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ChangelogRelease } from "@opencall/core";
+import { Icon } from "./ui";
 
 /**
  * What has changed, and whether this browser is looking at it.
@@ -55,7 +56,7 @@ export function WhatsNew({ open, onClose }: { open: boolean; onClose: () => void
         <header className="whatsnew-head">
           <strong>What&rsquo;s new</strong>
           <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">
-            ✕
+            {Icon.close}
           </button>
         </header>
 

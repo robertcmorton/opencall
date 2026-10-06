@@ -47,7 +47,7 @@ export default function AdminEventTypesPage() {
             </p>
           </header>
           {mayManage ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
               <EventTypesPanel />
               <ImportedSheetsPanel custom={custom} />
             </div>

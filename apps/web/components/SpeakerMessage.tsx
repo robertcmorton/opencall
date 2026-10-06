@@ -93,7 +93,7 @@ export function SpeakerControl({
               e.preventDefault();
               send(text);
             }}
-            style={{ display: "flex", gap: 6 }}
+            style={{ display: "flex", gap: "var(--space-2)" }}
           >
             <input className="input" style={{ flex: 1 }} maxLength={120} placeholder="Or type a message…" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
             <button type="submit" className="btn btn-sm btn-primary" disabled={!text.trim()}>

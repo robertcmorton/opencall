@@ -32,8 +32,8 @@ export default function ChangesPage({ params }: { params: Promise<{ id: string }
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: "4vh auto", padding: "0 16px", display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <main style={{ maxWidth: 760, margin: "4vh auto", padding: "0 16px", display: "grid", gap: "var(--space-4)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
         <BackLink />
         <h1 style={{ fontSize: "1.3rem", margin: 0, flex: "1 1 auto" }}>
           Changes{data?.rundown ? <span style={{ color: "var(--text-2)", fontWeight: 400 }}> · {data.rundown.name}</span> : null}
@@ -54,7 +54,7 @@ export default function ChangesPage({ params }: { params: Promise<{ id: string }
       )}
 
       {days.map(({ day, entries }) => (
-        <section key={day} style={{ display: "grid", gap: 6 }}>
+        <section key={day} style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 className="field-label" style={{ margin: "8px 0 2px" }}>
             {day}
           </h2>

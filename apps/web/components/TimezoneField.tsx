@@ -83,14 +83,14 @@ export function LocationDialog({
       style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0, 0, 0, 0.5)", display: "grid", placeItems: "center" }}
       onClick={onClose}
     >
-      <div className="panel" style={{ width: 430, maxWidth: "92vw", display: "grid", gap: 12 }} onClick={(e) => e.stopPropagation()}>
+      <div className="panel" style={{ width: 430, maxWidth: "92vw", display: "grid", gap: "var(--space-3)" }} onClick={(e) => e.stopPropagation()}>
         <strong>Event location</strong>
         <div>
           <label className="field-label">Event location</label>
           <input className="input" autoFocus value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Main arena, Sydney" style={{ width: "100%" }} />
         </div>
         <TimezoneField value={tz} onChange={setTz} atDate={event.startDate} />
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
           <button className="btn btn-ghost" type="button" onClick={onClose}>
             Cancel
           </button>

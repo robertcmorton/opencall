@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, API_URL, type AssistantConnection } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
+import { Icon } from "../../components/ui";
 
 /** My account: who I am, what I can access, and my details. */
 export default function AccountPage() {
@@ -55,16 +56,16 @@ export default function AccountPage() {
           : "You are not signed in.";
 
   return (
-    <main style={{ maxWidth: 560, margin: "6vh auto", padding: "0 1.2rem", display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+    <main style={{ maxWidth: 560, margin: "6vh auto", padding: "0 1.2rem", display: "grid", gap: "var(--space-3)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)" }}>
         <h1 style={{ fontSize: "1.3rem", margin: 0 }}>My account</h1>
         <span style={{ flex: 1 }} />
         <Link href="/admin" style={{ color: "var(--accent-text)", fontSize: "var(--fs-sm)", display: "inline-block", padding: "4px 0" }}>
-          ← Dashboard
+          {Icon.arrowLeft} Dashboard
         </Link>
       </div>
 
-      <div className="panel" style={{ display: "grid", gap: 6 }}>
+      <div className="panel" style={{ display: "grid", gap: "var(--space-2)" }}>
         <div style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
           {me.role === "user" ? `${me.name}${me.email ? ` · ${me.email}` : ""}` : me.role === "company" ? me.teamName : me.role === "admin" ? "System Administrator" : "—"}
         </div>
@@ -75,7 +76,7 @@ export default function AccountPage() {
         <>
           <form
             className="panel"
-            style={{ display: "grid", gap: 10 }}
+            style={{ display: "grid", gap: "var(--space-3)" }}
             onSubmit={(e) => {
               e.preventDefault();
               void api
@@ -93,7 +94,7 @@ export default function AccountPage() {
               <label className="field-label">Email</label>
               <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: "100%" }} />
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
               <button className="btn btn-primary" type="submit">
                 Save details
               </button>
@@ -103,7 +104,7 @@ export default function AccountPage() {
 
           <form
             className="panel"
-            style={{ display: "grid", gap: 10 }}
+            style={{ display: "grid", gap: "var(--space-3)" }}
             onSubmit={(e) => {
               e.preventDefault();
               const problem = passwordProblem(next, email);
@@ -179,14 +180,14 @@ function AssistantsPanel() {
   if (refused) return null;
   const mcpUrl = `${API_URL}/mcp`;
   return (
-    <div className="panel" style={{ display: "grid", gap: 10 }}>
+    <div className="panel" style={{ display: "grid", gap: "var(--space-3)" }}>
       <strong>AI assistants</strong>
       <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
         You can connect an AI assistant (a chat helper) to your account. It can read your run sheets and, if you say yes,
         change them. It can only reach the sheets you can, and it can never run a show. To connect one, add this web
         address in your assistant&apos;s settings as a new connector, then sign in when it asks:
       </span>
-      <code style={{ fontSize: "var(--fs-sm)", padding: "6px 8px", borderRadius: 6, background: "var(--surface-2, rgba(127,127,127,.12))", overflowWrap: "anywhere" }}>
+      <code style={{ fontSize: "var(--fs-sm)", padding: "6px 8px", borderRadius: "var(--r-sm)", background: "var(--surface-2, rgba(127,127,127,.12))", overflowWrap: "anywhere" }}>
         {mcpUrl}
       </code>
       {list == null ? (
@@ -195,7 +196,7 @@ function AssistantsPanel() {
         <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>You have not connected any AI assistants.</span>
       ) : (
         list.map((a) => (
-          <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div key={a.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 220px", display: "grid", gap: 2 }}>
               <span>
                 {a.name}

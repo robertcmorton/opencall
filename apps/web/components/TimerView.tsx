@@ -160,10 +160,10 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
       <div
         style={{
           border: "1px solid var(--border)",
-          borderRadius: 8,
+          borderRadius: "var(--r-sm)",
           padding: "1.5vh 4vw",
           maxWidth: "96vw",
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-num)",
           fontWeight: 700,
           // Sized to the DIGITS THERE ARE, not to a guess.
           //

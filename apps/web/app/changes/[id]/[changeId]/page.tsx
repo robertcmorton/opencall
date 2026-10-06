@@ -28,7 +28,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
 
   if (problem && !c)
     return (
-      <main style={{ maxWidth: 760, margin: "4vh auto", padding: "0 16px", display: "grid", gap: 16 }}>
+      <main style={{ maxWidth: 760, margin: "4vh auto", padding: "0 16px", display: "grid", gap: "var(--space-4)" }}>
         <BackLink />
         <div className="panel">{problem}</div>
       </main>
@@ -40,13 +40,13 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
     total > shown ? <p style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)", margin: 0 }}>…and {total - shown} more not shown.</p> : null;
 
   return (
-    <main style={{ maxWidth: 860, margin: "4vh auto", padding: "0 16px", display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <main style={{ maxWidth: 860, margin: "4vh auto", padding: "0 16px", display: "grid", gap: "var(--space-4)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
         <BackLink label="All changes" />
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>{c.rundown?.name}</span>
       </div>
 
-      <div style={{ display: "grid", gap: 4 }}>
+      <div style={{ display: "grid", gap: "var(--space-1)" }}>
         <h1 style={{ fontSize: "1.3rem", margin: 0 }}>{titleOf(c)}</h1>
         <span style={{ color: "var(--text-2)" }}>
           {dayOf(c.at)}, {whenDone(c)}
@@ -74,7 +74,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
       <WaysBack change={c} rundownId={id} onUndone={load} />
 
       {d.changed.length > 0 && (
-        <section style={{ display: "grid", gap: 8 }}>
+        <section style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Changed ({d.counts.changed})</h2>
           <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
             <table className="change-table">
@@ -109,7 +109,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
       )}
 
       {d.added.length > 0 && (
-        <section style={{ display: "grid", gap: 8 }}>
+        <section style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Added ({d.counts.added})</h2>
           {d.added.map((r) => (
             <RowCard key={r.id} row={r} tone="after" />
@@ -119,7 +119,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
       )}
 
       {d.removed.length > 0 && (
-        <section style={{ display: "grid", gap: 8 }}>
+        <section style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Deleted ({d.counts.removed})</h2>
           {d.removed.map((r) => (
             <RowCard key={r.id} row={r} tone="before" />
@@ -129,9 +129,9 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
       )}
 
       {d.moved.length > 0 && (
-        <section style={{ display: "grid", gap: 8 }}>
+        <section style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Moved ({d.counts.moved})</h2>
-          <div className="panel" style={{ display: "grid", gap: 4 }}>
+          <div className="panel" style={{ display: "grid", gap: "var(--space-1)" }}>
             {d.moved.map((r) => (
               <span key={r.id}>
                 {r.title} <span style={{ color: "var(--text-3)" }}>· was row {r.from}, now row {r.number}</span>
@@ -143,7 +143,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
       )}
 
       {d.sheet.length > 0 && (
-        <section style={{ display: "grid", gap: 8 }}>
+        <section style={{ display: "grid", gap: "var(--space-2)" }}>
           <h2 style={{ fontSize: "1.05rem", margin: 0 }}>The sheet itself</h2>
           <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
             <table className="change-table">
@@ -173,7 +173,7 @@ export default function ChangePage({ params }: { params: Promise<{ id: string; c
 function RowCard({ row, tone }: { row: RowSnapshotView; tone: "before" | "after" }) {
   const facts = [row.type, row.start ? `starts ${row.start}` : null, row.duration ? `runs ${row.duration}` : null].filter(Boolean).join(" · ");
   return (
-    <div className={`panel change-row change-row-${tone}`} style={{ display: "grid", gap: 4 }}>
+    <div className={`panel change-row change-row-${tone}`} style={{ display: "grid", gap: "var(--space-1)" }}>
       <span>
         <span style={{ color: "var(--text-3)" }}>Row {row.number}.</span> <strong style={{ fontWeight: 600 }}>{row.title}</strong>
         <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}> · {facts}</span>
@@ -225,15 +225,15 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
     : [];
 
   return (
-    <div className="panel" style={{ display: "grid", gap: 10 }}>
+    <div className="panel" style={{ display: "grid", gap: "var(--space-3)" }}>
       <strong>Ways to take it back</strong>
-      <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "grid", gap: "var(--space-2)" }}>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
           <strong>Undo just this change</strong> puts back only what this change did. Everything people have done since
           stays. If something was changed again after this, it is left as it is and listed below.
         </span>
         {change.canUndo ? (
-          <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
             <button className={`btn ${undoArmed ? "btn-danger is-on" : "btn-primary"}`} disabled={undoing} onClick={() => (undoArmed ? undo() : setUndoArmed(true))}>
               {undoing ? "Undoing…" : undoArmed ? "Yes, undo this change" : "Undo just this change"}
             </button>
@@ -270,7 +270,7 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
       </div>
 
       {change.beforeSnapshotId && (
-        <div style={{ display: "grid", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+        <div style={{ display: "grid", gap: "var(--space-2)", borderTop: "1px solid var(--border)", paddingTop: 10 }}>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
             <strong>Restore to just before this</strong> puts the whole sheet back the way it was before this change. That
             also undoes every change made after it.
@@ -292,7 +292,7 @@ function WaysBack({ change, rundownId, onUndone }: { change: SheetChangeDetail; 
                   </span>
                 ))}
               </span>
-              <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                 <button
                   className="btn btn-danger"
                   disabled={restoring || preview.same}

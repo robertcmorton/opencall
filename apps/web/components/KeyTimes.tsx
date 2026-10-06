@@ -5,7 +5,7 @@ import * as Y from "yjs";
 import { ulid } from "ulid";
 import { formatTimeOfDay, parseTimeLoose } from "@opencall/core";
 import type { KeyTime } from "@opencall/db/doc";
-import { useDismiss } from "./ui";
+import { useDismiss, Icon } from "./ui";
 
 /**
  * Key times: labeled moments for the day (doors, soundcheck, on-air…), stored
@@ -79,20 +79,20 @@ export function KeyTimesEditor({
             </div>
           )}
           {keyTimes.map((kt) => (
-            <div key={kt.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+            <div key={kt.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "3px 0" }}>
               <span style={{ flex: 1 }}>{kt.label}</span>
               <span className="mono" style={{ color: "var(--text-2)" }}>
                 {formatTimeOfDay(kt.sec, use24h)}
               </span>
               {canEdit && (
                 <button className="btn btn-sm btn-ghost" onClick={() => remove(kt.id)} aria-label={`Remove ${kt.label}`} data-tip="Remove this time">
-                  ✕
+                  {Icon.close}
                 </button>
               )}
             </div>
           ))}
           {canEdit && (
-            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 8 }}>
               <input
                 className="input"
                 placeholder="What happens (e.g. Doors)"

@@ -3139,6 +3139,14 @@ export function RundownEditor({
     });
     setSelected(new Set([newId]));
     setLastSelected(newId);
+    // A brief glow on the new row, so the eye finds it — the same one Jump
+    // to row uses. After the render that draws it.
+    window.setTimeout(() => {
+      const tr = document.querySelector(`tr[data-rowid="${newId}"]`);
+      if (!tr) return;
+      tr.classList.add("jump-flash");
+      window.setTimeout(() => tr.classList.remove("jump-flash"), 1600);
+    }, 50);
   };
 
   const duplicateSelected = (): void => {
@@ -4152,7 +4160,11 @@ export function RundownEditor({
       };
       out.push({ heading: "The show" });
       out.push({
-        label: menuArmStart ? "▶ Start anyway" : "▶ Start show",
+        label: (
+          <>
+            {Icon.play} {menuArmStart ? "Start anyway" : "Start show"}
+          </>
+        ),
         tone: menuArmStart ? "warn" : "positive",
         hint: menuArmStart
           ? `Worth checking first: ${preflight[0]}${preflight.length > 1 ? ` (and ${preflight.length - 1} more)` : ""}`
@@ -4176,9 +4188,9 @@ export function RundownEditor({
             channel.sendCmd("walk", r.id);
           },
         });
-      out.push({ label: "⏮ Previous row", disabled: at <= 0, onSelect: () => at > 0 && walk(walkable[at - 1]!.id) });
+      out.push({ label: <>{Icon.prev} Previous row</>, disabled: at <= 0, onSelect: () => at > 0 && walk(walkable[at - 1]!.id) });
       out.push({
-        label: "Next row ⏭",
+        label: <>{Icon.next} Next row</>,
         disabled: at >= walkable.length - 1,
         onSelect: () => walk(walkable[Math.min(at + 1, walkable.length - 1)]!.id),
       });
@@ -4488,7 +4500,7 @@ export function RundownEditor({
             <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", marginBottom: 8 }}>
               Changing it shifts every time below by the same amount.
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
               <button
                 type="button"
                 className={`btn btn-sm ${rowRecord.durationHidden ? "is-on" : ""}`}
@@ -4722,7 +4734,7 @@ export function RundownEditor({
             of a no-wrap name is the whole name, so the row measured 333px in a
             253px box and the name ran under the menu button. Capped, the name
             gets its ellipsis. */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, minWidth: 0, maxWidth: "100%" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)", minWidth: 0, maxWidth: "100%" }}>
           {/* No back arrow. It sat in the same wrapping flex as the sheet name
               and squeezed it into a five-line tower on a tablet, for a job two
               other things already do: the sheet's name IS the way back on any
@@ -4773,7 +4785,7 @@ export function RundownEditor({
                       key={i}
                       src={src}
                       alt=""
-                      style={{ height: 22, width: 22, objectFit: "contain", borderRadius: 5, verticalAlign: "-4px", marginRight: i === 1 ? 8 : 4 }}
+                      style={{ height: 22, width: 22, objectFit: "contain", borderRadius: "var(--r-sm)", verticalAlign: "-4px", marginRight: i === 1 ? 8 : 4 }}
                     />
                   ),
               )}
@@ -4795,7 +4807,7 @@ export function RundownEditor({
               href={`/show/${rundownId}`}
               data-tip="Go to the show page, where you can practise the show or start it"
             >
-              ▶ Open show
+              {Icon.play} Open show
             </Link>
           )}
         </div>
@@ -5125,7 +5137,7 @@ export function RundownEditor({
         </div>
       </header>
 
-      <div className="sheet-toolbar no-print" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="sheet-toolbar no-print" style={{ display: "flex", gap: "var(--space-2)", marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
         {isShow && (
           <TransportBar
             channel={channel}
@@ -5182,7 +5194,7 @@ export function RundownEditor({
             data-tip="Undo the last row change (⌘Z) — including a timing nudge, live or not"
             onClick={() => undoMgr.undo()}
           >
-            ↺ Undo
+            {Icon.undo} Undo
           </button>
         )}
         {/* Building the sheet is desk work. While the show is LIVE it sits
@@ -5194,7 +5206,7 @@ export function RundownEditor({
             data-tip="Add rows and redo changes while the show is running"
             onClick={() => setEditTools((v) => !v)}
           >
-            {editTools ? "✕ Editing" : "✎ Edit run sheet"}
+            {editTools ? <>{Icon.close} Editing</> : <>{Icon.edit} Edit run sheet</>}
           </button>
         )}
         {canEditContent && (!showLive || editTools) && (
@@ -5205,7 +5217,7 @@ export function RundownEditor({
               data-tip="Redo the undone change (⇧⌘Z)"
               onClick={() => undoMgr.redo()}
             >
-              ↻ Redo
+              {Icon.redo} Redo
             </button>
             <button className="btn" onClick={() => addRow("cue")} data-tip="A timed item the show steps through — the normal row">
               {Icon.plus} Row
@@ -5219,7 +5231,7 @@ export function RundownEditor({
             data-tip="The sheet's TIME and DURATION columns don't add up in these places — open to see each one explained, with the choices for fixing it"
             onClick={() => setReconciling(true)}
           >
-            ⚠ {timingGaps.length} timing gap{timingGaps.length === 1 ? "" : "s"} — Reconcile
+            {Icon.warning} {timingGaps.length} timing gap{timingGaps.length === 1 ? "" : "s"} — Reconcile
           </button>
         )}
         {/* Not while the show is running. Which columns are on screen is a
@@ -5293,7 +5305,7 @@ export function RundownEditor({
             onClick={() => setNotesOpen((v) => !v)}
             data-tip="Notes the crew have raised against rows"
           >
-            ✎ Notes{rowNotes.openCount > 0 ? ` ${rowNotes.openCount}` : ""}
+            {Icon.note} Notes{rowNotes.openCount > 0 ? ` ${rowNotes.openCount}` : ""}
           </button>
         )}
         {/* Ink: the pen a showcaller runs over a printed sheet, on the screen.
@@ -5385,7 +5397,7 @@ export function RundownEditor({
             href={`/prompter/${rundownId}${joinCode ? `?code=${joinCode}` : ""}`}
             data-tip="Open the prompter: the sheet with the words to be read set large, paced to the item they belong to"
           >
-            ▤ Prompter
+            {Icon.prompter} Prompter
           </Link>
         )}
         <div className="toolbar-tail">
@@ -5446,8 +5458,8 @@ export function RundownEditor({
       )}
 
       {panel === "info" && (
-        <div className="panel no-print" style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <div className="panel no-print" style={{ display: "grid", gap: "var(--space-3)" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <strong>Show information</strong>
             <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1, minWidth: 220 }}>
               Printed on every page of the imported document. Kept here so the running order stays the running order.
@@ -5512,7 +5524,7 @@ export function RundownEditor({
                 an offer to follow again, so it says so — and it said the
                 alarming thing to the showcaller too, on their own screen,
                 about a move they had just made themselves. */}
-            {activeRowId ? "⇣ Sync Cue" : "⇣ Follow showcaller"}
+            {Icon.follow} {activeRowId ? "Sync Cue" : "Follow showcaller"}
           </button>
         )}
         <div
@@ -6258,7 +6270,7 @@ export function RundownEditor({
             ) : (
               <span className={`od-stage ${outcomeStage(activeGame) === "missed" ? "od-missed" : decisionSoon ? "od-soon" : ""}`}>
                 {outcomeStage(activeGame) === "missed"
-                  ? "⚠ The result was never called — the show has moved on"
+                  ? <>{Icon.warning} The result was never called — the show has moved on</>
                   : outcomeStage(activeGame) === "extra-time"
                     ? `⚡ ${showType?.extraLabel ?? "Extra time"} — call the result`
                     : "Full time — call the result"}
@@ -6456,7 +6468,7 @@ export function RundownEditor({
                 grid.dismissNote();
               }}
             >
-              ↺ Undo
+              {Icon.undo} Undo
             </button>
           )}
         </div>

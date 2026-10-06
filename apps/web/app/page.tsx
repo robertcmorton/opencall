@@ -111,7 +111,7 @@ export default function Landing() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 28,
+        gap: "var(--space-6)",
         padding: "2rem 1.2rem",
       }}
     >
@@ -124,7 +124,7 @@ export default function Landing() {
         </p>
       </div>
 
-      <form onSubmit={submit} className="panel" style={{ width: "min(420px, 92vw)", display: "grid", gap: 12 }}>
+      <form onSubmit={submit} className="panel" style={{ width: "min(420px, 92vw)", display: "grid", gap: "var(--space-3)" }}>
         <div>
           <label className="field-label">Join a show — or sign in</label>
           <input
@@ -161,7 +161,7 @@ export default function Landing() {
         </p>
       </form>
 
-      <form onSubmit={submitLogin} className="panel" style={{ width: "min(420px, 92vw)", display: "grid", gap: 10 }}>
+      <form onSubmit={submitLogin} className="panel" style={{ width: "min(420px, 92vw)", display: "grid", gap: "var(--space-3)" }}>
         <label className="field-label" style={{ margin: 0 }}>
           Sign in with an account
         </label>

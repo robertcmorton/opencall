@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { DocBlock } from "../lib/useRundownDoc";
+import { Icon } from "./ui";
 
 /**
  * What a screen shows once the server has refused for good.
@@ -14,7 +15,7 @@ import type { DocBlock } from "../lib/useRundownDoc";
 export function DocBlockedPanel({ block, rundownPath }: { block: DocBlock; rundownPath: string }) {
   return (
     <div className="empty no-print">
-      <div className="glyph">⚠</div>
+      <div className="glyph">{Icon.warning}</div>
       <div style={{ fontWeight: 600 }}>{block.title}</div>
       <div style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", marginTop: 6, maxWidth: "44ch", marginInline: "auto" }}>
         {block.detail}
@@ -24,7 +25,7 @@ export function DocBlockedPanel({ block, rundownPath }: { block: DocBlock; rundo
           Signed in on this device as: {block.identity}
         </div>
       )}
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "center", marginTop: 14, flexWrap: "wrap" }}>
         {block.action === "sign-in" && (
           <Link className="btn btn-primary" href={`/?next=${encodeURIComponent(rundownPath)}`}>
             Sign in on this device

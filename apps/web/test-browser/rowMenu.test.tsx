@@ -78,8 +78,10 @@ describe("row menu", () => {
     expect(m.menu.contains(document.activeElement)).toBe(false);
   });
 
-  it("on a phone: a full-width sheet from the bottom, with Cancel", () => {
+  it("on a phone: a full-width sheet from the bottom, with Cancel", async () => {
     const m = open(40, 40, { touch: true, sheet: true });
+    // It slides up (6 Oct): measure where it settles, not mid-slide.
+    await Promise.all(document.getAnimations().map((a) => a.finished));
     const r = m.menu.getBoundingClientRect();
     expect(Math.round(r.left)).toBe(0);
     expect(Math.round(r.right)).toBe(document.documentElement.clientWidth);

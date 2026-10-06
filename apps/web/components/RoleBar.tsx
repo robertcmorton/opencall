@@ -85,7 +85,7 @@ export function highlightRoles(text: string, roles: RoleDef[]): React.ReactNode 
         style={{
           ["--role" as string]: color,
           ["--role-ink" as string]: readableInk(color),
-          borderRadius: 3,
+          borderRadius: "var(--r-xs)",
           padding: "0 3px",
           fontWeight: 600,
           display: "inline-block",
@@ -357,7 +357,7 @@ export function RolePicker({
                 ))}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 8 }}>
             {myRoles.length > 0 && (
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange([])}>
                 Clear all

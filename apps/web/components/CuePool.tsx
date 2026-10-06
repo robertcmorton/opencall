@@ -67,7 +67,7 @@ export function CuePool({ doc, mode, channel }: { doc: Y.Doc; mode: EditorMode; 
 
   return (
     <section className="pool-section">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <button className="btn btn-sm btn-ghost" onClick={() => setCollapsed((c) => !c)}>
           {collapsed ? "▸" : "▾"}
         </button>

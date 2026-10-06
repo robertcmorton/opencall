@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type EventSummary } from "../lib/api";
 import { PanelModal } from "./SharePanels";
+import { Icon } from "./ui";
 
 /**
  * Granting access, on every screen that grants it.
@@ -98,7 +99,7 @@ export function GrantChips({
   onRemove: (g: Grant) => void;
 }) {
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
       {grants.map((g) => (
         <span key={grantKey(g)} className="chip">
           {grantLabel(g, companies, events)}
@@ -111,7 +112,7 @@ export function GrantChips({
             data-tip="Remove this access"
             onClick={() => onRemove(g)}
           >
-            ✕
+            {Icon.close}
           </button>
         </span>
       ))}
@@ -218,7 +219,7 @@ export function GrantPicker({
   };
 
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
       {/* Changing the kind clears the target. Companies and events are two
           different lists of ids: picking an event and then switching to
           "Company" left the event's id in place, and because the second select
@@ -336,7 +337,7 @@ export function AccessEditor({
 
   return (
     <PanelModal onClose={onClose}>
-      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 340, maxWidth: 560 }}>
+      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", minWidth: 340, maxWidth: 560 }}>
         <strong>What {person.name} can open</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>{note}</span>
 
@@ -364,7 +365,7 @@ export function AccessEditor({
 
         {error && <div className="missing-fields" style={{ borderColor: "var(--over)" }}>{error}</div>}
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
           <button className="btn btn-primary" disabled={busy} onClick={save}>
             {busy ? "Saving…" : "Save access"}
           </button>

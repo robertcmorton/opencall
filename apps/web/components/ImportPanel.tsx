@@ -26,7 +26,7 @@ import {
 } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { api, fetchRundownSource } from "../lib/api";
-import { MissingFields } from "./ui";
+import { MissingFields, Icon } from "./ui";
 import { extractGrid } from "../lib/importExtract";
 
 /** ArrayBuffer → base64 (chunked — sheets can be megabytes). */
@@ -114,7 +114,7 @@ function IssueFixRow({
        ran together — and the one thing a reader has to do here is take each in
        turn. */
     <div className="cell-issue">
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
       {/* The row's own words first, and its number only if the sheet HAS
           numbers. This said "Row 26" about a sheet with no numbering in it,
           which is the app's own index into what it extracted — a number the
@@ -128,7 +128,7 @@ function IssueFixRow({
         <span style={{ color: "var(--text-3)" }}>row {issue.rowNumber}</span>
       ) : null}
       <span className="chip">{issue.kind === "start" ? "START" : "DURATION"}</span>
-      <code style={{ color: "var(--over)", background: "var(--over-soft)", padding: "2px 6px", borderRadius: 4 }}>{issue.raw}</code>
+      <code style={{ color: "var(--over)", background: "var(--over-soft)", padding: "2px 6px", borderRadius: "var(--r-xs)" }}>{issue.raw}</code>
       <span style={{ color: "var(--text-3)" }}>→</span>
       <input
         className="input mono"
@@ -597,15 +597,15 @@ export function ImportPanel({
   }, [grid]);
 
   return (
-    <div className="panel" style={{ margin: "0 16px 14px", display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div className="panel" style={{ margin: "0 16px 14px", display: "grid", gap: "var(--space-3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <strong style={{ flex: 1 }}>
           {replaceRundown
             ? `Update “${replaceRundown.name}” from a file. What is in the file replaces what is on the sheet now. Links and join codes keep working, and a copy of the old sheet is saved first.`
             : "Import a run sheet from a spreadsheet (.xlsx, .xls, .csv) or a PDF"}
         </strong>
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
-          ✕
+          {Icon.close}
         </button>
       </div>
 
@@ -668,7 +668,7 @@ export function ImportPanel({
               <strong style={{ fontSize: "var(--fs-sm)" }}>
                 This file may not have been read correctly
               </strong>
-              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: "var(--space-1)" }}>
                 {faults.map((f) => (
                   <li key={f.kind}>{f.message}</li>
                 ))}
@@ -678,7 +678,7 @@ export function ImportPanel({
               </span>
             </div>
           )}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", flexWrap: "wrap" }}>
             {!replaceRundown && (
               <div>
                 <label className="field-label">Show name</label>
@@ -747,7 +747,7 @@ export function ImportPanel({
               )}
             </span>
             {tried && missing.length > 0 && <MissingFields missing={missing} />}
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <div style={{ marginLeft: "auto", display: "flex", gap: "var(--space-2)" }}>
               <button className="btn btn-ghost" onClick={() => setGrid(null)}>
                 Use a different file
               </button>
@@ -761,11 +761,11 @@ export function ImportPanel({
           </div>
 
           {issues.length > 0 && (
-            <div className="panel" style={{ display: "grid", gap: 8, borderColor: "var(--warn)" }}>
+            <div className="panel" style={{ display: "grid", gap: "var(--space-2)", borderColor: "var(--warn)" }}>
               <strong style={{ fontSize: "var(--fs-sm)" }}>
                 {issues.length} time{issues.length === 1 ? "" : "s"} couldn’t be read. For each one: fix it, clear it, or keep it as it is.
               </strong>
-              <div style={{ display: "grid", gap: 8, maxHeight: "38vh", overflow: "auto" }}>
+              <div style={{ display: "grid", gap: "var(--space-2)", maxHeight: "38vh", overflow: "auto" }}>
                 {issues.map((issue) => (
                   <IssueFixRow
                     key={issue.key}
@@ -780,7 +780,7 @@ export function ImportPanel({
           )}
 
           {roles.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
               <span className="field-label" style={{ margin: 0 }}>
                 Roles we found
               </span>

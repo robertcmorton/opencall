@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **A cleaner, more consistent look.** Every button symbol is now one matching set of simple line icons (undo, redo, notes, prompter, warning, close, the ⋯ menus and more), in place of the mixed symbols each font drew differently. Corners, shadows and the gaps between things now come from one small set of sizes, so panels and buttons line up the same way everywhere. Times, lengths and the big timer use the app's own typeface with even-width digits, so a running clock doesn't jiggle (codes keep their typewriter font, so 0 and O never get mixed up). Menus fade in, the phone menu slides up, notes drop in gently, and a row you insert glows briefly so your eye finds it — all switched off if your device asks for less motion.
 - **Pinch to zoom works again** on every page, so anyone who needs bigger text can have it. The one exception is the show page while a show is live, where a stray pinch could hide the controls mid-show; zoom comes back the moment the show stops.
 - **Five things that can't be undone now ask first:** deleting an account, clearing the error log, turning off a view-only link, cancelling an invitation and removing a kind of show. The first press turns the button into "Press again to …" for three seconds; pressing anywhere else, or Escape, backs out.
 - **The Help page keeps Back, Dashboard and ↑ Top pinned at the top** while you scroll, so the way out is never a long scroll away.

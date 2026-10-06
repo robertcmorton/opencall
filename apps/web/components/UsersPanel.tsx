@@ -61,7 +61,7 @@ export function UsersPanel({
 
   return (
     <section className="card" style={{ marginBottom: 14, padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0, flex: 1 }}>
           Users & access{" "}
           <span style={{ color: "var(--text-3)", fontWeight: 400, fontSize: "var(--fs-sm)" }}>
@@ -74,8 +74,8 @@ export function UsersPanel({
       </div>
 
       {creating && (
-        <div className="panel" style={{ margin: "10px 0", display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="panel" style={{ margin: "10px 0", display: "grid", gap: "var(--space-3)" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="input" placeholder="Email (needed to sign in with a password)" value={email} onChange={(e) => setEmail(e.target.value)} style={{ minWidth: 230 }} />
             <input
@@ -117,14 +117,14 @@ export function UsersPanel({
         {users.map((u) => (
           <li
             key={u.id}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderTop: "1px solid var(--border-subtle)", flexWrap: "wrap" }}
+            style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "6px 0", borderTop: "1px solid var(--border-subtle)", flexWrap: "wrap" }}
           >
             <strong style={{ minWidth: 140 }}>{u.name}</strong>
             <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>{u.email}</span>
             <span className="chip" title={u.hasPassword ? "Signs in with email and password" : "Can only sign in with an access token. Set a password so they can sign in with their email."}>
               {u.hasPassword ? "password ✓" : "no password"}
             </span>
-            <span style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <span style={{ flex: 1, display: "flex", gap: "var(--space-1)", flexWrap: "wrap" }}>
               {u.grants.map((g) => (
                 <span key={grantKey(g)} className="chip">
                   {grantLabel(g, companies, events)}

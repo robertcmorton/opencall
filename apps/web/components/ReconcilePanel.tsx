@@ -55,12 +55,12 @@ export function ReconcilePanel({
    */
   const deliberateHolds =
     ignored.length === 0 ? null : (
-      <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "grid", gap: "var(--space-2)" }}>
         <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
           Gaps you said are on purpose. Press Check it again to have the timing check look at one again:
         </span>
         {ignored.map((r) => (
-          <div key={r.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+          <div key={r.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
             <span style={{ fontSize: "var(--fs-sm)" }}>
               <span className="mono">{formatDuration(Math.abs(r.acceptedGapSec ?? 0))}</span> before “
               {(r.title || "untitled").slice(0, 32)}”
@@ -80,8 +80,8 @@ export function ReconcilePanel({
 
   if (!current) {
     return (
-      <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: "var(--space-2)" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
           <strong>✓ Timings agree</strong>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)", flex: 1 }}>
             Every fixed time now matches the lengths of the rows in between
@@ -143,8 +143,8 @@ export function ReconcilePanel({
     overlap && (from.durationSec ?? 0) > 0 && Math.abs((from.durationSec ?? 0) + current.gapSec) < 1;
 
   return (
-    <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: "var(--space-3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <strong>Timing check</strong>
         <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>
           {open.length} of {gaps.length} still to sort out
@@ -177,9 +177,9 @@ export function ReconcilePanel({
         Pick which number is right:
       </div>
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: "var(--space-2)" }}>
         {spansContents && (
-          <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
             <button
               className="btn btn-sm btn-primary"
               style={{ flexShrink: 0 }}
@@ -199,7 +199,7 @@ export function ReconcilePanel({
           </div>
         )}
         <div
-          style={{ display: absorbResolves && !spansContents ? "flex" : "none", gap: 10, alignItems: "baseline" }}
+          style={{ display: absorbResolves && !spansContents ? "flex" : "none", gap: "var(--space-3)", alignItems: "baseline" }}
         >
           <button
             className="btn btn-sm btn-primary"
@@ -218,7 +218,7 @@ export function ReconcilePanel({
             <span className="mono">{formatDuration(absorbNew)}</span> long, and then everything adds up.
           </span>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
           <button
             className="btn btn-sm"
             style={{ flexShrink: 0 }}
@@ -245,7 +245,7 @@ export function ReconcilePanel({
             Undo puts it all back.
           </span>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
           {/* Boxed, like the two above it. Ignoring is a third answer to the
               question, not a lesser one — a deliberate hold is as real a
               resolution as moving a time — and the ghost styling made it read

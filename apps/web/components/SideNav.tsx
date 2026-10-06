@@ -120,7 +120,7 @@ export function WithSideNav({
               every button does, in plain words. */}
           <Link className="menu-item" href="/help" prefetch={false}>
             <span className="check" />
-            Help — how OpenCall works
+            Help
           </Link>
         </nav>
         {settings}

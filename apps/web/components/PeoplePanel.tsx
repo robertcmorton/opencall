@@ -49,14 +49,14 @@ export function PeoplePanel({
   if (!data) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <InviteForm events={events} companies={companies} mailConfigured={data.mailConfigured} onDone={reload} />
 
       {data.invites.length > 0 && (
-        <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <section className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <strong>Invited, not joined yet</strong>
           {data.invites.map((i) => (
-            <div key={i.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+            <div key={i.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
               <span style={{ minWidth: 200 }}>{i.email}</span>
               <span style={{ color: "var(--text-3)" }}>link stops working {new Date(i.expiresAt).toLocaleDateString()}</span>
               <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(i.url)} data-tip="Copy their invitation link, so you can send it to them yourself">
@@ -75,11 +75,11 @@ export function PeoplePanel({
         </section>
       )}
 
-      <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <section className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
         <strong>{companyName ? `People at ${companyName}` : "People"}</strong>
         {data.people.length === 0 && <span style={{ color: "var(--text-3)" }}>Nobody yet. Invite someone using the form above.</span>}
         {data.people.map((p) => (
-          <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+          <div key={p.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
             <strong style={{ minWidth: 150 }}>{p.name}</strong>
             <span style={{ color: "var(--text-2)", minWidth: 200 }}>{p.email}</span>
             {!p.hasPassword && (
@@ -87,7 +87,7 @@ export function PeoplePanel({
                 no password yet
               </span>
             )}
-            <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               {p.grants.map((g) => (
                 <span key={grantKey(g)} className="chip">
                   {grantLabel(g, companies, events)}
@@ -271,7 +271,7 @@ function InviteForm({
         </div>
       )}
       {result?.url && (
-        <div className="panel" style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="panel" style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <strong>{result.emailed ? "Invitation sent" : "Invitation ready. Send them this link."}</strong>
           <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
             {result.emailed
@@ -280,7 +280,7 @@ function InviteForm({
                 ? `We couldn't send the email (${result.reason}). Send them this link yourself instead. It still works.`
                 : "This app can't send emails, so send them this link yourself, in any message. The link works once, and stops working after seven days."}
           </span>
-          <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: 4, wordBreak: "break-all" }}>
+          <code style={{ background: "var(--bg)", border: "1px solid var(--border)", padding: "6px 8px", borderRadius: "var(--r-xs)", wordBreak: "break-all" }}>
             {result.url}
           </code>
           <div>

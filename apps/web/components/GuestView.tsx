@@ -67,7 +67,7 @@ export function GuestView({ token }: { token: string }) {
 
   return (
     <main style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1.2rem" }}>
-      <header style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", marginBottom: "1rem" }}>
+      <header style={{ display: "flex", alignItems: "baseline", gap: "var(--space-4)", flexWrap: "wrap", marginBottom: "1rem" }}>
         <h1 style={{ fontSize: "1.2rem", margin: 0 }}>{meta.name}</h1>
         {meta.versionLabel && <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>{meta.versionLabel}</span>}
         {data.keyTimes.length > 0 && (

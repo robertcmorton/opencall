@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, API_URL } from "../lib/api";
+import { Icon } from "./ui";
 
 type Signals = Awaited<ReturnType<typeof api.signals>>;
 
@@ -34,7 +35,7 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
       <div className="find-row" style={{ alignItems: "center" }}>
         <strong style={{ flex: 1 }}>On-cue signals</strong>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">
-          ✕
+          {Icon.close}
         </button>
       </div>
 
@@ -52,7 +53,7 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <span style={{ display: "flex", gap: 6 }}>
+        <span style={{ display: "flex", gap: "var(--space-2)" }}>
           <button
             type="button"
             className="btn btn-sm btn-primary"
@@ -103,7 +104,7 @@ export function SignalsPanel({ rundownId, onClose }: { rundownId: string; onClos
             {data.deliveries.map((d, i) => (
               <li key={i} className="signals-log">
                 <span style={{ color: d.ok ? "var(--under)" : "var(--over)" }} aria-label={d.ok ? "Worked" : "Failed"}>
-                  {d.ok ? "✓" : "✕"}
+                  {d.ok ? Icon.check : Icon.close}
                 </span>
                 <span className="find-where">
                   {d.host}

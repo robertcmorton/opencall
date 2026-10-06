@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as Y from "yjs";
 import { findInSheet, replaceInSheet } from "@opencall/db/findReplace";
+import { Icon } from "./ui";
 
 /**
  * Find (and replace) across the whole sheet: every text column, every row.
@@ -52,7 +53,7 @@ export function FindReplacePanel({
           onKeyDown={(e) => e.key === "Escape" && onClose()}
         />
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">
-          ✕
+          {Icon.close}
         </button>
       </div>
       {canEdit && (

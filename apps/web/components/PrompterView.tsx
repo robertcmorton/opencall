@@ -22,6 +22,7 @@ import { SpeakerBanner } from "./SpeakerMessage";
 import { rowNumbering } from "../lib/rowNumbering";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { BackLink } from "./BackLink";
+import { Icon } from "./ui";
 
 /**
  * Prompter: the whole run sheet, scrolled through like the sheet itself, with
@@ -568,7 +569,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
           <div style={{ fontSize: "0.7rem", letterSpacing: "0.14em", color: "#848b95" }}>{cueLabel}</div>
           <div
             style={{
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-num)",
               fontVariantNumeric: "tabular-nums",
               fontSize: "clamp(1.4rem, 3.4vw, 2.4rem)",
               fontWeight: 700,
@@ -653,7 +654,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
               setFollowScroll(true);
             }}
           >
-            {liveId ? "⇣ Sync Cue" : "⇣ Follow showcaller"}
+            {Icon.follow} {liveId ? "Sync Cue" : "Follow showcaller"}
           </button>
         )}
         <div
@@ -715,7 +716,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
                   letterSpacing: "0.1em",
                   marginBottom: read ? 6 : 2,
                   display: "flex",
-                  gap: 12,
+                  gap: "var(--space-3)",
                 }}
               >
                 <span style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -784,7 +785,7 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
            * second row on a narrow screen and nothing at all on a wide one.
            */
           flexWrap: "wrap",
-          gap: 14,
+          gap: "var(--space-3)",
           rowGap: 8,
           alignItems: "center",
           padding: "8px 14px",

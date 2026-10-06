@@ -8,6 +8,7 @@ import Highlight from "@tiptap/extension-highlight";
 import { CharacterCount } from "@tiptap/extensions";
 import { splitBlock } from "@tiptap/pm/commands";
 import type * as Y from "yjs";
+import { Icon } from "./ui";
 
 function FormatButton({
   editor,
@@ -73,9 +74,9 @@ function FormatBar({ editor, suppressBlur }: { editor: Editor; suppressBlur: Mut
       <FormatButton editor={editor} title="Italic" label={<em>I</em>} active={editor.isActive("italic")} onRun={() => editor.chain().toggleItalic().run()} />
       <FormatButton editor={editor} title="Underline" label={<span style={{ textDecoration: "underline" }}>U</span>} active={editor.isActive("underline")} onRun={() => editor.chain().toggleUnderline().run()} />
       <FormatButton editor={editor} title="Strikethrough" label={<s>S</s>} active={editor.isActive("strike")} onRun={() => editor.chain().toggleStrike().run()} />
-      <FormatButton editor={editor} title="Highlight" label={<span style={{ background: "var(--warn-soft)", color: "var(--warn)", borderRadius: 2, padding: "0 3px" }}>H</span>} active={editor.isActive("highlight")} onRun={() => editor.chain().toggleHighlight().run()} />
-      <FormatButton editor={editor} title="Link" label={<span>🔗</span>} active={editor.isActive("link")} onRun={setLink} />
-      <FormatButton editor={editor} title="Clear formatting" label={<span>⌫</span>} active={false} onRun={() => editor.chain().unsetAllMarks().run()} />
+      <FormatButton editor={editor} title="Highlight" label={<span style={{ background: "var(--warn-soft)", color: "var(--warn)", borderRadius: "var(--r-xs)", padding: "0 3px" }}>H</span>} active={editor.isActive("highlight")} onRun={() => editor.chain().toggleHighlight().run()} />
+      <FormatButton editor={editor} title="Link" label={Icon.link} active={editor.isActive("link")} onRun={setLink} />
+      <FormatButton editor={editor} title="Clear formatting" label={Icon.clearFormat} active={false} onRun={() => editor.chain().unsetAllMarks().run()} />
     </div>
   );
 }

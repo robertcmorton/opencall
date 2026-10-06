@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import { Icon } from "./ui";
 
 /**
  * The way out of a companion screen.
@@ -37,7 +38,7 @@ export function BackLink({
         else router.push("/admin");
       }}
     >
-      ← {label}
+      {Icon.arrowLeft} {label}
     </button>
   );
 }

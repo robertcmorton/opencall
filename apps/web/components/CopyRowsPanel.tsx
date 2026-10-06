@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../lib/api";
+import { Icon } from "./ui";
 
 /**
  * Copy the selected rows to another sheet: pick one of the company's sheets
@@ -28,12 +29,12 @@ export function CopyRowsPanel({ rundownId, rowIds, onClose }: { rundownId: strin
           Copy {rowIds.length} row{rowIds.length === 1 ? "" : "s"} to the end of which sheet?
         </strong>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">
-          ✕
+          {Icon.close}
         </button>
       </div>
       {error && <p className="find-count" style={{ color: "var(--over)" }}>{error}</p>}
       {result ? (
-        <div style={{ display: "grid", gap: 6, fontSize: "var(--fs-sm)" }}>
+        <div style={{ display: "grid", gap: "var(--space-2)", fontSize: "var(--fs-sm)" }}>
           <span className="find-done">
             Copied {result.added} row{result.added === 1 ? "" : "s"} to the end of {result.target.name}.
           </span>

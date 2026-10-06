@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
               You can&apos;t manage anyone&apos;s access. Ask the person who runs your company if you need to.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
               <PeoplePanel companyName={me?.role === "company" ? me.teamName : null} companies={companies} />
               {me?.role === "admin" && (
                 <div>

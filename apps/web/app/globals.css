@@ -89,9 +89,19 @@ html {
   --tint-mix: 8%;
 
   /* Shape & depth */
+  /* Corners: four sizes and a pill, nothing in between (6 Oct). */
+  --r-xs: 4px;
   --r-sm: 6px;
   --r-md: 10px;
   --r-lg: 14px;
+  --r-pill: 999px;
+  /* Spacing: one scale on a 4px grid, so gaps line up across the app. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
   /* Six rules asked for --shadow-lg and it was never defined, so none of them
@@ -101,6 +111,11 @@ html {
   /* Type */
   --font-ui: var(--font-inter, ui-sans-serif), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jbmono, ui-monospace), "SF Mono", SFMono-Regular, Menlo, monospace;
+  /* Times, lengths and counters (6 Oct): the app's own typeface with its
+     fixed-width digits, so a running clock does not jiggle — one font for the
+     whole app. The typewriter face stays for codes and keys, where 0 and O
+     must never be mistaken. */
+  --font-num: var(--font-ui);
   --fs-xs: 0.72rem;
   --fs-sm: 0.8rem;
   --fs-md: 0.875rem;
@@ -201,8 +216,9 @@ a {
 .mono,
 .header-clock,
 .rundown-grid td.mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
 }
 
 /* ---------- Buttons ---------- */
@@ -211,7 +227,7 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-2);
   height: 32px;
   padding: 0 12px;
   background: var(--raised);
@@ -399,8 +415,9 @@ textarea.input::placeholder {
   color: var(--text-3);
 }
 input.inline-edit {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
   padding: 2px 6px;
   border-radius: var(--r-sm);
   width: 92px;
@@ -460,7 +477,7 @@ input.inline-edit {
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   text-align: left;
   background: none;
@@ -514,10 +531,10 @@ input.inline-edit {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   height: 24px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--raised);
   border: 1px solid var(--border);
   color: var(--text-2);
@@ -528,7 +545,7 @@ input.inline-edit {
 .selection-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 6px 10px;
   background: var(--overlay);
   border: 1px solid var(--accent);
@@ -556,7 +573,7 @@ input.inline-edit {
   width: 20px;
   height: 20px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   /* The bar's own edge is the accent, and this sits ON that edge — so it
      carries the same colour rather than the neutral grey used for controls
      inside the bar. That is what makes it read as the bar's corner rather
@@ -592,11 +609,11 @@ input.inline-edit {
 .live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   background: var(--live-soft);
   color: var(--live);
   border: 1px solid rgba(229, 72, 77, 0.4);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 3px 12px;
   font-size: var(--fs-xs);
   font-weight: 700;
@@ -612,7 +629,7 @@ input.inline-edit {
 .preshow-group {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: center;
   border: 1px solid var(--hairline);
@@ -742,7 +759,7 @@ input.inline-edit {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--warn);
   background: var(--warn-soft);
   color: var(--warn);
@@ -894,7 +911,7 @@ input.inline-edit {
   letter-spacing: 0.08em;
   color: #0b1220;
   background: var(--accent);
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   padding: 2px 6px;
   display: inline-block;
 }
@@ -946,7 +963,7 @@ tr:hover .row-number {
 .cell-editor mark {
   background: var(--warn-soft);
   color: var(--warn);
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   padding: 0 1px;
 }
 
@@ -996,7 +1013,7 @@ tr:hover .row-number {
 .read-time button,
 .read-time span:not(.read-time-words) {
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--border);
   background: none;
   color: var(--text-2);
@@ -1036,7 +1053,7 @@ tr:hover .row-number {
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .toast {
   background: var(--overlay);
@@ -1056,7 +1073,7 @@ kbd {
   background: var(--raised);
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   padding: 1px 5px;
   color: var(--text-2);
 }
@@ -1095,7 +1112,7 @@ kbd {
 .color-swatch {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   cursor: pointer;
   padding: 0;
@@ -1116,14 +1133,14 @@ kbd {
 
 .chip-row {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-wrap: wrap;
   margin-bottom: 4px;
 }
 .chip-row button {
   background: var(--raised);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--text-2);
   font-size: 0.62rem;
   font-weight: 600;
@@ -1149,7 +1166,7 @@ kbd {
 .pool-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 6px 0;
   border-top: 1px solid var(--border-subtle);
 }
@@ -1202,7 +1219,7 @@ kbd {
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   padding: 1px 4px;
   margin-top: 2px;
 }
@@ -1398,7 +1415,7 @@ kbd {
   display: inline-block;
   margin-right: 6px;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: var(--fs-xs);
   font-weight: 650;
   color: var(--branch-rail);
@@ -1542,7 +1559,7 @@ kbd {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 16px;
+    gap: var(--space-4);
     border-bottom: 2px solid #111;
     padding-bottom: 8px;
     margin-bottom: 10px;
@@ -1700,8 +1717,9 @@ kbd {
   white-space: nowrap;
 }
 .big-timer .bt-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
   font-size: 1.9rem;
   font-weight: 700;
   line-height: 1.1;
@@ -1796,7 +1814,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: var(--space-3);
   background: var(--overlay);
   border-top: 1px solid var(--border);
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
@@ -1834,8 +1852,9 @@ kbd {
   max-width: 40vw;
 }
 .role-bar .rb-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--under);
@@ -1874,7 +1893,7 @@ kbd {
   width: 100%;
   min-width: 190px;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--border-subtle);
   overflow: hidden;
   margin-top: 5px;
@@ -1968,7 +1987,7 @@ kbd {
   font-size: var(--fs-sm);
   font-weight: 650;
   letter-spacing: 0.01em;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: var(--shadow-overlay);
   animation: menu-in var(--t-med) var(--ease);
 }
@@ -2033,7 +2052,7 @@ kbd {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 3px 6px;
   /* A LINE, not a filled panel. A grey fill sitting behind outlined red
      buttons read as "this whole area is greyed out" — the opposite of what a
@@ -2284,7 +2303,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   /* NO top margin. It dates from when this sat on its own line under the cue
      timer and needed air. It now shares a line with the stopwatch, and in a
      centred flex row a top margin is counted in the box being centred — so
@@ -2320,7 +2339,7 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   /* The sidenav pushes the content area right — pull the timer back by half
      that padding so it sits on the true centreline of the SCREEN.
      RELATIVE, never a transform. A transformed element becomes the containing
@@ -2340,7 +2359,7 @@ kbd {
 .show-state-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   /* One line above phone width: the transport and the stopwatch side by
      side, as on a desktop. The transport itself never wraps (see .show-state)
      — for a while the row held its line while the transport was free to
@@ -2478,7 +2497,7 @@ kbd {
      auto-flow and parked them at the far LEFT, ahead of everything. Let the
      order in the markup decide the order on the screen. */
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
   align-content: center;
   justify-items: start;
 }
@@ -2489,7 +2508,7 @@ kbd {
      a column that has slipped, which is what the phone screenshots showed. */
   .topbar-head {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 4px;
+    row-gap: var(--space-1);
     justify-items: center;
     text-align: center;
   }
@@ -2553,7 +2572,7 @@ kbd {
   }
   .show-state {
     margin-top: 3px;
-    gap: 6px;
+    gap: var(--space-2);
   }
 }
 
@@ -2667,7 +2686,7 @@ select:disabled {
 .timing-nudge-group {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-3);
 }
 .timing-nudge.tn-cue-pill {
   border-color: var(--accent);
@@ -2675,7 +2694,7 @@ select:disabled {
 .timing-nudge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   padding: 3px;
   border-radius: var(--r-md);
   background: var(--overlay);
@@ -2735,11 +2754,11 @@ select:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .note-item {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 8px 9px;
   background: var(--raised);
 }
@@ -2748,7 +2767,7 @@ select:disabled {
 }
 .note-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: baseline;
   width: 100%;
   background: none;
@@ -2775,7 +2794,7 @@ select:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: 6px;
   color: var(--text-3);
   font-size: var(--fs-xs);
@@ -2788,7 +2807,7 @@ select:disabled {
 .note-compose {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   padding-bottom: 10px;
   margin-bottom: 10px;
   border-bottom: 1px solid var(--border);
@@ -2821,7 +2840,7 @@ select:disabled {
   height: 15px;
   padding: 0 3px;
   margin-left: 3px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--warn-soft);
   color: var(--warn);
   border: 1px solid var(--warn);
@@ -2862,11 +2881,12 @@ select:disabled {
   min-width: 34px;
   height: 26px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--raised);
   color: var(--text-2);
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -2931,7 +2951,7 @@ select:disabled {
   display: none;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 8px 12px;
   background: var(--overlay);
   border-top: 1px solid var(--border);
@@ -3021,7 +3041,7 @@ th.col-drop-target {
   right: -6px;
   height: 16px;
   width: 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-2);
@@ -3204,7 +3224,7 @@ th.col-drop-target {
   z-index: 90;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 8px calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
     calc(12px + env(safe-area-inset-left));
   background: #1a1206;
@@ -3221,7 +3241,7 @@ th.col-drop-target {
 }
 .diag-bar .diag-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -3255,7 +3275,7 @@ th.col-drop-target {
   z-index: 95;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   max-width: min(560px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
   padding: 9px 12px;
   border-radius: var(--r-md);
@@ -3413,7 +3433,7 @@ th.col-drop-target {
   z-index: 94;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
   /* Fixed to the viewport, so the body's safe-area padding does not reach it. */
@@ -3487,7 +3507,7 @@ th.col-drop-target {
 .outcome-dock .od-what {
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .outcome-dock .od-stage {
@@ -3517,7 +3537,7 @@ th.col-drop-target {
 .outcome-dock .od-picks {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 /* One size for every pick — a result is not a small decision. */
@@ -3578,13 +3598,14 @@ th.col-drop-target {
    jitter as it counts down, and big enough to read without looking straight
    at it. */
 .outcome-dock .od-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 1rem;
   color: var(--warn);
   background: var(--warn-soft);
   border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 1px 9px;
   min-width: 46px;
   text-align: center;
@@ -3880,7 +3901,7 @@ th.col-drop-target {
   width: min(440px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 1.6rem;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3902,7 +3923,7 @@ th.col-drop-target {
 .viewer-gate .vg-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .viewer-gate .vg-form .input {
   height: 40px;
@@ -3926,7 +3947,7 @@ th.col-drop-target {
   flex-basis: 100%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-1);
   padding: 8px 10px;
   border: 1px solid var(--warn);
   background: var(--warn-soft);
@@ -3974,7 +3995,7 @@ th.col-drop-target {
    sit level with the controls rather than the labels. */
 .field-row .field-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-self: flex-start;
   margin-top: 19px;
 }
@@ -4114,7 +4135,7 @@ th.col-drop-target {
   z-index: 95;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
   max-width: min(680px, calc(100vw - 24px));
@@ -4154,7 +4175,7 @@ th.col-drop-target {
   background: transparent;
   border: 1px solid #30363d;
   color: #6e7681;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   font-size: 0.62rem;
   letter-spacing: 0.1em;
   padding: 0 6px;
@@ -4230,7 +4251,7 @@ th.col-drop-target {
 .toolbar-tail {
   margin-left: auto;
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
 }
 @media (max-width: 760px) {
@@ -4298,8 +4319,9 @@ th.col-drop-target {
   color: var(--text-3);
 }
 .topbar-shape .shape-val {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
   color: var(--text-2);
   white-space: nowrap;
 }
@@ -4312,7 +4334,7 @@ th.col-drop-target {
    list of decisions. */
 .cell-issue {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   font-size: var(--fs-sm);
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -4325,7 +4347,7 @@ th.col-drop-target {
    button stays live beside it, only demoted out of primary. */
 .import-faults {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   border-color: var(--warn);
 }
 .import-faults li {
@@ -4466,7 +4488,7 @@ th.col-drop-target {
 .whatsnew-foot {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 12px 14px;
 }
 .whatsnew-head {
@@ -4506,7 +4528,7 @@ th.col-drop-target {
 .whatsnew-release h3 {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 14px 14px 6px;
   font-size: var(--fs-sm);
   color: var(--text-2);
@@ -4519,7 +4541,7 @@ th.col-drop-target {
 .whatsnew-entry-head {
   display: flex;
   align-items: baseline;
-  gap: 9px;
+  gap: var(--space-2);
   width: 100%;
   padding: 7px 14px;
   background: none;
@@ -4646,7 +4668,7 @@ th.col-drop-target {
 .ink-tools {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .ink-swatch {
   width: 22px;
@@ -4690,7 +4712,7 @@ th.col-drop-target {
 .played-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 button.played-tick {
   cursor: pointer;
@@ -4749,26 +4771,26 @@ tr.played-row td {
 .sheet-row .sr-images {
   grid-area: images;
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .sheet-row .sr-main {
   grid-area: main;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .sheet-row .sr-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   min-width: 0;
 }
 .sheet-row .sr-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 .sheet-row .sr-kind {
@@ -4785,7 +4807,7 @@ tr.played-row td {
   grid-area: actions;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: nowrap;
   white-space: nowrap;
 }
@@ -4850,8 +4872,9 @@ tr.played-row td {
   vertical-align: top;
 }
 .activity-table td.mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
+  
   white-space: nowrap;
   color: var(--text-2);
 }
@@ -4867,7 +4890,7 @@ tr.played-row td {
   display: inline-block;
   margin-right: 6px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   font-size: var(--fs-sm);
   font-weight: 600;
   background: var(--accent-soft);
@@ -4891,7 +4914,7 @@ tr.played-row td {
 .change-line {
   display: grid;
   grid-template-columns: minmax(84px, auto) 1fr auto;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: baseline;
   padding: 10px 12px;
 }
@@ -4963,7 +4986,7 @@ a.change-line:hover {
   width: max-content;
   margin-top: 2px;
   padding: 0 5px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   font-size: var(--fs-sm);
   color: var(--text-2);
   background: var(--surface-2);
@@ -4998,7 +5021,7 @@ a.change-line:hover {
   width: min(560px, 100%);
   background: var(--overlay);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
@@ -5021,7 +5044,7 @@ a.change-line:hover {
 .jump-item {
   display: grid;
   grid-template-columns: 3.2em 1fr auto;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 6px 14px;
   cursor: pointer;
   align-items: baseline;
@@ -5112,9 +5135,9 @@ tr.jump-flash > td {
 .speaker-live {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   padding: 2px 4px 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--warn-soft);
   color: var(--text);
   font-size: var(--fs-sm);
@@ -5129,13 +5152,13 @@ tr.jump-flash > td {
   left: 0;
   width: 300px;
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 10px;
 }
 .speaker-quick {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* Backstage display: a wall screen — on air, next three, the clock. */
@@ -5316,16 +5339,16 @@ td.peer-cell::after {
   max-height: calc(100vh - 96px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 12px;
   background: var(--overlay);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
 }
 .find-row {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .find-row .input {
   flex: 1;
@@ -5335,7 +5358,7 @@ td.peer-cell::after {
   font-size: var(--fs-sm);
   color: var(--text-2);
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
 .find-count,
@@ -5360,9 +5383,9 @@ td.peer-cell::after {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 5px 6px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-size: var(--fs-sm);
 }
@@ -5386,7 +5409,7 @@ td.peer-cell::after {
 }
 .signals-sec {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   padding-top: 8px;
   border-top: 1px solid var(--border-subtle);
 }
@@ -5401,14 +5424,14 @@ td.peer-cell::after {
 .signals-code {
   font-size: var(--fs-sm);
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   overflow-wrap: anywhere;
 }
 .signals-log {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--fs-sm);
   padding: 3px 0;
 }
@@ -5437,13 +5460,13 @@ td.peer-cell::after {
   transform: translateX(-50%);
   max-width: min(560px, calc(100vw - 32px));
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: var(--fs-sm);
   z-index: 60;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-overlay);
 }
 
 /* The right-click menu on a row (RowMenu). */
@@ -5453,10 +5476,10 @@ td.peer-cell::after {
   min-width: 220px;
   max-width: 300px;
   padding: 5px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface-2);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-overlay);
   display: flex;
   flex-direction: column;
 }
@@ -5476,7 +5499,7 @@ td.peer-cell::after {
   text-align: left;
   padding: 7px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -5510,7 +5533,7 @@ td.peer-cell::after {
 }
 .row-menu-swatches {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   padding: 4px 10px 8px;
 }
 .row-menu-swatches .color-swatch.is-on {
@@ -5553,7 +5576,7 @@ td.peer-cell::after {
   top: auto;
   max-width: none;
   max-height: 75dvh;
-  border-radius: 14px 14px 0 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   border-bottom: 0;
 }
@@ -5590,7 +5613,7 @@ td.peer-cell::after {
 .grid-note {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .grid-note-undo {
   flex: none;
@@ -5651,7 +5674,7 @@ td.peer-cell::after {
   }
 }
 .sheet-row .sr-meta .chip-btn {
-  border-radius: 10px; /* a pill on two lines reads as a stadium, not a button */
+  border-radius: var(--r-md); /* a pill on two lines reads as a stadium, not a button */
 }
 /* ConfirmButton armed: "Press again to …" — tinted red and outlined so it
    reads as a question, not the same button with new words. (White on the
@@ -5661,4 +5684,81 @@ td.peer-cell::after {
   border-color: var(--over);
   color: var(--over);
   font-weight: 600;
+}
+
+/* Icons beside words (the shared Icon set, 6 Oct): centred on the text line
+   wherever they sit — a link, a chip, a menu row — not only inside .btn,
+   which already lines them up as a flex box. */
+a > svg,
+.chip > svg,
+.chip-btn svg,
+.row-menu-item svg,
+.od-stage > svg,
+.find-panel svg {
+  vertical-align: -2px;
+  flex: none;
+}
+.row-menu-item > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.chip-btn svg {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+.glyph svg {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+/* ---------- Motion for the new pieces (6 Oct) ----------
+   Short and quiet, in the app's own timings. Menus FADE and do not move — a
+   transform would re-anchor the fixed tooltips inside them (see menu-in). The
+   phone sheet is the exception: it slides up, as a phone's own sheets do, and
+   holds no tooltips. All of it is switched off by the reduced-motion rule. */
+.row-menu {
+  animation: menu-in var(--t-fast) var(--ease);
+}
+.row-menu.is-sheet {
+  animation: sheet-up var(--t-med) var(--ease);
+}
+.row-menu-backdrop {
+  animation: menu-in var(--t-med) var(--ease);
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+/* The note after a change drops in from just above where it settles. Its
+   transform centres it, so the movement is on the margin instead. */
+.grid-note {
+  animation: note-in var(--t-med) var(--ease);
+}
+@keyframes note-in {
+  from {
+    opacity: 0;
+    margin-top: -8px;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}
+/* A button asking "Press again…" eases into its new colours. */
+.btn.is-armed {
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+/* The row menu's items light up under the pointer, not snap. */
+.row-menu-item {
+  transition: background var(--t-press) var(--ease);
 }

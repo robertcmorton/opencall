@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { RowNote } from "../lib/useRowNotes";
+import { Icon } from "./ui";
 
 /**
  * Notes the crew have raised against rows, and the way to answer them.
@@ -71,7 +72,7 @@ export function NotesPanel({
       <header className="notes-head">
         <strong>Notes from the crew</strong>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close notes">
-          ✕
+          {Icon.close}
         </button>
       </header>
 

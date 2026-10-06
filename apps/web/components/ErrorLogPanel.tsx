@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { ConfirmButton } from "./ConfirmButton";
+import { Icon } from "./ui";
 
 interface ErrorRow {
   id: string;
@@ -59,7 +60,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <section className="card" style={{ marginBottom: 14, padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         <h2 style={{ fontSize: "1.02rem", fontWeight: 650, margin: 0 }}>
           Error log{" "}
           <span style={{ color: "var(--text-3)", fontWeight: 400, fontSize: "var(--fs-sm)" }}>
@@ -89,7 +90,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
           data-tip="Empty the error log for good. Do this once you have dealt with everything in it."
         />
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
-          ✕
+          {Icon.close}
         </button>
       </div>
 
@@ -116,7 +117,7 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
                   all: "unset",
                   cursor: "pointer",
                   display: "flex",
-                  gap: 10,
+                  gap: "var(--space-3)",
                   alignItems: "baseline",
                   width: "100%",
                 }}
@@ -154,11 +155,11 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
                 </div>
               )}
               {openId === r.id && (
-                <div style={{ margin: "6px 0 2px", fontSize: "var(--fs-xs)", color: "var(--text-2)", display: "grid", gap: 4 }}>
+                <div style={{ margin: "6px 0 2px", fontSize: "var(--fs-xs)", color: "var(--text-2)", display: "grid", gap: "var(--space-1)" }}>
                   {r.url && <div className="mono">{r.url}</div>}
                   {r.userAgent && <div style={{ color: "var(--text-3)" }}>{r.userAgent}</div>}
                   {r.stack && (
-                    <pre className="mono" style={{ whiteSpace: "pre-wrap", margin: 0, maxHeight: 180, overflowY: "auto", background: "var(--bg-2)", padding: 8, borderRadius: 6 }}>
+                    <pre className="mono" style={{ whiteSpace: "pre-wrap", margin: 0, maxHeight: 180, overflowY: "auto", background: "var(--bg-2)", padding: 8, borderRadius: "var(--r-sm)" }}>
                       {r.stack}
                     </pre>
                   )}

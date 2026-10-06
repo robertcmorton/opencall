@@ -12,7 +12,7 @@ const panelStyle: React.CSSProperties = {
   fontSize: "var(--fs-sm)",
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: "var(--space-3)",
   maxWidth: 580,
 };
 
@@ -54,10 +54,10 @@ function ColumnChoice({
   // The structural three are the sheet: without them there is nothing to read.
   const locked = (c: ColumnDef) => c.kind === "title" || c.kind === "startTime" || c.kind === "duration";
   return (
-    <div className="panel" style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 4 }}>
+    <div className="panel" style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", gap: "var(--space-2)", alignItems: "center", marginTop: 4 }}>
       <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>This link shows:</span>
       {columns.map((c) => (
-        <label key={c.key} style={{ display: "inline-flex", alignItems: "center", gap: 5, opacity: locked(c) ? 0.6 : 1 }}>
+        <label key={c.key} style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", opacity: locked(c) ? 0.6 : 1 }}>
           <input
             type="checkbox"
             checked={shown.has(c.key)}
@@ -174,7 +174,7 @@ export function JoinCodesPanel({
             anything the link does. And nothing could be copied until a link had
             been made, so the common case — "send the crew the sheet" — took two
             steps and a decision. Copy makes one if there is not one yet. */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
           <button
             className="btn btn-sm btn-primary"
             data-tip="Copy a link that lets people look at this run sheet. Anyone with it can follow the show, but nobody can change anything with it."
@@ -192,9 +192,9 @@ export function JoinCodesPanel({
           )}
         </div>
 
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           {live.map((c) => (
-            <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+            <li key={c.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
               {/* The LINK is the thing. It used to lead with the six-character
                   code, which made the panel look like something to read out and
                   have somebody type — and typing it is the fallback, not the
@@ -256,9 +256,9 @@ export function JoinCodesPanel({
               asked for a name, so you can&apos;t see who is using them in the list below. Once you have sent people a
               view-only link instead, turn these off.
             </span>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               {guests.map((c) => (
-                <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                <li key={c.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
                   <span style={{ color: "var(--text-2)", minWidth: 120 }}>
                     {c.label ?? <span style={{ color: "var(--text-3)" }}>Guest with no name</span>}
                   </span>
@@ -291,9 +291,9 @@ export function JoinCodesPanel({
               Showcaller and Producer codes don&apos;t work any more. Anyone who uses one is asked to sign in instead. Turn
               them off to tidy up.
             </span>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               {withdrawn.map((c) => (
-                <li key={c.id} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <li key={c.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
                   <code style={{ opacity: 0.6, letterSpacing: "0.15em" }}>{c.joinCode}</code>
                   <span style={{ color: "var(--text-3)" }}>{c.role === "caller" ? "Showcaller code" : c.role === "editor" ? "Producer code" : c.role}</span>
                   <button className="btn btn-sm btn-ghost" onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}>
@@ -310,9 +310,9 @@ export function JoinCodesPanel({
           {people.length === 0 ? (
             <span style={{ display: "block", color: "var(--text-3)" }}>Only the System Administrator.</span>
           ) : (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               {people.map((p) => (
-                <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+                <li key={`${p.name}|${p.email ?? ""}`} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
                   <strong style={{ minWidth: 120 }}>{p.name}</strong>
                   {p.email && <span style={{ color: "var(--text-2)" }}>{p.email}</span>}
                   <span className="chip">{p.access}</span>
@@ -328,13 +328,13 @@ export function JoinCodesPanel({
           {viewers.length === 0 ? (
             <span style={{ display: "block", color: "var(--text-3)" }}>Nobody has opened a link yet.</span>
           ) : (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               {viewers.map((v) => (
-                <li key={v.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+                <li key={v.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
                   <strong style={{ minWidth: 120 }}>{v.name}</strong>
                   {v.roles && (
                     <span
-                      style={{ color: "var(--accent-text)", background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: 4, padding: "0 5px", fontWeight: 600 }}
+                      style={{ color: "var(--accent-text)", background: "var(--accent-soft)", border: "1px solid var(--accent)", borderRadius: "var(--r-xs)", padding: "0 5px", fontWeight: 600 }}
                       data-tip="The job they said they do when they opened the link. They chose it themselves."
                     >
                       {v.roles}
@@ -468,7 +468,7 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
   return (
     <PanelModal onClose={onClose}>
       <div className="panel" style={panelStyle}>
-        <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+        <span style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap" }}>
           <strong style={{ flex: 1 }}>Version history</strong>
           <Link href={`/changes/${rundownId}`} style={{ color: "var(--accent-text)", fontSize: "var(--fs-sm)" }}>
             Every change, in detail →
@@ -502,11 +502,11 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
             No versions yet. A version is saved for you when a show starts, and before every change an AI assistant makes.
           </span>
         )}
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10, maxHeight: "55vh", overflowY: "auto" }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--space-3)", maxHeight: "55vh", overflowY: "auto" }}>
           {snapshots.map((s) => (
             <li
               key={`${s.id}:${generation}`}
-              style={{ display: "grid", gap: 4, paddingBottom: 10, borderBottom: "1px solid var(--border, rgba(127,127,127,.2))" }}
+              style={{ display: "grid", gap: "var(--space-1)", paddingBottom: 10, borderBottom: "1px solid var(--border, rgba(127,127,127,.2))" }}
             >
               <span>
                 {KIND_TAG[s.kind ?? ""] && <span className={`version-tag version-tag-${s.kind}`}>{KIND_TAG[s.kind ?? ""]}</span>}
@@ -519,7 +519,7 @@ export function HistoryPanel({ rundownId, open = true, onClose }: { rundownId: s
               <WhatRestoringUndoes snapshotId={s.id} />
               {/* Both of THIS version's buttons together, so neither can wrap
                   onto a line where it reads as belonging to the next one. */}
-              <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                 <RestoreHereButton snapshotId={s.id} />
                 <button
                   className="btn btn-sm"

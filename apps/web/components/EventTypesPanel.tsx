@@ -25,16 +25,16 @@ export function EventTypesPanel() {
   useEffect(reload, [reload]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <AddEventTypeForm onDone={reload} />
 
       {error && <div className="panel" style={{ borderColor: "var(--over)", color: "var(--over)" }}>{error}</div>}
 
       {custom && custom.length > 0 && (
-        <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <section className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           <strong>Yours</strong>
           {custom.map((t) => (
-            <div key={t.id} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+            <div key={t.id} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
               <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{t.label}</strong>
               <span style={{ color: "var(--text-2)" }}>{describeEndings(t)}</span>
               {(t.resultDuePhrases?.length ?? 0) > 0 && (
@@ -60,14 +60,14 @@ export function EventTypesPanel() {
         </section>
       )}
 
-      <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <section className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
         <strong>Built in</strong>
         <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
           These come with the app and can&apos;t be changed. If none of them ends the way your competition does, add
           your own above.
         </span>
         {EVENT_TYPES.map((t) => (
-          <div key={t.id} className={t.provisional ? "type-soon" : undefined} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
+          <div key={t.id} className={t.provisional ? "type-soon" : undefined} style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)" }}>
             <strong style={{ flex: "0 0 230px", maxWidth: "100%" }}>{eventTypeLabel(t)}</strong>
             <span style={{ color: "var(--text-2)", flex: "1 1 240px", minWidth: 0 }}>{t.blurb}</span>
           </div>
@@ -249,7 +249,7 @@ export function ImportedSheetsPanel({ custom = [] }: { custom?: EventTypeSpec[] 
   }
 
   return (
-    <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <section className="panel" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <div>
         <strong>Imported run sheets</strong>
         <span style={{ display: "block", color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
@@ -261,8 +261,8 @@ export function ImportedSheetsPanel({ custom = [] }: { custom?: EventTypeSpec[] 
       {[...groups.entries()]
         .sort((a, b) => b[1].length - a[1].length)
         .map(([sport, list]) => (
-          <div key={sport || "untyped"} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div key={sport || "untyped"} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)" }}>
               <strong style={{ fontSize: "var(--fs-sm)" }}>
                 {resolveEventType(sport, custom)?.label ?? (sport || "No kind of show set")}
               </strong>
@@ -271,7 +271,7 @@ export function ImportedSheetsPanel({ custom = [] }: { custom?: EventTypeSpec[] 
             {list.map((s) => (
               <div
                 key={s.rundownId}
-                style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)", paddingLeft: 10 }}
+                style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", flexWrap: "wrap", fontSize: "var(--fs-sm)", paddingLeft: 10 }}
               >
                 <span style={{ minWidth: 190, color: "var(--text-2)" }}>{s.sourceName ?? s.name}</span>
                 <span style={{ color: "var(--text-3)" }}>{s.eventName ?? ""}</span>

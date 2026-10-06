@@ -15,7 +15,7 @@ const MARK_TAGS: Record<string, (children: ReactNode, key: number) => ReactNode>
   strike: (c, k) => <s key={k}>{c}</s>,
   s: (c, k) => <s key={k}>{c}</s>,
   highlight: (c, k) => (
-    <mark key={k} style={{ background: "var(--warn-soft)", color: "var(--warn)", borderRadius: 2, padding: "0 2px" }}>
+    <mark key={k} style={{ background: "var(--warn-soft)", color: "var(--warn)", borderRadius: "var(--r-xs)", padding: "0 2px" }}>
       {c}
     </mark>
   ),

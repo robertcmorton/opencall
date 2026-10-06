@@ -1146,6 +1146,24 @@ export function RundownEditor({
   };
   const publishNudgeHeight = useCallback(publishHeight("--nudgedock-h"), []);
   const publishOutcomeHeight = useCallback(publishHeight("--outcomedock-h"), []);
+  /**
+   * The show's controls docked along the bottom on an iPad (6 Oct) — but only
+   * there: on a desktop the same row sits in the header, and counting its
+   * height would leave a gap under the sheet. So its height is published only
+   * while CSS has actually fixed it to the bottom edge.
+   */
+  const publishCallerDock = useCallback((el: HTMLDivElement | null) => {
+    const root = document.documentElement;
+    if (!el) {
+      root.style.removeProperty("--callerdock-h");
+      return;
+    }
+    const measure = () =>
+      root.style.setProperty("--callerdock-h", getComputedStyle(el).position === "fixed" ? `${Math.ceil(el.getBoundingClientRect().height)}px` : "0px");
+    measure();
+    new ResizeObserver(measure).observe(el);
+    window.addEventListener("resize", measure);
+  }, []);
   useEffect(() => {
     const measure = () => {
       const bar = document.querySelector(".role-bar") as HTMLElement | null;
@@ -4731,7 +4749,7 @@ export function RundownEditor({
       // The sheet is the page. Side padding was costing 48px of grid at every
       // width, and the bottom only has to clear whatever is docked there.
       style={{
-        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
+        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
       }}
     >
       <div className="show-topbar no-print">
@@ -5012,7 +5030,7 @@ export function RundownEditor({
             </div>
           )}
           {isShow && showKnown && (
-            <div className="show-state-row">
+            <div className={`show-state-row ${mayDrive ? "caller-dock" : ""}`} ref={mayDrive ? publishCallerDock : undefined}>
               {/* Before the doors: rehearsing and going live are the two things
                   you do here, so they share one box. Walkthrough used to sit in
                   the sheet's toolbar among Undo, Redo and Add row — editing
@@ -6294,7 +6312,7 @@ export function RundownEditor({
           stacks ABOVE the cue-point dock and the role bar, so it never covers
           either, and it only exists while there is a result still to call. */}
       {isShow && activeGame != null && resultDue(activeGame) && (
-        <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
+        <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             {outcomeStage(activeGame) === "settled" ? (
               <span className="od-stage od-done">Result called</span>
@@ -6357,7 +6375,7 @@ export function RundownEditor({
           foot like the result chooser, for the caller only, and it stays
           until it is done: afterwards it is the way to reopen. */}
       {isShow && mayDrive && eventOver && (
-        <div className="outcome-dock end-event-dock no-print" style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}>
+        <div className="outcome-dock end-event-dock no-print" style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             <span className="od-stage od-soon">{viewingClosed ? "Event ended" : "Show over"}</span>
             <span className="od-hint">
@@ -6375,7 +6393,7 @@ export function RundownEditor({
         <div
           ref={publishOutcomeHeight}
           className="outcome-dock no-print pressing"
-          style={{ bottom: `calc(${dockBottom}px + var(--nudgedock-h, 0px))` }}
+          style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}
         >
           <span className="od-what">
             <span className="od-stage od-soon">Full time</span>

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Running the show on an iPad: the controls move to the bottom edge.** On a tablet, the showcaller's controls — Start show, the walkthrough and Message stage before the doors; LIVE, Hold and Stop during the show — sit in a bar along the bottom of the screen, where thumbs rest while you hold it, with bigger buttons. The sheet and the other bottom bars move up to make room. Computers and phones keep the controls at the top.
 - **Bigger targets on touch screens.** On an iPad or phone every button, menu item, text box and dropdown is now at least 44 pixels tall — the size Apple recommends for a fingertip — so the toolbar, the transport and the menus are easy to hit. With a mouse, everything keeps its compact size.
 - **A tip for putting OpenCall on your home screen.** Phones show it once, a few seconds after a sheet opens (never during a live show): on Android with an **Install** button, on iPhone with the two taps to do it. Installed, OpenCall opens full screen from its own icon. Close the tip and it's gone for good; the steps are also in Help.
 - **Crew get a tab bar on their phones.** Along the bottom of the screen: **Sheet**, **Timer** and **Notes** — one tap between the run sheet and the big timer, where a thumb already is. Someone on a view-only link (who can't read notes) gets **Help** in the third spot. The showcaller's screen doesn't show it.

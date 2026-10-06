@@ -2731,7 +2731,7 @@ select:disabled {
 .notes-panel {
   position: fixed;
   right: calc(12px + env(safe-area-inset-right));
-  bottom: calc(12px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
+  bottom: calc(12px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px));
   width: min(360px, calc(100vw - 24px));
   max-height: min(60vh, 520px);
   overflow: auto;
@@ -3271,7 +3271,7 @@ th.col-drop-target {
      exactly this. So a refusal could be drawn underneath them — and the
      chooser is up at full time, which is when a refused command is both most
      likely and most expensive to miss. */
-  bottom: calc(16px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;
@@ -3429,7 +3429,7 @@ th.col-drop-target {
      for the middle of the screen. */
   left: 0;
   right: 0;
-  bottom: calc(var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
+  bottom: calc(var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
   z-index: 94;
   display: flex;
   align-items: center;
@@ -4131,7 +4131,7 @@ th.col-drop-target {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(16px + var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
   z-index: 95;
   display: flex;
   align-items: center;
@@ -6005,7 +6005,7 @@ a > svg,
   position: fixed;
   left: var(--space-3);
   right: var(--space-3);
-  bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
+  bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
   z-index: 64;
   display: flex;
   align-items: center;
@@ -6072,5 +6072,36 @@ a > svg,
   .sidenav-credit a {
     display: inline-block;
     padding-block: 10px;
+  }
+}
+
+/* The iPad caller layout (6 Oct): on a touch screen wide enough to be a
+   tablet, the showcaller's controls — Start show and the walkthrough before
+   the doors, the LIVE badge, Hold and Stop during the show — dock along the
+   bottom edge, where thumbs rest while the tablet is held, with bigger
+   buttons. Everything above them moves up by the dock's height
+   (--callerdock-h). Phones and mice keep the header layout. */
+@media (pointer: coarse) and (min-width: 761px) {
+  .show-page .caller-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
+    z-index: 63;
+    justify-content: center;
+    margin: 0;
+    padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom));
+    background: var(--overlay);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .show-page .caller-dock .btn {
+    min-height: 52px;
+    padding: 0 var(--space-5);
+    font-size: var(--fs-lg);
+  }
+  .show-page .caller-dock .preshow-group {
+    border: 0;
+    background: none;
   }
 }

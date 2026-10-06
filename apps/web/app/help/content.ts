@@ -930,6 +930,13 @@ export const SECTIONS: HelpSection[] = [
         good: "Phones show a one-time tip with these steps; on Android it has an **Install** button. Close it and it won't come back.",
       },
       {
+        id: "ipad-caller",
+        name: "Running the show on an iPad",
+        forWhat: "Puts the show's controls where your thumbs are while you hold a tablet.",
+        finger: "On an iPad, Start show, the walkthrough, Message stage — and once you're live, Hold and Stop — sit in a bar along the bottom edge, with bigger buttons.",
+        who: "The showcaller, on a tablet. Computers and phones keep the controls at the top.",
+      },
+      {
         id: "crew-tabs",
         name: "The tab bar on a phone",
         forWhat: "Lets crew switch between the run sheet and the big timer with a thumb.",

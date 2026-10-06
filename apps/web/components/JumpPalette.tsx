@@ -108,7 +108,7 @@ export function JumpPalette({
         <input
           ref={input}
           className="input jump-input"
-          placeholder="A row number, some words, or something to do — like start or prompter"
+          placeholder="Go to a row, or type what to do"
           aria-label="Find a row or an action"
           role="combobox"
           aria-expanded={results.length > 0}

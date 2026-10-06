@@ -990,7 +990,7 @@ export const SECTIONS: HelpSection[] = [
         name: "Export PDF, Print and Export CSV",
         forWhat: "Gets the run sheet out of OpenCall — on paper, as a PDF, or as a spreadsheet file.",
         how: "Open the menu (☰) and choose **Export PDF**, **Print** or **Export CSV** under Output. Untick **Include my ink** for a clean copy without your scribbles.",
-        good: "Every column is included, however narrow your window is.",
+        good: "Every column is included, however narrow your window is. Every printed page has the show's name at the top and \"Page 3 of 7\" at the bottom, and a heading is never left alone at the foot of a page.",
       },
       {
         id: "old-guest-links",

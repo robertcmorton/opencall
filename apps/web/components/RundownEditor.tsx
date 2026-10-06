@@ -532,7 +532,8 @@ const clampBelowHeader = (scroller: HTMLElement, rowTop: number): number => {
    * Correct at rest, wrong the moment anybody scrolled: which is why reading
    * the code convinced two people it worked.
    */
-  const cell = scroller.querySelector("thead th");
+  // Not the print-only title row (hidden on screen, so it measures 0).
+  const cell = scroller.querySelector("thead tr:not(.print-title-row) th");
   const paddingTop = scroller.getBoundingClientRect().top + scroller.clientTop;
   const headerBottom = cell ? Math.max(0, cell.getBoundingClientRect().bottom - paddingTop) : 0;
   return Math.max(rowTop, scroller.scrollTop + headerBottom);
@@ -5801,6 +5802,15 @@ export function RundownEditor({
         )}
         <table className={`rundown-grid ${fixedStyle ? "cols-fixed" : ""} ${railW ? "has-rail" : ""}`} style={fixedStyle}>
           <thead>
+            {/* Printed only: the show's name at the top of EVERY page. The
+                browser repeats a table's head on each printed page, so a row
+                in it is the one dependable running header (6 Oct). */}
+            <tr className="print-title-row">
+              <th colSpan={orderedColumns.length + (showZero ? 2 : 1)}>
+                {meta.name}
+                {meta.versionLabel ? ` · ${meta.versionLabel}` : ""}
+              </th>
+            </tr>
             <tr>
               <th
                 data-colkey="rownum"

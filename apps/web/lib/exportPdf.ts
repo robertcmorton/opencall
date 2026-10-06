@@ -116,9 +116,12 @@ export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
     }
   };
 
+  const TOTAL = "{total_pages}";
   autoTable(doc, {
     head,
     body,
+    // A row is never cut across two pages; it moves whole to the next.
+    rowPageBreak: "avoid",
     startY: 17,
     margin: { left: margin, right: margin, top: 17, bottom: 10 },
     styles: { fontSize: 7, cellPadding: 1.4, overflow: "linebreak", valign: "top", lineColor: [205, 208, 214], lineWidth: 0.15 },
@@ -164,7 +167,7 @@ export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6.5);
       doc.setTextColor(130, 134, 142);
-      doc.text(`${input.name} — page ${doc.getNumberOfPages()}`, margin, pageH - 4);
+      doc.text(`${input.name} — page ${doc.getNumberOfPages()} of ${TOTAL}`, margin, pageH - 4);
       doc.text(`Generated ${new Date().toLocaleString()} · OpenCall  (* = anchored time)`, pageW - margin, pageH - 4, {
         align: "right",
       });
@@ -172,6 +175,9 @@ export async function exportRundownPdf(input: PdfExportInput): Promise<void> {
     },
   });
 
+  // "of N": written as a placeholder on each page, filled in once the last
+  // page exists (6 Oct).
+  doc.putTotalPages(TOTAL);
   doc.save(`${input.name.replace(/[^\w-]+/g, "_") || "rundown"}.pdf`);
 }
 

@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Changed
+- **Print-ready run sheets.** Printing (menu → Print) now puts the show's name at the top of every page and "Page 3 of 7" at the bottom, and never leaves a heading or fixed time stranded at the bottom of a page away from its rows. Export PDF now says "page 3 of 7" too, and never splits a row across two pages.
 - **Paste keeps formatting.** Cells copied from Google Sheets bring their bold, italic, underline and strikethrough with them, and a coloured cell arrives highlighted. (Excel keeps its formatting in a way browsers don't pass on, so from Excel the words come across plain.)
 - **Search and status on the dashboard.** A search box above your events filters events and shows as you type (an event's name or place keeps all its shows; otherwise only the shows whose names match). Each event now says when it is — **Today**, **Tomorrow**, **In 5 days** or **Past** — beside its name; shows that are on air still say **Live now**.
 - **⌘K does things, not just finds rows.** Type what you want — **start**, **prompter**, **timer**, **add row**, **version**, **message**, **help** — and press Enter. Actions you can do appear first; a number still goes straight to that row. Only things you're allowed to do right now are offered.

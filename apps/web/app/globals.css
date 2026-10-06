@@ -6145,3 +6145,36 @@ a > svg,
 .chip.when-past {
   color: var(--text-3);
 }
+
+/* Print-ready (6 Oct): the show's name on every page (a row in the table's
+   head, which the browser repeats), "Page 3 of 7" at the foot, and a heading
+   never left alone at the bottom of a page. */
+.rundown-grid tr.print-title-row {
+  display: none;
+}
+@media print {
+  .rundown-grid tr.print-title-row {
+    display: table-row;
+  }
+  .rundown-grid tr.print-title-row th {
+    text-align: left;
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 9pt;
+    font-weight: 700;
+    border-bottom: 1px solid #999;
+    padding: 4px 6px;
+  }
+  .rundown-grid tr.group-row,
+  .rundown-grid tr.milestone-row {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
+@page {
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 8pt;
+    color: #555;
+  }
+}

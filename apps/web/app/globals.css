@@ -6105,3 +6105,13 @@ a > svg,
     background: none;
   }
 }
+/* ⌘K actions sit above matching rows and read as things to do. */
+.jump-item.is-action .jump-num {
+  color: var(--accent-text);
+}
+.jump-item.is-action .jump-start {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

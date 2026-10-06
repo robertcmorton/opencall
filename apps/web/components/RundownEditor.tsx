@@ -78,7 +78,7 @@ const CellEditor = dynamic(() => import("./CellEditor").then((m) => m.CellEditor
   loading: () => <span className="cell-standin" aria-hidden="true" />,
 });
 import { HistoryPanel, JoinCodesPanel } from "./SharePanels";
-import { JumpPalette } from "./JumpPalette";
+import { JumpPalette, type JumpAction } from "./JumpPalette";
 import { FindReplacePanel } from "./FindReplacePanel";
 import { CopyRowsPanel } from "./CopyRowsPanel";
 import { SignalsPanel } from "./SignalsPanel";
@@ -4177,6 +4177,54 @@ export function RundownEditor({
       gridEl.removeEventListener("click", click, true);
     };
   }, [gridEl]);
+  /**
+   * What ⌘K can DO (6 Oct), offered only where this person may do it now.
+   * Each runs exactly what its button does — Start show still asks first
+   * when the sheet has something worth checking.
+   */
+  const q = joinCode ? `?code=${encodeURIComponent(joinCode)}` : "";
+  const editHere = canEditContent && (!showLive || editTools);
+  const jumpActions: JumpAction[] = [
+    ...(menuShow
+      ? [
+          {
+            id: "start",
+            label: "Start the show",
+            keywords: "go live begin",
+            run: async () => {
+              const ordered = rows.filter((x) => stepsOnto(x) || x.id === activeRowId).map((x) => x.id);
+              if (
+                preflight.length > 0 &&
+                !(await ask({ title: "Start the show anyway?", message: preflight.slice(0, 4).join("\n"), confirmLabel: "Start anyway" }))
+              )
+                return;
+              startShow(channel, ordered, untilShowSec);
+            },
+          },
+          { id: "message", label: "Message the stage", keywords: "presenter wrap up speaker", run: () => setSpeakerOpen((k) => k + 1) },
+          ...(walkRowId ? [{ id: "endwalk", label: "End the walkthrough", keywords: "stop rehearsal", run: () => channel.sendCmd("walk") }] : []),
+        ]
+      : []),
+    ...(editHere
+      ? [
+          { id: "addrow", label: "Add a row", keywords: "new insert item", run: () => addRow("cue") },
+          { id: "addcol", label: "Add a column", keywords: "new", run: () => void addColumn() },
+        ]
+      : []),
+    { id: "find", label: canEditContent ? "Find and replace" : "Find", keywords: "search", run: () => setFindOpen(true) },
+    ...(mode !== "view" ? [{ id: "notes", label: "Notes", keywords: "comments issues", run: () => setNotesOpen(true) }] : []),
+    { id: "timer", label: "Open the timer", keywords: "clock countdown", run: () => router.push(`/timer/${rundownId}${q}`) },
+    { id: "prompter", label: "Open the prompter", keywords: "script autocue read", run: () => router.push(`/prompter/${rundownId}${q}`) },
+    { id: "display", label: "Open the backstage display", keywords: "green room screen tv", run: () => router.push(`/display/${rundownId}${q}`) },
+    ...(mode === "edit" && mayDrive ? [{ id: "openshow", label: "Open the show page", keywords: "run walkthrough", run: () => router.push(`/show/${rundownId}`) }] : []),
+    ...(mode !== "view"
+      ? [
+          { id: "history", label: "Version history", keywords: "restore undo backup", run: () => setPanel("history") },
+          { id: "changes", label: "Changes made to this sheet", keywords: "log who edited", run: () => router.push(`/changes/${rundownId}`) },
+        ]
+      : []),
+    { id: "help", label: "Help", keywords: "how guide", run: () => router.push("/help") },
+  ];
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const undoKeyLabel = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘Z" : "Ctrl+Z";
   const rowMenuEntries = (rowId: string, from: "row" | "bar"): RowMenuEntry[] => {
@@ -5524,7 +5572,7 @@ export function RundownEditor({
           </ul>
         </div>
       )}
-      {jumpOpen && <JumpPalette items={jumpItems} onJump={goToRow} onClose={() => setJumpOpen(false)} />}
+      {jumpOpen && <JumpPalette items={jumpItems} actions={jumpActions} onJump={goToRow} onClose={() => setJumpOpen(false)} />}
       {signalsOpen && <SignalsPanel rundownId={rundownId} onClose={() => setSignalsOpen(false)} />}
       {copyRowIds && <CopyRowsPanel rundownId={rundownId} rowIds={copyRowIds} onClose={() => setCopyRowIds(null)} />}
       {findOpen && (

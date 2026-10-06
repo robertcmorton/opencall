@@ -108,6 +108,7 @@ import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 import { ask, askText, say, sayError } from "../lib/dialogs";
 import { CrewTabBar } from "./CrewTabBar";
+import { InstallHint } from "./InstallHint";
 
 type ActiveCell = { rowId: string; columnId: string } | null;
 
@@ -6485,6 +6486,9 @@ export function RundownEditor({
           sheet={rowMenu.touch && isPhone}
         />
       )}
+      {/* Once per phone: how to put the app on the home screen. Not while a
+          show is live — nobody needs a tip then. */}
+      {mode !== "edit" && <InstallHint hidden={showLive} />}
       {/* The crew's tab bar: phones, anyone who is not running the show. */}
       {isPhone && !mayDrive && mode !== "edit" && (
         <CrewTabBar

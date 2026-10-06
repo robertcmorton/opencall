@@ -923,6 +923,13 @@ export const SECTIONS: HelpSection[] = [
         good: "Crew can still pick **My role**, raise notes, use **Find**, and open the Timer, Prompter or Backstage display from the menu (☰).",
       },
       {
+        id: "install",
+        name: "Put OpenCall on your home screen",
+        forWhat: "Makes OpenCall open like an app — full screen, from its own icon, without the browser's bars.",
+        finger: "iPhone or iPad (Safari): tap **Share** (the square with an arrow), then **Add to Home Screen**. Android (Chrome): tap the menu (⋮), then **Install app** or **Add to Home screen**.",
+        good: "Phones show a one-time tip with these steps; on Android it has an **Install** button. Close it and it won't come back.",
+      },
+      {
         id: "crew-tabs",
         name: "The tab bar on a phone",
         forWhat: "Lets crew switch between the run sheet and the big timer with a thumb.",

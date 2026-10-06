@@ -5999,3 +5999,42 @@ a > svg,
 .role-bar {
   bottom: var(--tabbar-h, 0px);
 }
+
+/* InstallHint: a one-time tip on phones, above the tab bar. */
+.install-hint {
+  position: fixed;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + var(--rolebar-h, 0px));
+  z-index: 64;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--fs-sm);
+  animation: note-in var(--t-med) var(--ease);
+}
+.install-hint-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+.install-hint-text strong {
+  color: var(--text);
+}
+.install-hint-close {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  background: none;
+  border: 0;
+  color: var(--text-2);
+  cursor: pointer;
+}

@@ -734,6 +734,23 @@ export function findConcurrentRows(
 }
 
 /**
+ * The next moment, after `nowSec`, at which any row's planned window opens or
+ * closes — on the sheet's own scale (seconds from midnight, running past 24h).
+ * Null when nothing on the sheet starts or ends later.
+ *
+ * The sheet re-reads its clock exactly then, so a bar on a row running
+ * alongside the cue ends when the row does instead of sitting full until the
+ * next routine read, up to fifteen seconds later (6 Oct).
+ */
+export function nextWindowEdge(rows: readonly { startSec: number | null; endSec: number | null }[], nowSec: number): number | null {
+  let next: number | null = null;
+  for (const t of rows)
+    for (const edge of [t.startSec, t.endSec])
+      if (edge != null && edge > nowSec && (next == null || edge < next)) next = edge;
+  return next;
+}
+
+/**
  * Which rows are ON at this moment — the live cue and anything running with it.
  *
  * The progress bar used to be a property of "the" active row, because there

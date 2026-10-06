@@ -9,6 +9,7 @@ import {
   firstCueRow,
   followerMayMove,
   secondsUntilShow,
+  nextWindowEdge,
 } from "../src/index";
 
 const NINE_AM = 9 * 3600;
@@ -388,5 +389,25 @@ describe("is the show lined up with the clock", () => {
   it("is not, once the first cue is due and nothing is on air", () => {
     expect(clockLinedUp({ clockFollow: true, activeRowId: null, clockRowId: "a", untilShowSec: null })).toBe(false);
     expect(clockLinedUp({ clockFollow: true, activeRowId: null, clockRowId: null, untilShowSec: null })).toBe(false);
+  });
+});
+
+describe("the next time a row starts or ends", () => {
+  const rows = [
+    { startSec: 100, endSec: 130 },
+    { startSec: 130, endSec: 190 },
+    { startSec: 140, endSec: 160 }, // alongside the second
+    { startSec: null, endSec: null },
+  ];
+  it("is the nearest start or end still to come", () => {
+    expect(nextWindowEdge(rows, 90)).toBe(100);
+    expect(nextWindowEdge(rows, 135)).toBe(140);
+    expect(nextWindowEdge(rows, 150)).toBe(160);
+  });
+  it("counts a moment already reached as gone", () => {
+    expect(nextWindowEdge(rows, 160)).toBe(190);
+  });
+  it("is null once nothing else starts or ends", () => {
+    expect(nextWindowEdge(rows, 190)).toBeNull();
   });
 });

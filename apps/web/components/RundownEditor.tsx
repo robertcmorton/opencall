@@ -103,7 +103,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { formatOverUnder, INK_COLOURS, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
+import { formatOverUnder, INK_COLOURS, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 import { ask, askText, say, sayError } from "../lib/dialogs";
@@ -1915,6 +1915,36 @@ export function RundownEditor({
     }
   }
   const onNowIds = new Set(nowAbsSec == null ? [] : rowsOnAt(rows, timing, nowAbsSec));
+  /**
+   * Re-read the clock the moment a row's window opens or closes.
+   *
+   * `nowMs` is read every fifteen seconds once a row is on air, and the bars
+   * on rows running ALONGSIDE the cue (a pre-record, a music bed) are measured
+   * against it. Their fill animates itself, so it looked fine — until it
+   * finished: the bar sat full and still for up to fifteen seconds before the
+   * next read moved it on, and a row whose window opened between reads got no
+   * bar for as long. Seen on a real show as "one bar got to the end and
+   * stopped without moving to the next line" (6 Oct).
+   *
+   * Ticking every second while live would fix it by re-rendering the whole
+   * sheet twice a second (useLiveTiming already does once). Instead: work out
+   * the next start or end on the sheet and read the clock exactly then.
+   */
+  const nextEdgeAtMs = (() => {
+    if (!showLive || nowAbsSec == null || nowMs == null) return null;
+    const next = nextWindowEdge(timing.rows, nowAbsSec);
+    return next == null ? null : nowMs + (next - nowAbsSec) * 1000;
+  })();
+  const msUntil = useEffectEvent((atMs: number) => atMs - channel.serverNow());
+  useEffect(() => {
+    if (nextEdgeAtMs == null) return;
+    // +50ms lands just past the edge, not on it. However far off: an edge
+    // skipped as "the regular read will get there" is never looked at again,
+    // because its time does not change between reads — the first version
+    // did that and ended the bar 6s late.
+    const id = window.setTimeout(() => readNow(), Math.max(0, msUntil(nextEdgeAtMs) + 50));
+    return () => window.clearTimeout(id);
+  }, [nextEdgeAtMs]);
 
   /**
    * What to look at before going live.
@@ -1952,7 +1982,8 @@ export function RundownEditor({
     if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
     const t = i >= 0 ? timing.rows[i] : null;
-    if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
+    // `== null`, not falsy: a row at midnight starts at 0 and still has a bar.
+    if (t?.startSec == null || t.endSec == null || t.endSec <= t.startSec) return null;
     return Math.min(1, Math.max(0, (nowAbsSec - t.startSec) / (t.endSec - t.startSec)));
   };
   /** The same window as `clockFrac`, in ms, so the bar can run itself — see `BarFill`. */
@@ -1960,7 +1991,8 @@ export function RundownEditor({
     if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
     const t = i >= 0 ? timing.rows[i] : null;
-    if (!t?.startSec || t.endSec == null || t.endSec <= t.startSec) return null;
+    // `== null`, not falsy: a row at midnight starts at 0 and still has a bar.
+    if (t?.startSec == null || t.endSec == null || t.endSec <= t.startSec) return null;
     return { key: id, durationMs: (t.endSec - t.startSec) * 1000, elapsedMs: (nowAbsSec - t.startSec) * 1000 };
   };
 

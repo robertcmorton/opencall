@@ -3197,7 +3197,7 @@ th.col-drop-target {
      exactly this. So a refusal could be drawn underneath them — and the
      chooser is up at full time, which is when a refused command is both most
      likely and most expensive to miss. */
-  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px));
+  bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)));
   z-index: 95;
   display: flex;
   align-items: center;

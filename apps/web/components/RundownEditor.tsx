@@ -1130,23 +1130,32 @@ export function RundownEditor({
   /**
    * Publishes a fixed bar's height as a CSS variable.
    *
-   * Three things are pinned to the bottom of this screen — the role bar, the
-   * cue-point dock and the result chooser — and each has to know how tall the
-   * ones below it are, or they stack on top of each other and the sheet ends
-   * underneath them. A row hidden behind a bar is a row not read.
+   * Four things are pinned to the bottom of this screen — the role bar, the
+   * cue-point dock, the result chooser and the End event dock — and each has
+   * to know how tall the ones below it are, or they stack on top of each other
+   * and the sheet ends underneath them. A row hidden behind a bar is a row not
+   * read.
+   *
+   * Returns a cleanup (React 19 ref cleanups), so the observer goes with the
+   * bar instead of living on against a detached element.
    */
-  const publishHeight = (name: string) => (el: HTMLDivElement | null) => {
+  const publishHeight = (name: string) => (el: HTMLDivElement) => {
     const root = document.documentElement;
-    if (!el) {
-      root.style.removeProperty(name);
-      return;
-    }
     const measure = () => root.style.setProperty(name, `${Math.ceil(el.getBoundingClientRect().height)}px`);
     measure();
-    new ResizeObserver(measure).observe(el);
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty(name);
+    };
   };
   const publishNudgeHeight = useCallback(publishHeight("--nudgedock-h"), []);
   const publishOutcomeHeight = useCallback(publishHeight("--outcomedock-h"), []);
+  // The End event dock shares the result chooser's spot (the chooser sits on
+  // top while both are up), so it gets its own variable and the sheet clears
+  // whichever of the two is taller.
+  const publishEndHeight = useCallback(publishHeight("--enddock-h"), []);
   /**
    * The show's controls docked along the bottom on an iPad (6 Oct) — but only
    * there: on a desktop the same row sits in the header, and counting its
@@ -4780,7 +4789,7 @@ export function RundownEditor({
       // The sheet is the page. Side padding was costing 48px of grid at every
       // width, and the bottom only has to clear whatever is docked there.
       style={{
-        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + var(--outcomedock-h, 0px))",
+        padding: "0.5rem 0.6rem calc(0.5rem + var(--diag-h, 0px) + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)))",
       }}
     >
       <div className="show-topbar no-print">
@@ -6415,7 +6424,7 @@ export function RundownEditor({
           foot like the result chooser, for the caller only, and it stays
           until it is done: afterwards it is the way to reopen. */}
       {isShow && mayDrive && eventOver && (
-        <div className="outcome-dock end-event-dock no-print" style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}>
+        <div ref={publishEndHeight} className="outcome-dock end-event-dock no-print" style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             <span className="od-stage od-soon">{viewingClosed ? "Event ended" : "Show over"}</span>
             <span className="od-hint">

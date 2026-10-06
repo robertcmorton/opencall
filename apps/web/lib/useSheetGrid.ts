@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type * as Y from "yjs";
-import { appendRow, clearCells, fillDown, formatGrid, parseGrid, pasteGrid, type GridColumn } from "@opencall/db/sheetGrid";
+import { appendRow, clearCells, fillDown, formatGrid, parseGrid, pasteGrid, type GridColumn, type Mark, type PastedCell } from "@opencall/db/sheetGrid";
 
 /**
  * The run sheet behaving like a spreadsheet.
@@ -464,16 +464,56 @@ export function useSheetGrid(opts: {
 }
 
 /** A table copied from Google Sheets or Excel, read from its HTML so line breaks inside cells survive. */
-function gridFromHtml(html: string): string[][] | null {
+function gridFromHtml(html: string): PastedCell[][] | null {
   if (!html || !/<table/i.test(html)) return null;
   const table = new DOMParser().parseFromString(html, "text/html").querySelector("table");
   if (!table) return null;
-  const grid = [...table.rows].map((tr) =>
-    [...tr.cells].map((td) => {
-      const cell = td.cloneNode(true) as HTMLElement;
-      for (const br of cell.querySelectorAll("br")) br.replaceWith("\n");
-      return (cell.textContent ?? "").replace(/ /g, " ").replace(/\n+$/, "");
-    }),
-  );
+  const grid = [...table.rows].map((tr) => [...tr.cells].map(readCell));
   return grid.length > 0 ? grid : null;
+}
+
+/**
+ * One copied cell, with its formatting where the spreadsheet wrote it inline
+ * (Google Sheets does; Excel mostly uses class names, which come through as
+ * plain text). Bold, italic, underline and strikethrough from tags or styles;
+ * a coloured cell background becomes the highlight. A cell with no formatting
+ * stays a plain string, exactly as before (6 Oct).
+ */
+function readCell(td: HTMLTableCellElement): PastedCell {
+  type Run = { text: string; marks: Mark[] };
+  const lines: Run[][] = [[]];
+  const marksOf = (el: HTMLElement, inherited: Mark[]): Mark[] => {
+    const m = new Set(inherited);
+    const tag = el.tagName;
+    const st = el.style;
+    const weight = st.fontWeight;
+    if (tag === "B" || tag === "STRONG" || weight === "bold" || Number(weight) >= 600) m.add("bold");
+    if (weight === "normal" || (Number(weight) > 0 && Number(weight) < 600)) m.delete("bold");
+    if (tag === "I" || tag === "EM" || st.fontStyle === "italic") m.add("italic");
+    if (st.fontStyle === "normal") m.delete("italic");
+    const deco = `${st.textDecoration} ${st.textDecorationLine}`;
+    if (tag === "U" || /underline/.test(deco)) m.add("underline");
+    if (tag === "S" || tag === "STRIKE" || tag === "DEL" || /line-through/.test(deco)) m.add("strike");
+    return [...m];
+  };
+  const bg = td.style.backgroundColor.replace(/\s/g, "").toLowerCase();
+  const tinted = bg !== "" && !/^(transparent|#fff(fff)?|white|rgb\(255,255,255\)|rgba\(0,0,0,0\))$/.test(bg);
+  const walk = (node: Node, marks: Mark[]) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = (node.textContent ?? "").replace(/\u00a0/g, " ");
+      if (text) lines[lines.length - 1]!.push({ text, marks });
+      return;
+    }
+    if (!(node instanceof HTMLElement)) return;
+    if (node.tagName === "BR") return void lines.push([]);
+    const block = /^(P|DIV)$/.test(node.tagName) && lines[lines.length - 1]!.length > 0;
+    if (block) lines.push([]);
+    const inner = marksOf(node, marks);
+    for (const child of node.childNodes) walk(child, inner);
+  };
+  walk(td, tinted ? ["highlight"] : []);
+  while (lines.length > 1 && lines[lines.length - 1]!.every((r) => !r.text.trim())) lines.pop();
+  const hasMarks = lines.some((l) => l.some((r) => r.marks.length > 0 && r.text.trim()));
+  const plain = lines.map((l) => l.map((r) => r.text).join("")).join("\n");
+  return hasMarks ? { lines } : plain;
 }

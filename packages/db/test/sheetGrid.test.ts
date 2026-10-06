@@ -126,3 +126,26 @@ describe("fill down and clear", () => {
     expect(view(doc).rows[0]!.cells.audio ?? "").toBe("");
   });
 });
+
+describe("pasting with formatting", () => {
+  it("keeps bold, italic and highlight from a spreadsheet, line by line", () => {
+    const doc = sheet();
+    pasteGrid(doc, ids(doc), cols(doc, "title", "audio"), [
+      [
+        { lines: [[{ text: "Kick", marks: ["bold"] }, { text: "-off", marks: [] }]] },
+        { lines: [[{ text: "Siren", marks: ["italic", "highlight"] }], [{ text: "then crowd", marks: [] }]] },
+      ],
+    ]);
+    const r = view(doc).rows[0]!;
+    expect(r.title).toBe("Kick-off");
+    expect(r.cellsRich?.title).toContain("<bold>Kick</bold>");
+    expect(r.cells.audio).toBe("Siren\nthen crowd");
+    expect(r.cellsRich?.audio).toMatch(/<(italic|highlight)>/);
+  });
+
+  it("a formatted cell pasted into a time or length column uses its text", () => {
+    const doc = sheet();
+    pasteGrid(doc, ids(doc), cols(doc, "duration"), [[{ lines: [[{ text: "2:30", marks: ["bold"] }]] }]]);
+    expect(view(doc).rows[0]!.durationSec).toBe(150);
+  });
+});

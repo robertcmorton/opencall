@@ -152,6 +152,26 @@ describe("spreadsheet keys", () => {
     expect(titles(doc)).toEqual(["Doors", "Welcome", "Anthem", "Kick-off", "First half"]);
   });
 
+  it("a paste from Google Sheets keeps bold, italic and a coloured cell", () => {
+    const doc = sheet();
+    mount(doc);
+    act(() => cell(0, 0).click());
+    const dt = new DataTransfer();
+    dt.setData(
+      "text/html",
+      '<google-sheets-html-origin><table><tr><td style="font-weight:bold">Gates open</td><td>60</td><td><span style="font-style:italic">quiet</span> please</td></tr><tr><td style="background-color:#fff2cc">Sponsor A read</td><td></td><td>Plain</td></tr></table>',
+    );
+    dt.setData("text/plain", "Gates open\t60\tquiet please\nSponsor A read\t\tPlain");
+    act(() => void document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })));
+    const [a, b] = projectRundownDoc(doc).rows;
+    expect(a!.title).toBe("Gates open");
+    expect(a!.cellsRich?.title).toContain("<bold>");
+    expect(a!.cells.audio).toBe("quiet please");
+    expect(a!.cellsRich?.audio).toContain("<italic>quiet</italic>");
+    expect(b!.cellsRich?.title).toContain("<highlight>");
+    expect(b!.cells.audio).toBe("Plain");
+  });
+
   it("copies a block as text a spreadsheet reads back", () => {
     mount(sheet());
     act(() => cell(0, 0).click());

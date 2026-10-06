@@ -18,6 +18,18 @@ import type { ColumnKind } from "./doc.ts";
  * Browser-safe: the editor imports it directly.
  */
 
+/**
+ * A pasted cell that carries formatting (from a spreadsheet's HTML copy):
+ * lines of runs, each run with the marks the cell editor knows — bold,
+ * italic, underline, strike, highlight. A plain string is a cell without.
+ */
+export type Mark = "bold" | "italic" | "underline" | "strike" | "highlight";
+export interface RichCell {
+  lines: { text: string; marks: Mark[] }[][];
+}
+export type PastedCell = string | RichCell;
+export const cellText = (c: PastedCell): string => (typeof c === "string" ? c : c.lines.map((l) => l.map((r) => r.text).join("")).join("\n"));
+
 export interface GridColumn {
   id: string;
   kind: ColumnKind;
@@ -123,6 +135,27 @@ function writeText(fragment: Y.XmlFragment, text: string): void {
   );
 }
 
+/** Like writeText, keeping each run's formatting. */
+function writeRich(fragment: Y.XmlFragment, cell: RichCell): void {
+  if (fragment.length > 0) fragment.delete(0, fragment.length);
+  if (cell.lines.every((l) => l.every((r) => r.text === ""))) return;
+  fragment.insert(
+    0,
+    cell.lines.map((line) => {
+      const p = new Y.XmlElement("paragraph");
+      const t = new Y.XmlText();
+      p.insert(0, [t]);
+      let at = 0;
+      for (const run of line) {
+        if (!run.text) continue;
+        t.insert(at, run.text, Object.fromEntries(run.marks.map((m) => [m, {}])));
+        at += run.text.length;
+      }
+      return p;
+    }),
+  );
+}
+
 /** A new item at the end of the sheet, with no length invented for it. */
 export function appendRow(doc: Y.Doc, afterRowId: string | null = null, durationSec: number | null = null): string {
   const id = ulid();
@@ -157,7 +190,7 @@ export interface PasteResult {
  * shown; `columns` the columns from there to the right. A block taller than
  * what is left of the sheet adds rows at the end.
  */
-export function pasteGrid(doc: Y.Doc, rowIds: string[], columns: GridColumn[], grid: string[][]): PasteResult {
+export function pasteGrid(doc: Y.Doc, rowIds: string[], columns: GridColumn[], grid: PastedCell[][]): PasteResult {
   const rows = rowsOf(doc);
   const width = Math.max(0, ...grid.map((r) => r.length));
   const result: PasteResult = { rows: 0, columns: Math.min(width, columns.length), added: [], lockedSkipped: 0, unreadable: 0, droppedColumns: Math.max(0, width - columns.length) };
@@ -176,8 +209,9 @@ export function pasteGrid(doc: Y.Doc, rowIds: string[], columns: GridColumn[], g
       return;
     }
     result.rows++;
-    values.slice(0, columns.length).forEach((raw, c) => {
+    values.slice(0, columns.length).forEach((pasted, c) => {
       const col = columns[c]!;
+      const raw = cellText(pasted);
       const value = col.kind === "title" || col.kind === "richtext" ? raw : raw.trim();
       if (col.kind === "startTime") {
         if (value === "") row.set("hardStartSec", null);
@@ -195,6 +229,8 @@ export function pasteGrid(doc: Y.Doc, rowIds: string[], columns: GridColumn[], g
           if (sec == null) result.unreadable++;
           else row.set("durationSec", sec);
         }
+      } else if (typeof pasted !== "string" && pasted.lines.some((l) => l.some((r) => r.marks.length > 0))) {
+        writeRich(fragmentOf(row, col.id, true)!, pasted);
       } else {
         writeText(fragmentOf(row, col.id, true)!, value);
       }

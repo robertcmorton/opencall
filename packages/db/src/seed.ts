@@ -72,7 +72,10 @@ const DEMO_ROWS: SeedRow[] = [
 
 async function main(): Promise<void> {
   // PGlite lives at the repo root so seed + sync share one database in dev.
-  const handle = await createDb(process.env.DATABASE_URL, fileURLToPath(new URL("../../../.pglite", import.meta.url)));
+  // PGLITE_DIR points it elsewhere, exactly as it does the sync server — the
+  // layout check seeds a throwaway database that way. (Without it, the check
+  // wrote its demo sheet into the dev database, 6 Oct.)
+  const handle = await createDb(process.env.DATABASE_URL, process.env.PGLITE_DIR || fileURLToPath(new URL("../../../.pglite", import.meta.url)));
   const { db } = handle;
   console.log(`Seeding via ${handle.driver}…`);
   await ensureSchema(db);

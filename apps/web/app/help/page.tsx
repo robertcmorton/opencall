@@ -23,11 +23,16 @@ export default function HelpPage() {
       <a href="#main" className={styles.skip}>
         Skip to contents
       </a>
+      {/* Pinned to the top while you read, so the way back is never a long
+          scroll away (asked for 6 Oct). */}
       <header className={styles.header}>
         <BackLink />
         <Link href="/admin" className={styles.homeLink} prefetch={false}>
           Dashboard
         </Link>
+        <a href="#main" className={styles.toTop}>
+          ↑ Top
+        </a>
       </header>
       <main id="main" tabIndex={-1} className={styles.main}>
         <h1 className={styles.title}>Help</h1>

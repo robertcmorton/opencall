@@ -5,6 +5,7 @@ import { api, type EventSummary } from "../lib/api";
 import { AccessEditor, GrantChips, GrantPicker, grantKey, grantLabel, type Grant, withPending } from "./AccessGrants";
 import { Icon } from "./ui";
 import { passwordProblem, PASSWORD_HINT, PASSWORD_MIN } from "@opencall/core";
+import { ConfirmButton } from "./ConfirmButton";
 
 /**
  * Users & access (admin only): the user database — who has control of what.
@@ -173,9 +174,13 @@ export function UsersPanel({
             >
               {u.hasPassword ? "Reset password" : "Set password"}
             </button>
-            <button className="btn btn-sm btn-danger" onClick={() => void api.deleteUser(u.id).then(reload)} data-tip="Delete this person's account straight away. You can't undo it.">
-              Delete account
-            </button>
+            <ConfirmButton
+              className="btn btn-sm btn-danger"
+              label="Delete account"
+              confirmLabel="Press again to delete it"
+              onConfirm={() => void api.deleteUser(u.id).then(reload)}
+              data-tip="Delete this person's account. You can't undo it."
+            />
           </li>
         ))}
         {users.length === 0 && (

@@ -45,12 +45,31 @@
 }
 
 .header {
+  /* Stays at the top of the screen while you scroll: Back is always one
+     press away. The background stops the text showing through it. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
   max-width: 1120px;
   margin: 0 auto 8px;
+  padding: 8px 0;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+.toTop {
+  margin-left: auto;
+  color: var(--accent-text);
+  font-size: 1rem;
+  padding: 6px 4px;
+}
+/* A jump to a topic lands below the pinned bar, not under it. */
+.main :target,
+.main [id] {
+  scroll-margin-top: 72px;
 }
 
 .homeLink {
@@ -95,8 +114,8 @@
   }
   .aside {
     position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 32px);
+    top: 72px; /* under the pinned Back bar */
+    max-height: calc(100vh - 88px);
     overflow-y: auto;
   }
 }

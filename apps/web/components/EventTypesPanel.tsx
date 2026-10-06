@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
 import { api, API_URL, type CustomEventType, type ImportedSheet } from "../lib/api";
 import { MissingFields } from "./ui";
+import { ConfirmButton } from "./ConfirmButton";
 
 /**
  * The kinds of show this installation knows about, and the ones a company adds.
@@ -45,14 +46,14 @@ export function EventTypesPanel() {
               {/* Only your own. The ones an administrator added for the whole
                   installation are usable here but not yours to remove. */}
               {t.own && (
-                <button
+                <ConfirmButton
                   className="btn btn-sm btn-ghost"
                   style={{ color: "var(--over)" }}
                   data-tip="Stop offering this kind of show. Sheets that already use it keep it."
-                  onClick={() => void api.deleteEventType(t.rowId).then(reload)}
-                >
-                  Remove
-                </button>
+                  label="Remove"
+                  confirmLabel="Press again to remove it"
+                  onConfirm={() => void api.deleteEventType(t.rowId).then(reload)}
+                />
               )}
             </div>
           ))}

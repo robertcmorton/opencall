@@ -16,16 +16,17 @@ export const metadata: Metadata = {
 };
 
 /**
- * Phones and tablets are show-critical surfaces: a stray pinch or a
- * double-tap must never leave a crew member zoomed into a corner of the run
- * sheet mid-show. The layout is responsive instead, and `viewport-fit` lets
- * full-bleed surfaces reach under the notch.
+ * Pinch-zoom is ALLOWED (6 Oct, Robert's decision): people with low vision
+ * enlarge text that way, and blocking it everywhere failed the accessibility
+ * check outright (WCAG 1.4.4). The one place a stray pinch is dangerous — the
+ * show page while a show is live — locks it for that time only; see
+ * `useZoomLock`. Double-tap zoom stays off everywhere (`touch-action:
+ * manipulation`), and `viewport-fit` lets full-bleed surfaces reach under the
+ * notch.
  */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#0b0d10",
 };

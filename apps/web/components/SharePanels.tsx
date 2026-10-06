@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary, type VersionComparison } from "../lib/api";
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
+import { ConfirmButton } from "./ConfirmButton";
 
 const panelStyle: React.CSSProperties = {
   margin: "0 0 12px",
@@ -226,14 +227,14 @@ export function JoinCodesPanel({
               >
                 Columns
               </button>
-              <button
+              <ConfirmButton
                 className="btn btn-sm btn-ghost"
                 style={{ color: "var(--over)" }}
                 data-tip="Turn this link off. It stops working for everyone straight away, and the list of who opened it is cleared."
-                onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
-              >
-                Turn off
-              </button>
+                label="Turn off"
+                confirmLabel="Press again to turn it off"
+                onConfirm={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
+              />
               {editingCols === c.id && (
                 <ColumnChoice
                   columns={columns}
@@ -269,14 +270,14 @@ export function JoinCodesPanel({
                       Copy link
                     </button>
                   )}
-                  <button
+                  <ConfirmButton
                     className="btn btn-sm btn-ghost"
                     style={{ color: "var(--over)" }}
                     data-tip="Turn this link off. It stops working for everyone straight away."
-                    onClick={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
-                  >
-                    Turn off
-                  </button>
+                    label="Turn off"
+                    confirmLabel="Press again to turn it off"
+                    onConfirm={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
+                  />
                 </li>
               ))}
             </ul>

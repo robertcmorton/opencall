@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **Pinch to zoom works again** on every page, so anyone who needs bigger text can have it. The one exception is the show page while a show is live, where a stray pinch could hide the controls mid-show; zoom comes back the moment the show stops.
+- **Five things that can't be undone now ask first:** deleting an account, clearing the error log, turning off a view-only link, cancelling an invitation and removing a kind of show. The first press turns the button into "Press again to …" for three seconds; pressing anywhere else, or Escape, backs out.
+- **The Help page keeps Back, Dashboard and ↑ Top pinned at the top** while you scroll, so the way out is never a long scroll away.
+
 ## [0.37.0] — 2026-10-06
 
 ### Changed

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { ConfirmButton } from "./ConfirmButton";
 
 interface ErrorRow {
   id: string;
@@ -79,14 +80,14 @@ export function ErrorLogPanel({ onClose }: { onClose: () => void }) {
         <button className="btn btn-sm" onClick={reload} data-tip="Check for new entries">
           Refresh
         </button>
-        <button
+        <ConfirmButton
           className="btn btn-sm btn-danger"
           disabled={!rows || rows.length === 0}
-          onClick={() => void api.clearErrors().then(reload)}
+          label="Clear log"
+          confirmLabel="Press again to empty it"
+          onConfirm={() => void api.clearErrors().then(reload)}
           data-tip="Empty the error log for good. Do this once you have dealt with everything in it."
-        >
-          Clear log
-        </button>
+        />
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
           ✕
         </button>

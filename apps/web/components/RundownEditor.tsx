@@ -95,6 +95,7 @@ import { useEditLock } from "../lib/useEditLock";
 import { useSheetGrid } from "../lib/useSheetGrid";
 import { DiagnosticsBar } from "./DiagnosticsBar";
 import { DocBlockedPanel } from "./DocBlockedPanel";
+import { useZoomLock } from "./ViewportLock";
 import { useShowChannel } from "../lib/showChannel";
 import { useLiveTiming } from "../lib/useLiveTiming";
 import { useRundownDoc } from "../lib/useRundownDoc";
@@ -1754,6 +1755,9 @@ export function RundownEditor({
   const markPlayed = (rowId: string): void => channel.sendCmd("mark_played", rowId);
   const isPaused = channel.show?.state === "paused";
   const showLive = channel.show?.state === "running" || channel.show?.state === "paused";
+  // No pinch-zoom on the show page while the show is on — the one place a
+  // stray pinch is dangerous. Allowed everywhere else (see useZoomLock).
+  useZoomLock(isShow && showLive);
   /**
    * Do we actually KNOW what the show is doing yet?
    *

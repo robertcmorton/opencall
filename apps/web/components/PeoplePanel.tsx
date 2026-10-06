@@ -5,6 +5,7 @@ import { api, type EventSummary } from "../lib/api";
 import { byDate } from "../lib/pickOrder";
 import { AccessEditor, grantKey, grantLabel, type Grant } from "./AccessGrants";
 import { MissingFields } from "./ui";
+import { ConfirmButton } from "./ConfirmButton";
 
 /**
  * Who can open what — for a company as well as an administrator.
@@ -61,14 +62,14 @@ export function PeoplePanel({
               <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(i.url)} data-tip="Copy their invitation link, so you can send it to them yourself">
                 Copy link
               </button>
-              <button
+              <ConfirmButton
                 className="btn btn-sm btn-ghost"
                 style={{ color: "var(--over)" }}
-                onClick={() => void api.revokeInvite(i.id).then(reload)}
+                label="Cancel invitation"
+                confirmLabel="Press again to cancel it"
+                onConfirm={() => void api.revokeInvite(i.id).then(reload)}
                 data-tip="Cancel this invitation. The link stops working straight away."
-              >
-                Cancel invitation
-              </button>
+              />
             </div>
           ))}
         </section>

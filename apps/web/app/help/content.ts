@@ -910,7 +910,7 @@ export const SECTIONS: HelpSection[] = [
           "On the show page, open the menu (☰) and choose **View-only links**.",
           "Press **Copy view-only link** and send it to your crew.",
           "Press **Columns** on a link to choose what it shows.",
-          "Press **Turn off** to stop a link working, everywhere, at once.",
+          "Press **Turn off**, then press it again to be sure, to stop a link working everywhere at once.",
         ],
         who: CALLER,
         good: "The panel also lists who can open the sheet with an account, and who has it open right now. You can also copy a link from the show's ⋯ menu on the dashboard.",
@@ -975,7 +975,7 @@ export const SECTIONS: HelpSection[] = [
         id: "old-guest-links",
         name: "Older guest links",
         forWhat: "Guest links handed out before view-only links existed still open the sheet.",
-        how: "They are listed in the **View-only links** panel. Press **Turn off** to close one.",
+        how: "They are listed in the **View-only links** panel. Press **Turn off** twice to close one (the first press asks if you are sure).",
         who: CALLER,
       },
     ],
@@ -1176,7 +1176,7 @@ export const SECTIONS: HelpSection[] = [
         id: "error-log",
         name: "Error log",
         forWhat: "A list of everything that has gone wrong, so it can be fixed.",
-        how: "Open **Error log** from the menu. **Refresh** reads it again. **Show resolved** shows errors already fixed, with what fixed them. **Clear log** empties it.",
+        how: "Open **Error log** from the menu. **Refresh** reads it again. **Show resolved** shows errors already fixed, with what fixed them. **Clear log** empties it — press it twice, because it can't be undone.",
         who: "Only a System Administrator.",
       },
       {
@@ -1248,6 +1248,7 @@ export const SHORTCUTS: Shortcut[] = [
 
 export const GESTURES: Gesture[] = [
   { gesture: "Press and hold a row (half a second)", does: "Opens the row menu", where: "Phone and iPad" },
+  { gesture: "Pinch with two fingers", does: "Zooms in to make things bigger", where: "Every page — except the show page while a show is live, so a stray pinch can't hide the controls" },
   { gesture: "Tap a row number", does: "Picks the row; more taps add or remove rows", where: "Phone and iPad" },
   { gesture: "Double-tap a cell", does: "Opens the cell to type in", where: "iPad and other tablets" },
   { gesture: "Tap a row during a walkthrough", does: "Walks the crew to that row", where: "Show page, before the show" },

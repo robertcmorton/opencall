@@ -5653,3 +5653,12 @@ td.peer-cell::after {
 .sheet-row .sr-meta .chip-btn {
   border-radius: 10px; /* a pill on two lines reads as a stadium, not a button */
 }
+/* ConfirmButton armed: "Press again to …" — tinted red and outlined so it
+   reads as a question, not the same button with new words. (White on the
+   solid red measured under 4.5:1, so not that.) */
+.btn.is-armed {
+  background: var(--over-soft);
+  border-color: var(--over);
+  color: var(--over);
+  font-weight: 600;
+}

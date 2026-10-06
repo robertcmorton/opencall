@@ -4124,6 +4124,8 @@ export function RundownEditor({
       gridEl.removeEventListener("click", click, true);
     };
   }, [gridEl]);
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const undoKeyLabel = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘Z" : "Ctrl+Z";
   const rowMenuEntries = (rowId: string, from: "row" | "bar"): RowMenuEntry[] => {
     const i = rows.findIndex((r) => r.id === rowId);
     const r = rows[i];
@@ -4184,12 +4186,19 @@ export function RundownEditor({
       const noun = many ? `${picked.length} rows` : "row";
       const all = (f: (x: ProjectedRow) => boolean) => picked.length > 0 && picked.every(f);
       const setAll = (field: string, value: unknown) => doc.transact(() => ids.forEach((id) => yRows.get(id)?.set(field, value)));
+      // Every change from the menu says what it did, with an Undo button —
+      // the only way back on a phone, which has no ⌘Z.
+      const what = many ? `${picked.length} rows` : `row ${n}`;
+      const did = (text: string, act: () => void) => () => {
+        act();
+        grid.say(text, true);
+      };
       if (out.length > 0) out.push("sep");
       out.push({ heading: many ? `${picked.length} rows picked` : `Row ${n}` });
       if (!showLive) {
-        out.push({ label: "Add a row above", onSelect: () => insertRowBeside(picked[0]!.id, false) });
-        out.push({ label: "Add a row below", onSelect: () => insertRowBeside(picked[picked.length - 1]!.id, true) });
-        out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: duplicateSelected });
+        out.push({ label: "Add a row above", onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
+        out.push({ label: "Add a row below", onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
+        out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, duplicateSelected) });
         out.push("sep");
         // Labelling, where the rows already are — see `toggleTypeSelected`.
         const heading = all((x) => x.type === "group");
@@ -4197,21 +4206,21 @@ export function RundownEditor({
         out.push({
           label: heading ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a heading",
           hint: heading ? undefined : "A title like HALF TIME, with no time of its own",
-          onSelect: () => toggleTypeSelected("group"),
+          onSelect: did(heading ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a heading.`, () => toggleTypeSelected("group")),
         });
         out.push({
           label: moment ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a fixed time",
           hint: moment ? undefined : "Something set for a time, like DOORS OPEN 6:00. Shown in yellow",
-          onSelect: () => toggleTypeSelected("milestone"),
+          onSelect: did(moment ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a fixed time.`, () => toggleTypeSelected("milestone")),
         });
       }
       out.push({
         label: all((x) => !!x.skipped) ? `Un-strike ${noun}` : `Strike out ${noun}`,
         hint: all((x) => !!x.skipped) ? "Puts it back in the show" : "Crossed out and skipped. The times below move up",
-        onSelect: strikeSelected,
+        onSelect: did(all((x) => !!x.skipped) ? `${cap(what)} is back in the show.` : `Struck out ${what}. The times below moved up.`, strikeSelected),
       });
       const allLocked = all((x) => !!x.locked);
-      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: () => setSelectedLocked(!allLocked) });
+      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: did(allLocked ? `Unlocked ${what}.` : `Locked ${what}.`, () => setSelectedLocked(!allLocked)) });
       if (!showLive) {
         out.push({ label: "Only play this if…", keepOpen: true, hint: menuResultsOpen ? undefined : "For rows that depend on the match result", onSelect: () => setMenuResultsOpen((v) => !v) });
         if (menuResultsOpen)
@@ -4224,7 +4233,12 @@ export function RundownEditor({
               [null, "Always play it"],
             ] as const
           ).forEach(([value, label]) =>
-            out.push({ label, indent: true, checked: all((x) => (x.outcome ?? null) === value), onSelect: () => setAll("outcome", value) }),
+            out.push({
+              label,
+              indent: true,
+              checked: all((x) => (x.outcome ?? null) === value),
+              onSelect: did(value ? `${cap(what)} now only plays if ${label.replace(/^…/, "")}.` : `${cap(what)} always plays.`, () => setAll("outcome", value)),
+            }),
           );
       }
       out.push({ heading: "Colour" });
@@ -4235,15 +4249,26 @@ export function RundownEditor({
             label: `Colour it ${label}`,
             css,
             on: all((x) => x.color === stored),
-            onSelect: () => setAll("color", stored),
+            onSelect: did(`Coloured ${what} ${label}.`, () => setAll("color", stored)),
           })),
-          { key: "none", label: "No colour", css: null, on: all((x) => !x.color), onSelect: () => setAll("color", null) },
+          { key: "none", label: "No colour", css: null, on: all((x) => !x.color), onSelect: did(`Took the colour off ${what}.`, () => setAll("color", null)) },
         ],
       });
       out.push("sep");
       out.push({ label: "Copy to another sheet…", onSelect: () => setCopyRowIds(ids) });
       if (showLive) out.push({ note: "The show is on. You can strike, lock or colour rows now. Adding and deleting rows waits until the show ends." });
-      else out.push({ label: `Delete ${noun}`, danger: true, onSelect: deleteSelected });
+      else
+        out.push({
+          label: `Delete ${noun}`,
+          danger: true,
+          onSelect: () => {
+            const before = yOrder.length;
+            deleteSelected();
+            // Locked rows are kept (and said so); only report what went.
+            const gone = before - yOrder.length;
+            if (gone > 0) grid.say(`Deleted ${gone === 1 ? (many ? "1 row" : `row ${n}`) : `${gone} rows`}.`, true);
+          },
+        });
       out.push("sep");
       out.push({
         label: many ? "Unpick these rows" : "Unpick this row",
@@ -6405,7 +6430,20 @@ export function RundownEditor({
       )}
       {grid.note && (
         <div className="grid-note no-print" role="status">
-          {grid.note}
+          {grid.note.text}
+          {grid.note.undo && (
+            <button
+              type="button"
+              className="btn btn-sm grid-note-undo"
+              data-tip={`Or press ${undoKeyLabel}`}
+              onClick={() => {
+                undoMgr.undo();
+                grid.dismissNote();
+              }}
+            >
+              ↺ Undo
+            </button>
+          )}
         </div>
       )}
       {CUE_POOL_ENABLED && <CuePool doc={doc} mode={mode} channel={channel} />}

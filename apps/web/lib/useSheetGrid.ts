@@ -50,7 +50,9 @@ export function useSheetGrid(opts: {
 }) {
   const [cursor, setCursor] = useState<GridCell | null>(null);
   const [anchor, setAnchor] = useState<GridCell | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  /** The note after a change; `undo` puts an Undo button on it (a phone has no ⌘Z). */
+  const [note, setNoteState] = useState<{ text: string; undo: boolean; at: number } | null>(null);
+  const setNote = (text: string | null, undo = false) => setNoteState(text == null ? null : { text, undo, at: Date.now() });
   /** Opened by typing, and when: keys that beat the editor to the keyboard are passed on. */
   const typing = useRef<{ cell: GridCell; at: number } | null>(null);
 
@@ -61,7 +63,8 @@ export function useSheetGrid(opts: {
 
   useEffect(() => {
     if (!note) return;
-    const t = window.setTimeout(() => setNote(null), 4500);
+    // Longer when there is a button to reach: a finger needs the time.
+    const t = window.setTimeout(() => setNoteState(null), note.undo ? 9000 : 4500);
     return () => window.clearTimeout(t);
   }, [note]);
 
@@ -111,8 +114,22 @@ export function useSheetGrid(opts: {
     let r = rowIds.indexOf(live.rowId);
     let c = columns.findIndex((x) => x.id === live.columnId);
     if (toEdge) {
-      if (dRow) r = dRow < 0 ? 0 : rowIds.length - 1;
-      if (dCol) c = dCol < 0 ? 0 : columns.length - 1;
+      // As a spreadsheet does: inside a run of filled cells, to the end of the
+      // run; otherwise on to the next filled cell; failing both, the edge.
+      const filled = (ri: number, ci: number) => opts.textOf(rowIds[ri]!, columns[ci]!).trim() !== "";
+      const n = dRow ? rowIds.length : columns.length;
+      const at = (i: number) => (dRow ? filled(i, c) : filled(r, i));
+      const d = dRow || dCol;
+      let i = dRow ? r : c;
+      if (at(i) && i + d >= 0 && i + d < n && at(i + d)) {
+        while (i + d >= 0 && i + d < n && at(i + d)) i += d;
+      } else {
+        i += d;
+        while (i >= 0 && i < n && !at(i)) i += d;
+        if (i < 0 || i >= n) i = d < 0 ? 0 : n - 1;
+      }
+      if (dRow) r = i;
+      else c = i;
     } else {
       r = Math.max(0, Math.min(rowIds.length - 1, r + dRow));
       c = Math.max(0, Math.min(columns.length - 1, c + dCol));
@@ -153,9 +170,8 @@ export function useSheetGrid(opts: {
     step(how === "down" ? 1 : -1, 0);
   };
 
-  const undoKey = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘Z" : "Ctrl+Z";
   const report = (what: string, lockedSkipped: number, extra = "") =>
-    setNote(`${what}${lockedSkipped ? ` Skipped ${lockedSkipped} locked row${lockedSkipped === 1 ? "" : "s"}.` : ""}${extra} Press ${undoKey} to undo.`);
+    setNote(`${what}${lockedSkipped ? ` Skipped ${lockedSkipped} locked row${lockedSkipped === 1 ? "" : "s"}.` : ""}${extra}`, true);
 
   const busyTarget = (t: EventTarget | null) =>
     !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true], [role=dialog]");
@@ -308,7 +324,57 @@ export function useSheetGrid(opts: {
 
   // A click on a cell puts the cursor there; Shift+click grows the block.
   // Anything inside the cell that is its own control keeps its click.
+  const cellAt = (t: Element | null): GridCell | null => {
+    const td = t?.closest<HTMLElement>("td[data-colid]");
+    const rowId = td?.closest<HTMLElement>("tr[data-rowid]")?.dataset.rowid;
+    return td && rowId && gridEl?.contains(td) ? { rowId, columnId: td.dataset.colid! } : null;
+  };
+  /**
+   * Drag to pick a block. A mouse drags from any cell. A finger drags from
+   * the cell that already has the blue box (tap first, then drag) — a finger
+   * dragging anywhere else is scrolling the sheet, and must keep doing that.
+   * The box's cell is `touch-action: none` (see the CSS) so the browser hands
+   * that drag to us instead of scrolling.
+   */
+  const drag = useRef<{ start: GridCell; moved: boolean; id: number } | null>(null);
+  const draggedAt = useRef(0);
+  const onDragStart = useEffectEvent((e: PointerEvent) => {
+    if (!e.isPrimary || e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    const t = e.target as HTMLElement;
+    if (t.closest("button, a, input, textarea, select, [contenteditable=true], .popover, [data-popover]")) return;
+    const cell = cellAt(t);
+    if (!cell) return;
+    if (e.pointerType !== "mouse" && !(live && live.rowId === cell.rowId && live.columnId === cell.columnId)) return;
+    drag.current = { start: cell, moved: false, id: e.pointerId };
+  });
+  const onDragMove = useEffectEvent((e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    const cell = cellAt(document.elementFromPoint(e.clientX, e.clientY));
+    if (!cell) return;
+    if (!d.moved && cell.rowId === d.start.rowId && cell.columnId === d.start.columnId) return;
+    if (!d.moved) {
+      d.moved = true;
+      gridEl?.classList.add("grid-dragging");
+    }
+    window.getSelection()?.removeAllRanges();
+    setAnchor(d.start);
+    setCursor(cell);
+    // Near the top or bottom edge, keep going: the sheet scrolls under the drag.
+    if (gridEl) {
+      const box = gridEl.getBoundingClientRect();
+      if (e.clientY > box.bottom - 40) gridEl.scrollTop += 24;
+      else if (e.clientY < box.top + 60) gridEl.scrollTop -= 24;
+    }
+  });
+  const onDragEnd = useEffectEvent(() => {
+    if (drag.current?.moved) draggedAt.current = Date.now();
+    drag.current = null;
+    gridEl?.classList.remove("grid-dragging");
+  });
   const onClick = useEffectEvent((e: MouseEvent) => {
+    // The click a drag ends with is not a click on one cell.
+    if (Date.now() - draggedAt.current < 300) return;
     const t = e.target as HTMLElement;
     if (t.closest("button, a, input, textarea, select, [contenteditable=true], .popover, [data-popover], .format-bar, .chip-row")) return;
     const td = t.closest<HTMLElement>("td[data-colid]");
@@ -329,7 +395,7 @@ export function useSheetGrid(opts: {
   // into the rest of the page never land in a cell.
   const onOutside = useEffectEvent((e: MouseEvent) => {
     const t = e.target as HTMLElement;
-    if (gridEl?.contains(t) || t.closest?.(".popover, [data-popover], .format-bar, .grid-note")) return;
+    if (gridEl?.contains(t) || t.closest?.(".popover, [data-popover], .format-bar, .grid-note, .row-menu")) return;
     setCursor(null);
     setAnchor(null);
   });
@@ -337,10 +403,21 @@ export function useSheetGrid(opts: {
     if (!enabled || !gridEl) return;
     const click = (e: MouseEvent) => onClick(e);
     const down = (e: MouseEvent) => onOutside(e);
+    const pdown = (e: PointerEvent) => onDragStart(e);
+    const pmove = (e: PointerEvent) => onDragMove(e);
+    const pend = () => onDragEnd();
     gridEl.addEventListener("click", click);
+    gridEl.addEventListener("pointerdown", pdown);
+    document.addEventListener("pointermove", pmove);
+    document.addEventListener("pointerup", pend);
+    document.addEventListener("pointercancel", pend);
     document.addEventListener("mousedown", down);
     return () => {
       gridEl.removeEventListener("click", click);
+      gridEl.removeEventListener("pointerdown", pdown);
+      document.removeEventListener("pointermove", pmove);
+      document.removeEventListener("pointerup", pend);
+      document.removeEventListener("pointercancel", pend);
       document.removeEventListener("mousedown", down);
     };
   }, [enabled, gridEl]);
@@ -366,6 +443,9 @@ export function useSheetGrid(opts: {
       setCursor(cell);
     },
     note,
+    /** Show a note; `undo` adds the Undo button. Used by the row menu too. */
+    say: (text: string, undo = false) => setNote(text, undo),
+    dismissNote: () => setNoteState(null),
   };
 }
 

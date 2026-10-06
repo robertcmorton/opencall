@@ -5583,3 +5583,29 @@ td.peer-cell::after {
     user-select: text;
   }
 }
+.grid-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.grid-note-undo {
+  flex: none;
+  min-height: 32px;
+}
+@media (pointer: coarse) {
+  .grid-note-undo {
+    min-height: 44px;
+    padding-inline: 16px;
+  }
+}
+/* Drag to pick cells (useSheetGrid): no text selection while dragging, and a
+   finger on the blue box drags the block instead of scrolling the sheet. */
+.grid-dragging,
+.grid-dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: cell;
+}
+.rundown-grid td[data-cursor] {
+  touch-action: none;
+}

@@ -1037,7 +1037,7 @@ export const SECTIONS: HelpSection[] = [
           "When it is sorted, they press **Resolve**.",
         ],
         who: "Anyone who can read the sheet can raise a note.",
-        good: "Notes are kept after they are dealt with, for the debrief.",
+        good: "You can type first and tap the row after — the note says which row it is about before you send it, and **Sent** shows once the Showcaller has it. Notes are kept after they are dealt with, for the debrief.",
       },
       {
         id: "live-together",

@@ -6054,7 +6054,19 @@ export function RundownEditor({
                             walkFromClick.current = true;
                             channel.sendCmd("walk", rowRecord.id);
                           }
-                        : undefined
+                        : joinCode && !canEditContent
+                          ? () => {
+                              // On a view-only link a tap on any row picks it,
+                              // so a note can be raised about it. Selecting was
+                              // for editors only, and the note box — "tap a row
+                              // on the sheet first" — waited for a tap that
+                              // never counted: crew could open it but never
+                              // type (Robert, on a phone, 18 Oct). It stays
+                              // picked; another tap moves it.
+                              setSelected(new Set([rowRecord.id]));
+                              setLastSelected(rowRecord.id);
+                            }
+                          : undefined
                     }
                     onSelect={(e) => {
                       if (!canEditContent) return;

@@ -276,6 +276,27 @@ async function* dashboardStates(page: Page): AsyncGenerator<string> {
   await search.fill("");
 }
 
+/**
+ * A crew phone raising a note: pick a row, open Notes, type. The box could be
+ * opened and never typed in on a view-only link (18 Oct) — so this also fails
+ * when the box is switched off.
+ */
+async function* viewStates(page: Page): AsyncGenerator<string> {
+  const row = page.locator("tr[data-rowid]").first();
+  if (await row.count()) await row.click();
+  const notes = page.locator("button:visible", { hasText: "Notes" }).first();
+  if (!(await notes.count())) return;
+  await notes.click();
+  await page.waitForTimeout(300);
+  const box = page.locator(".note-compose textarea").first();
+  if (await box.count()) {
+    if (await box.isDisabled()) liveCrew.push("view: the note box can't be typed in");
+    else await box.fill("Layout check");
+  }
+  yield "with a note being written";
+  await notes.click();
+}
+
 const browser = await chromium.launch({ channel: "chrome" });
 /** A crew link asks who is watching first; answer it, or the sheet behind is never measured. */
 const NAMED = "localStorage.setItem('oc:viewer:name', 'Layout check')";
@@ -293,7 +314,7 @@ for (const size of SIZES) {
       await drive(page);
       after = (await page.evaluate(measure, size.touch)).filter((p) => !before.includes(p)).map((p) => `after moving the box: ${p}`);
     }
-    const states = /^\/show\//.test(path) ? showStates(page, size) : path === "/admin" ? dashboardStates(page) : null;
+    const states = /^\/show\//.test(path) ? showStates(page, size) : path === "/admin" ? dashboardStates(page) : /^\/view\//.test(path) ? viewStates(page) : null;
     if (states)
       for await (const label of states) {
         const found = (await page.evaluate(measure, size.touch)).filter((p) => !before.includes(p));

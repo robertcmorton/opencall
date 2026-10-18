@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Crew on a view-only link can raise a note again.** Tapping a row didn't count on a view-only link, so the note box — "tap a row on the sheet first" — stayed switched off: it opened, but nothing could be typed. Now a tap on any row picks it (it lights up and the note says which row it is about), and the box can be typed in straight away; only **Raise note** waits for the row. After sending it says **Sent** and names the row. For crew the box is a short "Note to the showcaller" rather than a list they can't read, so more of the sheet stays visible, and on a phone its text is large enough that the screen doesn't zoom in when it is tapped.
+
 ## [0.38.0] — 2026-10-06
 
 ### Changed

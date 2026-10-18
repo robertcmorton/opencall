@@ -2824,6 +2824,29 @@ select:disabled {
 .note-compose textarea {
   width: 100%;
   resize: vertical;
+  /* A bare textarea takes the browser's monospace, not the app's face. */
+  font-family: inherit;
+}
+/* 16px on a touch screen: an iPhone zooms the page in on any box with
+   smaller text the moment it is tapped. */
+@media (pointer: coarse) {
+  .note-compose textarea {
+    font-size: 16px;
+  }
+}
+.note-sent {
+  /* One sentence that wraps, not a flex row: as flex, the tick, the words and
+     the row's name became three columns. */
+  margin: var(--space-2) 0 0;
+  color: var(--positive, #3fb950);
+  font-size: var(--fs-sm);
+}
+.note-sent strong {
+  color: var(--text);
+}
+.note-sent svg {
+  vertical-align: -2px;
+  margin-right: 4px;
 }
 .note-compose-foot {
   display: flex;

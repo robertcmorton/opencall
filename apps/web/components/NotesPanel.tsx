@@ -36,6 +36,8 @@ export function NotesPanel({
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  /** The row a note just went to — said back, so sending is not a box that silently empties. */
+  const [sentAbout, setSentAbout] = useState<string | null>(null);
   const open = notes.filter((n) => !n.resolvedAt);
   const done = notes.filter((n) => n.resolvedAt);
 
@@ -70,7 +72,9 @@ export function NotesPanel({
   return (
     <div className="notes-panel">
       <header className="notes-head">
-        <strong>Notes from the crew</strong>
+        {/* A view-only link can raise a note but not read any, so for them
+            this is a message box, not a list (18 Oct). */}
+        <strong>{compose ? "Note to the showcaller" : "Notes from the crew"}</strong>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close notes">
           {Icon.close}
         </button>
@@ -86,6 +90,7 @@ export function NotesPanel({
             try {
               await compose.onSend(body.trim());
               setBody("");
+              setSentAbout(compose.rowLabel);
             } finally {
               setSending(false);
             }
@@ -99,16 +104,21 @@ export function NotesPanel({
             ) : (
               // Nothing to attach it to: a note with no row is the comments
               // column again, which is the thing this exists to replace.
-              <span className="note-hint">Tap a row on the sheet first. Each note is about one row.</span>
+              <span className="note-hint">Tap the row it’s about on the sheet. Each note is about one row.</span>
             )}
           </label>
           <textarea
             value={body}
-            onChange={(e) => setBody(e.target.value.slice(0, 280))}
+            onChange={(e) => {
+              setBody(e.target.value.slice(0, 280));
+              setSentAbout(null);
+            }}
             placeholder="Add more detail if you like. Sending the note on its own is enough to flag the row."
             rows={2}
             maxLength={280}
-            disabled={!compose.rowId}
+            // Always typeable: only sending waits for a row. Switched off until
+            // a row was picked, it looked broken — a box you tap and cannot
+            // type in — to the one person it is for (18 Oct).
           />
           <div className="note-compose-foot">
             <span className="note-count">{280 - body.length}</span>
@@ -116,10 +126,19 @@ export function NotesPanel({
               {sending ? "Sending…" : "Raise note"}
             </button>
           </div>
+          {sentAbout && (
+            <p className="note-sent" role="status">
+              {Icon.check} Sent — the showcaller can see your note about <strong>{sentAbout}</strong>.
+            </p>
+          )}
         </form>
       )}
 
-      {open.length === 0 ? (
+      {/* The list is the showcaller's. Someone who can only raise notes never
+          sees any, and "No notes right now" under the box they had just sent
+          one from read as "it didn't send" — and took the half of a phone
+          screen they needed for tapping the row. */}
+      {compose ? null : open.length === 0 ? (
         <EmptyState
           compact
           icon={Icon.note}
@@ -130,7 +149,7 @@ export function NotesPanel({
         <ul className="notes-list">{open.map((n) => line(n, false))}</ul>
       )}
 
-      {done.length > 0 && (
+      {!compose && done.length > 0 && (
         <>
           <button type="button" className="btn btn-sm btn-ghost notes-done-toggle" onClick={() => setShowDone((v) => !v)}>
             {showDone ? "Hide" : "Show"} {done.length} dealt with

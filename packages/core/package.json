@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./help": "./src/help.ts",
+    "./helpSearch": "./src/helpSearch.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

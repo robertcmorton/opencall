@@ -1,3 +1,4 @@
+import { helpContents, helpShortcutsText, helpTopic, searchHelp } from "@opencall/core/helpSearch";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Hocuspocus } from "@hocuspocus/server";
@@ -83,9 +84,9 @@ const LIVE_SAFE = new Set(["update_cells", "strike_row"]);
 
 const INSTRUCTIONS = `OpenCall holds run sheets for live events: rows in running order, each with a start time, a duration and text columns.
 
-Start with list_sheets, then get_sheet to see the rows. Rows are named by their id (from get_sheet); columns by their title. Times you give are wall-clock ("7:30 PM", "19:30") and durations "2:30", "90s" or "1m30s".
+Start with list_sheets, then get_sheet to see the rows. To explain how something in OpenCall works, call read_help rather than guessing — it is the app's own Help page, and each topic has a link to give the person. Rows are named by their id (from get_sheet); columns by their title. Times you give are wall-clock ("7:30 PM", "19:30") and durations "2:30", "90s" or "1m30s".
 
-Changing a duration or a fixed start time moves the fixed times below it, as it does in the app. A struck row stays visible but gives its time back.
+Changing a duration or a fixed start time moves the fixed times below it, as it does in the app — except a new start time that jumps past the next row's, which moves only that row (in the app the person is asked; here, ask them, and if the whole show is moving, set the later times too). A struck row stays visible but gives its time back.
 
 You cannot start, step or stop a show. While a show is live only text and strikes can change. A sheet someone is editing cannot be changed until they close it. A System Administrator may also have allowed read_error_log, to check the app's health. Before every change you make, the sheet as it was is saved as a version. Every change answers with whatChanged — each field it altered, before and after, including start times that moved as a knock-on — and changePage, a link to that change in OpenCall where the person can see it all and undo just that change. After a change, tell the person what changed (especially any knock-on time changes they did not ask for) and give them the changePage link. Before a change that touches more than one row, changes a duration or start time, or moves, strikes or deletes rows, call preview_change first, tell the person what it would do, and make the change only once they agree.`;
 
@@ -298,6 +299,41 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
     const sheetId = z.string().min(1).max(64).describe("The sheet's id, from list_sheets.");
     const rowId = z.string().min(1).max(64).describe("A row's id, from get_sheet.");
     const afterRow = z.string().min(1).max(64).nullable().describe("The id of the row to put it after, or null for the very top.");
+
+    /**
+     * The Help page (20 Oct, Robert: "allow AI MCP to access help"). For every
+     * connected assistant, whatever its access: it is the same public page
+     * anyone can read at /help, and an assistant that can explain the app is
+     * one that stops guessing at button names. Read only, no sheet data.
+     */
+    server.registerTool(
+      "read_help",
+      {
+        title: "Read OpenCall's Help",
+        description:
+          "OpenCall's own Help page — how every feature works, in the words the app uses. With `question`, the topics that answer it (best first). With `topic`, one topic in full (ids come from a search or the contents). With neither, the contents: every section and topic. `shortcuts: true` gives the keyboard shortcuts and touch gestures. Each topic comes with a link to it on the Help page — give the person that link.",
+        inputSchema: {
+          question: z.string().max(200).optional().describe('What the person wants to do or know, e.g. "end a walkthrough" or "raise a note from a phone".'),
+          topic: z.string().max(64).optional().describe("A topic's id, to read it in full."),
+          shortcuts: z.boolean().optional().describe("The keyboard shortcuts and touch gestures."),
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+      },
+      guarded(async ({ question, topic, shortcuts }: { question?: string; topic?: string; shortcuts?: boolean }) => {
+        const link = (id: string) => `${webBase()}/help#${id}`;
+        if (shortcuts) return ok(helpShortcutsText());
+        if (topic) {
+          const t = helpTopic(topic);
+          return t ? ok({ ...t, link: link(t.id) }) : fail(`There is no Help topic "${topic}". Search with \`question\`, or call read_help with nothing for the contents.`);
+        }
+        if (question) {
+          const hits = searchHelp(question);
+          if (hits.length === 0) return ok({ found: 0, note: "Nothing in Help matches every word of that. Try fewer or simpler words, or read the contents (call read_help with nothing).", contents: helpContents() });
+          return ok({ found: hits.length, topics: hits.map((h) => ({ ...h, link: link(h.id) })) });
+        }
+        return ok({ helpPage: `${webBase()}/help`, sections: helpContents() });
+      }),
+    );
 
     server.registerTool(
       "list_sheets",

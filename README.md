@@ -13,7 +13,13 @@ Producers build a minute-by-minute rundown of a show (corporate keynotes, confer
 - **Sport-aware endings** — events can carry a sport (NRL first): at full time the console offers Win / Lose / ⚡ Golden point, golden point loops back to a final Win / Lose / Draw pick, and the chooser pulses as the decision point approaches (position-based, so stoppage time never breaks it).
 - **Crew screens** — `/show` (full console), `/edit` (content only), `/view` (read-only), plus `/follow`, `/timer`, and `/prompter` companion surfaces. Everyone can pick "my role" (several at once) for personal highlights and an on-air countdown bar.
 - **Access control** — admin token, per-company showcaller tokens, per-user email+password accounts with grants (admin / company / event / view-only), a self-service account page, and per-rundown join codes that carry the holder's name and revoke instantly. View grants get read-only documents, enforced server-side.
-- **Operations** — event companies → events → rundowns hierarchy, archive, templates, snapshots and in-place restore, as-run show reports (CSV), guest passes with column filtering, DST-correct event-timezone clocks chosen from a worldwide dropdown, print/PDF/CSV export, and a server-kept error log reviewable from the admin dashboard.
+- **Works like a spreadsheet** — click a cell and type, arrows / Tab / Enter to move, drag or Shift+click to pick a block, copy and paste blocks to and from Google Sheets or Excel (bold, italic, underline, strikethrough and cell colour come with them), fill down, and a right-click (or press-and-hold) row menu with everything you can do to a row. ⌘K jumps to any row or runs an action by name.
+- **Crew talk back** — anyone on a view-only link can tap a row and raise a note to the showcaller, who sees a count on the row and the Notes button and resolves it; notes are kept for the debrief. Message stage puts a short line in big letters on the presenter's timer and prompter.
+- **Made for phones and tablets** — 44px touch targets, a crew tab bar (Sheet · Timer · Notes), the showcaller's controls docked along the bottom of an iPad, an Add-to-Home-Screen tip, ink to scribble on the sheet with a pencil, and pinch-to-zoom (held only while a show is live).
+- **Knows it's connected** — two lights, Sheet and Show, green when linked up and flashing as data arrives; words appear beside them the moment either link drops, and edits made offline are kept and sent on reconnect.
+- **AI assistants** — connect Claude (or any MCP client) to an account with OAuth: it reads the sheets that account can see, changes the ones it can edit (never runs the show; every change is versioned, previewable and undoable on its own), and reads the app's Help page so it explains features in the app's own words.
+- **Help built in** — a searchable Help page covering every feature, by mouse, keyboard and finger, with Back / Dashboard / Top kept in reach.
+- **Operations** — event companies → events → rundowns hierarchy, archive, templates, snapshots and in-place restore, as-run show reports (CSV), guest passes with column filtering, DST-correct event-timezone clocks chosen from a worldwide dropdown, print/PDF/CSV export (name on every page, "Page N of M"), a dashboard of shows as cards (start, length, rows, last edited, how the last show ran) with search and Today / Past badges, and a server-kept error log reviewable from the admin dashboard.
 
 The product spec lives in [BUILD_PROMPT.md](BUILD_PROMPT.md); the realtime protocol in [PROTOCOL.md](PROTOCOL.md); the data model in [docs/DATA-MODEL.md](docs/DATA-MODEL.md); history in [CHANGELOG.md](CHANGELOG.md).
 
@@ -158,6 +164,20 @@ Notes that save assistants time:
 - `ADMIN_TOKEN` unset is dev-open (**every visitor is admin**) — acceptable only on localhost.
 - Watch out for per-service "watch paths" on PaaS builders: changes under `packages/*` affect both services; rebuild both when in doubt.
 - The repo's Dockerfiles (`apps/*/Dockerfile`) and `docker-compose.yml` exist for Option A; PaaS builders can use their native Node builders instead — both work.
+
+## Checks
+
+Every push runs, before anything deploys: type checks and the unit tests,
+browser tests (Vitest in real Chrome) for the spreadsheet keys, row menu,
+dialogs, notes and more, a secrets scan, and a **layout check** that builds the
+app for production and measures all 14 screens at phone, tablet, laptop and
+desktop sizes — at rest and in the states that matter (Start pressed, a show
+live, after the show, a walkthrough, the row menu and ⌘K open, the crew's view
+during a show, a note being written) — failing on anything off the edge,
+overlapping, split across lines or too small for a finger. Locally:
+`pnpm test:layout` (set `AUDIT_BROWSER=bundled` to use Playwright's own
+Chromium). A weekly workflow checks dependencies for newly published faults
+and opens an issue if it finds one.
 
 ## Stack
 

@@ -527,6 +527,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const crewEvents = (crewList.data?.events ?? []).map((e: any) => e.event);
   check("mcp crew: list_sheets shows only its event, read only", crewEvents.length === 1 && crewEvents[0] === "Matrix Event A" && crewList.data.events[0].access === "read only", crewList.text);
   check("mcp crew: another company's sheet is refused", (await tool(crew.tokens.access_token, "get_sheet", { sheet_id: rdB.body.id })).error);
+  // Help (20 Oct): every assistant reads the app's own Help page — crew too.
+  check("mcp crew: read_help is offered", crewTools.includes("read_help"), crewTools);
+  const helpHit = await tool(crew.tokens.access_token, "read_help", { question: "end walkthrough" });
+  check("mcp crew: read_help answers a question with the right topic and a link", helpHit.data?.topics?.[0]?.id === "walkthrough" && String(helpHit.data?.topics?.[0]?.link).endsWith("/help#walkthrough"), helpHit.text.slice(0, 200));
+  const helpToc = await tool(crew.tokens.access_token, "read_help");
+  check("mcp crew: read_help with nothing gives the contents", Array.isArray(helpToc.data?.sections) && helpToc.data.sections.length > 5, helpToc.text.slice(0, 120));
+  check("mcp crew: read_help refuses an unknown topic in words", (await tool(crew.tokens.access_token, "read_help", { topic: "no-such-topic" })).error);
   const crewWrite = await mcp(crew.tokens.access_token, "tools/call", { name: "update_cells", arguments: { sheet_id: rdA.body.id, changes: [] } });
   check("mcp crew: a change is refused 403 insufficient_scope", crewWrite.status === 403 && String(crewWrite.headers.get("www-authenticate")).includes("insufficient_scope"), crewWrite.status);
 

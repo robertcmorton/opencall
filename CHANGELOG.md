@@ -9,7 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **AI assistants can read Help.** A connected assistant (Claude or any MCP client) now has `read_help`: it searches the app's own Help page, reads a topic in full or lists the contents and shortcuts, and hands back a link to the right part of `/help`. Ask it "how do I end a walkthrough?" and it answers in OpenCall's own words. Every assistant gets it, whatever its access — it is the same public page anyone can read, and carries no sheet data.
+
 ### Changed
+- **Help brought up to date.** Button names now match the buttons letter for letter (the old symbols — ↺, ✎, ▶, ⇣, ▤ — are gone from the buttons, so from Help too). New or fuller: changing a start time, the Walkthrough switch, notes from a view-only link, the Sheet and Show lights, the dashboard's cards, search and Today/Past badges, confirm-twice buttons, Message stage (Esc, the phone panel), the iPad bottom bar, an empty sheet's **Add the first row**, team pictures on the dashboard only, and two new touch gestures.
+- **The README describes what the app does now** — spreadsheet-style editing, notes from the crew, phones and tablets, the connection lights, AI assistants, Help, the dashboard — and the checks every update goes through.
 - **Team logos only on the dashboard.** They no longer sit beside the sheet's name on the show, walkthrough, edit and view pages, where they took room the name needed (on a laptop it was cut to a few letters). The dashboard's cards still show them.
 - **The Sheet and Show lights are back** in the top right, one above the other, in place of "✓ Saved". **Sheet** is the run sheet's link (your changes and everyone else's) and **Show** is the live link that carries Start, Next and the clock. Green means connected, and each gives a quick flash when data comes in, so you can see it's alive. Sheet goes amber for a moment while a change is on its way; a light goes red if its link drops, and words appear beside it — **Offline · changes kept here** or **Show link reconnecting…** — so a problem is never just a colour. The flash is switched off if your device asks for less motion.
 - **No separate End walkthrough button.** The **Walkthrough** label in the show's controls is now the switch: tap it to start the walkthrough on the first row, and tap it again while it's lit to end it. Starting the show still ends it on its own, and **End walkthrough** is still in a row's menu and in ⌘K. One button fewer in the controls box.

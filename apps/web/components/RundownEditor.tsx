@@ -5705,6 +5705,7 @@ export function RundownEditor({
           timing={timing}
           gaps={timingGaps}
           use24h={meta.use24h}
+          plannedStartSec={meta.plannedStartSec ?? null}
           onClose={() => {
             setReconciling(false);
             setGapFocus(null);

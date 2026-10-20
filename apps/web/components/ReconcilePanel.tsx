@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import * as Y from "yjs";
-import { findTimingGaps, formatDuration, formatTimeOfDay, type PlanTiming, type TimingGap } from "@opencall/core";
+import { findTimingGaps, fixAllRecommended, fixChanges, fixChoices, formatDuration, formatTimeOfDay, type PlanTiming, type TimingFix, type TimingGap } from "@opencall/core";
+import { say } from "../lib/dialogs";
 
 export { findTimingGaps, type TimingGap };
 import type { ProjectedRow } from "@opencall/db/doc";
@@ -19,6 +20,7 @@ export function ReconcilePanel({
   timing,
   gaps,
   use24h,
+  plannedStartSec,
   onClose,
   onCurrent,
 }: {
@@ -27,6 +29,8 @@ export function ReconcilePanel({
   timing: PlanTiming;
   gaps: TimingGap[];
   use24h: boolean;
+  /** The sheet's planned start, for working through every fix at once. */
+  plannedStartSec: number | null;
   onClose: () => void;
   /** Reports the rows of the issue on screen so the grid can highlight them. */
   onCurrent?: (focus: { fromId: string; toId: string } | null) => void;
@@ -96,183 +100,115 @@ export function ReconcilePanel({
     );
   }
 
-  const from = rows[current.fromIndex]!;
   const to = rows[current.toIndex]!;
-  // The row whose duration absorbs the gap: the last row before the anchor
-  // that HAS a duration, else the segment opener itself.
-  let absorbIndex = current.toIndex - 1;
-  while (absorbIndex > current.fromIndex && rows[absorbIndex]!.durationSec == null) absorbIndex--;
-  const absorb = rows[absorbIndex]!;
-  const absorbNew = Math.max(0, (absorb.durationSec ?? 0) + current.gapSec);
+  const choices = fixChoices(rows, current);
+  const name = (i: number) => `“${(rows[i]?.title || "untitled").split("\n")[0]!.slice(0, 32)}”`;
+  const amount = formatDuration(Math.abs(current.gapSec)).replace(/^0(\d:)/, "$1");
+  const at = (sec: number | null | undefined) => (sec != null ? formatTimeOfDay(sec, use24h) : "—");
 
-  const overlap = current.gapSec < 0;
   /**
-   * Can this row absorb the disagreement at all?
-   *
-   * `absorbNew` is clamped at zero, so on an overlap larger than the row it
-   * lands on 0 and reads like a fix. It is not: emptying a four-minute bell
-   * out of a nineteen-minute overlap leaves fifteen minutes of it, while the
-   * sentence beside the button promises the durations "meet the printed time
-   * exactly". Thirteen of the ninety-five disagreements across the sample
-   * sheets were being offered that.
-   *
-   * Withdrawn rather than reworded: a choice that cannot do what it says is
-   * not a choice, and the other two — move the printed time, or accept the
-   * gap — still resolve the row.
+   * One sentence, not a paragraph of arithmetic (20 Oct, Robert: "very
+   * complicated and wordy"). What is wrong, in the sheet's own names; the
+   * workings are in the buttons, which each say what they change.
    */
-  const absorbResolves = (absorb.durationSec ?? 0) + current.gapSec >= 0;
-  /**
-   * The row that OPENS the segment is as long as the whole disagreement.
-   *
-   * That is not a cue that ran long, it is a row that SPANS the rows beneath
-   * it: "HALF TIME (15 mins)" at 8:47, and then the wrap, the review and the
-   * ad reel that fill those same fifteen minutes. Charge the block and then
-   * its contents and the sheet appears to hold a quarter of an hour more than
-   * it has — which is exactly what a fifteen-minute overlap against a
-   * fifteen-minute block means.
-   *
-   * Keyed on the segment's OPENER, not on the last row before the anchor. An
-   * earlier attempt tested the last one and fired on nothing real, because the
-   * spanning row is by definition the first.
-   *
-   * Muting rather than zeroing: half time is genuinely fifteen minutes long
-   * and somebody calling the show needs to know that. The number stays on the
-   * sheet and leaves the sum, which is what muting means.
-   */
-  const spansContents =
-    overlap && (from.durationSec ?? 0) > 0 && Math.abs((from.durationSec ?? 0) + current.gapSec) < 1;
+  const problem =
+    choices.recommended.kind === "count-once" ? (
+      <>
+        {name(current.fromIndex)} is counted twice: its {formatDuration(rows[current.fromIndex]?.durationSec ?? 0)} happens during the rows under it.
+      </>
+    ) : current.gapSec < 0 ? (
+      <>
+        The rows before {name(current.toIndex)} run <strong className="mono rc-over">{amount}</strong> past its {at(to.hardStartSec)} start.
+      </>
+    ) : (
+      <>
+        Nothing is planned for <strong className="mono rc-gap">{amount}</strong> before {name(current.toIndex)} at {at(to.hardStartSec)}.
+      </>
+    );
+
+  const label = (f: TimingFix): string => {
+    switch (f.kind) {
+      case "count-once":
+        return `Count ${name(f.index)} once`;
+      case "resize": {
+        const by = formatDuration(Math.abs(f.toSec - f.fromSec)).replace(/^0(\d:)/, "$1");
+        return `Make ${name(f.index)} ${by} ${f.toSec < f.fromSec ? "shorter" : "longer"}`;
+      }
+      case "move":
+        return `Move ${name(f.index)} to ${at((rows[f.index]?.hardStartSec ?? 0) + f.deltaSec)}, and the rows below`;
+      case "accept":
+        return "Leave the gap — it’s on purpose";
+    }
+  };
+  const why = (f: TimingFix): string => {
+    switch (f.kind) {
+      case "count-once":
+        return "Its length stays on the sheet; it just stops pushing the rows below back.";
+      case "resize":
+        return "Keeps every printed time as it is.";
+      case "move":
+        return "Keeps every length as it is; every fixed time below moves by the same amount.";
+      case "accept":
+        return "Nothing changes; the check stops asking about this gap.";
+    }
+  };
+  const apply = (f: TimingFix) =>
+    doc.transact(() => {
+      for (const c of fixChanges(rows, f)) yRows.get(rows[c.index]!.id)?.set(c.field, c.value);
+    });
 
   return (
-    <div className="panel" style={{ margin: "0 0 12px", display: "grid", gap: "var(--space-3)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+    <div className="panel reconcile" style={{ margin: "0 0 12px" }}>
+      <div className="rc-head">
         <strong>Timing check</strong>
-        <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }}>
-          {open.length} of {gaps.length} still to sort out
-        </span>
+        <span className="chip rc-count">{open.length} to sort out</span>
         <span style={{ flex: 1 }} />
+        {open.length > 1 && (
+          <button
+            className="btn btn-sm"
+            data-tip="Fix every one the recommended way. One Undo takes them all back."
+            onClick={() => {
+              const { changes, fixed } = fixAllRecommended(rows, plannedStartSec);
+              doc.transact(() => {
+                for (const c of changes) yRows.get(rows[c.index]!.id)?.set(c.field, c.value);
+              });
+              say(`Fixed ${fixed} the recommended way. One Undo takes them all back.`, "success");
+            }}
+          >
+            Fix all {open.length} the recommended way
+          </button>
+        )}
         <button className="btn btn-sm btn-ghost" onClick={onClose}>
           Close
         </button>
       </div>
 
-      <div style={{ fontSize: "var(--fs-sm)", lineHeight: 1.6, color: "var(--text-2)" }}>
-        The start times and the lengths of the rows don&apos;t add up here. Starting from{" "}
-        <strong style={{ color: "var(--text)" }}>{from.title || "untitled"}</strong> at{" "}
-        <span className="mono">{from.hardStartSec != null ? formatTimeOfDay(from.hardStartSec, use24h) : "—"}</span> and adding
-        up every length in between, <strong style={{ color: "var(--text)" }}>{to.title || "untitled"}</strong> should start at{" "}
-        <strong className="mono" style={{ color: "var(--text)" }}>
-          {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}
-        </strong>{" "}
-        — but the sheet says{" "}
-        <strong className="mono" style={{ color: "var(--text)" }}>
-          {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec, use24h) : "—"}
-        </strong>
-        . That's{" "}
-        <strong className="mono" style={{ color: overlap ? "var(--over)" : "var(--warn)" }}>
-          {formatDuration(Math.abs(current.gapSec))}
-        </strong>{" "}
-        {overlap
-          ? "too much: the rows above it run past the time written on the sheet."
-          : "of empty time: nothing is planned before the time written on the sheet."}{" "}
-        Pick which number is right:
+      <p className="rc-problem">{problem}</p>
+
+      <div className="rc-recommended">
+        <button className="btn btn-primary" onClick={() => apply(choices.recommended)}>
+          {label(choices.recommended)}
+        </button>
+        <span className="rc-badge">Recommended</span>
+        <span className="rc-why">{why(choices.recommended)}</span>
       </div>
 
-      <div style={{ display: "grid", gap: "var(--space-2)" }}>
-        {spansContents && (
-          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
-            <button
-              className="btn btn-sm btn-primary"
-              style={{ flexShrink: 0 }}
-              onClick={() => {
-                doc.transact(() => {
-                  yRows.get(from.id)?.set("durationMuted", true);
-                });
-              }}
-            >
-              “{(from.title || "untitled").slice(0, 24)}” happens during the rows under it
-            </button>
-            <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-              Its <span className="mono">{formatDuration(from.durationSec ?? 0)}</span> happens at the same time as the
-              rows under it, not before them, so it should only be counted once. The length stays on the sheet (half
-              time is still fifteen minutes), but it no longer pushes the later rows back.
-            </span>
+      {choices.others.length > 0 && (
+        <details className="rc-others">
+          <summary>Other ways to fix it</summary>
+          <div className="rc-other-list">
+            {choices.others.map((f) => (
+              <div key={f.kind} className="rc-other">
+                <button className="btn btn-sm" onClick={() => apply(f)}>
+                  {label(f)}
+                </button>
+                <span className="rc-why">{why(f)}</span>
+              </div>
+            ))}
           </div>
-        )}
-        <div
-          style={{ display: absorbResolves && !spansContents ? "flex" : "none", gap: "var(--space-3)", alignItems: "baseline" }}
-        >
-          <button
-            className="btn btn-sm btn-primary"
-            style={{ flexShrink: 0 }}
-            onClick={() => {
-              doc.transact(() => {
-                yRows.get(absorb.id)?.set("durationSec", absorbNew);
-              });
-            }}
-          >
-            Change “{(absorb.title || "untitled").slice(0, 24)}” length to {formatDuration(absorbNew)}
-          </button>
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            The start times are right: “{(absorb.title || "untitled").slice(0, 24)}” changes from{" "}
-            <span className="mono">{absorb.durationSec != null ? formatDuration(absorb.durationSec) : "—"}</span> to{" "}
-            <span className="mono">{formatDuration(absorbNew)}</span> long, and then everything adds up.
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
-          <button
-            className="btn btn-sm"
-            style={{ flexShrink: 0 }}
-            onClick={() => {
-              // One fix clears the whole chain: the correction shifts THIS
-              // row's fixed time and every fixed time below it by the same
-              // amount — no walking the sheet gap by gap.
-              doc.transact(() => {
-                const delta = -current.gapSec;
-                for (let i = current.toIndex; i < rows.length; i++) {
-                  const r = rows[i]!;
-                  if (r.hardStartSec != null) yRows.get(r.id)?.set("hardStartSec", r.hardStartSec + delta);
-                }
-              });
-            }}
-          >
-            Move “{(to.title || "untitled").slice(0, 24)}” to{" "}
-            {to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}, and the rows below with it
-          </button>
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            The lengths are right: this row moves to{" "}
-            <span className="mono">{to.hardStartSec != null ? formatTimeOfDay(to.hardStartSec - current.gapSec, use24h) : "—"}</span>{" "}
-            and <strong>every fixed time below moves with it</strong>. One fix and the whole sheet adds up again. One
-            Undo puts it all back.
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline" }}>
-          {/* Boxed, like the two above it. Ignoring is a third answer to the
-              question, not a lesser one — a deliberate hold is as real a
-              resolution as moving a time — and the ghost styling made it read
-              as a way out of the panel rather than one of the choices in it. */}
-          <button
-            className="btn btn-sm"
-            style={{ flexShrink: 0 }}
-            onClick={() => {
-              // Written into the sheet, not into this screen. It used to be
-              // React state, so "the check stops flagging it" lasted until the
-              // panel closed — the promise in the sentence beside this button
-              // was true for about a minute. Now it holds for everyone, and
-              // survives a reload, and one undo takes it back.
-              yRows.get(to.id)?.set("acceptedGapSec", current.gapSec);
-            }}
-          >
-            Leave it — the gap is on purpose
-          </button>
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-2)" }}>
-            Both numbers are right. The show really does wait for{" "}
-            <span className="mono">{formatDuration(Math.abs(current.gapSec))}</span> here (for doors, walk-in or a
-            changeover). Nothing changes or moves. The check stops warning about it, for everyone, until the gap changes
-            size. If you change a length above it, it will ask again.
-          </span>
-        </div>
-        {deliberateHolds}
-      </div>
+        </details>
+      )}
+      {deliberateHolds}
     </div>
   );
 }

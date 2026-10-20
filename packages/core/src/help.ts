@@ -705,12 +705,13 @@ export const SECTIONS: HelpSection[] = [
         name: "Timing check (Reconcile)",
         forWhat: "Finds places where the sheet's times and lengths do not add up, and helps you fix them.",
         steps: [
-          "If there are any, an amber **⚠ timing gaps — Reconcile** button appears in the toolbar. Press it.",
-          "Each problem is explained in plain words, with the sums.",
-          "Pick a fix. One fix can move every fixed time below, so the whole sheet agrees again.",
+          "If there are any, an amber **timing gaps — Reconcile** button appears in the toolbar. Press it.",
+          "Each problem is one sentence — for example “The rows before “Anthem” run 1:40 past its 7:10 PM start.”",
+          "Press the blue **Recommended** button. It keeps the printed times as they are: it shortens or lengthens the item before, or leaves a bigger gap as a deliberate wait. **Other ways to fix it** has the rest.",
+          "Several to sort out? **Fix all … the recommended way** does every one.",
         ],
         who: EDITORS,
-        good: "One Undo takes a fix back. The check does not run during a live show.",
+        good: "One Undo takes a fix back — and takes back all of **Fix all** at once. The check does not run during a live show.",
       },
       {
         id: "running-late",

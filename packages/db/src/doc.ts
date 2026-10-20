@@ -252,6 +252,14 @@ export interface ProjectedRow extends PlanRow {
   outcome?: string | null;
   /** Which game's endings this row belongs to — a day can hold several games. */
   outcomeGame?: number;
+  /**
+   * Must start at its time, whatever happens before it — a broadcast window,
+   * a fireworks cue (20 Oct). Game periods count without it; this is for the
+   * rest. The show warns the caller when it is running late into one.
+   */
+  mustStart?: boolean;
+  /** First to go when the show runs late: listed first among things to trim. */
+  canDrop?: boolean;
 }
 
 /** Marks the cell editor can produce — a cell mentioning one renders rich. */
@@ -375,6 +383,8 @@ export function projectRundownDoc(doc: Y.Doc): {
       color: row.get("color") as string | undefined,
       outcome: (row.get("outcome") as string | null | undefined) ?? null,
       outcomeGame: (row.get("outcomeGame") as number | undefined) ?? undefined,
+      mustStart: (row.get("mustStart") as boolean | undefined) ?? false,
+      canDrop: (row.get("canDrop") as boolean | undefined) ?? false,
     });
   }
   return { meta, keyTimes, roles, columns, rows };

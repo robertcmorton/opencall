@@ -49,7 +49,7 @@ import {
   parseTimeOfDay,
   serializeCsv,
   startEditKind,
-  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove,
+  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalAtNextFixed, lateLevel, trimOptions,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -106,6 +106,7 @@ import { InkLayer } from "./InkLayer";
 import { formatOverUnder, INK_COLOURS, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
+import { RunningLate, lateAmount } from "./RunningLate";
 import { PresenceStack } from "./PresenceStack";
 import { ConnectionLamps, type LampState } from "./ConnectionLamps";
 import { ask, askText, say, sayError } from "../lib/dialogs";
@@ -2773,6 +2774,65 @@ export function RundownEditor({
    * do not are the ones with no game in them or a game played in quarters.
    */
   const phases = useMemo(() => findPhases(rows, gameEnds), [rows, gameEnds]);
+  /**
+   * Running late into something that must start on time (20 Oct): the start
+   * of each half / quarter / extra period, and rows marked "Must start on
+   * time". While a show is live, when it will reach the next one if every item
+   * from here runs to plan. Read each render — useLiveTiming re-renders the
+   * sheet every second while a row is on air, and this only exists then (so
+   * never in a server render).
+   */
+  const fixedTimes = useMemo(
+    () => fixedTargets(rows, timing.rows, phases, (i) => (rows[i]?.title ?? "").split("\n")[0]!.trim()),
+    [rows, timing, phases],
+  );
+  const lateActiveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+  const arrival =
+    isShow && showLive && lateActiveIdx >= 0 && fixedTimes.length > 0
+      ? arrivalAtNextFixed(
+          rows,
+          timing.rows,
+          fixedTimes,
+          lateActiveIdx,
+          live?.rowId === activeRowId ? (live?.remainingInRowSec ?? null) : (rows[lateActiveIdx]?.durationSec ?? null),
+          absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing),
+        )
+      : null;
+  const lateLvl = arrival ? lateLevel(arrival) : null;
+  /** Said once as each line is crossed, per fixed time — not every second. */
+  const lateSaid = useRef(new Set<string>());
+  const lateKey = arrival && (lateLvl === "over" || lateLvl === "urgent") ? `${arrival.target.index}:${lateLvl}` : null;
+  useEffect(() => {
+    if (!lateKey || !arrival || !mayDrive || lateSaid.current.has(lateKey)) return;
+    lateSaid.current.add(lateKey);
+    const amount = lateAmount(arrival.overSec);
+    say(
+      `Running ${amount} over into ${arrival.target.name}. Find ${amount} before ${formatTimeOfDayWithDay(arrival.target.atSec, meta.use24h)} — press the line under the timer to see what could go.`,
+      lateLvl === "urgent" ? "error" : "info",
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per crossing, keyed above
+  }, [lateKey]);
+  /**
+   * Trimming before a fixed time moves the fixed times up to it — never the
+   * fixed time itself, or the trim would carry it along and win nothing.
+   */
+  const trimBefore = (rowId: string, targetIdx: number, kind: "strike" | "trim", bySec = 30): void => {
+    const idx = rows.findIndex((r) => r.id === rowId);
+    const yRow = yRows.get(rowId);
+    if (idx < 0 || !yRow) return;
+    doc.transact(() => {
+      if (kind === "strike") {
+        yRow.set("skipped", true);
+        const delta = strikeShift(rows, idx, true, lateActiveIdx);
+        if (delta !== 0) shiftFixedTimes(idx + 1, targetIdx - 1, delta);
+      } else {
+        const was = rows[idx]!.durationSec ?? 0;
+        const next = Math.max(0, was - bySec);
+        yRow.set("durationSec", next);
+        if (next !== was) shiftFixedTimes(idx + 1, targetIdx - 1, next - was);
+      }
+    });
+  };
   const railW = phases.length > 0 ? RAIL_W : 0;
   /**
    * Endings need more gutter than items do.
@@ -3163,6 +3223,12 @@ export function RundownEditor({
   };
 
   /** Lock (or unlock) the selected rows. Anyone who can edit may do either. */
+  /** A yes/no mark on every picked row (Must start on time, Can drop). */
+  const setSelectedFlag = (field: "mustStart" | "canDrop", value: boolean): void => {
+    doc.transact(() => {
+      for (const id of selected) yRows.get(id)?.set(field, value);
+    });
+  };
   const setSelectedLocked = (locked: boolean): void => {
     if (selected.size === 0) return;
     const who = channel.userLabel ?? (lock.mine ? "this editor" : null);
@@ -4372,6 +4438,21 @@ export function RundownEditor({
       });
       const allLocked = all((x) => !!x.locked);
       out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: did(allLocked ? `Unlocked ${what}.` : `Locked ${what}.`, () => setSelectedLocked(!allLocked)) });
+      // Running late (20 Oct): which times can't move, and what goes first.
+      const allMust = all((x) => !!x.mustStart);
+      out.push({
+        label: "Must start on time",
+        checked: allMust,
+        hint: allMust ? "Untick to let it move with the show" : "You're warned if the show is running late into it",
+        onSelect: did(allMust ? `${cap(what)} can move with the show again.` : `${cap(what)} must start on time — you'll be warned if the show runs late into it.`, () => setSelectedFlag("mustStart", !allMust)),
+      });
+      const allDrop = all((x) => !!x.canDrop);
+      out.push({
+        label: "Can drop if running late",
+        checked: allDrop,
+        hint: allDrop ? undefined : "Listed first when there's time to find",
+        onSelect: did(allDrop ? `${cap(what)} no longer marked to drop.` : `${cap(what)} marked: first to go if the show runs late.`, () => setSelectedFlag("canDrop", !allDrop)),
+      });
       if (!showLive) {
         out.push({ label: "Only play this if…", keepOpen: true, hint: menuResultsOpen ? undefined : "For rows that depend on the match result", onSelect: () => setMenuResultsOpen((v) => !v) });
         if (menuResultsOpen)
@@ -5076,6 +5157,20 @@ export function RundownEditor({
                 const r = nextRowId ? rows.find((x) => x.id === nextRowId) : null;
                 return r ? (blankTitle(r.title) ? itemStandIn(r) : r.title) : null;
               })()}
+            />
+          )}
+          {arrival && lateLvl && (
+            <RunningLate
+              arrival={arrival}
+              level={lateLvl}
+              use24h={meta.use24h}
+              canEdit={canEditContent}
+              trims={trimOptions(rows, lateActiveIdx, arrival.target).map((t) => {
+                const r = rows[t.index]!;
+                return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
+              })}
+              onStrike={(id) => trimBefore(id, arrival.target.index, "strike")}
+              onTrim={(id, by) => trimBefore(id, arrival.target.index, "trim", by)}
             />
           )}
           {/* The show's state sits directly under the cue timer, centred —

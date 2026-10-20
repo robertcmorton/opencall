@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **A warning when you're running late into a fixed time.** During the show, a line under the big timer names the next thing that must start on time — the 2nd half, or any row you mark **Must start on time** in its row menu — with its time and how you'll arrive if everything from now runs to plan: **1:20 over**, **0:40 to spare** or **on time**. It's grey while it's far off, amber when you're over inside fifteen minutes, and red and pulsing in the last five once it's more than thirty seconds; a note says so the first time each line is crossed. Press it for what could be trimmed before then — rows marked **Can drop if running late** first, then the longest — with **Strike** and **−30 s** on each. Trims move the times up to the fixed one, never the fixed one itself.
+
 ## [0.39.0] — 2026-10-20
 
 ### Added

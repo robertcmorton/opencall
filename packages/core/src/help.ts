@@ -713,6 +713,18 @@ export const SECTIONS: HelpSection[] = [
         good: "One Undo takes a fix back. The check does not run during a live show.",
       },
       {
+        id: "running-late",
+        name: "Running late into a fixed time",
+        forWhat: "Warns you, during the show, when you're running late into something that must start on time — the 2nd half, a broadcast window — and by how much.",
+        how: "Under the big timer, one line names the next thing that must start on time, its time, and how you'll arrive if every item from now runs to plan: **1:20 over**, **0:40 to spare** or **on time**. Grey while it's more than 15 minutes away; amber if you're over inside 15 minutes; red and pulsing in the last 5 minutes once you're more than 30 seconds over. A note tells you the first time each line is crossed.",
+        steps: [
+          "Press the line to see what could be trimmed before then — rows marked **Can drop if running late** first, then the longest.",
+          "Press **Strike** to skip one, or **−30 s** to take thirty seconds off it. The line updates straight away.",
+        ],
+        who: CALLER,
+        good: "The start of each half, quarter and extra period counts by itself. To add your own — a broadcast window, a fireworks cue — open the row menu and tick **Must start on time**. Trims move the times up to the fixed one, never the fixed one itself, and one Undo takes each back.",
+      },
+      {
         id: "start-warnings",
         name: "Things to look at",
         forWhat: "Warns you about anything odd on the sheet before you go live.",

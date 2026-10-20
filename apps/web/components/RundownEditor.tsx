@@ -4890,18 +4890,9 @@ export function RundownEditor({
                 tapBack ? () => router.push("/admin") : canEditContent ? () => setEditingName(true) : undefined
               }
             >
-              {/* The two teams, beside the name of the match they are playing. */}
-              {[channel.homeImage, channel.awayImage].map(
-                (src, i) =>
-                  src && (
-                    <img
-                      key={i}
-                      src={src}
-                      alt=""
-                      style={{ height: 22, width: 22, objectFit: "contain", borderRadius: "var(--r-sm)", verticalAlign: "-4px", marginRight: i === 1 ? 8 : 4 }}
-                    />
-                  ),
-              )}
+              {/* No team logos here (20 Oct, Robert): beside the name they cost
+                  the header width it hasn't got — the name was already cut to
+                  "Fin…" on a laptop. They stay on the dashboard's cards. */}
               {meta.name || "Untitled sheet"}
             </h1>
           )}

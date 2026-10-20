@@ -346,6 +346,18 @@ export const SECTIONS: HelpSection[] = [
         good: "When a length changes, every fixed time below moves by the same amount. One Undo takes it all back.",
       },
       {
+        id: "start-time",
+        name: "Change a start time",
+        forWhat: "Moves a row to a new time — and, when the whole show is moving, every time below it too.",
+        steps: [
+          "Double-click the row's time (the TIME column), type the new time — `3:30 pm` or `15:30` — and press `Enter`.",
+          "If the new time keeps the rows in order, every fixed time below moves by the same amount.",
+          "If it jumps past the next row's time — say the first row goes from 11:00 am to 3:30 pm — you're asked: **Move them all** (the whole show is moving) or **Just this row** (only this one was wrong).",
+        ],
+        who: EDITORS,
+        good: "A row that was already out of order — an \"am\" typed for a \"pm\" — is put right on its own without asking. One Undo takes back any of these.",
+      },
+      {
         id: "duration-options",
         name: "Hide, Mute and Alongside",
         forWhat: "Three extra choices for an item's length.",

@@ -878,7 +878,27 @@ export function startEditRipples(
   fromSec: number | null,
   toSec: number,
 ): boolean {
-  if (fromSec == null) return false; // a row given its first time moves nothing
+  return startEditKind(starts, index, fromSec, toSec) === "ripple";
+}
+
+/**
+ * The same reading, with the case it cannot decide named.
+ *
+ *  · "ripple"   — in order before and after: the show moved, the rows below follow;
+ *  · "this-row" — no time before, or it was out of order: a value being fixed;
+ *  · "ask"      — it WAS in order and the new time jumps a neighbour. That is
+ *                 either a typo (17:00 for 7:00) or the whole show moving — 11 AM
+ *                 to 3:30 PM on the first row, which is what Robert did on 20 Oct
+ *                 and got only that row moved. Only a person knows which, so the
+ *                 sheet asks. Callers that can't ask treat it as "this-row".
+ */
+export function startEditKind(
+  starts: readonly (number | null)[],
+  index: number,
+  fromSec: number | null,
+  toSec: number,
+): "ripple" | "this-row" | "ask" {
+  if (fromSec == null) return "this-row"; // a row given its first time moves nothing
   let above: number | null = null;
   for (let i = index - 1; i >= 0; i--) {
     const s = starts[i];
@@ -897,7 +917,8 @@ export function startEditRipples(
   }
   // Equal is in order: rows sharing a moment are ordinary on a run sheet.
   const inOrder = (sec: number): boolean => (above == null || sec >= above) && (below == null || sec <= below);
-  return inOrder(fromSec) && inOrder(toSec);
+  if (!inOrder(fromSec)) return "this-row";
+  return inOrder(toSec) ? "ripple" : "ask";
 }
 
 export interface StartTimeWarning {

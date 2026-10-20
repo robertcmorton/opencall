@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { startEditRipples } from "../src/index";
+import { startEditKind, startEditRipples } from "../src/index";
 
 const H = 3600;
 const at = (h: number, m = 0) => h * H + m * 60;
@@ -73,5 +73,24 @@ describe("startEditRipples", () => {
       expect(startEditRipples(starts, 3, at(19, 10), at(19, 20))).toBe(true);
       expect(startEditRipples(starts, 3, at(19, 10), at(18, 0))).toBe(false);
     });
+  });
+});
+
+describe("startEditKind: the case only a person can decide", () => {
+  it("asks when a row that was in order jumps past its neighbour (the whole show moving, 20 Oct)", () => {
+    // 11:00 AM top row, then 11:05, 11:20 — moved to 3:30 PM.
+    const starts = [at(11, 0), at(11, 5), at(11, 20)];
+    expect(startEditKind(starts, 0, at(11, 0), at(15, 30))).toBe("ask");
+    expect(startEditRipples(starts, 0, at(11, 0), at(15, 30))).toBe(false); // callers that can't ask
+  });
+  it("still repairs an out-of-order row on its own, without asking", () => {
+    const starts = [at(17, 25), at(5, 26), at(17, 26)];
+    expect(startEditKind(starts, 1, at(5, 26), at(17, 26))).toBe("this-row");
+  });
+  it("still ripples a change that keeps the order", () => {
+    expect(startEditKind([at(19, 0), at(19, 10), at(19, 20)], 1, at(19, 10), at(19, 15))).toBe("ripple");
+  });
+  it("a row given its first time moves nothing", () => {
+    expect(startEditKind([at(19, 0), null, at(19, 20)], 1, null, at(19, 10))).toBe("this-row");
   });
 });

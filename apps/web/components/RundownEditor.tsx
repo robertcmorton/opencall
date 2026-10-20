@@ -48,7 +48,7 @@ import {
   parseDurationShorthand,
   parseTimeOfDay,
   serializeCsv,
-  startEditRipples,
+  startEditKind,
   zoneSecondsOfDay, strikeShift, fixedTimesAfterMove,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
@@ -3427,16 +3427,28 @@ export function RundownEditor({
          * fixed, and nothing else is touched.
          */
         const starts = order.map((id) => (yRows.get(id)?.get("hardStartSec") as number | null | undefined) ?? null);
-        const ripples = idx >= 0 && delta !== 0 && startEditRipples(starts, idx, currentSec, sec);
-        doc.transact(() => {
-          yRows.get(rowId)?.set("hardStartSec", sec);
-          if (!ripples || idx < 0) return;
-          for (let i = idx + 1; i < order.length; i++) {
-            const later = yRows.get(order[i]!);
-            const fixed = later?.get("hardStartSec") as number | null | undefined;
-            if (fixed != null) later!.set("hardStartSec", fixed + delta);
-          }
-        });
+        const kind = idx >= 0 && delta !== 0 ? startEditKind(starts, idx, currentSec, sec) : "this-row";
+        const apply = (ripple: boolean) =>
+          doc.transact(() => {
+            yRows.get(rowId)?.set("hardStartSec", sec);
+            if (!ripple || idx < 0) return;
+            for (let i = idx + 1; i < order.length; i++) {
+              const later = yRows.get(order[i]!);
+              const fixed = later?.get("hardStartSec") as number | null | undefined;
+              if (fixed != null) later!.set("hardStartSec", fixed + delta);
+            }
+          });
+        if (kind === "ask") {
+          // The new time jumps the next row's: the show moving, or a typo on
+          // this row? Only the person typing knows (20 Oct) — see startEditKind.
+          const amount = formatDuration(Math.abs(delta)).replace(/^0(\d:)/, "$1");
+          void ask({
+            title: `Move the rows below by ${delta > 0 ? "+" : "−"}${amount} too?`,
+            message: `${formatTimeOfDay(sec, meta.use24h)} is past the next row's time. If the whole show is moving, every time below moves by the same amount. If only this row was wrong, the others stay where they are. One undo takes either back.`,
+            confirmLabel: "Move them all",
+            cancelLabel: "Just this row",
+          }).then((all) => apply(all));
+        } else apply(kind === "ripple");
       }
     }
     setEditingTime(null);

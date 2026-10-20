@@ -134,8 +134,8 @@ export const SECTIONS: HelpSection[] = [
       {
         id: "dashboard",
         name: "Dashboard",
-        forWhat: "The home page after you sign in: every company and event, with each of its shows on a card.",
-        how: "Each card says when the show starts, how long it runs and when it ends; how many rows it has and when it was last changed; and, once a show has been run, the day of the last one and how far over or under it ran (the same figure as **Ran** at the top of the sheet). Each has one big button — **Open show**, **Edit run sheet** or **View**, depending on what you are allowed to do — and a **⋯** menu with everything else.",
+        forWhat: "The home page after you sign in: every company and event, with each of its shows on a row.",
+        how: "Under each show's name, one line says when it starts, how long it runs and when it ends; how many rows it has and when it was last changed; and, once a show has been run, the day of the last one and how far over or under it ran (the same figure as **Ran** at the top of the sheet). Each has one big button — **Open show**, **Edit run sheet** or **View**, depending on what you are allowed to do — and a **⋯** menu with everything else.",
         good: "A show that is on air is marked **LIVE** (or **PAUSED**). One nobody remembered to stop is marked **left running** or **left paused** in grey. Over is red and under is green, like on the sheet. Type in **Search events and shows** to find one, and each event says **Today**, **Tomorrow**, **In 5 days** or **Past** beside its name.",
       },
       {
@@ -226,7 +226,7 @@ export const SECTIONS: HelpSection[] = [
       {
         id: "event-image",
         name: "Event and team pictures",
-        forWhat: "Puts a picture beside the event (its brand) and on each show's card (the home and away teams). Team pictures show on the dashboard only, not on the sheet pages, where the sheet's name needs the room.",
+        forWhat: "Puts a picture beside the event (its brand) and beside each show on the dashboard (the home and away teams). Team pictures show on the dashboard only, not on the sheet pages, where the sheet's name needs the room.",
         mouse: "Click the empty picture slot, or drag a picture onto it. Point at a picture and press ✕ to remove it.",
         finger: "Tap the empty picture slot and choose a picture.",
       },

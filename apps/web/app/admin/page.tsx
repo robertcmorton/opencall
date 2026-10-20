@@ -1284,10 +1284,11 @@ export default function AdminPage() {
                   The name block holds the title, the status line and the kind
                   of show; the actions are one group that never breaks apart, and
                   drop under the name as a whole below tablet width. */}
-              {/* Cards, side by side (6 Oct): each one says when the show
-                  starts and how long it runs, how many rows it has, when it
-                  was last changed and how its last show went. */}
-              <ul className="sheet-cards">
+              {/* One row per show (back from cards, 20 Oct), each with a
+                  quiet line saying when it starts and how long it runs, how
+                  many rows it has, when it was last changed and how its last
+                  show went. */}
+              <ul className="sheet-list">
                 {event.rundowns.map((r) => (
                   <li key={r.id} className="sheet-row" style={{ opacity: r.archivedAt ? 0.55 : 1 }}>
                     <div className="sr-images">

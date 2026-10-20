@@ -717,7 +717,7 @@ export function ImportPanel({
               </div>
               <div className="il-text">
                 <strong>Team logos found on this sheet</strong>
-                <span>They go on the show&rsquo;s card on the dashboard. The left one is taken as home — swap them if not.</span>
+                <span>They show beside the show on the dashboard. The left one is taken as home — swap them if not.</span>
                 <label className="il-use">
                   <input type="checkbox" checked={useLogos} onChange={(e) => setUseLogos(e.target.checked)} />
                   {replaceRundown ? "Replace the show’s team logos with these" : "Use them"}

@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Added
+- **See who's on the sheet.** Round faces at the top right show everyone else who has the sheet open, like a shared document: their photo, or their initials if they haven't added one. Crew on a view-only link show the name they typed when they opened it, so the showcaller sees "Sam, Camera 2" rather than "Crew". Up to four, then **+** and how many more; point at one for who, what they can do and which row they're on, and press them for the whole list. Someone on two screens shows once, and you aren't shown to yourself.
+- **Your photo.** **My account** has **Your photo** — upload one (or change or remove it) and it shows beside your name on every sheet you open. Administrators' accounts too.
 - **Team logos come in with the run sheet.** When a PDF run sheet has the two team logos on its first page — one either side of the title, as most fixture sheets do — the import screen finds them and shows them as **Home** and **Away** under **Team logos found on this sheet**. Press ⇄ to swap them, or untick **Use them**; imported, they go on the show's card on the dashboard. Sponsor banners and the small icons some sheets repeat on every row are left alone, and so is a single club logo drawn on both sides of the title. When you update an existing show from a new file, it asks before replacing logos you chose.
 
 ## [0.39.0] — 2026-10-20

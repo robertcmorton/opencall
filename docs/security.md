@@ -96,6 +96,21 @@ that ends up somewhere it should not.
 5. **Record it** here, with the date, what happened and the check added to the
    security suite so it cannot happen again unnoticed.
 
+## Photos and who is here (20 Oct 2026)
+
+An account may upload its own photo (My account; `PATCH /me` with a PNG, JPEG
+or WebP data URL of at most 300,000 characters — refused otherwise; an
+administrator's account may set its photo but not rename itself there). It is
+served at `GET /users/<id>/photo` without a sign-in, as profile pictures are:
+the id is a random ULID, the picture is one the person chose to show on their
+sheets, and an `<img>` cannot carry a session. Removing it makes that address
+404. The show channel's `presence` now names who is connected — an account by
+its name and photo path, a view-only link by the name its holder typed at
+"Who's watching?" (or the link's label) — to everyone on that sheet, crew
+included. No email addresses are sent; an account's photo path does carry its
+id (needed to fetch the picture), which reveals nothing else. Covered by 12
+checks in the security suite.
+
 ## AI assistants (MCP)
 
 An assistant such as Claude connects at `<sync address>/mcp`. Discovery is at

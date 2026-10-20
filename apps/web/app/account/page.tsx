@@ -7,6 +7,8 @@ import { api, API_URL, type AssistantConnection } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
 import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
 import { Icon } from "../../components/ui";
+import { pickImage } from "../../lib/pickImage";
+import { colorFor, initialsOf } from "../../lib/usePresence";
 import { ask, say, sayError } from "../../lib/dialogs";
 
 /** My account: who I am, what I can access, and my details. */
@@ -72,6 +74,55 @@ export default function AccountPage() {
         </div>
         <div style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>{access}</div>
       </div>
+
+      {(me.role === "user" || me.hasAccount) && (
+        // Your photo (20 Oct): it shows on every sheet you open, in the faces
+        // at the top right, so the showcaller and crew can see who is there.
+        <div className="panel account-photo">
+          <span className="ap-face" style={{ background: colorFor(me.name ?? "?") }} aria-hidden="true">
+            {me.imageUrl ? <img src={me.imageUrl} alt="" /> : initialsOf(me.name ?? "?")}
+          </span>
+          <div className="ap-text">
+            <strong>Your photo</strong>
+            <span>Shown beside your name on every sheet you open, so everyone can see who is there. Without one, your initials are shown.</span>
+            <div className="ap-actions">
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={async () => {
+                  const picture = await pickImage(160);
+                  if (!picture) return;
+                  try {
+                    await api.updateMe({ imageUrl: picture });
+                    setMe({ ...me, imageUrl: picture });
+                    say("Photo saved. It shows the next time you open a sheet.");
+                  } catch (err) {
+                    sayError(err);
+                  }
+                }}
+              >
+                {me.imageUrl ? "Change photo" : "Upload a photo"}
+              </button>
+              {me.imageUrl && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={async () => {
+                    try {
+                      await api.updateMe({ imageUrl: null });
+                      setMe({ ...me, imageUrl: null });
+                    } catch (err) {
+                      sayError(err);
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {me.role === "user" ? (
         <>

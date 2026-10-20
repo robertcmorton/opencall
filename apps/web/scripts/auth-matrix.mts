@@ -147,6 +147,55 @@ const superUser = await mkUser("Matrix Super", [{ kind: "admin" }]);
   viewer.accessToken = rotated.body.accessToken;
 }
 
+// ── Photos and who is here (20 Oct) ─────────────────────────────────────────
+{
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  check("photo: an account sets its own", (await req("/me", viewer.accessToken, { method: "PATCH", body: JSON.stringify({ imageUrl: PNG }) })).status === 200);
+  check("photo: /me gives it back", (await req("/me", viewer.accessToken)).body?.imageUrl === PNG);
+  const pic = await fetch(`${API}/users/${viewer.id}/photo`);
+  check("photo: served at /users/:id/photo, no sign-in needed, as an image", pic.status === 200 && (pic.headers.get("content-type") ?? "").startsWith("image/png"), pic.status);
+  check("photo: something that isn't a picture is refused", (await req("/me", viewer.accessToken, { method: "PATCH", body: JSON.stringify({ imageUrl: "javascript:alert(1)" }) })).status === 400);
+  check("photo: an oversized one is refused", (await req("/me", viewer.accessToken, { method: "PATCH", body: JSON.stringify({ imageUrl: `data:image/png;base64,${"A".repeat(300_001)}` }) })).status === 400);
+  check("photo: an admin-grant account sets its own", (await req("/me", superUser.accessToken, { method: "PATCH", body: JSON.stringify({ imageUrl: PNG }) })).status === 200);
+  check("photo: admin-grant /me says it has one", (await req("/me", superUser.accessToken)).body?.imageUrl === PNG);
+  check("photo: an admin-grant account can't rename itself here", (await req("/me", superUser.accessToken, { method: "PATCH", body: JSON.stringify({ name: "Renamed" }) })).status === 400 || (await req("/me", superUser.accessToken)).body?.name === "Matrix Super");
+
+  // Presence by name: a signed-in viewer, and a view-only link with the name its holder typed.
+  const code = (await req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "Matrix link" }) })).body?.code as string;
+  const seen = await new Promise<any[]>((resolve) => {
+    const a = new WebSocket(`${WS}/?rundown=${rdA.body.id}`);
+    let b: WebSocket | null = null;
+    let last: any[] = [];
+    const done = () => {
+      a.close();
+      b?.close();
+      resolve(last);
+    };
+    const timer = setTimeout(done, 5000);
+    a.addEventListener("open", () => a.send(JSON.stringify({ v: 1, t: "hello", auth: { kind: "session", token: viewer.accessToken }, device: "companion" })));
+    a.addEventListener("message", (e) => {
+      const msg = JSON.parse(String(e.data));
+      if (msg.t === "welcome" && !b) {
+        b = new WebSocket(`${WS}/?rundown=${rdA.body.id}`);
+        b.addEventListener("open", () => b!.send(JSON.stringify({ v: 1, t: "hello", auth: { kind: "join", code }, device: "companion", viewerName: "Sam, Camera 2" })));
+      }
+      if (msg.t === "presence" && Array.isArray(msg.people)) {
+        last = msg.people;
+        if (last.some((p) => p.name === "Sam, Camera 2")) {
+          clearTimeout(timer);
+          done();
+        }
+      }
+    });
+  });
+  const viewerFace = seen.find((p) => p.name === "Matrix Viewer");
+  check("presence: people names a view-only link by what its holder typed", seen.some((p) => p.name === "Sam, Camera 2" && p.role === "follower"), seen);
+  check("presence: an account carries its photo path", typeof viewerFace?.photo === "string" && viewerFace.photo.startsWith(`/users/${viewer.id}/photo?v=`), viewerFace);
+  check("presence: each person lists their screens' ids", seen.every((p) => Array.isArray(p.ids) && p.ids.includes(p.id)), seen);
+  check("photo: removing it clears it", (await req("/me", viewer.accessToken, { method: "PATCH", body: JSON.stringify({ imageUrl: null }) })).status === 200 && (await fetch(`${API}/users/${viewer.id}/photo`)).status === 404);
+  await req(`/rundowns/${rdA.body.id}/join-codes/${code}`, ADMIN, { method: "DELETE" });
+}
+
 // ── Show channel ──────────────────────────────────────────────────────────────
 type ShowResult = { welcome?: any; cmdReply?: any; closed?: { code: number; reason: string } };
 const showChannel = (rundownId: string, token: string, sendCmd: boolean): Promise<ShowResult> =>

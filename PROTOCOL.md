@@ -163,3 +163,16 @@ Server supports current and previous `v` for one release cycle. This file is nor
 
 - **`welcome.timezone`** (optional string): the IANA timezone of the event's location. Clients
   render every clock in this zone (DST-aware via Intl); absent → device-local fallback.
+
+## Presence by name (additive, 20 Oct 2026)
+
+- `hello` may carry `viewerName` (≤ 80 chars): what a view-only link's holder
+  typed at "Who's watching?".
+- `welcome` carries `you`: this connection's id.
+- `presence` adds `people`: `[{ id, ids, name, role, photo?, screens }]`, one entry
+  per person — an account by its user, a link by its name and role — with
+  `screens` counting their open connections, `ids` listing them (a screen
+  leaves out the person it is one of) and `id` being the first one's.
+  `photo` is a path on the sync server (`/users/<id>/photo?v=<hash>`) when the
+  account has uploaded one. `counts` is unchanged, so older screens still work.
+

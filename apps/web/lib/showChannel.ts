@@ -5,9 +5,11 @@ import { ulid } from "ulid";
 import { type SpeakerMessage,
   PROTOCOL_VERSION,
   type CmdAction,
+  type PresencePerson,
   type Role,
   type ShowStatePayload,
 } from "@opencall/protocol";
+import { viewerName } from "./viewerIdentity";
 import type { EventTypeSpec } from "@opencall/core";
 import { resolveSyncUrl } from "./syncUrl";
 
@@ -35,6 +37,10 @@ export interface ShowChannel {
   connected: boolean;
   /** Be told each time anything arrives on the link (heartbeats included); returns the unsubscribe. For the Show light's flash. */
   onActivity: (fn: () => void) => () => void;
+  /** Everyone on this sheet right now, one entry per person (the faces at the top right). */
+  people: PresencePerson[];
+  /** This screen's own connection id, to leave itself out of `people`. */
+  me: string | null;
   /**
    * True once the server's clock has actually been measured, rather than
    * assumed to match this device's. Screens that draw times should wait for it:
@@ -138,6 +144,8 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   /** When the server was last heard from — any frame, heartbeats included. */
   const lastHeardRef = useRef(Date.now());
   const activityRef = useRef(new Set<() => void>());
+  const [people, setPeople] = useState<PresencePerson[]>([]);
+  const [me, setMe] = useState<string | null>(null);
   const onActivity = useCallback((fn: () => void) => {
     activityRef.current.add(fn);
     return () => void activityRef.current.delete(fn);
@@ -187,7 +195,10 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             ? { kind: "session" as const, token: stored ?? "dev" }
             : { kind: "join" as const, code: "DEV123" };
         if (sock.readyState !== WebSocket.OPEN) return;
-        sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined }));
+        // A view-only link says who is holding it, so the showcaller sees a
+        // name in the faces at the top right rather than "Crew" (20 Oct).
+        const typedName = auth.kind === "join" ? viewerName() ?? undefined : undefined;
+        sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined, ...(typedName ? { viewerName: typedName.slice(0, 80) } : {}) }));
       };
 
       sock.onmessage = (event) => {
@@ -198,8 +209,13 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         const msg = JSON.parse(String(event.data));
         if (msg.v !== PROTOCOL_VERSION) return;
         switch (msg.t) {
+          case "presence": {
+            setPeople(Array.isArray(msg.people) ? msg.people : []);
+            break;
+          }
           case "welcome": {
             setConnected(true);
+            setMe(msg.you ?? null);
             setRole(msg.role);
             setUserLabel(msg.userLabel ?? null);
             setSpeaker(msg.speaker ?? null);
@@ -327,6 +343,8 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   return {
     connected,
     onActivity,
+    people,
+    me,
     clockReady,
     role,
     userLabel,

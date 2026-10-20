@@ -156,9 +156,10 @@ export const SECTIONS: HelpSection[] = [
       {
         id: "my-account",
         name: "My account",
-        forWhat: "Change your name, your email or your password.",
+        forWhat: "Change your photo, your name, your email or your password.",
         steps: [
           "Open the menu (☰) and choose **My account**.",
+          "Under **Your photo**, press **Upload a photo** (or **Change photo**, or **Remove**). It shows beside your name on every sheet you open.",
           "Change what you need under **My details** or **Change password**, and save.",
         ],
         good: "Changing your password also disconnects any AI assistant you had connected.",
@@ -541,6 +542,13 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Tell you the sheet and the live show are connected, and that data is coming through.",
         how: "Nothing to press. Top right, two lights: **Sheet** (your changes and everyone else's) and **Show** (Start, Next and the clock). Green means connected, and each gives a quick flash when something comes in. **Sheet** goes amber for a moment while a change is on its way. Red means that link has dropped — words appear beside it too: **Offline · changes kept here** (your changes wait on this device and go when it comes back), **Offline · reconnecting…** (nothing waiting to send) or **Show link reconnecting…** (it reconnects by itself). The flash is switched off if your device asks for less motion.",
         good: "If you try to close the tab while changes are waiting, it asks first.",
+      },
+      {
+        id: "whos-here",
+        name: "Who's on the sheet",
+        forWhat: "Shows who else has this sheet open, as round faces at the top right — like a shared document.",
+        how: "Nothing to press. Each face is someone's photo, or their initials if they haven't added one. Crew on a view-only link show the name they typed when they opened it. Up to four faces show, then **+** and how many more. Point at a face to see who it is, what they can do and which row they're on; press the faces to see everyone.",
+        good: "You aren't shown — you know you're here. Someone with the sheet open on two screens shows once, with \"2 screens\". Add your own photo on **My account**.",
       },
       {
         id: "ink",

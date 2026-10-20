@@ -1,10 +1,12 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import {
   CloseCodes,
   PROTOCOL_VERSION,
   parseClientMsg,
+  type PresencePerson,
   type Role,
   type ServerMsg,
 } from "@opencall/protocol";
@@ -128,6 +130,12 @@ interface ClientCtx {
   device: "console" | "companion";
   /** Who, as the hello resolved them — names a speaker message's sender. */
   label: string;
+  /** This connection's id, sent in welcome as `you` and in presence `people`. */
+  id: string;
+  /** The account behind it, when there is one — one face per person, and their photo. */
+  userId?: string;
+  /** Path to the account's photo, with its version, if it has one. */
+  photo?: string;
 }
 
 /**
@@ -164,9 +172,24 @@ const broadcast = (rundownId: string, msg: ServerMsg): void => {
 
 const broadcastPresence = (rundownId: string): void => {
   const counts: Partial<Record<Role, number>> = {};
-  for (const ctx of clients.values())
-    if (ctx.rundownId === rundownId) counts[ctx.role] = (counts[ctx.role] ?? 0) + 1;
-  broadcast(rundownId, { v: PROTOCOL_VERSION, t: "presence", counts });
+  /**
+   * Who is here, by name (20 Oct) — the faces at the top right of a sheet.
+   * One entry per person: an account by its user, a link by its name and
+   * role, so the same showcaller on a laptop and a phone is one face with
+   * "2 screens", not two.
+   */
+  const people = new Map<string, PresencePerson>();
+  for (const ctx of clients.values()) {
+    if (ctx.rundownId !== rundownId) continue;
+    counts[ctx.role] = (counts[ctx.role] ?? 0) + 1;
+    const key = ctx.userId ? `u:${ctx.userId}` : `n:${ctx.role}:${ctx.label.toLowerCase()}`;
+    const seen = people.get(key);
+    if (seen) {
+      seen.screens++;
+      seen.ids!.push(ctx.id);
+    } else people.set(key, { id: ctx.id, ids: [ctx.id], name: ctx.label, role: ctx.role, ...(ctx.photo ? { photo: ctx.photo } : {}), screens: 1 });
+  }
+  broadcast(rundownId, { v: PROTOCOL_VERSION, t: "presence", counts, people: [...people.values()] });
 };
 
 /**
@@ -180,7 +203,7 @@ async function resolveAuth(
   auth: { kind: "session"; token: string } | { kind: "join"; code: string } | { kind: "guest"; token: string },
   rundownId: string,
   ipKey: string,
-): Promise<{ role: Role; label: string } | null> {
+): Promise<{ role: Role; label: string; userId?: string } | null> {
   if (auth.kind === "session") {
     if (auth.token && auth.token === authMod.adminToken()) return { role: "admin", label: "Admin" };
     if (authMod.isOpenAccess()) return { role: "caller", label: "Caller" };
@@ -188,7 +211,7 @@ async function resolveAuth(
     const bearer = await authMod.resolveBearer(dbHandle, auth.token);
     // An account holding the admin grant is an admin here too — the check
     // above only recognises the literal ADMIN_TOKEN string.
-    if (bearer?.kind === "admin") return { role: "admin", label: bearer.name ?? "Admin" };
+    if (bearer?.kind === "admin") return { role: "admin", label: bearer.name ?? "Admin", userId: bearer.userId };
     if (bearer?.kind === "company" && (await authMod.teamIdForRundown(dbHandle, rundownId)) === bearer.teamId)
       return { role: "caller", label: bearer.teamName };
     // User accounts: managers call, view-grants follow.
@@ -199,17 +222,17 @@ async function resolveAuth(
       });
       if (rundown) {
         if (await authMod.canManageEvent(dbHandle, bearer, rundown.eventId))
-          return { role: "caller", label: bearer.name };
+          return { role: "caller", label: bearer.name, userId: bearer.userId };
         // Edits the sheet, never drives it: the editor role the join codes
         // already know, now reachable from an account.
         if (await authMod.canEditEvent(dbHandle, bearer, rundown.eventId))
-          return { role: "editor", label: bearer.name };
+          return { role: "editor", label: bearer.name, userId: bearer.userId };
         const event = await dbHandle.db.query.events.findFirst({
           where: eq(schema.events.id, rundown.eventId),
           columns: { teamId: true },
         });
         if (event && (await authMod.canSeeEvent(dbHandle, bearer, rundown.eventId, event.teamId)))
-          return { role: "follower", label: bearer.name };
+          return { role: "follower", label: bearer.name, userId: bearer.userId };
       }
     }
     return null;
@@ -505,7 +528,16 @@ wss.on("connection", (ws, req) => {
         ws.close(CloseCodes.AUTH_FAILED, "invalid credentials");
         return;
       }
-      clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: resolved.label });
+      // A view-only link is named by what its holder typed at "Who's
+      // watching?"; an account by its own name; its photo, if it has one.
+      const typed = msg.auth.kind === "join" ? msg.viewerName?.trim().slice(0, 80) : undefined;
+      let photo: string | undefined;
+      if (resolved.userId) {
+        const u = await dbHandle.db.query.users.findFirst({ where: eq(schema.users.id, resolved.userId), columns: { imageUrl: true } });
+        if (u?.imageUrl) photo = `/users/${resolved.userId}/photo?v=${createHash("sha1").update(u.imageUrl).digest("hex").slice(0, 10)}`;
+      }
+      const connId = ulid();
+      clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo });
       // The event's location decides the timezone every clock renders in.
       const rundownRow = await dbHandle.db.query.rundowns.findFirst({
         where: eq(schema.rundowns.id, rundownId),
@@ -529,6 +561,7 @@ wss.on("connection", (ws, req) => {
         t: "welcome",
         role: resolved.role,
         userLabel: resolved.label,
+        you: connId,
         serverTimeMs: Date.now(),
         show: (await showStore.get(rundownId)).current,
         speaker: speakerFor(rundownId),

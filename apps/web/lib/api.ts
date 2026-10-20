@@ -338,7 +338,7 @@ export interface AssistantConnection {
 
 export const api = {
   events: (includeArchived = false) => request<EventSummary[]>(`/events${includeArchived ? "?archived=1" : ""}`),
-  updateMe: (body: { name?: string; email?: string }) =>
+  updateMe: (body: { name?: string; email?: string; imageUrl?: string | null }) =>
     request<{ ok: true }>("/me", { method: "PATCH", body: JSON.stringify(body) }),
   me: () =>
     request<{
@@ -350,6 +350,10 @@ export const api = {
       email?: string | null;
       canManage?: boolean;
       grants?: { kind: string; targetId: string }[];
+      /** The account's own photo (a data URL), or null. */
+      imageUrl?: string | null;
+      /** An administrator signed in with an account (so it has a photo of its own). */
+      hasAccount?: boolean;
     }>("/me"),
   login: (email: string, password: string) =>
     request<{ token: string; expiresAt: string; name: string }>("/auth/login", {

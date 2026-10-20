@@ -52,7 +52,7 @@ import {
   zoneSecondsOfDay, strikeShift, fixedTimesAfterMove,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
-import { api, setActiveJoinCode } from "../lib/api";
+import { API_URL, api, setActiveJoinCode } from "../lib/api";
 import { exportRundownPdf } from "../lib/exportPdf";
 import { projectRundownDoc, type ColumnDef, type ProjectedRow } from "@opencall/db/doc";
 import { CuePool } from "./CuePool";
@@ -84,7 +84,7 @@ import { CopyRowsPanel } from "./CopyRowsPanel";
 import { SignalsPanel } from "./SignalsPanel";
 import { SpeakerControl } from "./SpeakerMessage";
 import { RowMenu, type RowMenuEntry } from "./RowMenu";
-import { initialsOf, usePresence, type PresenceSpot } from "../lib/usePresence";
+import { usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift, startShow } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon, EmptyState } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
@@ -106,6 +106,7 @@ import { InkLayer } from "./InkLayer";
 import { formatOverUnder, INK_COLOURS, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
+import { PresenceStack } from "./PresenceStack";
 import { ConnectionLamps, type LampState } from "./ConnectionLamps";
 import { ask, askText, say, sayError } from "../lib/dialogs";
 import { CrewTabBar } from "./CrewTabBar";
@@ -5217,20 +5218,6 @@ export function RundownEditor({
           )}
         </div>
         <div className="topbar-right">
-          {peers.length > 0 && (
-            <div className="peers" aria-label={`Also here: ${peers.map((p) => p.name).join(", ")}`}>
-              {peers.slice(0, 5).map((p) => {
-                const at = p.spot ? rows.findIndex((r) => r.id === p.spot!.rowId) : -1;
-                const where = at >= 0 ? ` — ${p.spot!.columnId ? "editing" : "on"} row ${numberOf(at) || at + 1}` : "";
-                return (
-                  <span key={p.clientId} className="peer" style={{ background: p.color }} data-tip={`${p.name}${where}`}>
-                    {initialsOf(p.name)}
-                  </span>
-                );
-              })}
-              {peers.length > 5 && <span className="peer peer-more" data-tip={peers.slice(5).map((p) => p.name).join(", ")}>+{peers.length - 5}</span>}
-            </div>
-          )}
           <LiveReadouts
             live={live}
             use24h={meta.use24h}
@@ -5265,7 +5252,26 @@ export function RundownEditor({
                   ? "Show: connecting the live link."
                   : "Show: the live link has dropped. It reconnects by itself.";
             return (
-              <>
+              // One group with its own place in the corner — faces, then the
+              // lights with any warning words under them. Left to flow, the
+              // faces took the lights' cell and pushed them a row down (20 Oct).
+              <div className="status-cluster">
+              {/* Who is here, as faces (20 Oct) — everyone on the sheet's live
+                  link, crew on view-only links included, by account photo or
+                  initials. The sheet's own cursors say where the people editing
+                  it are. */}
+              <PresenceStack
+                people={channel.people}
+                me={channel.me}
+                photoBase={API_URL}
+                max={isPhone ? 3 : 4}
+                whereOf={(name) => {
+                  const p = peers.find((x) => x.name === name);
+                  const at = p?.spot ? rows.findIndex((r) => r.id === p.spot!.rowId) : -1;
+                  return at >= 0 ? `${p!.spot!.columnId ? "editing" : "on"} row ${numberOf(at) || at + 1}` : null;
+                }}
+              />
+                <div className="lamp-block">
                 <ConnectionLamps
                   sheet={sheetLamp}
                   show={showLamp}
@@ -5284,7 +5290,8 @@ export function RundownEditor({
                     Show link reconnecting…
                   </span>
                 )}
-              </>
+                </div>
+              </div>
             );
           })()}
           <HeaderClock use24h={meta.use24h} timeZone={channel.timezone} />

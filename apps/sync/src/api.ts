@@ -706,14 +706,20 @@ export function createApiHandler(
           return true;
         }
         if (!ctx) json(res, 200, { role: null });
-        else if (ctx.kind === "admin") json(res, 200, { role: "admin", name: ctx.name });
+        else if (ctx.kind === "admin") {
+          // An account holding the admin grant has a photo like anyone else.
+          const row = ctx.userId ? await db.query.users.findFirst({ where: eq(schema.users.id, ctx.userId), columns: { imageUrl: true } }) : null;
+          json(res, 200, { role: "admin", name: ctx.name, ...(ctx.userId ? { hasAccount: true, imageUrl: row?.imageUrl ?? null } : {}) });
+        }
         else if (ctx.kind === "company") json(res, 200, { role: "company", teamId: ctx.teamId, teamName: ctx.teamName });
         else if (ctx.kind === "user") {
-          const row = await db.query.users.findFirst({ where: eq(schema.users.id, ctx.userId), columns: { email: true } });
+          const row = await db.query.users.findFirst({ where: eq(schema.users.id, ctx.userId), columns: { email: true, imageUrl: true } });
           json(res, 200, {
             role: "user",
             name: ctx.name,
             email: row?.email ?? null,
+            // The photo itself, for the account page's preview (the person's own).
+            imageUrl: row?.imageUrl ?? null,
             grants: ctx.grants,
             canManage: ctx.grants.some((g) => g.kind !== "view" && g.kind !== "company_view"),
           });
@@ -721,9 +727,45 @@ export function createApiHandler(
         return true;
       }
 
+      /**
+       * An account's photo, for the faces on a sheet (20 Oct). Public by its
+       * id, as profile pictures are: the id is unguessable, the picture is one
+       * the person chose to show to everyone on their sheets, and an <img> can't
+       * carry a sign-in. Cached for a day; the `?v=` the server hands out
+       * changes with the picture, so a new one shows at once.
+       */
+      if (req.method === "GET" && /^\/users\/[^/]+\/photo$/.test(pathname)) {
+        const id = pathname.split("/")[2]!;
+        const row = await db.query.users.findFirst({ where: eq(schema.users.id, id), columns: { imageUrl: true } });
+        const m = row?.imageUrl ? /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(row.imageUrl) : null;
+        if (!m) {
+          json(res, 404, { error: "No photo." });
+          return true;
+        }
+        res.setHeader("content-type", m[1]!);
+        res.setHeader("cache-control", "public, max-age=86400");
+        res.setHeader("cross-origin-resource-policy", "cross-origin");
+        res.end(Buffer.from(m[2]!, "base64"));
+        return true;
+      }
+
       // Self-service profile for account sign-ins (token sign-ins have none).
       if (req.method === "PATCH" && pathname === "/me") {
         const ctx = await resolveBearer(handle, bearerToken(req));
+        // An administrator's ACCOUNT may set its own photo (and only that):
+        // its name and email are managed on Users & access.
+        if (ctx?.kind === "admin" && ctx.userId) {
+          const body = await readJson(req);
+          if (body.imageUrl === null) await db.update(schema.users).set({ imageUrl: null }).where(eq(schema.users.id, ctx.userId));
+          else if (typeof body.imageUrl === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(body.imageUrl) && body.imageUrl.length <= 300_000)
+            await db.update(schema.users).set({ imageUrl: body.imageUrl }).where(eq(schema.users.id, ctx.userId));
+          else {
+            json(res, 400, { error: "That picture can't be used. Choose a PNG or JPEG photo." });
+            return true;
+          }
+          json(res, 200, { ok: true });
+          return true;
+        }
         if (ctx?.kind !== "user") {
           json(res, 400, { error: "Only people who sign in with an email and password can change their details here." });
           return true;
@@ -732,6 +774,16 @@ export function createApiHandler(
         const patch: Record<string, unknown> = {};
         if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim().slice(0, 120);
         if (typeof body.email === "string" && /.+@.+\..+/.test(body.email.trim())) patch.email = body.email.trim().toLowerCase();
+        // Their photo (20 Oct): a small picture, as the page made it (160px PNG
+        // or JPEG), or null to remove it. Shown on every sheet they open.
+        if (body.imageUrl === null) patch.imageUrl = null;
+        else if (body.imageUrl !== undefined) {
+          if (typeof body.imageUrl !== "string" || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(body.imageUrl) || body.imageUrl.length > 300_000) {
+            json(res, 400, { error: "That picture can't be used. Choose a PNG or JPEG photo." });
+            return true;
+          }
+          patch.imageUrl = body.imageUrl;
+        }
         try {
           if (Object.keys(patch).length > 0) await db.update(schema.users).set(patch).where(eq(schema.users.id, ctx.userId));
         } catch {

@@ -31,6 +31,8 @@ export const HelloMsg = z.object({
   ]),
   device: z.enum(["console", "companion"]),
   lastSeq: z.number().int().nonnegative().optional(),
+  /** What a view-only link's holder typed at "Who's watching?" — names them in presence (additive). */
+  viewerName: z.string().max(80).optional(),
 });
 
 export const PingMsg = z.object({ ...envelope, t: z.literal("ping"), t0: z.number() });
@@ -138,6 +140,8 @@ export const WelcomeMsg = z.object({
    * because one match day can run two sports off two sheets).
    */
   sport: z.string().optional(),
+  /** This connection's id, as it appears in presence `people` — so a screen can leave itself out (additive). */
+  you: z.string().optional(),
   /** The two teams' images (data URLs), per sheet: home and away. Additive. */
   homeImage: z.string().nullable().optional(),
   awayImage: z.string().nullable().optional(),
@@ -189,11 +193,28 @@ export const DocProjectionMsg = z.object({
   ),
 });
 
+/** One person on the sheet, for the faces at the top right (additive). */
+export const PresencePerson = z.object({
+  /** The connection's id; the same person on two screens appears once, under their first. */
+  id: z.string(),
+  name: z.string(),
+  role: Role,
+  /** Path on the sync server to their photo, when an account has one ("/users/…/photo?v=…"). */
+  photo: z.string().optional(),
+  /** How many screens they have it open on. */
+  screens: z.number().int().positive(),
+  /** Every one of those screens' connection ids — a screen leaves out the person it is one of. */
+  ids: z.array(z.string()).optional(),
+});
+export type PresencePerson = z.infer<typeof PresencePerson>;
+
 export const PresenceMsg = z.object({
   ...envelope,
   t: z.literal("presence"),
   // Partial: only the roles somebody is connected as are counted.
   counts: z.partialRecord(Role, z.number().int().nonnegative()),
+  /** Who, by name — one entry per person (additive). */
+  people: z.array(PresencePerson).optional(),
 });
 
 /** The message on screen now, or none (additive v1.8). */

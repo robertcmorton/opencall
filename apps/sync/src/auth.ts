@@ -148,7 +148,7 @@ export interface UserGrant {
 export type AuthCtx =
   // `name` is present when the admin is a signed-in ACCOUNT rather than the
   // bare ADMIN_TOKEN, so screens can say who is on the channel.
-  | { kind: "admin"; name?: string }
+  | { kind: "admin"; name?: string; /** Set when an account holds the admin grant — for its photo. */ userId?: string }
   | { kind: "company"; teamId: string; teamName: string }
   | { kind: "user"; userId: string; name: string; grants: UserGrant[] }
   | { kind: "code"; role: "caller" | "editor" | "follower"; rundownId: string }
@@ -204,7 +204,7 @@ export async function resolveBearer(handle: DbHandle, token: string | null): Pro
   }
   if (user) {
     const grants = await handle.db.query.userGrants.findMany({ where: eq(schema.userGrants.userId, user.id) });
-    if (grants.some((g) => g.kind === "admin")) return { kind: "admin", name: user.name };
+    if (grants.some((g) => g.kind === "admin")) return { kind: "admin", name: user.name, userId: user.id };
     return {
       kind: "user",
       userId: user.id,

@@ -14,7 +14,8 @@
     "typecheck": "turbo run typecheck",
     "prepare": "git config core.hooksPath .githooks || true",
     "test:security": "bash scripts/security-check.sh",
-    "test:layout": "bash scripts/layout-check.sh"
+    "test:layout": "bash scripts/layout-check.sh",
+    "test:bars": "node apps/web/scripts/bar-timing.mts"
   },
   "devDependencies": {
     "turbo": "^2.11.6",

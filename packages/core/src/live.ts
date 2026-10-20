@@ -1301,3 +1301,31 @@ export function clockLinedUp(input: {
   if (activeRowId && clockRowId) return activeRowId === clockRowId;
   return !activeRowId && !clockRowId && untilShowSec != null;
 }
+
+/**
+ * The windows rows are "on" in while a show is live (20 Oct).
+ *
+ * A row the show cues is on from the moment it was ACTUALLY cued, for its
+ * length — not from its printed start, which on a show called by hand or
+ * running behind ended its bar early by however late it was cued; and not at
+ * all before it is cued. Rows running alongside the show (and headings) are
+ * never cued and keep their printed window.
+ *
+ * `cuedAt`: row id → when it went on air, on the sheet's own scale.
+ */
+export function cueWindows(
+  rows: readonly { id: string; type: string; parallel?: boolean }[],
+  timing: PlanTiming,
+  cuedAt: ReadonlyMap<string, number>,
+): PlanTiming {
+  return {
+    ...timing,
+    rows: timing.rows.map((t, i) => {
+      const r = rows[i];
+      if (!r || r.parallel || r.type === "group") return t;
+      const start = cuedAt.get(r.id);
+      if (start == null) return { ...t, startSec: null, endSec: null };
+      return { ...t, startSec: start, endSec: start + t.effectiveDurationSec };
+    }),
+  };
+}

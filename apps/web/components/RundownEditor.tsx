@@ -49,7 +49,7 @@ import {
   parseTimeOfDay,
   serializeCsv,
   startEditKind,
-  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalAtNextFixed, lateLevel, trimOptions,
+  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalAtNextFixed, lateLevel, trimOptions, cueWindows, type PlanTiming,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -1925,7 +1925,39 @@ export function RundownEditor({
       );
     }
   }
-  const onNowIds = new Set(nowAbsSec == null ? [] : rowsOnAt(rows, timing, nowAbsSec));
+  /**
+   * When each row ACTUALLY went on air this show (20 Oct).
+   *
+   * A row's bar, once the next row has taken over, was timed from its PRINTED
+   * start. On a show called by hand, or running behind, a row cued ten seconds
+   * late had its bar finish ten seconds early — Robert: "multiple rows running
+   * simultaneously … some end early". And a row the clock said should be on,
+   * but nobody had cued, showed a bar for something not yet happening.
+   * Measured on a hand-called test sheet: Crowd cam cued at 40 s (60 s long)
+   * showed a bar from 30 s and lost it at 90 s.
+   *
+   * So while a show is live, a row the show cues is "on" from the moment it was
+   * cued, for its length — and not at all before. Rows running alongside the
+   * show are never cued and keep their printed window. Remembered here as the
+   * show reaches each row (the show state carries the cue's real start); a
+   * reload forgets the earlier ones, which only matters for a bar still
+   * running at that moment.
+   */
+  const cuedAt = useRef<{ session: string | null; at: Map<string, number> }>({ session: null, at: new Map() });
+  {
+    const sess = channel.show?.sessionId ?? null;
+    if (cuedAt.current.session !== sess) cuedAt.current = { session: sess, at: new Map() };
+    const startedMs = channel.show?.activeRowStartedAtMs;
+    if (activeRowId && startedMs != null) cuedAt.current.at.set(activeRowId, startedMs);
+  }
+  const nowTiming: PlanTiming = !showLive
+    ? timing
+    : cueWindows(
+        rows,
+        timing,
+        new Map([...cuedAt.current.at].map(([id, ms]) => [id, absoluteNow(zoneSecondsOfDay(ms, channel.timezone), timing)])),
+      );
+  const onNowIds = new Set(nowAbsSec == null ? [] : rowsOnAt(rows, nowTiming, nowAbsSec));
   /**
    * Re-read the clock the moment a row's window opens or closes.
    *
@@ -1943,9 +1975,15 @@ export function RundownEditor({
    */
   const nextEdgeAtMs = (() => {
     if (!showLive || nowAbsSec == null || nowMs == null) return null;
-    const next = nextWindowEdge(timing.rows, nowAbsSec);
+    const next = nextWindowEdge(nowTiming.rows, nowAbsSec);
     return next == null ? null : nowMs + (next - nowAbsSec) * 1000;
   })();
+  // And at every handover: the row just handed over keeps its bar alongside
+  // the new cue, and starting it from a clock reading up to 15 s old would
+  // put that bar behind by as much (20 Oct).
+  useEffect(() => {
+    if (activeRowId) readNow();
+  }, [activeRowId]);
   const msUntil = useEffectEvent((atMs: number) => atMs - channel.serverNow());
   useEffect(() => {
     if (nextEdgeAtMs == null) return;
@@ -1992,7 +2030,7 @@ export function RundownEditor({
   const clockFrac = (id: string): number | null => {
     if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
-    const t = i >= 0 ? timing.rows[i] : null;
+    const t = i >= 0 ? nowTiming.rows[i] : null;
     // `== null`, not falsy: a row at midnight starts at 0 and still has a bar.
     if (t?.startSec == null || t.endSec == null || t.endSec <= t.startSec) return null;
     return Math.min(1, Math.max(0, (nowAbsSec - t.startSec) / (t.endSec - t.startSec)));
@@ -2001,7 +2039,7 @@ export function RundownEditor({
   const clockSweep = (id: string): { key: string; durationMs: number; elapsedMs: number } | null => {
     if (nowAbsSec == null) return null;
     const i = rows.findIndex((r) => r.id === id);
-    const t = i >= 0 ? timing.rows[i] : null;
+    const t = i >= 0 ? nowTiming.rows[i] : null;
     // `== null`, not falsy: a row at midnight starts at 0 and still has a bar.
     if (t?.startSec == null || t.endSec == null || t.endSec <= t.startSec) return null;
     return { key: id, durationMs: (t.endSec - t.startSec) * 1000, elapsedMs: (nowAbsSec - t.startSec) * 1000 };

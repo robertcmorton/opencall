@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Fixed
+- **Bars on overlapping rows end at the right time.** When rows run at the same time, a row's bar was timed from its printed start once the next row took over — so on a show called by hand, or running behind, a row cued ten seconds late lost its bar ten seconds early, and a row nobody had cued yet could show a bar for something not happening. Now a row's bar runs from the moment it was actually cued, for its length, and only once it's cued; rows running alongside the show (pre-records) still follow their printed times. The bar is also re-timed at every handover, so the one handed over doesn't start from an old clock reading. A new check, `pnpm test:bars`, plays two short shows — one driven by the clock, one called by hand and late — and fails if any bar starts or ends more than a second out.
+
 ### Changed
 - **The dashboard is rows again.** Shows sit one per row under their event, as before the cards — the cards made a desktop screen look unbalanced. Each row keeps a quiet line under the show's name with its start, length and end, how many rows it has, when it was last changed and how its last show ran.
 - **The timing check is short and has a Recommended button.** Each problem is now one sentence — "The rows before "Anthem" run 1:40 past its 7:10 PM start." — with one blue button marked **Recommended** that keeps the printed times as they are: it shortens or lengthens the item before, counts a block that covers the rows under it once, or leaves a bigger gap as a deliberate wait. The other ways are folded under **Other ways to fix it**, and **Fix all … the recommended way** sorts every problem in one go (one Undo takes them all back).

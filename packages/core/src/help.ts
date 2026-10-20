@@ -706,7 +706,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Finds places where the sheet's times and lengths do not add up, and helps you fix them.",
         steps: [
           "If there are any, an amber **timing gaps — Reconcile** button appears in the toolbar. Press it.",
-          "Each problem is one sentence — for example “The rows before “Anthem” run 1:40 past its 7:10 PM start.”",
+          "Each problem is one sentence — for example “The rows before “Anthem” run 1:40 past its 7:10 PM start.” — with a picture under it: the rows as blocks, the printed time as an upright line, and the part that runs past it in red (or the empty time before it in amber).",
           "Press the blue **Recommended** button. It keeps the printed times as they are: it shortens or lengthens the item before, or leaves a bigger gap as a deliberate wait. **Other ways to fix it** has the rest.",
           "Several to sort out? **Fix all … the recommended way** does every one.",
         ],

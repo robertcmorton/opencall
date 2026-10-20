@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import * as Y from "yjs";
 import { findTimingGaps, fixAllRecommended, fixChanges, fixChoices, formatDuration, formatTimeOfDay, type PlanTiming, type TimingFix, type TimingGap } from "@opencall/core";
 import { say } from "../lib/dialogs";
+import { TimingPicture } from "./TimingPicture";
 
 export { findTimingGaps, type TimingGap };
 import type { ProjectedRow } from "@opencall/db/doc";
@@ -184,6 +185,7 @@ export function ReconcilePanel({
       </div>
 
       <p className="rc-problem">{problem}</p>
+      <TimingPicture rows={rows} gap={current} use24h={use24h} />
 
       <div className="rc-recommended">
         <button className="btn btn-primary" onClick={() => apply(choices.recommended)}>

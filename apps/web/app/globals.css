@@ -6757,3 +6757,64 @@ a > svg,
   gap: var(--space-3);
   flex-wrap: wrap;
 }
+
+/* The timing check's picture (20 Oct). */
+.timing-picture {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.timing-picture svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.tp-block {
+  fill: color-mix(in srgb, var(--accent, #4c8dff) 22%, transparent);
+  stroke: color-mix(in srgb, var(--accent, #4c8dff) 55%, transparent);
+  stroke-width: 1;
+}
+.tp-next {
+  fill: color-mix(in srgb, var(--text-3) 18%, transparent);
+  stroke: var(--text-3);
+  stroke-dasharray: 3 3;
+}
+.tp-over {
+  fill: color-mix(in srgb, var(--over) 30%, transparent);
+  stroke: var(--over);
+  stroke-width: 1.5;
+}
+.tp-gap {
+  fill: color-mix(in srgb, var(--warn) 18%, transparent);
+  stroke: var(--warn);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.tp-line {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.tp-label {
+  fill: var(--text);
+  font-size: 12px;
+}
+.tp-next-label {
+  fill: var(--text-2);
+}
+.tp-time {
+  fill: var(--text-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tp-amount {
+  font-size: 12px;
+  font-weight: 700;
+}
+.tp-amount-over {
+  fill: var(--over);
+}
+.tp-amount-gap {
+  fill: var(--warn);
+}

@@ -250,7 +250,7 @@ export const SECTIONS: HelpSection[] = [
           "Fix anything listed as unreadable — each one sits in its own box with a suggestion.",
           "Give the show a name, choose what kind of show it is, and press **Import**.",
         ],
-        good: "Double-click a column heading in the preview to rename it, or drag it to move it. If the column names came from the wrong line, change **Header row**.",
+        good: "Double-click a column heading in the preview to rename it, or drag it to move it. If the column names came from the wrong line, change **Header row**. If a PDF has the two team logos on it, they appear above the preview under **Team logos found on this sheet** — press ⇄ to swap home and away, or untick **Use them** to leave them out.",
       },
       {
         id: "reimport",

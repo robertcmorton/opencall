@@ -236,6 +236,9 @@ export function ImportPanel({
   // Text the source set in ITALIC — how a run sheet marks words to be read
   // aloud. Kept in state because rows are re-classified as cells are fixed.
   const [italicText, setItalicText] = useState<string[] | undefined>(undefined);
+  /** The two team logos found on a PDF, and the person's say on them (20 Oct). */
+  const [logos, setLogos] = useState<{ home: string; away: string } | null>(null);
+  const [useLogos, setUseLogos] = useState(true);
   const [isPdf, setIsPdf] = useState(false);
   const [grid, setGrid] = useState<string[][] | null>(null);
   const [headerIndex, setHeaderIndex] = useState(0);
@@ -399,7 +402,10 @@ export function ImportPanel({
     setBusy(true);
     try {
       const pdf = /\.pdf$/i.test(file.name);
-      const { grid: extracted, widths: extractedWidths, lineMeta: meta, rowLines: rules, italicText: italics } = await extractGrid(file);
+      const { grid: extracted, widths: extractedWidths, lineMeta: meta, rowLines: rules, italicText: italics, logos: found } = await extractGrid(file);
+      setLogos(found ?? null);
+      // Updating a show that may already have logos someone chose: ask, don't assume.
+      setUseLogos(!replaceRundown);
       setRawGrid(extracted);
       setLineMeta(meta);
       setRowLines(rules);
@@ -522,6 +528,11 @@ export function ImportPanel({
           : api
               .createRundown({ eventId, name: name.trim() || "Imported show", sport: type, ...payload })
               .then(({ id }) => id),
+      )
+      .then((id) =>
+        // The logos go on afterwards, through the same door as picking them by
+        // hand on the dashboard — so a failure here never loses the import.
+        useLogos && logos ? api.patchRundown(id, { homeImage: logos.home, awayImage: logos.away }).then(() => id, () => id) : id,
       )
       .then((id) => onDone(id))
       .catch((err) => {
@@ -676,6 +687,42 @@ export function ImportPanel({
               <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
                 Check the Header row number and the column choices below. You can still import it.
               </span>
+            </div>
+          )}
+          {logos && (
+            <div className={`panel import-logos ${useLogos ? "" : "is-off"}`}>
+              <div className="il-pair">
+                <figure className="il-logo">
+                  <span className="il-tile">
+                    <img src={logos.home} alt="Home team logo" />
+                  </span>
+                  <figcaption>Home</figcaption>
+                </figure>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost il-swap"
+                  aria-label="Swap home and away"
+                  data-tip="Swap home and away"
+                  disabled={!useLogos}
+                  onClick={() => setLogos({ home: logos.away, away: logos.home })}
+                >
+                  ⇄
+                </button>
+                <figure className="il-logo">
+                  <span className="il-tile">
+                    <img src={logos.away} alt="Away team logo" />
+                  </span>
+                  <figcaption>Away</figcaption>
+                </figure>
+              </div>
+              <div className="il-text">
+                <strong>Team logos found on this sheet</strong>
+                <span>They go on the show&rsquo;s card on the dashboard. The left one is taken as home — swap them if not.</span>
+                <label className="il-use">
+                  <input type="checkbox" checked={useLogos} onChange={(e) => setUseLogos(e.target.checked)} />
+                  {replaceRundown ? "Replace the show’s team logos with these" : "Use them"}
+                </label>
+              </div>
             </div>
           )}
           <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", flexWrap: "wrap" }}>

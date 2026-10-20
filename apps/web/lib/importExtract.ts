@@ -1,6 +1,7 @@
 "use client";
 
 import { parseCsv } from "@opencall/core";
+import { pickTeamLogos, type LogoPair, type PlacedImage } from "./teamLogos";
 
 /**
  * File → text grid extraction for the import pipeline. All parsing semantics
@@ -23,6 +24,13 @@ export interface ExtractedSheet {
    * presenter reads aloud, so this is what tells script apart from cue text.
    */
   italicText?: string[];
+  /**
+   * PDF only: the two team logos, if the sheet carries a pair (see teamLogos.ts),
+   * as small PNG data URLs — left one first. Only in a browser, which can draw
+   * them; `logoPlacements` says where they were found either way.
+   */
+  logos?: { home: string; away: string } | null;
+  logoPlacements?: LogoPair | null;
 }
 
 /**
@@ -32,6 +40,77 @@ export interface ExtractedSheet {
  * one copy of the engine.
  */
 export type PdfjsLoader = () => Promise<typeof import("pdfjs-dist")>;
+
+/** Every picture drawn on a page, and where — for finding the team logos. */
+async function collectImages(
+  page: { getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[] }> },
+  OPS: Record<string, number>,
+  pageIndex: number,
+): Promise<PlacedImage[]> {
+  const { fnArray, argsArray } = await page.getOperatorList();
+  const out: PlacedImage[] = [];
+  let ctm: Matrix = [1, 0, 0, 1, 0, 0];
+  const stack: Matrix[] = [];
+  for (let i = 0; i < fnArray.length; i++) {
+    const fn = fnArray[i];
+    if (fn === OPS.save) stack.push(ctm);
+    else if (fn === OPS.restore) ctm = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+    else if (fn === OPS.transform) ctm = matMul(ctm, argsArray[i] as Matrix);
+    else if (fn === OPS.paintImageXObject) {
+      const id = (argsArray[i] as unknown[])?.[0];
+      if (typeof id !== "string") continue;
+      // An image is drawn into the unit square, so the matrix IS its box.
+      const [x0, y0] = matApply(ctm, 0, 0);
+      const [x1, y1] = matApply(ctm, 1, 1);
+      out.push({ id, page: pageIndex, x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) });
+    }
+  }
+  return out;
+}
+
+/**
+ * A picture the PDF engine has decoded, as a small PNG — at most 256px on its
+ * longer side, which is plenty for a logo shown at 64px and keeps the sheet
+ * record small. Null when it can't be drawn (no canvas, or an unknown form).
+ */
+async function imageToPng(page: unknown, id: string): Promise<string | null> {
+  if (typeof document === "undefined") return null;
+  const objs = (page as { objs: { get: (k: string, cb?: (v: unknown) => void) => unknown } }).objs;
+  const img = await new Promise<Record<string, unknown> | null>((resolve) => {
+    try {
+      objs.get(id, (v) => resolve(v as Record<string, unknown>));
+    } catch {
+      resolve(null);
+    }
+    setTimeout(() => resolve(null), 3000);
+  });
+  if (!img) return null;
+  const width = Number(img.width);
+  const height = Number(img.height);
+  if (!(width > 0 && height > 0)) return null;
+  const src = document.createElement("canvas");
+  src.width = width;
+  src.height = height;
+  const ctx = src.getContext("2d");
+  if (!ctx) return null;
+  if (img.bitmap) ctx.drawImage(img.bitmap as CanvasImageSource, 0, 0);
+  else if (img.data) {
+    const data = img.data as Uint8ClampedArray;
+    const rgba = new Uint8ClampedArray(width * height * 4);
+    const px = width * height;
+    if (data.length === px * 4) rgba.set(data);
+    else if (data.length === px * 3) for (let i = 0; i < px; i++) rgba.set([data[i * 3]!, data[i * 3 + 1]!, data[i * 3 + 2]!, 255], i * 4);
+    else if (data.length === px) for (let i = 0; i < px; i++) rgba.set([data[i]!, data[i]!, data[i]!, 255], i * 4);
+    else return null;
+    ctx.putImageData(new ImageData(rgba, width, height), 0, 0);
+  } else return null;
+  const scale = Math.min(1, 256 / Math.max(width, height));
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(width * scale));
+  out.height = Math.max(1, Math.round(height * scale));
+  out.getContext("2d")?.drawImage(src, 0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
 
 export async function extractGrid(file: File, pdfjsLoader?: PdfjsLoader): Promise<ExtractedSheet> {
   const name = file.name.toLowerCase();
@@ -226,8 +305,20 @@ async function extractPdf(buffer: ArrayBuffer, loader?: PdfjsLoader): Promise<Ex
   // Font id → is it an italic face. Resolving a font requires its operator
   // list to have run, which also gives us the ruled lines, so both happen here.
   const italicFonts = new Map<string, boolean>();
+  const images: PlacedImage[] = [];
+  let firstPage: unknown = null;
+  let pageWidth = 595;
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
+    if (p === 1) {
+      firstPage = page;
+      pageWidth = (page as unknown as { view?: number[] }).view?.[2] ?? pageWidth;
+    }
+    try {
+      images.push(...(await collectImages(page, pdfjs.OPS as unknown as Record<string, number>, p - 1)));
+    } catch {
+      // No pictures found is the common case; nothing depends on it.
+    }
     let rules: { ys: number[]; xs: number[] } | null = null;
     try {
       rules = await extractRules(page, pdfjs.OPS as unknown as Record<string, number>);
@@ -411,5 +502,11 @@ async function extractPdf(buffer: ArrayBuffer, loader?: PdfjsLoader): Promise<Ex
     const next = spans[i + 1];
     return next != null ? Math.round((next - x) * 1.25) : null;
   });
-  return { grid, widths, lineMeta, rowLines, italicText: [...italicText] };
+  const logoPlacements = pickTeamLogos(images, doc.numPages, pageWidth);
+  let logos: { home: string; away: string } | null = null;
+  if (logoPlacements && firstPage) {
+    const [home, away] = await Promise.all([imageToPng(firstPage, logoPlacements.home.id), imageToPng(firstPage, logoPlacements.away.id)]);
+    if (home && away) logos = { home, away };
+  }
+  return { grid, widths, lineMeta, rowLines, italicText: [...italicText], logos, logoPlacements };
 }

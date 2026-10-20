@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **Team logos come in with the run sheet.** When a PDF run sheet has the two team logos on its first page — one either side of the title, as most fixture sheets do — the import screen finds them and shows them as **Home** and **Away** under **Team logos found on this sheet**. Press ⇄ to swap them, or untick **Use them**; imported, they go on the show's card on the dashboard. Sponsor banners and the small icons some sheets repeat on every row are left alone, and so is a single club logo drawn on both sides of the title. When you update an existing show from a new file, it asks before replacing logos you chose.
+
 ## [0.39.0] — 2026-10-20
 
 ### Added

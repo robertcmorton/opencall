@@ -5132,16 +5132,32 @@ export function RundownEditor({
                             was here, and read as a count; crew follow the blue
                             highlight on the row itself, which every screen
                             shows. The row and the step count are in the tip. */}
-                        <span
-                          className={`chip ${at >= 0 ? "is-on" : ""}`}
+                        {/* The label is also the switch (20 Oct, Robert: "remove end
+                            walkthrough"): tap to start at the first row, tap
+                            again while it is lit to end it. The separate End
+                            walkthrough button took a sixth slot in this box —
+                            the reason Prev and Next lost their words on a
+                            laptop. Starting the show ends it too, and End
+                            walkthrough is still in the row menu and ⌘K. */}
+                        <button
+                          type="button"
+                          className={`chip chip-btn ${at >= 0 ? "is-on" : ""}`}
+                          aria-pressed={at >= 0}
+                          aria-label={at >= 0 ? "End walkthrough" : "Start the walkthrough"}
+                          disabled={at < 0 && walkable.length === 0}
                           data-tip={
                             at >= 0
-                              ? `A practice run: every screen highlights row ${label} (step ${at + 1} of ${walkable.length}). Prev and Next move it.`
-                              : "A practice run before the show: Next starts it, and every screen highlights the same row"
+                              ? `A practice run: every screen highlights row ${label} (step ${at + 1} of ${walkable.length}). Prev and Next move it. Tap here to end it.`
+                              : "A practice run before the show: tap to start, and every screen highlights the same row"
                           }
+                          onClick={() => {
+                            if (at >= 0) return channel.sendCmd("walk");
+                            setFollowScroll(true);
+                            channel.sendCmd("walk", walkable[0]!.id);
+                          }}
                         >
                           Walkthrough
-                        </span>
+                        </button>
                         {/* Labels drop to arrows on a laptop-width screen (see
                             .btn-label): six controls in this box wrapped onto
                             two lines at 1024px (6 Oct). The words stay as the
@@ -5174,12 +5190,6 @@ export function RundownEditor({
                         >
                           <span className="btn-label">Next</span> {Icon.next}
                         </button>
-                        {walkRowId && (
-                          <button className="btn btn-ghost" aria-label="End walkthrough" data-tip="End the walkthrough: clears the highlight on every screen" onClick={() => channel.sendCmd("walk")}>
-                            {Icon.close}
-                            <span className="btn-label">End walkthrough</span>
-                          </button>
-                        )}
                       </>
                     );
                   })()}

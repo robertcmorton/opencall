@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
 import { type SpeakerMessage,
   PROTOCOL_VERSION,
@@ -33,6 +33,8 @@ const CHANNEL_STALE_MS = 40_000;
 
 export interface ShowChannel {
   connected: boolean;
+  /** Be told each time anything arrives on the link (heartbeats included); returns the unsubscribe. For the Show light's flash. */
+  onActivity: (fn: () => void) => () => void;
   /**
    * True once the server's clock has actually been measured, rather than
    * assumed to match this device's. Screens that draw times should wait for it:
@@ -135,6 +137,11 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const welcomedRef = useRef(false);
   /** When the server was last heard from — any frame, heartbeats included. */
   const lastHeardRef = useRef(Date.now());
+  const activityRef = useRef(new Set<() => void>());
+  const onActivity = useCallback((fn: () => void) => {
+    activityRef.current.add(fn);
+    return () => void activityRef.current.delete(fn);
+  }, []);
   const pendingRef = useRef<{ frame: string; at: number }[]>([]);
   const flushPending = () => {
     const ws = wsRef.current;
@@ -187,6 +194,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         // Anything at all counts as proof of life, including the server's
         // heartbeat, which is otherwise ignored below.
         lastHeardRef.current = Date.now();
+        for (const fn of activityRef.current) fn();
         const msg = JSON.parse(String(event.data));
         if (msg.v !== PROTOCOL_VERSION) return;
         switch (msg.t) {
@@ -318,6 +326,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
 
   return {
     connected,
+    onActivity,
     clockReady,
     role,
     userLabel,

@@ -297,7 +297,12 @@ async function* viewStates(page: Page): AsyncGenerator<string> {
   await notes.click();
 }
 
-const browser = await chromium.launch({ channel: "chrome" });
+// AUDIT_BROWSER=bundled uses Playwright's own Chromium. Installed Chrome is
+// the default (it is what CI has), but a Chrome with an update waiting to
+// restart quit under the check three runs in a row on 20 Oct.
+const browser = await chromium.launch(process.env.AUDIT_BROWSER === "bundled" ? {} : { channel: "chrome" });
+browser.on("disconnected", () => console.log("    !! the browser itself went away"));
+const browserClosedNote = (_: string) => undefined;
 /** A crew link asks who is watching first; answer it, or the sheet behind is never measured. */
 const NAMED = "localStorage.setItem('oc:viewer:name', 'Layout check')";
 let failures = 0;
@@ -305,6 +310,10 @@ for (const size of SIZES) {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, hasTouch: size.touch, isMobile: size.width < 600 });
   await context.addInitScript(NAMED);
   const page = await context.newPage();
+  // A crashed tab or browser is a finding, not a mystery "page closed".
+  page.on("crash", () => console.log(`    !! the page crashed (${size.name}, ${page.url()})`));
+  context.on("close", () => console.log(`    !! the browser context closed (${size.name})`));
+  browserClosedNote(size.name);
   for (const path of PAGES) {
     await page.goto(base + path, { waitUntil: "networkidle" });
     await page.waitForTimeout(800);

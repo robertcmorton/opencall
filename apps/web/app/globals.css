@@ -4749,6 +4749,24 @@ th.col-drop-target {
 button.played-tick {
   cursor: pointer;
 }
+/* A fingertip's 44px on a touch screen without growing the row: an invisible
+   hit area around the 15px tick and its Confirm (20 Oct, layout check). */
+@media (pointer: coarse) {
+  button.played-tick,
+  .played-confirm {
+    position: relative;
+  }
+  button.played-tick::before {
+    content: "";
+    position: absolute;
+    inset: -15px;
+  }
+  .played-confirm::before {
+    content: "";
+    position: absolute;
+    inset: -13px -6px;
+  }
+}
 button.played-tick:hover,
 button.played-tick.armed {
   outline: 1px solid var(--border-strong, var(--border));
@@ -5989,16 +6007,47 @@ a > svg,
   white-space: nowrap;
   color: var(--text-2);
 }
-.save-status.is-ok {
-  color: var(--under);
-}
-.save-status.is-pending,
 .save-status.is-offline {
   color: var(--warn);
   background: var(--warn-soft);
 }
-.save-status.is-connecting {
+
+/* ── Sheet and Show lights (20 Oct) ─────────────────────────────────────────
+   Small labelled dots: green up, amber saving, red down, grey connecting.
+   The flash on arriving data is a Web Animation from ConnectionLamps.tsx. */
+.conn-lamps {
+  /* Stacked, Sheet over Show (20 Oct, Robert) — as the old lamps were. */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: nowrap;
+}
+.conn-lamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
   color: var(--text-3);
+}
+.conn-lamp.is-ok .conn-dot {
+  color: var(--under);
+}
+.conn-lamp.is-pending .conn-dot {
+  color: var(--warn);
+}
+.conn-lamp.is-offline .conn-dot {
+  color: var(--over);
+}
+.conn-lamp.is-offline {
+  color: var(--over);
 }
 
 /* EmptyState (6 Oct): one shape for every empty place. */

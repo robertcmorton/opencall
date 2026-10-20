@@ -533,9 +533,9 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "saving",
-        name: "Saving… and Offline",
-        forWhat: "Tells you when your changes have not reached the server yet.",
-        how: "Nothing to press. An amber **Saving…** appears while changes are on their way. **Offline · changes kept here** means the connection has dropped — your changes wait on this device and go when it comes back.",
+        name: "The Sheet and Show lights",
+        forWhat: "Tell you the sheet and the live show are connected, and that data is coming through.",
+        how: "Nothing to press. Top right, two lights: **Sheet** (your changes and everyone else's) and **Show** (Start, Next and the clock). Green means connected, and each gives a quick flash when something comes in. **Sheet** goes amber for a moment while a change is on its way. Red means that link has dropped — words appear beside it too: **Offline · changes kept here** (your changes wait on this device and go when it comes back) or **Show link reconnecting…** (it reconnects by itself).",
         good: "If you try to close the tab while changes are waiting, it asks first.",
       },
       {
@@ -807,7 +807,7 @@ export const SECTIONS: HelpSection[] = [
           "The big timer in the middle counts down the item on air: green, then amber near the end, then red counting up if it runs over.",
           "On the left: **Start**, **Dur** and **End** — the plan. **Ran** shows how far over or under the items so far have run.",
           "On the right: **Proj. end** — when the show will really finish — and the time of day.",
-          "Top right, **✓ Saved** means every change is saved and shared. If the connection drops it says **Offline · changes kept here** — keep working; your changes are sent when it reconnects. **Show link reconnecting…** means Start, Next and the clock are reconnecting by themselves.",
+          "Top right, the **Sheet** and **Show** lights are green when everything is connected, and flash as data comes in. If a link drops its light goes red and words appear: **Offline · changes kept here** — keep working; your changes are sent when it reconnects — or **Show link reconnecting…**, which means Start, Next and the clock are reconnecting by themselves.",
         ],
       },
       {

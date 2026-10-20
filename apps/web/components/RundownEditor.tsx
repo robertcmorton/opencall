@@ -106,6 +106,7 @@ import { InkLayer } from "./InkLayer";
 import { formatOverUnder, INK_COLOURS, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
+import { ConnectionLamps, type LampState } from "./ConnectionLamps";
 import { ask, askText, say, sayError } from "../lib/dialogs";
 import { CrewTabBar } from "./CrewTabBar";
 import { InstallHint } from "./InstallHint";
@@ -865,6 +866,14 @@ export function RundownEditor({
   // holding a join code sees the sheet and drives nothing; see `mayEditShow`.
   const canEditContent = mode === "show" ? mayEditShow(channel.role) : mayEditSheet ? lock.mine : false;
   const { doc, revision, connected, synced, status: docStatus, awareness } = useRundownDoc(rundownId, joinCode, initialEpoch);
+  /** Every change to the shared sheet, from here or anyone else — the Sheet light's flash. */
+  const onSheetActivity = useCallback(
+    (fn: () => void) => {
+      doc.on("update", fn);
+      return () => doc.off("update", fn);
+    },
+    [doc],
+  );
   /**
    * Edits the server has not confirmed yet, shown only once they have been
    * waiting a moment. Every keystroke is "unsaved" for a few milliseconds, and
@@ -5240,34 +5249,47 @@ export function RundownEditor({
               activeRowId ? timing.rows[rows.findIndex((r) => r.id === activeRowId)]?.startSec ?? null : null
             }
           />
-          {/* Saved, in words (6 Oct). This was two lamps labelled "sheet" and
-              "show" — a green dot means nothing to someone who has not been
-              told — plus a separate chip for unsaved edits. One line now says
-              what is true. "Saved" is quiet and hidden on a phone; anything
-              that needs attention shows on every screen, because a phone on
-              venue wifi is the screen most likely to need it. */}
+          {/* Two lights, Sheet and Show (20 Oct) — back in place of "✓ Saved"
+              (6 Oct), which Robert missed: they say the links are up AND, with
+              a flash on every arrival, that data is coming through. Words
+              still appear beside them whenever something is wrong, on every
+              screen, because colour alone is easy to miss mid-show. */}
           {(() => {
-            const sheetState = unsavedShown
-              ? connected
-                ? { cls: "is-pending", text: "Saving…", tip: "Sending your changes. They are kept on this device until the server confirms." }
-                : {
-                    cls: "is-offline",
-                    text: "Offline · changes kept here",
-                    tip: "Not connected. Your changes are kept on this device and are sent when it reconnects. Leaving this tab now keeps them here for next time.",
-                  }
-              : !synced
-                ? { cls: "is-connecting", text: "Connecting…", tip: "Opening the run sheet." }
-                : !connected
-                  ? { cls: "is-offline", text: "Offline · reconnecting…", tip: "Not connected right now. Anything you change is kept on this device and sent when it reconnects." }
-                  : { cls: "is-ok", text: "Saved", tip: "Every change is saved and shared with everyone on this sheet." };
+            const sheetLamp: LampState = unsavedShown ? (connected ? "pending" : "offline") : !synced ? "connecting" : !connected ? "offline" : "ok";
+            const sheetTip =
+              sheetLamp === "ok"
+                ? mode === "view"
+                  ? "Sheet: connected. Changes to the run sheet reach this screen as they are made."
+                  : "Sheet: every change is saved and shared with everyone on this sheet."
+                : sheetLamp === "pending"
+                  ? "Sheet: sending your changes. They are kept on this device until the server confirms."
+                  : sheetLamp === "connecting"
+                    ? "Sheet: opening the run sheet."
+                    : "Sheet: not connected. Anything you change is kept on this device and sent when it reconnects.";
+            const showLamp: LampState = channel.connected ? "ok" : synced ? "offline" : "connecting";
+            const showTip =
+              showLamp === "ok"
+                ? "Show: the live link is up — Start, Next and the clock reach this screen as they happen."
+                : showLamp === "connecting"
+                  ? "Show: connecting the live link."
+                  : "Show: the live link has dropped. It reconnects by itself.";
             return (
               <>
-                <span className={`save-status ${sheetState.cls} ${sheetState.cls === "is-ok" ? "hide-mobile" : ""}`} role="status" data-tip={sheetState.tip}>
-                  {sheetState.cls === "is-ok" && Icon.check}
-                  {sheetState.text}
-                </span>
-                {isShow && synced && !channel.connected && (
-                  <span className="save-status is-offline" role="status" data-tip="The link that runs the show (Start, Next, the clock) has dropped. It reconnects by itself.">
+                <ConnectionLamps
+                  sheet={sheetLamp}
+                  show={showLamp}
+                  sheetTip={sheetTip}
+                  showTip={showTip}
+                  onSheetActivity={onSheetActivity}
+                  onShowActivity={channel.onActivity}
+                />
+                {sheetLamp === "offline" && (
+                  <span className="save-status is-offline" role="status" data-tip={sheetTip}>
+                    {unsavedShown ? "Offline · changes kept here" : "Offline · reconnecting…"}
+                  </span>
+                )}
+                {showLamp === "offline" && sheetLamp !== "offline" && (
+                  <span className="save-status is-offline" role="status" data-tip={showTip}>
                     Show link reconnecting…
                   </span>
                 )}

@@ -198,7 +198,19 @@ async function drive(page: Page) {
 async function press(page: Page, label: string | RegExp) {
   const b = page.locator("button:visible", { hasText: label }).first();
   if (!(await b.count())) return false;
-  await b.click();
+  // A button something else is drawn over is a finding, not a crash (21 Oct:
+  // the iPad nudge bar covered Message stage, and the check died on it).
+  try {
+    await b.click({ timeout: 5000 });
+  } catch {
+    const cover = await b.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return top && !el.contains(top) ? (top.closest("[class]") as HTMLElement | null)?.className.toString().split(" ")[0] ?? top.tagName : "something";
+    });
+    liveCrew.push(`can't press "${label}": ${cover} is drawn over it`);
+    return false;
+  }
   await page.waitForTimeout(350);
   return true;
 }

@@ -6730,7 +6730,14 @@ export function RundownEditor({
           const target = targetId ? rows.find((r) => r.id === targetId) : null;
           if (!target) return null;
           return (
-            <div className="timing-nudge-dock" ref={publishNudgeHeight} style={{ bottom: dockBottom }}>
+            <div
+              className="timing-nudge-dock"
+              ref={publishNudgeHeight}
+              // Above the iPad's caller dock, like every other bar down there.
+              // It sat on top of it and covered Message stage (21 Oct, caught
+              // by the CI layout check on a tablet, live).
+              style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px))` }}
+            >
               <span className="tn-target" data-tip={target.title || "untitled"}>
                 {selected.size === 1 ? "Selected" : "Live"}: {target.title || "untitled"}
               </span>

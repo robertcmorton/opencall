@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-10-20
+
 ### Added
 - **AI assistants can read Help.** A connected assistant (Claude or any MCP client) now has `read_help`: it searches the app's own Help page, reads a topic in full or lists the contents and shortcuts, and hands back a link to the right part of `/help`. Ask it "how do I end a walkthrough?" and it answers in OpenCall's own words. Every assistant gets it, whatever its access — it is the same public page anyone can read, and carries no sheet data.
 

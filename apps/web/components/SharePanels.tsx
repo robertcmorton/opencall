@@ -6,6 +6,7 @@ import { type AccessPerson, api, API_URL, copyViewOnlyLink, type SnapshotSummary
 import type { ColumnDef } from "@opencall/db/doc";
 import { defaultViewColumns } from "@opencall/core";
 import { ConfirmButton } from "./ConfirmButton";
+import { QrCode } from "./QrCode";
 import { askText, sayError } from "../lib/dialogs";
 import { EmptyState, Icon } from "./ui";
 
@@ -135,6 +136,8 @@ export function JoinCodesPanel({
     }[]
   >([]);
   const [editingCols, setEditingCols] = useState<string | null>(null);
+  /** The link whose QR code is showing. */
+  const [qrFor, setQrFor] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Awaited<ReturnType<typeof api.viewers>>>([]);
   const [people, setPeople] = useState<AccessPerson[]>([]);
   /** The URL just copied, so the panel can say so. */
@@ -218,6 +221,16 @@ export function JoinCodesPanel({
                 </button>
               )}
               {c.joinCode && (
+                <button
+                  className={`btn btn-sm ${qrFor === c.id ? "is-on" : ""}`}
+                  aria-expanded={qrFor === c.id}
+                  data-tip="A code to point a phone camera at — it opens this link. Show it on a screen or print it for the crew room."
+                  onClick={() => setQrFor(qrFor === c.id ? null : c.id)}
+                >
+                  QR code
+                </button>
+              )}
+              {c.joinCode && (
                 <span style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)" }} data-tip="People can type this code on the front page instead of using the link">
                   or type {c.joinCode}
                 </span>
@@ -237,6 +250,12 @@ export function JoinCodesPanel({
                 confirmLabel="Press again to turn it off"
                 onConfirm={() => void api.revokeJoinCode(rundownId, c.id).then(reload)}
               />
+              {qrFor === c.id && c.joinCode && (
+                <div className="qr-box">
+                  <QrCode value={urlFor(c.joinCode)} label="QR code for the view-only link" />
+                  <span>Point a phone camera at this to open the sheet — view only. Or type {c.joinCode} on the front page.</span>
+                </div>
+              )}
               {editingCols === c.id && (
                 <ColumnChoice
                   columns={columns}

@@ -1125,6 +1125,23 @@ kbd {
   color: var(--accent-text);
   border-color: var(--accent);
 }
+/* The job buttons in My role: bigger than the chips on a row, because here
+   they are the whole control (21 Oct — the box to type a job is gone). */
+.chip-row.role-picks {
+  gap: 6px;
+}
+.chip-row.role-picks button {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.03em;
+  padding: 5px 12px;
+  min-height: 32px;
+}
+@media (pointer: coarse) {
+  .chip-row.role-picks button {
+    min-height: 40px;
+    padding-inline: 14px;
+  }
+}
 
 /* ---------- Cue pool ---------- */
 
@@ -1947,7 +1964,10 @@ kbd {
   right: 0;
   margin: 0 auto;
   width: fit-content;
-  z-index: 68;
+  /* Above the sheet's sticky headings (5), below the top bar (45): at 68 it
+     drew over the running-late list and every other popover hanging from
+     the top bar (21 Oct). */
+  z-index: 30;
   height: auto;
   /* Sized like the rest of the toolbar, not as a special case. It was built
      at 44px tall with 1rem type, which made it the largest control on the
@@ -2414,11 +2434,15 @@ kbd {
     flex-wrap: wrap;
   }
 }
-/* …and the middle column sizes to that wrapped row, not the unwrapped one
-   (`max-content` above measures the row as one line). */
+/* …and the middle column is capped, so the row has somewhere to wrap: at
+   most 360px, which holds Message, LIVE and Stop on one line and drops only
+   the stopwatch beneath (`max-content` alone measures the row unwrapped).
+   It was `min-content` for an hour on 21 Oct, which wrapped EVERYTHING — a
+   790px window showed Message, then LIVE/Stop, then the stopwatch, three
+   rows ("avoid this from happening"). */
 @media (min-width: 761px) and (max-width: 820px) {
   .topbar-center {
-    width: min-content;
+    max-width: 360px;
   }
 }
 .topbar-right {
@@ -2431,142 +2455,44 @@ kbd {
   align-items: baseline;
   gap: 0.6rem 1rem;
   min-width: 0;
-  /* Two columns, two rows, everything placed by hand.
-     TIMES on the left — what time we come off, and what time it is now, which
-     is the pair anybody reads together. STATE on the right — the two
-     connection lamps, and beneath them how far off the plan the show is
-     running. Nothing auto-flows here: every previous attempt at this mixed
-     explicit placement with auto-placement, and the two fought each other
-     (see the lamps, which ended up at the far LEFT). Name all four or name
-     none. */
+  /* Placed by hand — see the one-column rule just below. Nothing auto-flows
+     here: every earlier attempt mixed explicit placement with auto-placement,
+     and the two fought each other (the lamps once ended up at the far LEFT).
+     Name all of them or name none. */
   display: grid;
-  grid-template-columns: max-content max-content max-content;
+  grid-template-columns: max-content;
   grid-template-rows: auto;
-  /* The gap is what moves the times column left: the group is anchored to the
-     right of the header, so widening the space between the columns pushes the
-     leftmost one further out. */
-  column-gap: 3.5rem;
+  column-gap: 1rem;
   row-gap: 0.35rem;
+  /* The column sits at the right of the bar, its contents left-aligned. */
   justify-content: end;
 }
-/* Narrower, the wide gaps are what made this side outgrow the left one and
-   push the timer off centre: at 1024 it needed 296px against the left's 143,
-   and the timer sat 50px left of the middle. Closer together it fits its
-   half, and the timer stays in the middle. */
-@media (max-width: 1280px) {
-  .topbar-right {
-    column-gap: 1.25rem;
-  }
-}
-/* One row, read left to right: what time it is NOW, what time we come OFF,
-   then the connection lamps. The two clocks side by side is the comparison
-   anybody in the room is actually making. */
+/* ONE COLUMN, at every size from an iPad up (21 Oct, Robert, with a picture):
+   Time of day, Proj. end under it, then the Sheet and Show lights stacked.
+   Over the day this section grew six width steps — one row of three, a row
+   with the clocks stacked, a single column — and the two readouts changed
+   places between them as a window narrowed ("time of day and proj end are
+   switching around as I reduce the screen size"). One arrangement cannot
+   swap. It is also the narrowest, so the two sides of the bar stay equal and
+   the cue timer keeps the true middle. Phones keep their own row (below). */
 .topbar-right > .header-clock-block {
   grid-area: 1 / 1;
-}
-.topbar-right > .header-proj {
-  grid-area: 1 / 2;
-}
-
-/* One row only while there is room for one.
-   The header is three cells — title, cue timer, readouts — and the readouts
-   share a `minmax(0, 1fr)` with the timer holding the middle. Below a certain
-   width three columns of readouts stopped fitting and were simply CLIPPED:
-   "EVENT TIME" and its clock slid under the timer and vanished, which is the
-   worst possible failure for a readout. So it steps down instead — first the
-   gaps close, then the event clock drops beneath the projected end and the
-   lamps hold both rows. Nothing is ever hidden; it only gets narrower. */
-@media (max-width: 1500px) {
-  .topbar-right {
-    column-gap: 1.4rem;
-  }
-}
-@media (max-width: 1320px) {
-  /* The two clocks stay SIDE BY SIDE, and the gap between them closes instead.
-     They were stacked here, which bought horizontal room at the cost of a
-     second row — and height is the scarcer of the two on this page, because
-     every pixel the header takes is a row of the sheet nobody can read. It is
-     also the pair anybody reads together ("what time is it, what time are we
-     off"), so splitting them across two lines separates the comparison being
-     made. The lamps keep the far right, on one row with them. */
-  .topbar-right {
-    grid-template-columns: max-content max-content max-content;
-    grid-template-rows: auto;
-    column-gap: 1rem;
-  }
-  .topbar-right > .header-proj {
-    grid-area: 1 / 1;
-  }
-  .topbar-right > .header-clock-block {
-    grid-area: 1 / 2;
-  }
-}
-/* A tablet: the projected end goes UNDER the time of day, in the same column,
-   left edges aligned. Side by side, the two readouts plus the lamps were the
-   widest thing in the bar, and the grid gave them their width by taking it
-   from the sheet's name and start time on the left — which were painted
-   under the cue timer box and lost. Stacked, the right block is half as wide
-   and the left block has its room back. The desktop keeps the pair on one
-   line, where there is width to spare and height is the scarcer thing.
-   From 1100, not 1000 (21 Oct): on one line at 1024 the readouts needed 296px
-   against the 245px each side gets around the timer, and the timer sat 50px
-   left of the middle. */
-@media (max-width: 1100px) {
-  .topbar-right {
-    grid-template-columns: max-content max-content;
-    grid-template-rows: auto auto;
-    column-gap: 1rem;
-    row-gap: 0.25rem;
-  }
-  .topbar-right > .header-clock-block {
-    grid-area: 1 / 1;
-  }
-  .topbar-right > .header-proj {
-    grid-area: 2 / 1;
-  }
-}
-@media (max-width: 1120px) {
-  /* Tighter still before anything is allowed to wrap. */
-  .topbar-right {
-    column-gap: 0.7rem;
-  }
-}
-/* Under the readouts, starting where the first one starts. */
-.topbar-right > .header-clock-block {
   justify-self: start;
 }
-/* Faces, then the Sheet / Show lights (words under them when a link drops):
-   one group with a cell of its own — the far right on a laptop and up, the
-   second column across both rows on a tablet. */
+.topbar-right > .header-proj {
+  grid-area: 2 / 1;
+}
 .topbar-right > .status-cluster {
-  grid-area: 1 / 3;
+  grid-area: 3 / 1;
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  align-self: center;
+  gap: var(--space-2);
 }
 .status-cluster .lamp-block {
   display: grid;
   justify-items: start;
   gap: 4px;
-}
-@media (max-width: 1100px) {
-  .topbar-right > .status-cluster {
-    grid-area: 1 / 2 / 3 / 3;
-  }
-}
-/* An iPad held upright: a little closer still, so the right side fits its
-   half and the timer keeps the middle (it was 11px off at 768). */
-@media (min-width: 761px) and (max-width: 900px) {
-  .topbar-right {
-    grid-template-columns: max-content;
-    grid-template-rows: auto auto auto;
-  }
-  .topbar-right > .status-cluster {
-    grid-area: 3 / 1;
-    justify-self: start;
-    gap: var(--space-2);
-  }
 }
 @media (max-width: 760px) {
   /* Phones stack: timer first (still centred), then the title row, then readouts.
@@ -2655,22 +2581,28 @@ kbd {
        the centre stays the centre. */
     margin-inline: -48px;
   }
+  /* One row (21 Oct, Robert: "place time of day and proj end to the right,
+     with the green lights to the right of it — this will eliminate another
+     vertical row"): Proj. end, Time of day, then the Sheet and Show lights
+     stacked beside them. 87 + 142 + ~65px and two gaps fit a 360 phone. */
   .show-page .topbar-right {
     grid-row: 3;
-    grid-template-columns: max-content max-content;
-    grid-template-rows: auto auto;
+    grid-template-columns: max-content max-content max-content;
+    grid-template-rows: auto;
     justify-content: center;
-    column-gap: 1.5rem;
-  }
-  .show-page .topbar-right > .header-clock-block {
-    grid-area: 1 / 1;
+    align-items: center;
+    column-gap: 1rem;
   }
   .show-page .topbar-right > .header-proj {
+    grid-area: 1 / 1;
+  }
+  .show-page .topbar-right > .header-clock-block {
     grid-area: 1 / 2;
   }
   .show-page .topbar-right > .status-cluster {
-    grid-area: 2 / 1 / 3 / 3;
-    justify-self: center;
+    grid-area: 1 / 3;
+    justify-self: start;
+    align-self: center;
   }
   /* During a show, Message, LIVE and Stop are three equal buttons across the
      full width (21 Oct, Robert: "the live, stop and other buttons need to be
@@ -2678,12 +2610,15 @@ kbd {
      Only while live — before the show this box holds Start show and the
      walkthrough, which keep their own layout. */
   .show-page .show-state-row > .preshow-group:has(.live-badge) {
-    flex: 1 1 100%;
+    /* Equal, and no wider than a desktop button each (8.5rem): on a bigger
+       phone they stretched past 200px apiece ("button sizing at top"). The
+       group shrinks to fit a small one — three × 111.5px at 375. */
+    flex: 0 1 auto;
     display: grid;
     /* One column each, exactly equal — a flex split of one against two came
        out 113 / 111 / 111. */
     grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-columns: minmax(0, 8.5rem);
     gap: var(--space-1);
     padding: 4px;
   }
@@ -2702,11 +2637,6 @@ kbd {
   }
   .show-page .preshow-group:has(.live-badge) .live-badge {
     border-radius: var(--r-md);
-  }
-  /* Sheet and Show side by side here; stacked everywhere else. */
-  .show-page .status-cluster .conn-lamps {
-    flex-direction: row;
-    gap: var(--space-3);
   }
   .show-page .topbar-center .preshow-group,
   .show-page .topbar-center .preshow-group .show-state {
@@ -6804,9 +6734,12 @@ a > svg,
      placed in screen coordinates — landed inside the list instead, invisible
      but widening it: 381px wide, 1768px to scroll, on Robert's iPad a list
      cut off on the left with blank space on the right. */
-  left: 0;
-  right: 0;
-  margin-inline: auto;
+  /* Centred on the line, by a margin: `left/right: 0` + auto margins only
+     centre a box narrower than its parent, and this one is wider than the
+     line it hangs from, so it fell back to the left edge ("centre the
+     dropdown", 21 Oct). Still no transform (see above). */
+  left: 50%;
+  margin-left: calc(min(520px, 100vw - 32px) / -2);
   z-index: 90;
   width: min(520px, calc(100vw - 32px));
   max-height: 60vh;
@@ -7380,4 +7313,31 @@ a > svg,
   padding: 4px 8px;
   color: var(--text-3);
   font-size: var(--fs-xs);
+}
+
+/* The QR code under a view-only link (21 Oct). White behind it whatever the
+   theme — a camera needs dark on light, with a quiet margin. */
+.qr-box {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.qr-box .qr-code {
+  border-radius: var(--r-md);
+  flex: none;
+}
+.qr-box span {
+  flex: 1 1 180px;
+}
+/* The item's own number, beside its name, in the running-late list (21 Oct). */
+.rl-num {
+  flex: none;
+  min-width: 2.2em;
+  margin-right: 6px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }

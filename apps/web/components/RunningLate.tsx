@@ -14,6 +14,8 @@ import { formatDuration, formatTimeOfDayWithDay, lateBy, type Arrival, type Late
 
 export interface TrimRow {
   id: string;
+  /** The row's own number on the sheet ("23", "9W.1"). */
+  number?: string;
   title: string;
   durationSec: number;
   canDrop: boolean;
@@ -54,6 +56,7 @@ export function RunningLate({
   trimsFor,
   canEdit,
   onStrike,
+  onUnstrike,
   onTrim,
 }: {
   /** Every fixed time ahead, in order; the first is the next one. */
@@ -64,6 +67,8 @@ export function RunningLate({
   trimsFor: (targetIndex: number) => TrimRow[];
   canEdit: boolean;
   onStrike: (rowId: string, targetIndex: number) => void;
+  /** Put a struck item back. Optional: without it a struck item just shows as struck. */
+  onUnstrike?: (rowId: string, targetIndex: number) => void;
   onTrim: (rowId: string, bySec: number, targetIndex: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -97,7 +102,10 @@ export function RunningLate({
     lateBy(next.overSec) > 0
       ? `If every item from here runs to plan, the show reaches ${next.target.name} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after it must start. Press for every fixed time ahead and what could be trimmed.`
       : `If every item from here runs to plan, the show reaches ${next.target.name} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
-  const trims = lateBy(shown.overSec) > 0 ? trimsFor(shown.target.index) : [];
+  // Over: everything that could go. On time: only what has been struck, so a
+  // strike can still be put back once it has done its job.
+  const over = lateBy(shown.overSec) > 0;
+  const trims = over ? trimsFor(shown.target.index) : trimsFor(shown.target.index).filter((t) => t.struck);
   return (
     <div className={`running-late is-${level}`} ref={box}>
       <button ref={button} type="button" className="rl-pill" aria-expanded={open} data-tip={tip} onClick={() => setOpen((v) => !v)}>
@@ -141,26 +149,39 @@ export function RunningLate({
           </div>
           {/* With time in hand there is nothing to find, so no list of things
               to cut (21 Oct: a dozen Strike buttons under "nothing to find"). */}
-          {lateBy(shown.overSec) <= 0 ? null : trims.length === 0 ? (
+          {!over && trims.length === 0 ? null : trims.length === 0 ? (
             <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
           ) : (
             <ul>
               {trims.map((t) => (
                 <li key={t.id} className={t.struck ? "is-struck" : undefined}>
                   <span className="rl-title">
+                    {t.number && <span className="rl-num">{t.number}</span>}
                     <span className="rl-text">{t.title || "Untitled item"}</span>
                     {t.canDrop && <span className="rl-tag">can drop</span>}
                   </span>
                   <span className="rl-dur">{formatDuration(t.durationSec)}</span>
                   {canEdit && (
                     <span className="rl-actions">
-                      <button type="button" className="btn btn-sm" onClick={() => onStrike(t.id, shown.target.index)} data-tip="Strike it out: skipped, and its time given back">
-                        Strike
-                      </button>
+                      {t.struck ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={!onUnstrike}
+                          onClick={() => onUnstrike?.(t.id, shown.target.index)}
+                          data-tip="Put it back: it plays again, and its time is taken back"
+                        >
+                          Undo strike
+                        </button>
+                      ) : (
+                        <button type="button" className="btn btn-sm" onClick={() => onStrike(t.id, shown.target.index)} data-tip="Strike it out: skipped, and its time given back">
+                          Strike
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-sm"
-                        disabled={t.locked || t.durationSec <= 0}
+                        disabled={t.struck || t.locked || t.durationSec <= 0}
                         onClick={() => onTrim(t.id, Math.min(30, t.durationSec), shown.target.index)}
                         data-tip={t.locked ? "Locked — its length can't change" : "Take 30 seconds off it"}
                       >
@@ -172,7 +193,7 @@ export function RunningLate({
               ))}
             </ul>
           )}
-          {lateBy(shown.overSec) > 0 && (
+          {(over || trims.length > 0) && (
             <p className="rl-foot">
               Strikes and trims move the times up to {shown.target.name}, never {shown.target.name} itself. One undo takes each back.
             </p>

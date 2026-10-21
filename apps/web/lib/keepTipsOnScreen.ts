@@ -18,6 +18,17 @@ const MARGIN = 8;
 /** How far above (or below) the thing being described the bubble sits. */
 const OFFSET = 8;
 
+/**
+ * Wider than this, a tip follows the POINTER rather than the thing it
+ * describes (21 Oct, Robert: "mouse over text info in the wrong place"). A
+ * sheet row carries a tip ("Runs at the same time as …"), and a row is the
+ * width of the screen and can be a dozen lines tall: centred above the whole
+ * row, the bubble appeared far from the mouse — on a live show, up by the cue
+ * timer — explaining something the eye was nowhere near.
+ */
+const FOLLOW_POINTER_PX = 480;
+let pointer: { x: number; y: number } | null = null;
+
 function place(el: HTMLElement): void {
   const rect = el.getBoundingClientRect();
   const after = getComputedStyle(el, "::after");
@@ -25,16 +36,21 @@ function place(el: HTMLElement): void {
   const height = parseFloat(after.height);
   if (!Number.isFinite(width) || width <= 0) return;
 
+  // Big things — rows — are described where the pointer is; everything else
+  // from its own box.
+  const atPointer = pointer != null && (el.tagName === "TR" || rect.width > FOLLOW_POINTER_PX);
+  const box = atPointer ? { left: pointer!.x, right: pointer!.x, top: pointer!.y - 6, bottom: pointer!.y + 18, width: 0 } : rect;
+
   // Centred on the element, then pulled back inside the viewport. The nudge is
   // the exact overflow, so a tooltip with room to spare stays centred on the
   // thing it describes rather than drifting for no reason.
-  const centre = rect.left + rect.width / 2;
+  const centre = box.left + box.width / 2;
   const left = Math.min(Math.max(MARGIN, centre - width / 2), window.innerWidth - width - MARGIN);
 
   // Above by default; below when there is no room, which is most of the top
   // bar — its own controls would otherwise explain themselves off the screen.
-  const roomAbove = rect.top - OFFSET;
-  const top = roomAbove >= height ? rect.top - height - OFFSET : rect.bottom + OFFSET;
+  const roomAbove = box.top - OFFSET;
+  const top = roomAbove >= height ? box.top - height - OFFSET : box.bottom + OFFSET;
 
   el.style.setProperty("--tip-left", `${Math.round(left)}px`);
   el.style.setProperty("--tip-top", `${Math.round(top)}px`);
@@ -42,9 +58,22 @@ function place(el: HTMLElement): void {
 
 export function keepTipsOnScreen(): () => void {
   const onOver = (e: Event) => {
+    if (e instanceof MouseEvent) pointer = { x: e.clientX, y: e.clientY };
     const target = (e.target as HTMLElement | null)?.closest?.("[data-tip]");
     if (target instanceof HTMLElement) place(target);
   };
+  // A tip that follows the pointer moves with it — once a frame at most.
+  let frame = 0;
+  const onPointerMove = (e: MouseEvent) => {
+    pointer = { x: e.clientX, y: e.clientY };
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const hovered = document.querySelector("[data-tip]:hover");
+      if (hovered instanceof HTMLElement && (hovered.tagName === "TR" || hovered.getBoundingClientRect().width > FOLLOW_POINTER_PX)) place(hovered);
+    });
+  };
+  document.addEventListener("mousemove", onPointerMove, { passive: true });
   // Capture: some tooltip carriers stop bubbling for their own reasons.
   document.addEventListener("mouseover", onOver, true);
   document.addEventListener("focusin", onOver, true);
@@ -59,6 +88,8 @@ export function keepTipsOnScreen(): () => void {
   return () => {
     document.removeEventListener("mouseover", onOver, true);
     document.removeEventListener("focusin", onOver, true);
+    document.removeEventListener("mousemove", onPointerMove);
+    if (frame) cancelAnimationFrame(frame);
     window.removeEventListener("scroll", onMove, true);
     window.removeEventListener("resize", onMove);
   };

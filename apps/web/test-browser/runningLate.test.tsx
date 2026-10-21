@@ -119,5 +119,48 @@ describe("running late — the list of what could be trimmed", () => {
       document.body.innerHTML = "";
     }
   });
+
+  it("hangs centred under the line, even when it is wider than the line (21 Oct)", () => {
+    const list = draw(80);
+    // Make the line narrower than the list, as it is beside the cue timer.
+    (list.parentElement as HTMLElement).style.width = "360px";
+    const pill = list.parentElement!.querySelector(".rl-pill")!.getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    expect(Math.abs(box.left + box.width / 2 - (pill.left + pill.width / 2))).toBeLessThanOrEqual(1);
+  });
+
+  it("keeps a struck item in the list, crossed out, with Undo strike — even once it is on time (21 Oct)", () => {
+    const unstruck: [string, number][] = [];
+    const el = document.createElement("div");
+    el.style.cssText = "width: 560px; margin: 0 auto;";
+    document.body.appendChild(el);
+    root = createRoot(el);
+    const list: TrimRow[] = [
+      { id: "a", number: "23", title: "Wrap the scores", durationSec: 30, canDrop: false, locked: false, struck: true },
+      { id: "b", number: "24", title: "Reel", durationSec: 60, canDrop: false, locked: false, struck: false },
+    ];
+    act(() =>
+      root!.render(
+        <RunningLate
+          arrivals={arrivalsFor(-60) as never}
+          level={"spare" as never}
+          use24h={false}
+          manyGames
+          trimsFor={() => list}
+          canEdit
+          onStrike={() => undefined}
+          onUnstrike={(id, t) => void unstruck.push([id, t])}
+          onTrim={() => undefined}
+        />,
+      ),
+    );
+    act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
+    const items = [...el.querySelectorAll(".rl-list li.is-struck")];
+    // On time: only the struck one is listed, with its number, to be put back.
+    expect(items).toHaveLength(1);
+    expect(items[0]!.textContent).toContain("23");
+    act(() => [...el.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Undo strike")!.click());
+    expect(unstruck).toEqual([["a", 5]]);
+  });
 });
 

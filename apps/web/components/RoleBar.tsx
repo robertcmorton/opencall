@@ -167,7 +167,6 @@ export function RolePicker({
   onChange: (roles: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
   const ref = useDismiss(open, () => setOpen(false));
 
   const toggle = (role: string) => {
@@ -309,22 +308,12 @@ export function RolePicker({
           <div className="menu-heading" style={{ padding: "0 0 6px" }}>
             Your jobs on this show — pick as many as you have
           </div>
-          <input
-            className="input"
-            autoFocus
-            placeholder="Type a job, e.g. Camera 1, Music, PA"
-            style={{ width: "100%" }}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && text.trim()) {
-                toggle(text.trim());
-                setText("");
-              }
-            }}
-          />
+          {/* No box to type a job (21 Oct, Robert: "remove the 'type a job'
+              to save space and make the buttons a little bigger"). The jobs
+              are the sheet's own — its roles, or the words it repeats — and
+              each is a button big enough to hit. */}
           {roles.length > 0 && (
-            <div className="chip-row" style={{ marginTop: 8, maxWidth: 320 }}>
+            <div className="chip-row role-picks" style={{ maxWidth: 340 }}>
               {roles.map((r) => (
                 <button
                   key={r.id}
@@ -345,9 +334,8 @@ export function RolePicker({
             </div>
           )}
           {suggestions.length > 0 && roles.length === 0 && (
-            <div className="chip-row" style={{ marginTop: 8, maxWidth: 320 }}>
+            <div className="chip-row role-picks" style={{ maxWidth: 340 }}>
               {suggestions
-                .filter((sugg) => !text || sugg.toLowerCase().includes(text.toLowerCase()))
                 .slice(0, 12)
                 .map((sugg) => (
                   <button key={sugg} type="button" className={isMine(sugg) ? "is-on" : ""} onClick={() => toggle(sugg)}>
@@ -356,6 +344,9 @@ export function RolePicker({
                   </button>
                 ))}
             </div>
+          )}
+          {roles.length === 0 && suggestions.length === 0 && (
+            <p style={{ margin: "4px 0 0", color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>This sheet doesn't name any jobs yet.</p>
           )}
           <div style={{ display: "flex", gap: "var(--space-2)", marginTop: 8 }}>
             {myRoles.length > 0 && (

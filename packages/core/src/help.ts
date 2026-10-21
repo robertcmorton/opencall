@@ -319,7 +319,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Adds a new timed item to the sheet.",
         how: "Press **+ Row** in the toolbar. The row goes after the row you last picked, or at the end.",
         who: EDITORS,
-        good: "To put a row in an exact place, use **Add a row above** or **Add a row below** in the row menu. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
+        good: "To put a row in an exact place, right-click a row (or press and hold it) and choose **Insert 1 row above** or **Insert 1 row below** — during a show, after pressing **Edit run sheet**. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
       },
       {
         id: "edit-cell",
@@ -665,7 +665,7 @@ export const SECTIONS: HelpSection[] = [
         finger: "Press and hold the row for half a second. On a phone the menu slides up from the bottom, with **Cancel**. On an iPad it opens beside your finger.",
         steps: [
           "Before the show, on the show page, the top part holds the walkthrough: **Start the walkthrough from this row** (or **Move the walkthrough to this row**), **Previous row**, **Next row**, **End walkthrough** and **Message the stage…**. (Start show isn't here — the show starts on the clock, not from a row; use the green **Start show** button.)",
-          "Below that, for anyone who can edit: **Add a row above**, **Add a row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Only play this if…**, the colours, **Copy to another sheet…**, **Delete row** and **Unpick this row**. With several rows picked, “row” becomes “3 rows”, and so on.",
+          "Below that, for anyone who can edit: **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Only play this if…**, the colours, **Copy to another sheet…**, **Delete row** and **Unpick this row**. With several rows picked, “row” becomes “3 rows”, and so on.",
         ],
         good: "Right-clicking a row that is not picked picks it. With several rows picked, the menu acts on all of them and says how many. A quick tap or a scroll never opens it. Every change shows a note with an **Undo** button.",
       },
@@ -724,8 +724,8 @@ export const SECTIONS: HelpSection[] = [
         how: "Between the cue timer and the show controls, one line the full width of them names the next thing that must start on time, its time, how long until it, and how you'll arrive if every item from now runs to plan — for example **1st half · 5:40 PM · in 12:30 · 1:20 over** (on a day with two games, **Game 2 · 1st half**). Within 15 seconds either way counts as on time. Grey while it's more than 15 minutes away; amber if you're over inside 15 minutes; red and pulsing in the last 5 minutes once you're more than 30 seconds over. A note tells you the first time each line is crossed. Once a half starts, the line moves on to the next fixed time by itself.",
         steps: [
           "Press the line for every fixed time still ahead — each half of each game — with its time, how long until it, and how you'll arrive. Lateness carries on from one to the next; time to spare doesn't, because a half never starts before its time.",
-          "Pick one to see what could be trimmed before it — rows marked **Can drop if running late** first, then the longest. With time to spare there's nothing to trim, and it says so.",
-          "Press **Strike** to skip one, or **−30 s** to take thirty seconds off it. The line updates straight away.",
+          "Pick one to see what could be trimmed before it — only the items between the fixed time before it and this one, each with its row number; rows marked **Can drop if running late** first, then the longest. With time to spare there's nothing to trim, and it says so.",
+          "Press **Strike** to skip one, or **−30 s** to take thirty seconds off it. The line updates straight away. A struck item stays in the list, crossed out — press **Undo strike** to put it back.",
         ],
         who: CALLER,
         good: "The start of each half, quarter and extra period counts by itself. To add your own — a broadcast window, a fireworks cue — open the row menu and tick **Must start on time**. Trims move the times up to the fixed one, never the fixed one itself, and one Undo takes each back.",
@@ -750,7 +750,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Lights up your own items, and counts down to your next one.",
         steps: [
           "Press **My role** in the toolbar.",
-          "Pick your job, such as Camera 1 or PA, or type your own. You can pick more than one.",
+          "Tap your job — the sheet's own list, such as Camera 1 or PA. You can pick more than one.",
           "Your rows turn your colour, and a bar at the bottom counts down to your next item.",
         ],
         good: "When your item is on air, the bar says **● YOU’RE ON**. Anyone can pick a role, even on a view-only link.",
@@ -966,6 +966,7 @@ export const SECTIONS: HelpSection[] = [
         steps: [
           "On the show page, open the menu (☰) and choose **View-only links**.",
           "Press **Copy view-only link** and send it to your crew.",
+          "Or press **QR code** beside a link: the crew point a phone camera at it and the sheet opens. Show it on a screen, or print it for the crew room.",
           "Press **Columns** on a link to choose what it shows.",
           "Press **Turn off**, then press it again to be sure, to stop a link working everywhere at once.",
         ],

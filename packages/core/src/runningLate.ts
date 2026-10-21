@@ -91,12 +91,50 @@ export interface Arrival {
 }
 
 /**
+ * How late the show will be at `target`, carried forward from a lateness
+ * already known at a point on the plan.
+ *
+ * Measured against the sheet's PLANNED times, not by adding lengths up. The
+ * first version added the length of every item between here and the target,
+ * and a run sheet is not a list of lengths: "HALF TIME 13:00" is a block with
+ * the half-time items printed INSIDE it, each with its own time. Adding them
+ * counted those thirteen minutes twice, and Robert's 2nd half read "13:00
+ * OVER" on a show running exactly on time (21 Oct). The plan already knows
+ * which items overlap; lateness only changes where it has room to:
+ *
+ *  · a GAP in the plan before an item (nothing scheduled — a deliberate wait,
+ *    or time given back by a strike or a trim) takes lateness up, or adds to
+ *    the time in hand;
+ *  · an OVERLAP (an item printed inside the one before) changes nothing.
+ */
+function carry(
+  rows: readonly LateRow[],
+  timing: readonly LateTiming[],
+  fromIndex: number,
+  frontierSec: number,
+  lateSec: number,
+  target: FixedTarget,
+): number {
+  let frontier = frontierSec;
+  let late = lateSec;
+  for (let i = fromIndex; i < target.index; i++) {
+    if (!countsOnTheWay(rows[i]!)) continue;
+    const start = timing[i]?.startSec;
+    if (start == null) continue;
+    if (start > frontier) late -= start - frontier;
+    frontier = Math.max(frontier, start + (timing[i]?.effectiveDurationSec ?? 0));
+  }
+  if (target.atSec > frontier) late -= target.atSec - frontier;
+  return late;
+}
+
+/**
  * When the show reaches the next must-start row.
  *
- * Now, plus what is left of the item on air (nothing once it is over — its
- * overrun is already in "now"), plus the planned length of every item still
- * to play before the target. Null when nothing is on air or no target lies
- * ahead.
+ * How late it is NOW — when the item on air will end (now plus what is left of
+ * it; its overrun is already in "now") against when the plan has it ending —
+ * carried forward to the target through the gaps in the plan (see `carry`).
+ * Null when nothing is on air or no target lies ahead.
  */
 export function arrivalAtNextFixed(
   rows: readonly LateRow[],
@@ -109,9 +147,12 @@ export function arrivalAtNextFixed(
   if (activeIndex < 0) return null;
   const target = targets.find((t) => t.index > activeIndex);
   if (!target) return null;
-  let arrives = nowSec + Math.max(0, remainingInRowSec ?? 0);
-  for (let i = activeIndex + 1; i < target.index; i++) if (countsOnTheWay(rows[i]!)) arrives += timing[i]?.effectiveDurationSec ?? 0;
-  return { target, arrivesSec: arrives, overSec: Math.round(arrives - target.atSec), untilSec: target.atSec - nowSec };
+  const endsSec = nowSec + Math.max(0, remainingInRowSec ?? 0);
+  const plannedStart = timing[activeIndex]?.startSec ?? nowSec;
+  const plannedEnd = plannedStart + (timing[activeIndex]?.effectiveDurationSec ?? 0);
+  const late = carry(rows, timing, activeIndex + 1, plannedEnd, endsSec - plannedEnd, target);
+  const arrives = target.atSec + late;
+  return { target, arrivesSec: arrives, overSec: Math.round(late), untilSec: target.atSec - nowSec };
 }
 
 /**
@@ -138,9 +179,10 @@ export function arrivalsAhead(
   let prev = first;
   for (const target of targets) {
     if (target.index <= prev.target.index) continue;
-    let arrives = Math.max(prev.arrivesSec, prev.target.atSec);
-    for (let i = prev.target.index; i < target.index; i++) if (countsOnTheWay(rows[i]!)) arrives += timing[i]?.effectiveDurationSec ?? 0;
-    const next: Arrival = { target, arrivesSec: arrives, overSec: Math.round(arrives - target.atSec), untilSec: target.atSec - nowSec };
+    // Lateness carries on into the next; time in hand does not — a half
+    // never starts before its time.
+    const late = carry(rows, timing, prev.target.index, prev.target.atSec, Math.max(0, prev.overSec), target);
+    const next: Arrival = { target, arrivesSec: target.atSec + late, overSec: Math.round(late), untilSec: target.atSec - nowSec };
     out.push(next);
     prev = next;
   }
@@ -180,22 +222,35 @@ export interface TrimOption {
   /** Its planned length now. */
   durationSec: number;
   canDrop: boolean;
+  /** Already struck from here — kept in the list, crossed out, so it can be put back. */
+  struck: boolean;
 }
 
 /**
  * What could be trimmed before the target, most useful first: rows marked
- * "Can drop if running late", then the longest. Only items still to play.
+ * "Can drop if running late", then the longest. Only items still to play, and
+ * only those in the target's own CHUNK — after the fixed time before it
+ * (`chunkFrom`), so "Game 2 · 1st half" offers what runs between game 1's
+ * second half and game 2, not the half-time items of game 1 again (21 Oct,
+ * Robert: "explore the chunks between each game").
+ *
+ * Struck rows stay in the list, marked, in the place they had (21 Oct: "when
+ * clicking Strike it disappears — maybe just put a strike through it so it can
+ * be undone"). Sorted by their length either way, so striking one does not
+ * move the others under the pointer.
  */
 export function trimOptions(
   rows: readonly (LateRow & { durationSec?: number | null; canDrop?: boolean })[],
   activeIndex: number,
   target: FixedTarget,
+  chunkFrom = -1,
 ): TrimOption[] {
   const out: TrimOption[] = [];
-  for (let i = activeIndex + 1; i < target.index; i++) {
+  for (let i = Math.max(activeIndex, chunkFrom) + 1; i < target.index; i++) {
     const r = rows[i]!;
-    if (!countsOnTheWay(r) || r.type === "milestone" || !(r.durationSec && r.durationSec > 0)) continue;
-    out.push({ index: i, id: r.id, durationSec: r.durationSec, canDrop: r.canDrop === true });
+    const struck = !!r.skipped;
+    if (!countsOnTheWay({ ...r, skipped: false }) || r.type === "milestone" || !(r.durationSec && r.durationSec > 0)) continue;
+    out.push({ index: i, id: r.id, durationSec: r.durationSec, canDrop: r.canDrop === true, struck });
   }
   return out.sort((a, b) => Number(b.canDrop) - Number(a.canDrop) || b.durationSec - a.durationSec);
 }

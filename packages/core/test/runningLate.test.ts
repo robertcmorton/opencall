@@ -105,5 +105,70 @@ describe("every fixed time ahead (21 Oct)", () => {
     expect(at(ON_TIME_SEC + 1)).toBe("over");
     expect([lateBy(1), lateBy(-14), lateBy(16), lateBy(-40)]).toEqual([0, 0, 16, -40]);
   });
+
+});
+
+describe("a block with its contents printed inside it (21 Oct: '13:00 OVER' on time)", () => {
+  // 1st half to 6:15, a 5:00 buffer to 6:20, then HALF TIME 13:00 (6:20–6:33)
+  // with the half-time items printed INSIDE it at their own times, then the
+  // 2nd half at 6:33. Adding lengths counted the 13 minutes twice.
+  const M = 60;
+  const r = [
+    row("half1", { durationSec: 35 * M }),
+    row("buffer", { durationSec: 5 * M }),
+    row("halftime", { durationSec: 13 * M }),
+    row("wrap", { durationSec: 30 }),
+    row("reel", { durationSec: 60 }),
+    row("relay", { durationSec: 4 * M }),
+    row("entry", { durationSec: 30 }),
+    row("half2", { durationSec: 40 * M }),
+  ];
+  const T = 17 * H + 40 * M; // 5:40 pm
+  const tm: LateTiming[] = [
+    { startSec: T, effectiveDurationSec: 35 * M },
+    { startSec: T + 35 * M, effectiveDurationSec: 5 * M },
+    { startSec: T + 40 * M, effectiveDurationSec: 13 * M },
+    { startSec: T + 40 * M, effectiveDurationSec: 30 },
+    { startSec: T + 40 * M + 30, effectiveDurationSec: 60 },
+    { startSec: T + 41 * M + 30, effectiveDurationSec: 4 * M },
+    { startSec: T + 45 * M + 30, effectiveDurationSec: 30 },
+    { startSec: T + 53 * M, effectiveDurationSec: 40 * M },
+  ];
+  const tg = fixedTargets(r, tm, [{ from: 0, kind: "first-half", label: "1st half" }, { from: 7, kind: "second-half", label: "2nd half" }], (i) => r[i]!.id);
+  it("on time, it says on time — the half-time items are not counted on top of the block", () => {
+    // In the buffer at 6:17, three minutes of it left.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, 180, T + 37 * M)!;
+    expect(a.target.name).toBe("2nd half");
+    expect(a.overSec).toBe(0);
+  });
+  it("two minutes late in the buffer is two minutes late at the 2nd half", () => {
+    const a = arrivalAtNextFixed(r, tm, tg, 1, 180, T + 39 * M)!;
+    expect(a.overSec).toBe(120);
+  });
+  it("striking the buffer gives its five minutes back", () => {
+    const struck = r.map((x) => (x.id === "buffer" ? { ...x, skipped: true } : x));
+    // Still in the 1st half at 6:10, on time; the buffer will not be played.
+    const a = arrivalAtNextFixed(struck, tm, tg, 0, 5 * M, T + 30 * M)!;
+    expect(a.overSec).toBe(-5 * M);
+  });
+});
+
+describe("what could be trimmed (21 Oct)", () => {
+  it("keeps a struck item in the list, marked, where it was", () => {
+    const struck = rows.map((r) => (r.id === "crowd" ? { ...r, skipped: true } : r));
+    const got = trimOptions(struck, 1, targets[0]!);
+    expect(got.map((t) => [t.id, t.struck])).toEqual([
+      ["sponsor", false],
+      ["crowd", true],
+    ]);
+  });
+  it("offers only the target's own chunk — after the fixed time before it", () => {
+    // From the anthem, everything before the ad is on the way; the ad's own
+    // chunk starts at the 2nd half.
+    expect(trimOptions(rows, 1, targets[1]!).map((t) => t.id)).toEqual(["sponsor", "half2", "crowd"]);
+    // From the 2nd half on: the half itself is a fixed time, not a trim, and
+    // nothing else sits between it and the ad.
+    expect(trimOptions(rows, 1, targets[1]!, targets[0]!.index)).toEqual([]);
+  });
 });
 

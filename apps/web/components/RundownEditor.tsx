@@ -2966,14 +2966,19 @@ export function RundownEditor({
    * Trimming before a fixed time moves the fixed times up to it — never the
    * fixed time itself, or the trim would carry it along and win nothing.
    */
-  const trimBefore = (rowId: string, targetIdx: number, kind: "strike" | "trim", bySec = 30): void => {
+  const trimBefore = (rowId: string, targetIdx: number, kind: "strike" | "unstrike" | "trim", bySec = 30): void => {
     const idx = rows.findIndex((r) => r.id === rowId);
     const yRow = yRows.get(rowId);
     if (idx < 0 || !yRow) return;
     doc.transact(() => {
-      if (kind === "strike") {
-        yRow.set("skipped", true);
-        const delta = strikeShift(rows, idx, true, lateActiveIdx);
+      if (kind === "strike" || kind === "unstrike") {
+        // Putting one back is the strike in reverse: the times it moved up
+        // move back by the same amount (21 Oct — struck items now stay in the
+        // list with Undo strike beside them).
+        const struck = kind === "strike";
+        if (!!rows[idx]!.skipped === struck) return;
+        yRow.set("skipped", struck);
+        const delta = strikeShift(rows, idx, struck, lateActiveIdx);
         if (delta !== 0) shiftFixedTimes(idx + 1, targetIdx - 1, delta);
       } else {
         const was = rows[idx]!.durationSec ?? 0;
@@ -4571,9 +4576,16 @@ export function RundownEditor({
       };
       if (out.length > 0) out.push("sep");
       out.push({ heading: many ? `${picked.length} rows picked` : `Row ${n}` });
+      // Insert above / below, in Google Sheets' words (21 Oct, Robert: "add a
+      // row above or below the same as Google Sheets when I right-click"). They
+      // were hidden for the whole of a live show, which is when he tried; now
+      // they come back with Edit run sheet, like every other change to the
+      // sheet during a show.
+      if (!showLive || editTools) {
+        out.push({ label: <>{Icon.plus} Insert 1 row above</>, onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
+        out.push({ label: <>{Icon.plus} Insert 1 row below</>, onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
+      }
       if (!showLive) {
-        out.push({ label: "Add a row above", onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
-        out.push({ label: "Add a row below", onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
         out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, duplicateSelected) });
         out.push("sep");
         // Labelling, where the rows already are — see `toggleTypeSelected`.
@@ -5311,14 +5323,18 @@ export function RundownEditor({
               manyGames={gameEnds.length > 1}
               canEdit={canEditContent}
               trimsFor={(targetIndex) => {
-                const target = fixedTimes.find((t) => t.index === targetIndex);
+                const at = fixedTimes.findIndex((t) => t.index === targetIndex);
+                const target = fixedTimes[at];
                 if (!target) return [];
-                return trimOptions(rows, lateActiveIdx, target).map((t) => {
+                // Its own chunk: after the fixed time before it.
+                const chunkFrom = at > 0 ? fixedTimes[at - 1]!.index : -1;
+                return trimOptions(rows, lateActiveIdx, target, chunkFrom).map((t) => {
                   const r = rows[t.index]!;
-                  return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
+                  return { id: t.id, number: numberOf(t.index), title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: t.struck };
                 });
               }}
               onStrike={(id, targetIndex) => trimBefore(id, targetIndex, "strike")}
+              onUnstrike={(id, targetIndex) => trimBefore(id, targetIndex, "unstrike")}
               onTrim={(id, by, targetIndex) => trimBefore(id, targetIndex, "trim", by)}
             />
           )}

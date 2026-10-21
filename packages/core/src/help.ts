@@ -908,16 +908,17 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "message-stage",
-        name: "Message stage",
-        forWhat: "Flashes a short message in big letters on every timer and prompter screen — to tell a speaker to wrap up, for example.",
+        name: "Message",
+        forWhat: "Puts a short message up — in big letters on the presenter's timer and prompter, as a banner across the crew's sheets, or both. To tell a speaker to wrap up, or the crew to stand by.",
         steps: [
-          "Press **Message stage**.",
-          "Pick **Wrap up**, **30 seconds**, **Stretch 2 minutes**, **Stand by**, **Slow down** or **Speed up** — or type your own and press **Send**.",
-          "The message stays up until you press **Clear**.",
+          "Press **Message**.",
+          "Choose who it's for: **Stage** (timer and prompter), **Crew** (a banner on everyone's sheet) or **Everyone**.",
+          "Type it and press **Send** — or tap one of your recent messages: the last five you typed are kept as one-tap buttons.",
+          "It stays up until you press **Message** again and choose **Take down**.",
         ],
-        mouse: "Also in the row menu: right-click any row and choose **Message the stage…**.",
+        mouse: "Also in the row menu: right-click any row and choose **Message…**.",
         who: CALLER,
-        good: "The show page shows what is up (**On stage:** and the words, with **Clear**), so nothing is left on a screen by accident. `Esc` closes the message box without sending. On a phone it opens as a panel along the bottom of the screen.",
+        good: "While a message is up the button shows a dot and its first words, so nothing is left up by accident; press it to read the whole thing. The crew can close the banner on their own screen — it stays up for everyone else. `Esc` closes the box without sending. On a phone it opens as a panel along the bottom of the screen."
       },
       {
         id: "stopwatch",
@@ -988,7 +989,7 @@ export const SECTIONS: HelpSection[] = [
         id: "ipad-caller",
         name: "Running the show on an iPad",
         forWhat: "Puts the show's controls where your thumbs are while you hold a tablet.",
-        finger: "On an iPad, Start show, the walkthrough, Message stage — and once you're live, Hold and Stop — sit in a bar along the bottom edge, with bigger buttons.",
+        finger: "On an iPad, Start show, the walkthrough, Message — and once you're live, Hold and Stop — sit in a bar along the bottom edge, with bigger buttons.",
         who: "The showcaller, on a tablet. Computers and phones keep the controls at the top.",
       },
       {
@@ -1098,7 +1099,7 @@ export const SECTIONS: HelpSection[] = [
         id: "live-together",
         name: "Every screen follows",
         forWhat: "Keeps everyone on the same page, literally.",
-        how: "Nothing to press. Changes, the live cue, the walkthrough and stage messages reach every screen within a moment.",
+        how: "Nothing to press. Changes, the live cue, the walkthrough and messages reach every screen within a moment.",
         good: "If a screen loses its connection, it keeps showing the last thing it knew and catches up when it reconnects.",
       },
     ],

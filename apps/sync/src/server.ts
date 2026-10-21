@@ -144,7 +144,7 @@ interface ClientCtx {
  * failure. Dropped on its own after an hour so a forgotten one never greets
  * the next show.
  */
-const speakerMessages = new Map<string, { text: string; from: string; atMs: number }>();
+const speakerMessages = new Map<string, { text: string; from: string; atMs: number; to?: "stage" | "crew" | "all" }>();
 const SPEAKER_TTL_MS = 60 * 60 * 1000;
 const speakerFor = (rundownId: string) => {
   const m = speakerMessages.get(rundownId);
@@ -599,10 +599,10 @@ wss.on("connection", (ws, req) => {
     // A message for the stage screens: the caller's (or an admin's) to send.
     if (msg.t === "say") {
       if (ctx.role !== "caller" && ctx.role !== "admin") {
-        send(ws, { v: PROTOCOL_VERSION, t: "error", code: CloseCodes.FORBIDDEN, msg: "only the showcaller can send a message to the stage" });
+        send(ws, { v: PROTOCOL_VERSION, t: "error", code: CloseCodes.FORBIDDEN, msg: "only the showcaller can send a message" });
         return;
       }
-      const message = msg.text ? { text: msg.text, from: ctx.label, atMs: Date.now() } : null;
+      const message = msg.text ? { text: msg.text, from: ctx.label, atMs: Date.now(), to: msg.to ?? "stage" } : null;
       if (message) speakerMessages.set(ctx.rundownId, message);
       else speakerMessages.delete(ctx.rundownId);
       broadcast(ctx.rundownId, { v: PROTOCOL_VERSION, t: "speaker", message });

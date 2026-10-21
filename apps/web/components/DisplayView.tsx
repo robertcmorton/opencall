@@ -74,7 +74,7 @@ export function DisplayView({ rundownId, joinCode }: { rundownId: string; joinCo
 
   return (
     <main className="force-dark display-view">
-      <SpeakerBanner message={channel.speaker} />
+      <SpeakerBanner message={channel.speaker} everyone />
       <header className="display-top">
         {/* The page's heading for a screen reader; on the wall it is just the name. */}
         <h1 className="display-name">{meta.name}</h1>

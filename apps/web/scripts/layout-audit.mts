@@ -243,7 +243,7 @@ async function press(page: Page, label: string | RegExp) {
   const b = page.locator("button:visible", { hasText: label }).first();
   if (!(await b.count())) return false;
   // A button something else is drawn over is a finding, not a crash (21 Oct:
-  // the iPad nudge bar covered Message stage, and the check died on it).
+  // the iPad nudge bar covered the Message button, and the check died on it).
   try {
     await b.click({ timeout: 5000 });
   } catch {
@@ -307,9 +307,18 @@ async function* showStates(page: Page, size: (typeof SIZES)[number]): AsyncGener
     await other.close();
     if (found.length) liveCrew.push(...found.map((p) => `${crew.split("/")[1]} while live: ${p}`));
   }
-  if (await press(page, "Message stage")) {
-    yield "live, Message stage open";
-    await page.keyboard.press("Escape");
+  if (await press(page, /^Message$/)) {
+    yield "live, Message box open";
+    // Up for everyone (21 Oct): the button must keep its width with a long
+    // message on it — it used to widen the controls box onto two lines.
+    await page.locator('.speaker-to button[role="radio"]', { hasText: "Everyone" }).first().click().catch(() => undefined);
+    await page.locator(".speaker-pop input").first().fill("Hold the walk-out for two minutes, the anthem singer is not ready yet");
+    await page.locator(".speaker-pop button[type=submit]").first().click().catch(() => undefined);
+    await page.waitForTimeout(400);
+    yield "live, a long message up";
+    await page.locator(".speaker-toggle").first().click().catch(() => undefined);
+    await page.locator(".speaker-pop button", { hasText: "Take down" }).first().click().catch(() => undefined);
+    await page.waitForTimeout(200);
   }
   yield* fullTimeStates(page);
   // Stop asks twice; its second face is labelled "Confirm — end the show now".

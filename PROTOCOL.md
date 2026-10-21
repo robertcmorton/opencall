@@ -176,3 +176,20 @@ Server supports current and previous `v` for one release cycle. This file is nor
   `photo` is a path on the sync server (`/users/<id>/photo?v=<hash>`) when the
   account has uploaded one. `counts` is unchanged, so older screens still work.
 
+
+## Kind of show changes live (additive, 21 Oct 2026)
+
+- Server → client `{ "v":1, "t":"kind", "sport": "<id>" | null, "eventTypeSpec"?: {…} }`,
+  sent to every screen on a sheet when its kind of show is changed (dashboard or
+  the match card). It carries what the welcome would have, so screens switch
+  their endings without reconnecting. Clients that don't know it ignore it.
+
+## Messages for the stage, the crew or both (additive, 21 Oct 2026)
+
+- `say` adds an optional `to`: `"stage"` (timer and prompter — the default, and
+  all a message was before), `"crew"` (a banner on everyone's sheet) or `"all"`.
+- `speaker` / the welcome's `speaker` carry it back on the message as `to`.
+  A message without `to` is for the stage. Stage screens show `stage` and
+  `all`; sheets show `crew` and `all`; the backstage display shows any.
+- Still one message per sheet at a time, still the caller's (or an admin's)
+  to send, still not in the as-run record.

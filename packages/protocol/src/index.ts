@@ -86,10 +86,19 @@ export const CmdMsg = z
  * — `text: null` clears it. Not a transport command: it moves nothing, and
  * the as-run record does not carry it.
  */
+/**
+ * Who a message is for (21 Oct): the STAGE (timer, prompter), the CREW (a
+ * banner on everyone's sheet) or both. Optional and additive — a message
+ * without it is for the stage, which is all a message used to be.
+ */
+export const MessageTo = z.enum(["stage", "crew", "all"]);
+export type MessageTo = z.infer<typeof MessageTo>;
+
 export const SayMsg = z.object({
   ...envelope,
   t: z.literal("say"),
   text: z.string().trim().min(1).max(120).nullable(),
+  to: MessageTo.optional(),
 });
 
 export const ClientMsg = z.union([HelloMsg, PingMsg, CmdMsg, SayMsg]);
@@ -218,7 +227,11 @@ export const PresenceMsg = z.object({
 });
 
 /** The message on screen now, or none (additive v1.8). */
-export const SpeakerMessage = z.object({ text: z.string(), from: z.string(), atMs: z.number() });
+export const SpeakerMessage = z.object({ text: z.string(), from: z.string(), atMs: z.number(), to: MessageTo.optional() });
+/** Does this message belong on a stage screen (timer, prompter)? */
+export const forStage = (m: { to?: MessageTo } | null | undefined): boolean => !!m && (m.to ?? "stage") !== "crew";
+/** …and on the crew's sheets? */
+export const forCrew = (m: { to?: MessageTo } | null | undefined): boolean => !!m && (m.to === "crew" || m.to === "all");
 export type SpeakerMessage = z.infer<typeof SpeakerMessage>;
 export const SpeakerMsg = z.object({ ...envelope, t: z.literal("speaker"), message: SpeakerMessage.nullable() });
 

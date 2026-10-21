@@ -84,7 +84,7 @@ import { JumpPalette, type JumpAction } from "./JumpPalette";
 import { FindReplacePanel } from "./FindReplacePanel";
 import { CopyRowsPanel } from "./CopyRowsPanel";
 import { SignalsPanel } from "./SignalsPanel";
-import { SpeakerControl } from "./SpeakerMessage";
+import { CrewMessage, SpeakerControl, TO_LABEL } from "./SpeakerMessage";
 import { RowMenu, type RowMenuEntry } from "./RowMenu";
 import { usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift, startShow } from "./TransportBar";
@@ -4485,7 +4485,7 @@ export function RundownEditor({
               startShow(channel, ordered, untilShowSec);
             },
           },
-          { id: "message", label: "Message the stage", keywords: "presenter wrap up speaker", run: () => setSpeakerOpen((k) => k + 1) },
+          { id: "message", label: "Message the stage or crew", keywords: "presenter wrap up speaker crew team banner", run: () => setSpeakerOpen((k) => k + 1) },
           ...(walkRowId ? [{ id: "endwalk", label: "End the walkthrough", keywords: "stop rehearsal", run: () => channel.sendCmd("walk") }] : []),
         ]
       : []),
@@ -4549,8 +4549,8 @@ export function RundownEditor({
       if (walkRowId) out.push({ label: "End walkthrough", hint: "Takes the highlight off every screen", onSelect: () => channel.sendCmd("walk") });
       out.push(
         channel.speaker
-          ? { label: "Take the stage message down", hint: `Showing now: “${channel.speaker.text}”`, onSelect: () => channel.say(null) }
-          : { label: "Message the stage…", hint: "Big words on the presenter's screens, like “Wrap up”", onSelect: () => setSpeakerOpen((k) => k + 1) },
+          ? { label: "Take the message down", hint: `Up for ${TO_LABEL[channel.speaker.to ?? "stage"].toLowerCase()}: “${channel.speaker.text}”`, onSelect: () => channel.say(null) }
+          : { label: "Message…", hint: "Big words on the stage screens, a banner on the crew's sheets, or both", onSelect: () => setSpeakerOpen((k) => k + 1) },
       );
     }
     if (canEditContent) {
@@ -5815,6 +5815,9 @@ export function RundownEditor({
         )}
       </div>
 
+      {/* A message for the crew, on everyone's sheet but the sender's — the
+          showcaller already has it on their Message button (21 Oct). */}
+      {!mayDrive && <CrewMessage message={channel.speaker} />}
       {/* Before the show only: once it has ended the game no longer decides anything. */}
       {matchGames.length > 0 && channel.show?.state !== "ended" && !showLive && rows.length > 0 && (
         <MatchCard

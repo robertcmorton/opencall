@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ulid } from "ulid";
 import { type SpeakerMessage,
+  type MessageTo,
   PROTOCOL_VERSION,
   type CmdAction,
   type PresencePerson,
@@ -53,7 +54,8 @@ export interface ShowChannel {
   /** The message on the stage screens now ("Wrap up"), or null. */
   speaker: SpeakerMessage | null;
   /** Put a message on the stage screens, or clear it with null. Callers only; the server refuses others. */
-  say: (text: string | null) => void;
+  /** Put a message up (for the stage, the crew or both — stage when not said), or take it down with null. */
+  say: (text: string | null, to?: MessageTo) => void;
   /** IANA timezone of the event — governs every clock on this surface. */
   timezone: string | null;
   /**
@@ -360,9 +362,9 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     eventTypeSpec,
     show,
     speaker,
-    say: (text) => {
+    say: (text, to) => {
       const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current) ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "say", text }));
+      if (ws && ws.readyState === WebSocket.OPEN && welcomedRef.current) ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "say", text, ...(text && to ? { to } : {}) }));
     },
     serverNow: () => Date.now() + offsetRef.current,
     lastCmdError,

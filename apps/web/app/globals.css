@@ -7035,3 +7035,88 @@ a > svg,
   color: var(--text-3);
   font-style: italic;
 }
+
+/* The Message button keeps one width with or without a message up (21 Oct):
+   it used to become "On stage: … · Clear" and push the show controls onto a
+   second line. A dot and as much of the message as fits; the box has the rest. */
+.speaker-toggle {
+  width: 8.5em;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+}
+.speaker-toggle.is-up {
+  justify-content: flex-start;
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.speaker-toggle-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.speaker-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.speaker-up {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--warn-soft);
+  font-size: var(--fs-sm);
+}
+.speaker-to {
+  display: flex;
+  gap: 4px;
+}
+.speaker-to .btn {
+  flex: 1;
+}
+.speaker-to .btn.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* A message for the crew, across the top of their sheet. */
+.crew-message {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius, 8px);
+  background: #ffd23f;
+  color: #000;
+}
+.crew-message-from {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+  flex: none;
+}
+.crew-message-text {
+  flex: 1;
+  font-size: var(--fs-lg, 1.15rem);
+  line-height: 1.25;
+}
+.crew-message .btn {
+  color: #000;
+  flex: none;
+}
+.crew-message.fresh {
+  animation: speaker-pulse 0.75s ease-in-out 4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-message.fresh {
+    animation: none;
+  }
+}

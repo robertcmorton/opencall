@@ -2,7 +2,8 @@
 # Every screen at phone, tablet, laptop and desktop sizes, against a fresh
 # copy of the app: a throwaway database with the demo sheet, the sync server,
 # and a PRODUCTION build of the web app (so a build that would fail on Railway
-# fails here first). Then apps/web/scripts/layout-audit.mts measures it.
+# fails here first). Then apps/web/scripts/layout-audit.mts measures it, and
+# apps/web/scripts/clock-record.mts plays a short show on the clock.
 #
 #   pnpm test:layout
 #
@@ -54,3 +55,8 @@ echo "▸ measuring"
 cd "$ROOT/apps/web"
 # The demo sheet has a match with endings: fail if a sheet page stops drawing them.
 AUDIT_EXPECT_ENDINGS=1 SYNC_URL="http://localhost:$SYNC_PORT" node scripts/layout-audit.mts "http://localhost:$WEB_PORT"
+
+echo "▸ a show run on the clock"
+# Same throwaway servers: a short show played on the clock must record every
+# item to the second (apps/web/scripts/clock-record.mts, ~3 minutes).
+WEB_URL="http://localhost:$WEB_PORT" SYNC_URL="http://localhost:$SYNC_PORT" node scripts/clock-record.mts

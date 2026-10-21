@@ -47,7 +47,8 @@ jobs:
 
   # Every screen at phone, tablet, laptop and desktop sizes, against a real
   # production build on a throwaway database: nothing off the edge, no
-  # sideways slide, nothing too small for a finger. Also the only place CI
+  # sideways slide, nothing too small for a finger. Then a short show played
+  # on the clock, which must record every item to the second. Also the only place CI
   # builds the web app, so a build that would fail on Railway fails here.
   layout:
     runs-on: ubuntu-latest
@@ -63,7 +64,7 @@ jobs:
           cache: pnpm
       - name: Install (lockfile only)
         run: pnpm install --frozen-lockfile
-      - name: Every screen at every size
+      - name: Every screen at every size, and a show run on the clock
         run: pnpm test:layout
 
   secrets:

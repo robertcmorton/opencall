@@ -1913,7 +1913,13 @@ kbd {
   background: color-mix(in srgb, var(--warn) 24%, transparent);
 }
 
-.sync-cue {
+/* `[data-tip]` in the selector, not just the class (21 Oct, Robert: "strange
+   gap appearing"). The button carries a tip, and `[data-tip] { position:
+   relative }` — the same weight, later in this file — won: the button sat IN
+   the sheet's flow and pushed it down 32px whenever it showed, leaving a blank
+   band between the toolbar and the column headings. */
+.sync-cue,
+.sync-cue[data-tip] {
   position: absolute;
   top: 42px;
   left: 0;
@@ -2379,10 +2385,19 @@ kbd {
   width: 100%;
   box-sizing: border-box;
 }
-/* A phone drops the stopwatch under the transport. */
-@media (max-width: 760px) {
+/* A phone drops the stopwatch under the transport — and so does a narrow
+   window up to 820px, where on one line the row was 471px and the sides could
+   not be equal around it (the timer sat 23px off the middle at 768). */
+@media (max-width: 820px) {
   .show-state-row {
     flex-wrap: wrap;
+  }
+}
+/* …and the middle column sizes to that wrapped row, not the unwrapped one
+   (`max-content` above measures the row as one line). */
+@media (min-width: 761px) and (max-width: 820px) {
+  .topbar-center {
+    width: min-content;
   }
 }
 .topbar-right {
@@ -2412,6 +2427,15 @@ kbd {
   column-gap: 3.5rem;
   row-gap: 0.35rem;
   justify-content: end;
+}
+/* Narrower, the wide gaps are what made this side outgrow the left one and
+   push the timer off centre: at 1024 it needed 296px against the left's 143,
+   and the timer sat 50px left of the middle. Closer together it fits its
+   half, and the timer stays in the middle. */
+@media (max-width: 1280px) {
+  .topbar-right {
+    column-gap: 1.25rem;
+  }
 }
 /* One row, read left to right: what time it is NOW, what time we come OFF,
    then the connection lamps. The two clocks side by side is the comparison
@@ -2462,8 +2486,11 @@ kbd {
    from the sheet's name and start time on the left — which were painted
    under the cue timer box and lost. Stacked, the right block is half as wide
    and the left block has its room back. The desktop keeps the pair on one
-   line, where there is width to spare and height is the scarcer thing. */
-@media (max-width: 1000px) {
+   line, where there is width to spare and height is the scarcer thing.
+   From 1100, not 1000 (21 Oct): on one line at 1024 the readouts needed 296px
+   against the 245px each side gets around the timer, and the timer sat 50px
+   left of the middle. */
+@media (max-width: 1100px) {
   .topbar-right {
     grid-template-columns: max-content max-content;
     grid-template-rows: auto auto;
@@ -2502,9 +2529,22 @@ kbd {
   justify-items: start;
   gap: 4px;
 }
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .topbar-right > .status-cluster {
     grid-area: 1 / 2 / 3 / 3;
+  }
+}
+/* An iPad held upright: a little closer still, so the right side fits its
+   half and the timer keeps the middle (it was 11px off at 768). */
+@media (min-width: 761px) and (max-width: 900px) {
+  .topbar-right {
+    grid-template-columns: max-content;
+    grid-template-rows: auto auto auto;
+  }
+  .topbar-right > .status-cluster {
+    grid-area: 3 / 1;
+    justify-self: start;
+    gap: var(--space-2);
   }
 }
 @media (max-width: 760px) {
@@ -3371,7 +3411,12 @@ th.col-drop-target {
    arrive the instant you look. These are the site's own: instant, themed, and
    they never intercept the pointer. Use data-tip="…" in place of title="…".
    Touch devices get nothing (there is no hover to reveal it). */
-[data-tip] {
+/* `:where()` gives this rule NO weight (21 Oct). As a bare `[data-tip]` it
+   tied with any single class and, coming later in the file, beat it — so any
+   positioned control that also carried a tip lost its position: the Sync Cue
+   button fell into the sheet's flow and opened a 32px gap above the headings,
+   and the same thing had happened twice before. Now a class always wins. */
+:where([data-tip]) {
   position: relative;
 }
 @media (hover: hover) {
@@ -4066,13 +4111,28 @@ th.col-drop-target {
    a menu should not move the clock somebody is calling a show against, and the
    button floats over that space whether the menu is open or not, so the space
    is held either way. */
-.with-sidenav .topbar-head,
+/* On the show bar the room is kept INSIDE the left column, not on the bar
+   (21 Oct, Robert: "make sure symmetry is obeyed with the timer in the
+   middle"). Padding on the bar made the left column start 52px later than the
+   right one ended, so the two "equal" sides were equal around a point 26px
+   right of the screen's centre — measured +26px at every width from 1280 up. */
 .with-sidenav .admin-main > header {
   padding-left: max(0px, calc(52px - var(--sidenav-pad, 0px)));
 }
 @media (max-width: 900px) {
-  .with-sidenav .topbar-head,
   .with-sidenav .admin-main > header {
+    padding-left: 52px;
+  }
+}
+/* Not on a phone, where the bar keeps equal room on BOTH sides itself (see
+   `.show-page .topbar-head` under 760px). */
+@media (min-width: 761px) {
+  .with-sidenav .topbar-head > .topbar-left {
+    padding-left: max(0px, calc(52px - var(--sidenav-pad, 0px)));
+  }
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .with-sidenav .topbar-head > .topbar-left {
     padding-left: 52px;
   }
 }
@@ -6565,9 +6625,15 @@ a > svg,
   display: flex;
   justify-content: center;
   width: 100%;
+  /* Takes the width the controls above give it and never asks for more: its
+     words don't wrap, and as max-content they widened the middle of the bar
+     to 417px at 768 and pushed the timer off centre (21 Oct). The game and
+     half's name gives way instead (it ellipsises). */
+  contain: inline-size;
 }
 .rl-pill {
   /* The full width of the show controls above it (21 Oct). */
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: baseline;

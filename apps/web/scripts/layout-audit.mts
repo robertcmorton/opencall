@@ -91,6 +91,24 @@ function measure(touch: boolean) {
   const problems: string[] = [];
   const slide = document.documentElement.scrollWidth - vw;
   if (slide > 0) problems.push(`page slides sideways by ${slide}px`);
+  /**
+   * The cue timer owns the middle of the screen (21 Oct, Robert: "make sure
+   * symmetry is obeyed with the timer in the middle and other components
+   * adjust around it"). From a tablet up, the timer box and the controls under
+   * it must sit on the screen's centreline, give or take 2px. Measured before
+   * the fix: +26px at every width from 1280 up (the menu button's room was
+   * kept on one side only), −50px at 1024, −23px in a 768 window. A phone puts
+   * the timer beside the menu button on purpose, so it is left out.
+   */
+  if (vw >= 768 && document.querySelector(".show-page")) {
+    for (const sel of [".topbar-center", ".big-timer"]) {
+      const e = document.querySelector(sel);
+      if (!e || !shown(e)) continue;
+      const r = e.getBoundingClientRect();
+      const off = Math.round(r.left + r.width / 2 - vw / 2);
+      if (Math.abs(off) > 2) problems.push(`off centre: ${sel} sits ${off > 0 ? "right" : "left"} of the middle by ${Math.abs(off)}px`);
+    }
+  }
   for (const m of document.querySelectorAll("main")) if (m.scrollLeft > 0) problems.push(`<main> shifted ${m.scrollLeft}px`);
   for (const e of document.querySelectorAll("button, a, input, select, textarea, h1, h2, h3, label, [role=button], img, p, td, th, .preflight, .popover, [data-popover], [role=menu], dialog[open]")) {
     if (!shown(e) || scrollsX(e)) continue;

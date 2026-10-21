@@ -1672,8 +1672,26 @@ export function RundownEditor({
     const disengage = () => {
       if (!programmaticScroll.current) setFollowScroll(false);
     };
-    window.addEventListener("wheel", disengage, { passive: true });
-    window.addEventListener("touchmove", disengage, { passive: true });
+    /**
+     * Only a PERSON scrolls away (21 Oct, Robert on a phone: "everything
+     * appears correct but it's still asking me to Sync Cue"). The sheet moves
+     * under nobody's hand too: the address bar sliding away resizes it, a
+     * line of words appearing above shifts it, rows settling their heights
+     * nudge it — and each of those was read as somebody scrolling off the cue.
+     * A scroll now counts only within a moment of a real gesture on the sheet:
+     * a finger, the wheel, a press on the scrollbar, a key.
+     */
+    let gestureAt = 0;
+    const gesture = () => {
+      gestureAt = Date.now();
+    };
+    const el0 = gridEl;
+    el0?.addEventListener("wheel", disengage, { passive: true });
+    el0?.addEventListener("touchmove", disengage, { passive: true });
+    el0?.addEventListener("pointerdown", gesture, { passive: true });
+    el0?.addEventListener("touchstart", gesture, { passive: true });
+    el0?.addEventListener("wheel", gesture, { passive: true });
+    window.addEventListener("keydown", gesture);
 
     /**
      * DRAGGING THE SCROLLBAR IS NOT A WHEEL EVENT, and neither is Page Down.
@@ -1706,13 +1724,17 @@ export function RundownEditor({
       if (!el) return;
       const moved = Math.abs(el.scrollTop - last);
       last = el.scrollTop;
-      if (!programmaticScroll.current && moved >= 8) setFollowScroll(false);
+      if (!programmaticScroll.current && moved >= 8 && Date.now() - gestureAt < 1500) setFollowScroll(false);
     };
     el?.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
-      window.removeEventListener("wheel", disengage);
-      window.removeEventListener("touchmove", disengage);
+      el0?.removeEventListener("wheel", disengage);
+      el0?.removeEventListener("touchmove", disengage);
+      el0?.removeEventListener("pointerdown", gesture);
+      el0?.removeEventListener("touchstart", gesture);
+      el0?.removeEventListener("wheel", gesture);
+      window.removeEventListener("keydown", gesture);
       el?.removeEventListener("scroll", onScroll);
     };
   }, [focusRowId, gridEl]);
@@ -4043,7 +4065,6 @@ export function RundownEditor({
   const ink = useInk(rundownId);
   const [inkMode, setInkMode] = useState<InkMode>("off");
   const [inkColour, setInkColour] = useState<InkColour>("red");
-  const [inkClearArmed, setInkClearArmed] = useState(false);
   const [inkHidden, setInkHidden] = useState(false);
   // Per device, not per sheet: whether this iPad has a pencil does not change
   // from one show to the next.
@@ -4082,11 +4103,6 @@ export function RundownEditor({
     document.body.classList.toggle("print-no-ink", !includeInk);
     return () => document.body.classList.remove("print-no-ink");
   }, [includeInk]);
-  useEffect(() => {
-    if (!inkClearArmed) return;
-    const t = window.setTimeout(() => setInkClearArmed(false), 3000);
-    return () => window.clearTimeout(t);
-  }, [inkClearArmed]);
   const noteTargetId = lastSelected ?? walkRowId ?? activeRowId ?? null;
 
   const rowNumFloor = useMemo(() => {
@@ -5739,19 +5755,9 @@ export function RundownEditor({
               >
                 {Icon.eraser} Eraser
               </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${inkClearArmed ? "btn-danger" : ""}`}
-                onClick={() => {
-                  if (inkClearArmed) {
-                    ink.clear();
-                    setInkClearArmed(false);
-                  } else setInkClearArmed(true);
-                }}
-                data-tip="Wipe every mark on this sheet. Undo brings them back."
-              >
-                {inkClearArmed ? "Really clear?" : "Clear drawing"}
-              </button>
+              {/* No "Clear drawing" (21 Oct, Robert: "remove the clear drawing
+                  button"). The Eraser lifts a mark at a time, and Hide drawing
+                  gives a clean look without throwing anything away. */}
               <button type="button" className="btn btn-sm" disabled={!ink.canUndo} onClick={ink.undo} data-tip="Take back the last stroke">
                 Undo
               </button>

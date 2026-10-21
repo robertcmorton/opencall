@@ -2561,14 +2561,11 @@ kbd {
      tablet were fixed. With the title up there instead, the button sits
      beside something that already keeps equal room on both sides (the 48px
      above), and the timer gets the whole width. */
+  /* No title row on a phone (21 Oct, Robert: "in mobile remove the heading —
+     replace it with the time, proj. time and the two green lights"). The ☰
+     menu has Dashboard for the way back the title used to be. */
   .show-page .topbar-left {
-    grid-row: 1;
-    /* The menu button is 44px tall on a touch screen, fixed at top 10px: the
-       title's line is as tall and centred on it, so the two read as one row. */
-    min-height: 44px;
-    align-items: center;
-    /* The bar's own content starts 8px down; 2px more is the button's 10. */
-    margin-top: 2px;
+    display: none;
   }
   .show-page .topbar-center {
     grid-row: 2;
@@ -2586,12 +2583,21 @@ kbd {
      vertical row"): Proj. end, Time of day, then the Sheet and Show lights
      stacked beside them. 87 + 142 + ~65px and two gaps fit a 360 phone. */
   .show-page .topbar-right {
-    grid-row: 3;
+    /* Beside the menu button, in the row the title had: as tall as the button
+       (44px, fixed at top 10px) and centred on it. The bar's content starts
+       8px down; 2px more is the button's 10. Between the 48px kept clear on
+       each side: Proj. end, Time and the lights, 87 + ~78 + ~50 and two gaps. */
+    grid-row: 1;
+    min-height: 44px;
+    margin-top: 2px;
     grid-template-columns: max-content max-content max-content;
     grid-template-rows: auto;
     justify-content: center;
     align-items: center;
-    column-gap: 1rem;
+    column-gap: 0.85rem;
+  }
+  .show-page .topbar-right .hc-more {
+    display: none;
   }
   .show-page .topbar-right > .header-proj {
     grid-area: 1 / 1;
@@ -5337,15 +5343,18 @@ tr.jump-flash > td {
   padding: 10px;
 }
 /* A phone has no 300px beside the button: anchored to it, Send ended 50px
-   off the right edge (6 Oct). There it is a panel along the bottom, like the
-   row menu, above the crew tab bar if one is showing. */
+   off the right edge (6 Oct). There it is a panel across the TOP of the
+   screen (21 Oct, Robert: "when clicking Message on mobile the keyboard hides
+   the text at the bottom of the screen") — it was along the bottom, which is
+   exactly where the keyboard comes up, and typing into a box you cannot see
+   is not typing. */
 @media (max-width: 760px) {
   .speaker-pop {
     position: fixed;
-    top: auto;
+    top: calc(var(--space-3) + env(safe-area-inset-top));
     left: var(--space-3);
     right: var(--space-3);
-    bottom: calc(var(--space-3) + var(--tabbar-h, 0px) + env(safe-area-inset-bottom));
+    bottom: auto;
     width: auto;
     z-index: 300;
   }
@@ -7359,4 +7368,39 @@ a > svg,
   margin-right: 6px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Moving to the next row, gently (21 Oct, Robert: "need a cleaner
+   animation when shifting to the next row and starting the blue line — it
+   feels abrupt") ─────────────────────────────────────────────────────────
+   The cue still JUMPS to the new row — a smooth scroll on a windowed sheet
+   lands in the wrong place (see `centreInSheet`) — but what changes on screen
+   no longer snaps: the new live row grows from an ordinary row's size and
+   fades its blue and its rails in, and the progress line eases in rather than
+   arriving at full strength. A CSS animation runs once, when the class
+   arrives, so nothing replays on the once-a-second re-render. */
+@keyframes cue-arrive {
+  from {
+    background-color: transparent;
+    box-shadow: none;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+}
+.rundown-grid tr.active-row td {
+  animation: cue-arrive 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes bar-appear {
+  from {
+    opacity: 0;
+  }
+}
+.row-progress.bar-sweeping {
+  animation: bar-appear 600ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rundown-grid tr.active-row td,
+  .row-progress.bar-sweeping {
+    animation: none;
+  }
 }

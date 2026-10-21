@@ -561,7 +561,7 @@ export const SECTIONS: HelpSection[] = [
         steps: [
           "Press **Draw** in the toolbar.",
           "Pick a pen colour and draw with a mouse or an Apple Pencil.",
-          "Use **Eraser** to rub out a whole mark, **Undo** and **Redo** for the last stroke, **Hide drawing** for a clean look, and **Clear drawing** (press twice) to wipe everything.",
+          "Use **Eraser** to rub out a whole mark, **Undo** and **Redo** for the last stroke, and **Hide drawing** for a clean look.",
           "Press **Draw** again to stop drawing and click into cells again.",
         ],
         finger: "Turn on **Finger** to draw with your finger. While it is on, a finger no longer scrolls the sheet.",

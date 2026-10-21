@@ -33,6 +33,8 @@ const OFFSET_SAMPLES = 5;
  * and a Stop that does nothing are the two worst things this app can do.
  */
 const CHANNEL_STALE_MS = 40_000;
+/** Heard from inside this long, a link is healthy: the server's heartbeat is 15 s. */
+const RESYNC_QUIET_MS = 20_000;
 
 export interface ShowChannel {
   connected: boolean;
@@ -311,12 +313,20 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       }
     };
     const watchdog = setInterval(checkAlive, 5_000);
-    // The manual version of the watchdog losing faith in a socket.
+    // The manual version of the watchdog losing faith in a socket — but only
+    // when there is reason to (21 Oct). Sync Cue called this, and it closed a
+    // perfectly healthy link every time: the Show light went red, "Show link
+    // reconnecting…" appeared, the page shifted, the sheet read the shift as
+    // somebody scrolling away, and Sync Cue was back — on a phone, in a loop.
+    // A link heard from inside a heartbeat and a bit (15 s + 5) already has the
+    // server's latest; there is nothing to ask for.
     resyncRef.current = () => {
       if (closed) return;
       const sock = wsRef.current;
-      if (sock && sock.readyState === WebSocket.OPEN) sock.close();
-      else checkAlive();
+      const quietFor = Date.now() - lastHeardRef.current;
+      if (sock && sock.readyState === WebSocket.OPEN) {
+        if (quietFor > RESYNC_QUIET_MS) sock.close();
+      } else checkAlive();
     };
 
     /**

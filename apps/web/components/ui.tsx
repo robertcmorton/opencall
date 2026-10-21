@@ -162,13 +162,17 @@ export function HeaderClock({ use24h, timeZone }: { use24h: boolean; timeZone?: 
   }, [timeZone]);
   const abbr = timeZone ? zoneAbbreviation(timeZone) : "";
   return (
-    <div className="header-clock-block">
+    <div className="header-clock-block" data-tip={`Time of day${abbr ? ` · ${abbr}` : ""}`}>
       {/* "Time of day", not "event time". The clock reads the EVENT's timezone,
           which is the whole point of it — but "event time" invited the reading
           "the time the event starts", next to a readout that is the time right
           now. The zone is still named beside it, so what it is measuring is
           not in doubt. */}
-      <div className="header-label">Time of day{abbr ? ` · ${abbr}` : ""}</div>
+      {/* On a phone's show page the label is just "Time" — the row beside the
+          menu button has no room for the rest (21 Oct); the tip carries it. */}
+      <div className="header-label">
+        Time<span className="hc-more"> of day{abbr ? ` · ${abbr}` : ""}</span>
+      </div>
       <div className="header-clock mono">{now != null ? formatTimeOfDay(now, use24h) : "--:--:--"}</div>
     </div>
   );

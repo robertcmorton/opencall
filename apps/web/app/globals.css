@@ -6181,6 +6181,25 @@ a > svg,
   color: var(--warn);
   background: var(--warn-soft);
 }
+/* Beside the lights, the words float rather than take a line (21 Oct,
+   Robert: "when 'Show link reconnecting' appears, it moves things around").
+   As a line of their own they made the top-right column taller and wider, the
+   bar re-balanced around it, and the cue timer and everything under it moved
+   — then moved back when the link returned. Now they hang just under the
+   lights, over whatever is there, for as long as the link is down, and
+   nothing else moves. Solid behind, so they read over the sheet's toolbar. */
+.lamp-block {
+  position: relative;
+}
+.lamp-block > .save-status {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 46;
+  background: color-mix(in srgb, var(--warn) 18%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent);
+  box-shadow: var(--shadow-overlay);
+}
 
 /* ── Sheet and Show lights (20 Oct) ─────────────────────────────────────────
    Small labelled dots: green up, amber saving, red down, grey connecting.

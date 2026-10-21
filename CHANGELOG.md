@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **Nothing jumps when a link drops.** "Show link reconnecting…" (and "Offline") used to appear as a new line under the Sheet and Show lights, which re-balanced the whole top bar — the cue timer and everything under it moved, then moved back. The words now float just under the lights for as long as the link is down, and nothing else moves.
 - **The running-late line no longer says you're over when you're on time.** It added up the length of every item before the next half — but a half-time block has its items printed inside it, so their minutes were counted twice ("13:00 over" on a show running to time). It now measures how late the show is against the sheet's own planned times, and that lateness only shrinks where the plan has room: a gap, or time given back by a strike or a trim.
 - **Hover tips on a sheet row appear by the mouse.** A row is as wide as the screen, so its tip ("Runs at the same time as …") was centred above the whole row, sometimes far from where you were pointing.
 - **The running-late list hangs centred under its line**, and the floating **Sync Cue** button no longer draws over it.

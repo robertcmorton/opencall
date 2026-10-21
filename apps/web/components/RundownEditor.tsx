@@ -2950,8 +2950,10 @@ export function RundownEditor({
    * never in a server render).
    */
   const fixedTimes = useMemo(
-    () => fixedTargets(rows, timing.rows, phases, (i) => (rows[i]?.title ?? "").split("\n")[0]!.trim()),
-    [rows, timing, phases],
+    // The show's planned end is the last one: the end the day was planned to
+    // have (frozen when it went live), else where the sheet now ends.
+    () => fixedTargets(rows, timing.rows, phases, (i) => (rows[i]?.title ?? "").split("\n")[0]!.trim(), meta.plannedEndSec ?? timing.endSec),
+    [rows, timing, phases, meta.plannedEndSec],
   );
   const lateActiveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
   /** Every fixed time ahead, the next first — see `arrivalsAhead`. */

@@ -411,3 +411,31 @@ describe("the next time a row starts or ends", () => {
     expect(nextWindowEdge(rows, 190)).toBeNull();
   });
 });
+
+describe("a muted item on air counts down its own length (21 Oct)", () => {
+  // HALF TIME 15:00 carries the time; the relay inside it is muted, 5:00,
+  // printed at 9:03:30.
+  const halftime: PlanRow[] = [
+    { id: "ht", type: "cue", durationSec: 900, hardStartSec: NINE_AM },
+    { id: "relay", type: "cue", durationSec: 300, durationMuted: true, hardStartSec: NINE_AM + 210 },
+    { id: "reel", type: "cue", durationSec: 105, durationMuted: true, hardStartSec: NINE_AM + 510 },
+  ];
+  const t = computeTiming(halftime);
+  it("keeps the muted row's own length beside the cascade's zero", () => {
+    expect(t.rows[1]!.effectiveDurationSec).toBe(0);
+    expect(t.rows[1]!.ownDurationSec).toBe(300);
+    expect(t.rows[0]!.ownDurationSec).toBeUndefined();
+  });
+  it("three minutes in, two minutes left — not three minutes over", () => {
+    const startedAt = T0 + 210_000;
+    const live = computeLiveTiming({ timing: t, activeRowId: "relay", activeRowStartedAtMs: startedAt, pausedAccumMs: 0, pausedAtMs: null, nowMs: startedAt + 180_000, toSecondsOfDay })!;
+    expect(live.remainingInRowSec).toBe(120);
+    expect(live.rowOverSec).toBe(0);
+    expect(live.showDriftSec).toBe(0);
+  });
+  it("past its own five minutes, it is over by the difference", () => {
+    const startedAt = T0 + 210_000;
+    const live = computeLiveTiming({ timing: t, activeRowId: "relay", activeRowStartedAtMs: startedAt, pausedAccumMs: 0, pausedAtMs: null, nowMs: startedAt + 346_000, toSecondsOfDay })!;
+    expect(live.rowOverSec).toBe(46);
+  });
+});

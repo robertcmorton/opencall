@@ -40,6 +40,8 @@ export interface FixedTarget {
   atSec: number;
   /** Which game on the day it belongs to, from 1 (a double-header has two first halves). */
   game?: number;
+  /** The end of the show itself — the last target, after every half. */
+  end?: boolean;
 }
 
 /**
@@ -52,6 +54,13 @@ export function fixedTargets(
   timing: readonly LateTiming[],
   periods: readonly { from: number; to?: number; kind: string; label: string; game?: number }[],
   titleOf: (index: number) => string,
+  /**
+   * When the show is planned to end (21 Oct, Robert: "keep it to the end of
+   * the show"). After the last half the line had nothing left to say and
+   * disappeared; with this it carries on — "Show ends · 9:46 PM · on time" —
+   * and it is the last line of the list. Sits past the last row.
+   */
+  showEndSec?: number | null,
 ): FixedTarget[] {
   const out = new Map<number, FixedTarget>();
   for (const p of periods) {
@@ -75,7 +84,10 @@ export function fixedTargets(
     const game = gameAt(i);
     if (r.mustStart && at != null && !out.has(i)) out.set(i, { index: i, name: titleOf(i) || "Fixed time", atSec: at, ...(game != null ? { game } : {}) });
   });
-  return [...out.values()].sort((a, b) => a.index - b.index);
+  const sorted = [...out.values()].sort((a, b) => a.index - b.index);
+  const last = sorted[sorted.length - 1];
+  if (showEndSec != null && (!last || showEndSec > last.atSec)) sorted.push({ index: rows.length, name: "Show ends", atSec: showEndSec, end: true });
+  return sorted;
 }
 
 /**
@@ -166,15 +178,13 @@ export function arrivalAtNextFixed(
   if (activeIndex < 0) return null;
   const target = targets.find((t) => t.index > activeIndex);
   if (!target) return null;
-  // What is left of the item on air, by ITS OWN length. The live timer
-  // measures a muted row against the cascade's length for it — none — so a
-  // five-minute item two minutes in reads "+2:00 over"; measured by its own
-  // five minutes, three are left.
+  // What is left of the item on air. The cue timer measures a muted row by
+  // its own length (live.ts — it once measured it against the cascade's zero
+  // and read "+3:00 over" three minutes into a five-minute item), so its
+  // figure is used as it stands.
   const activeRow = rows[activeIndex] ?? { id: "", type: "cue" };
   const ownLen = lengthOnTheWay(activeRow, timing[activeIndex]);
-  const cascadeLen = timing[activeIndex]?.effectiveDurationSec ?? 0;
-  const left = (remainingInRowSec ?? cascadeLen) + (ownLen - cascadeLen);
-  const endsSec = nowSec + Math.max(0, left);
+  const endsSec = nowSec + Math.max(0, remainingInRowSec ?? ownLen);
   const plannedStart = timing[activeIndex]?.startSec ?? nowSec;
   const plannedEnd = plannedStart + ownLen;
   const late = carry(rows, timing, activeIndex + 1, plannedEnd, endsSec - plannedEnd, target);

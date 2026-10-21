@@ -84,7 +84,8 @@ export function computeLiveTiming(input: LiveShowInput): LiveShowTiming | null {
       ? nextStart - active.startSec
       : active.effectiveDurationSec;
 
-  const planned = implied;
+  // A muted item counts down its own length, not the cascade's zero.
+  const planned = active.effectiveDurationSec === 0 && active.ownDurationSec ? active.ownDurationSec : implied;
   const remainingInRowSec = planned > 0 || active.startSec != null ? planned - elapsedInRowSec : null;
   const rowOverSec = Math.max(0, elapsedInRowSec - planned);
 

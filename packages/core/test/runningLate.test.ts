@@ -203,29 +203,47 @@ describe("muted items inside a block still hold the plan (21 Oct: '12:21 to spar
   const tg = fixedTargets(r, tm, [{ from: 7, kind: "second-half", label: "2nd half" }], (i) => r[i]!.id);
   it("on a muted item, on time, the 2nd half is not 'all the way to spare'", () => {
     // Relay on air at 8:44:30, cued at 8:41:30 — on time, two minutes of its
-    // five left. The live timer, which gives a muted row no length, reports
-    // that as 3:00 over (−180).
-    const a = arrivalAtNextFixed(r, tm, tg, 1, -180, T + 6 * M + 30)!;
+    // five left, as the cue timer reports it.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, 120, T + 6 * M + 30)!;
     // On plan, the printed items reach 8:55:00 — 2:00 past the 8:53 half.
     expect(a.overSec).toBe(120);
   });
   it("forty-six seconds over on a muted item is forty-six seconds more", () => {
-    // 8:47:16, cued at 8:41:30: 5:46 in, so the live timer says −346.
-    const a = arrivalAtNextFixed(r, tm, tg, 1, -346, T + 9 * M + 16)!;
+    // 8:47:16, cued at 8:41:30: 5:46 into five minutes — 46 s over.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, -46, T + 9 * M + 16)!;
     expect(a.overSec).toBe(120 + 46);
   });
   it("striking a muted item gives its time back", () => {
     const struck = r.map((x) => (x.id === "entry" ? { ...x, skipped: true } : x));
-    const a = arrivalAtNextFixed(struck, tm, tg, 1, -180, T + 6 * M + 30)!;
+    const a = arrivalAtNextFixed(struck, tm, tg, 1, 120, T + 6 * M + 30)!;
     // Without the entry the printed plan ends at 8:50:30 — 2:30 in hand.
     expect(a.overSec).toBe(-150);
   });
-  it("a muted item on air is measured by its own length, not the live timer's zero", () => {
-    // Relay (5:00, muted) cued at 8:41:30; at 8:43:55 the live timer, which
-    // gives it no length, says 2:25 over. By its own five minutes it has 2:35
-    // left and is exactly on time.
-    const a = arrivalAtNextFixed(r, tm, tg, 1, -145, T + 5 * M + 55)!;
+  it("with no live figure, a muted item on air is assumed to run its own length", () => {
+    // Relay (5:00, muted) just cued at 8:41:30, nothing measured yet.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, null, T + 3 * M + 30)!;
     expect(a.overSec).toBe(120);
+  });
+});
+
+describe("the end of the show is the last fixed time (21 Oct)", () => {
+  const end = 19 * H + 3120; // the ad's end
+  const withEnd = fixedTargets(rows, timing, periods, (i) => rows[i]!.id, end);
+  it("comes after every half, past the last row", () => {
+    expect(withEnd.map((t) => [t.name, t.index, t.end ?? false])).toEqual([
+      ["2nd half", 5, false],
+      ["ad", 6, false],
+      ["Show ends", rows.length, true],
+    ]);
+  });
+  it("is what the line shows once the last half is under way", () => {
+    // On the ad, the last thing before the end, with 30 s of it left.
+    const a = arrivalAtNextFixed(rows, timing, withEnd, 6, 30, 19 * H + 3090)!;
+    expect(a.target.name).toBe("Show ends");
+    expect(a.overSec).toBe(0);
+  });
+  it("is left off when it is no later than the last fixed time", () => {
+    expect(fixedTargets(rows, timing, periods, (i) => rows[i]!.id, 19 * H).map((t) => t.name)).toEqual(["2nd half", "ad"]);
   });
 });
 

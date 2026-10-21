@@ -98,10 +98,11 @@ export function RunningLate({
   const shown = arrivals.find((a) => a.target.index === picked) ?? next;
   const at = (a: Arrival) => formatTimeOfDayWithDay(a.target.atSec, use24h);
   const until = (a: Arrival) => (a.untilSec > 0 ? `in ${lateAmount(a.untilSec)}` : "now");
+  const reaches = next.target.end ? "the show ends" : `the show reaches ${next.target.name}`;
   const tip =
     lateBy(next.overSec) > 0
-      ? `If every item from here runs to plan, the show reaches ${next.target.name} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after it must start. Press for every fixed time ahead and what could be trimmed.`
-      : `If every item from here runs to plan, the show reaches ${next.target.name} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
+      ? `If every item from here runs to plan, ${reaches} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after ${next.target.end ? "it is due to" : "it must start"}. Press for every fixed time ahead and what could be trimmed.`
+      : `If every item from here runs to plan, ${reaches} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
   // Over: everything that could go. On time: only what has been struck, so a
   // strike can still be put back once it has done its job.
   const over = lateBy(shown.overSec) > 0;
@@ -141,7 +142,7 @@ export function RunningLate({
           </ul>
           <div className="rl-head">
             <strong>
-              {nameOf(shown, manyGames)} must start at {at(shown)}
+              {shown.target.end ? `The show is due to end at ${at(shown)}` : `${nameOf(shown, manyGames)} must start at ${at(shown)}`}
             </strong>
             <span className={lateBy(shown.overSec) > 0 ? "rl-need" : "rl-ok"}>
               {lateBy(shown.overSec) > 0 ? `Find ${lateAmount(lateBy(shown.overSec))} before then` : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"} — nothing to trim`}
@@ -195,7 +196,9 @@ export function RunningLate({
           )}
           {(over || trims.length > 0) && (
             <p className="rl-foot">
-              Strikes and trims move the times up to {shown.target.name}, never {shown.target.name} itself. One undo takes each back.
+              {shown.target.end
+                ? "Strikes and trims move the times up to the end of the show. One undo takes each back."
+                : `Strikes and trims move the times up to ${shown.target.name}, never ${shown.target.name} itself. One undo takes each back.`}
             </p>
           )}
         </div>

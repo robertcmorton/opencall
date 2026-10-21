@@ -7492,3 +7492,36 @@ a > svg,
     line-height: 1;
   }
 }
+
+/* The controls line up with the cue timer and the running-late line above
+   them — the same left and right edges (21 Oct, Robert: "make these buttons
+   always line up"). They sat centred, narrower than the two boxes above. The
+   row now spans the middle box: during a show Message, LIVE and Stop take
+   equal shares and the stopwatch keeps its own box at the end; before it the
+   pre-show buttons stretch to fill the same width. */
+@media (min-width: 761px) {
+  .topbar-center .show-state-row {
+    width: 100%;
+  }
+  .topbar-center .show-state-row > .preshow-group {
+    flex: 1 1 auto;
+  }
+  .topbar-center .show-state-row > .preshow-group:has(.live-badge) {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  .topbar-center .show-state-row > .preshow-group:has(.live-badge) > .show-state {
+    display: contents;
+  }
+  .topbar-center .show-state-row > .preshow-group:has(.live-badge) .speaker-toggle,
+  .topbar-center .show-state-row > .preshow-group:has(.live-badge) > .show-state > * {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+  }
+  .topbar-center .show-state-row > .preshow-group:not(:has(.live-badge)) > *,
+  .topbar-center .show-state-row > .preshow-group:not(:has(.live-badge)) > .show-state > .btn:not(.btn-icon) {
+    flex: 1 1 auto;
+  }
+}

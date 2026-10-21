@@ -115,6 +115,13 @@ export interface TimedRow {
   altStartSec?: number | null;
   /** Duration used by the cascade (0 when muted or null). */
   effectiveDurationSec: number;
+  /**
+   * A MUTED row's own length — out of the cascade's sum (something else
+   * carries its time) but still how long the item lasts. The cue timer counts
+   * it down (21 Oct, Robert chose "its own length"): a five-minute half-time
+   * item three minutes in shows 2:00 left, not "+3:00 over". Absent otherwise.
+   */
+  ownDurationSec?: number;
   /** True when this row carries a manual anchor. */
   anchored: boolean;
   /** True when this row's start was derived by back-timing. */

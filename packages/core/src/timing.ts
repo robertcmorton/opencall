@@ -88,6 +88,7 @@ export function computeTiming(
     startSec: null,
     endSec: null,
     effectiveDurationSec: effDur(row),
+    ...(row.durationMuted && !row.skipped && row.durationSec != null && row.durationSec > 0 ? { ownDurationSec: row.durationSec } : {}),
     anchored: row.hardStartSec != null,
     backtimed: false,
   }));

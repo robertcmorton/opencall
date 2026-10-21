@@ -1109,7 +1109,6 @@ export function RundownEditor({
   // Touch devices have no hover, so the nudges dock at the bottom instead —
   // clear of the role bar, which is also fixed to the bottom.
   // Sheet-building controls are tucked away while the show is live.
-  const [editTools, setEditTools] = useState(false);
   const [dockBottom, setDockBottom] = useState(0);
   /**
    * Publishes a fixed bar's height as a CSS variable.
@@ -4286,7 +4285,9 @@ export function RundownEditor({
    * Space belong to the show), and not on a phone, which has no keyboard to
    * drive it with.
    */
-  const gridOn = canEditContent && (!showLive || editTools) && !isPhone;
+  // Never during a show: there the arrows and Space belong to the show (the
+  // "Edit run sheet" switch that once lifted this is gone, 21 Oct).
+  const gridOn = canEditContent && !showLive && !isPhone;
   const gridRowIds = useMemo(() => rows.filter((_, i) => !pathHides(i)).map((r) => r.id), [rows, drawnSignature, autoOpenPaths]); // eslint-disable-line react-hooks/exhaustive-deps
   const gridColumns = useMemo(() => orderedColumns.map((c) => ({ id: c.id, kind: c.kind })), [orderedColumns.map((c) => c.id).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const grid = useSheetGrid({
@@ -4474,7 +4475,7 @@ export function RundownEditor({
    * when the sheet has something worth checking.
    */
   const q = joinCode ? `?code=${encodeURIComponent(joinCode)}` : "";
-  const editHere = canEditContent && (!showLive || editTools);
+  const editHere = canEditContent;
   const jumpActions: JumpAction[] = [
     ...(menuShow
       ? [
@@ -4577,15 +4578,13 @@ export function RundownEditor({
       if (out.length > 0) out.push("sep");
       out.push({ heading: many ? `${picked.length} rows picked` : `Row ${n}` });
       // Insert above / below, in Google Sheets' words (21 Oct, Robert: "add a
-      // row above or below the same as Google Sheets when I right-click"). They
-      // were hidden for the whole of a live show, which is when he tried; now
-      // they come back with Edit run sheet, like every other change to the
-      // sheet during a show.
-      if (!showLive || editTools) {
-        out.push({ label: <>{Icon.plus} Insert 1 row above</>, onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
-        out.push({ label: <>{Icon.plus} Insert 1 row below</>, onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
-      }
-      if (!showLive) {
+      // row above or below the same as Google Sheets when I right-click").
+      // Live too, and with no switch to turn on first: "Edit run sheet" is
+      // gone ("these functions should be achieved through the right mouse
+      // click on a row"). The row menu is where a sheet is changed mid-show.
+      out.push({ label: <>{Icon.plus} Insert 1 row above</>, onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
+      out.push({ label: <>{Icon.plus} Insert 1 row below</>, onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
+      {
         out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, duplicateSelected) });
         out.push("sep");
         // Labelling, where the rows already are — see `toggleTypeSelected`.
@@ -4659,7 +4658,7 @@ export function RundownEditor({
       });
       out.push("sep");
       out.push({ label: "Copy to another sheet…", onSelect: () => setCopyRowIds(ids) });
-      if (showLive) out.push({ note: "The show is on. You can strike, lock or colour rows now. Adding and deleting rows waits until the show ends." });
+      if (showLive) out.push({ note: "The show is on. Deleting rows and changing what plays at full time wait until the show ends." });
       else
         out.push({
           label: `Delete ${noun}`,
@@ -4956,7 +4955,7 @@ export function RundownEditor({
             showcaller's scribbles on it, or to the client without. */}
         <button type="button" className="menu-item" data-keep-open onClick={toggleIncludeInk}>
           <span className="check">{includeInk && Icon.check}</span>
-          Include my ink
+          Include my drawing
         </button>
         <button type="button" className="menu-item" onClick={exportCsv}>
           <span className="check" />
@@ -5618,19 +5617,12 @@ export function RundownEditor({
             {Icon.undo} Undo
           </button>
         )}
-        {/* Building the sheet is desk work. While the show is LIVE it sits
-            behind a disclosure — nothing is taken away, but the bar you call
-            the show from stays down to the things you call it with. */}
-        {canEditContent && showLive && (
-          <button
-            className={`btn btn-sm hide-mobile ${editTools ? "is-on" : ""}`}
-            data-tip="Add rows and redo changes while the show is running"
-            onClick={() => setEditTools((v) => !v)}
-          >
-            {editTools ? <>{Icon.close} Editing</> : <>{Icon.edit} Edit run sheet</>}
-          </button>
-        )}
-        {canEditContent && (!showLive || editTools) && (
+        {/* No "Edit run sheet" switch (21 Oct, Robert: "these functions
+            should be achieved through the right mouse click on a row"). During
+            a show the row menu inserts, copies and re-labels rows; the bar you
+            call the show from keeps Undo and Redo, and + Row comes back when
+            the show ends. */}
+        {canEditContent && (
           <span className="hide-mobile" style={{ display: "contents" }}>
             <button
               className="btn btn-sm"
@@ -5640,9 +5632,11 @@ export function RundownEditor({
             >
               {Icon.redo} Redo
             </button>
-            <button className="btn" onClick={() => addRow("cue")} data-tip="A timed item the show steps through — the normal row">
-              {Icon.plus} Row
-            </button>
+            {!showLive && (
+              <button className="btn" onClick={() => addRow("cue")} data-tip="A timed item the show steps through — the normal row">
+                {Icon.plus} Row
+              </button>
+            )}
           </span>
         )}
         {canEditContent && timingGaps.length > 0 && !reconciling && (
@@ -5717,7 +5711,9 @@ export function RundownEditor({
             Pencil or mouse draws once it is on; a finger keeps scrolling. The
             marks are private — one person's own copy — so anybody who can
             see the sheet gets the pen, in the walkthrough and the show alike. */}
-        <span className="ink-tools" role="group" aria-label="Ink">
+        {/* Called "Draw" on screen (21 Oct, Robert); "ink" stays the name in
+            the code and the stored data. */}
+        <span className="ink-tools" role="group" aria-label="Draw">
           <button
             type="button"
             className={`btn btn-sm ${inkMode !== "off" ? "is-on" : ""}`}
@@ -5725,7 +5721,7 @@ export function RundownEditor({
             data-tip="Draw on the sheet with a pencil or the mouse. Your marks are yours alone; a finger still scrolls."
             aria-pressed={inkMode !== "off"}
           >
-            {Icon.pen} Ink{inkMode !== "off" ? " on" : ""}
+            {Icon.pen} Draw{inkMode !== "off" ? " on" : ""}
           </button>
           {inkMode !== "off" && (
             <>
@@ -5746,7 +5742,7 @@ export function RundownEditor({
                 type="button"
                 className={`btn btn-sm ${inkTouch ? "is-on" : ""}`}
                 onClick={toggleInkTouch}
-                data-tip="Let a finger draw as well as a pencil. While it is on, a finger no longer scrolls the sheet; switch Ink off to scroll."
+                data-tip="Let a finger draw as well as a pencil. While it is on, a finger no longer scrolls the sheet; switch Draw off to scroll."
                 aria-pressed={inkTouch}
               >
                 Finger
@@ -5771,7 +5767,7 @@ export function RundownEditor({
                 }}
                 data-tip="Wipe every mark on this sheet. Undo brings them back."
               >
-                {inkClearArmed ? "Really clear?" : "Clear ink"}
+                {inkClearArmed ? "Really clear?" : "Clear drawing"}
               </button>
               <button type="button" className="btn btn-sm" disabled={!ink.canUndo} onClick={ink.undo} data-tip="Take back the last stroke">
                 Undo
@@ -5786,7 +5782,7 @@ export function RundownEditor({
                 data-tip="A clean sheet for a moment. Nothing is lost; press again to bring the marks back."
                 aria-pressed={inkHidden}
               >
-                {inkHidden ? "Show ink" : "Hide ink"}
+                {inkHidden ? "Show drawing" : "Hide drawing"}
               </button>
             </>
           )}

@@ -319,7 +319,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Adds a new timed item to the sheet.",
         how: "Press **+ Row** in the toolbar. The row goes after the row you last picked, or at the end.",
         who: EDITORS,
-        good: "To put a row in an exact place, right-click a row (or press and hold it) and choose **Insert 1 row above** or **Insert 1 row below** — during a show, after pressing **Edit run sheet**. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
+        good: "To put a row in an exact place, right-click a row (or press and hold it) and choose **Insert 1 row above** or **Insert 1 row below** — during a show too. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
       },
       {
         id: "edit-cell",
@@ -556,16 +556,16 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "ink",
-        name: "Ink",
+        name: "Draw",
         forWhat: "Lets you scribble on the sheet like a pen on paper — circles, arrows, reminders.",
         steps: [
-          "Press **Ink** in the toolbar.",
+          "Press **Draw** in the toolbar.",
           "Pick a pen colour and draw with a mouse or an Apple Pencil.",
-          "Use **Eraser** to rub out a whole mark, **Undo** and **Redo** for the last stroke, **Hide ink** for a clean look, and **Clear ink** (press twice) to wipe everything.",
-          "Press **Ink** again to stop drawing and click into cells again.",
+          "Use **Eraser** to rub out a whole mark, **Undo** and **Redo** for the last stroke, **Hide drawing** for a clean look, and **Clear drawing** (press twice) to wipe everything.",
+          "Press **Draw** again to stop drawing and click into cells again.",
         ],
         finger: "Turn on **Finger** to draw with your finger. While it is on, a finger no longer scrolls the sheet.",
-        good: "Your ink is yours alone — nobody else sees it. Each mark sticks to its row, even when rows move.",
+        good: "Your drawing is yours alone — nobody else sees it. Each mark sticks to its row, even when rows move.",
       },
     ],
   },
@@ -576,7 +576,7 @@ export const SECTIONS: HelpSection[] = [
     title: "Editing like a spreadsheet",
     intro: [
       "The sheet works like Google Sheets or Excel. If you know those, you already know this.",
-      "This works on the edit page and on the show page. During a live show, press **Edit run sheet** first, so your keys do not move the show by mistake. It is not on phones.",
+      "This works on the edit page and on the show page. It is off during a live show, when the keys move the show instead — change rows from the row menu then. It is not on phones.",
       "On a Mac press `Cmd`; on Windows press `Ctrl` instead.",
     ],
     items: [
@@ -930,11 +930,11 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "edit-live",
-        name: "Edit run sheet",
-        forWhat: "Opens the editing tools during a live show, when you really need them.",
-        how: "Press **Edit run sheet** in the toolbar. Press **Editing** to put them away.",
+        name: "Changing the sheet during a show",
+        forWhat: "Adds, copies and re-labels rows while the show runs, without leaving the show page.",
+        how: "Right-click a row (or press and hold it): **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Strike out row** and the rest. Type in a cell as usual. **Undo** and **Redo** stay in the toolbar.",
         who: EDITORS,
-        good: "Kept behind a button so the live screen stays calm, and so keys do not change cells by mistake.",
+        good: "During a show the arrow keys and Space move the show, not the cells, and deleting rows and changing what plays at full time wait until the show ends.",
       },
       {
         id: "stop",
@@ -1047,7 +1047,7 @@ export const SECTIONS: HelpSection[] = [
         id: "output",
         name: "Export PDF, Print and Export CSV",
         forWhat: "Gets the run sheet out of OpenCall — on paper, as a PDF, or as a spreadsheet file.",
-        how: "Open the menu (☰) and choose **Export PDF**, **Print** or **Export CSV** under Output. Untick **Include my ink** for a clean copy without your scribbles.",
+        how: "Open the menu (☰) and choose **Export PDF**, **Print** or **Export CSV** under Output. Untick **Include my drawing** for a clean copy without your scribbles.",
         good: "Every column is included, however narrow your window is. Every printed page has the show's name at the top and \"Page 3 of 7\" at the bottom, and a heading is never left alone at the foot of a page.",
       },
       {

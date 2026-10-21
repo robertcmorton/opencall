@@ -107,4 +107,17 @@ describe("running late — the list of what could be trimmed", () => {
     act(() => [...list.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Strike")!.click());
     expect(struck).toEqual([["0", 9]]);
   });
+
+  it("reads 'on time', not amber, a few seconds either side (21 Oct: it flashed orange every update)", () => {
+    for (const wobble of [2, -2, 15]) {
+      const list = draw(wobble);
+      const pill = list.parentElement!.querySelector(".rl-pill")!;
+      expect(pill.textContent).toContain("on time");
+      expect(list.querySelector(".rl-target")!.className).not.toContain("is-over");
+      act(() => root?.unmount());
+      root = null;
+      document.body.innerHTML = "";
+    }
+  });
 });
+

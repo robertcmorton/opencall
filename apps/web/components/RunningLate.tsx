@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatDuration, formatTimeOfDayWithDay, type Arrival, type LateLevel } from "@opencall/core";
+import { formatDuration, formatTimeOfDayWithDay, lateBy, type Arrival, type LateLevel } from "@opencall/core";
 
 /**
  * Running late into a fixed time (20 Oct, Robert): one line under the big
@@ -31,7 +31,11 @@ const LIST_MAX = 8;
 
 /** "Game 2 · 1st half" on a day with more than one game, else "1st half". */
 const nameOf = (a: Arrival, manyGames: boolean): string => (manyGames && a.target.game != null ? `Game ${a.target.game} · ${a.target.name}` : a.target.name);
-const verdictOf = (overSec: number): string => (overSec > 0 ? `${lateAmount(overSec)} over` : overSec < 0 ? `${lateAmount(overSec)} to spare` : "on time");
+/** Within fifteen seconds either way is "on time" — see ON_TIME_SEC: it stops the line flickering. */
+const verdictOf = (raw: number): string => {
+  const overSec = lateBy(raw);
+  return overSec > 0 ? `${lateAmount(overSec)} over` : overSec < 0 ? `${lateAmount(overSec)} to spare` : "on time";
+};
 
 /**
  * The line under the show controls, the full width of them (21 Oct, Robert:
@@ -90,10 +94,10 @@ export function RunningLate({
   const at = (a: Arrival) => formatTimeOfDayWithDay(a.target.atSec, use24h);
   const until = (a: Arrival) => (a.untilSec > 0 ? `in ${lateAmount(a.untilSec)}` : "now");
   const tip =
-    next.overSec > 0
-      ? `If every item from here runs to plan, the show reaches ${next.target.name} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(next.overSec)} after it must start. Press for every fixed time ahead and what could be trimmed.`
-      : `If every item from here runs to plan, the show reaches ${next.target.name} ${next.overSec < 0 ? `${lateAmount(next.overSec)} early` : "exactly on time"}. Press for every fixed time ahead.`;
-  const trims = shown.overSec > 0 ? trimsFor(shown.target.index) : [];
+    lateBy(next.overSec) > 0
+      ? `If every item from here runs to plan, the show reaches ${next.target.name} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after it must start. Press for every fixed time ahead and what could be trimmed.`
+      : `If every item from here runs to plan, the show reaches ${next.target.name} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
+  const trims = lateBy(shown.overSec) > 0 ? trimsFor(shown.target.index) : [];
   return (
     <div className={`running-late is-${level}`} ref={box}>
       <button ref={button} type="button" className="rl-pill" aria-expanded={open} data-tip={tip} onClick={() => setOpen((v) => !v)}>
@@ -114,7 +118,7 @@ export function RunningLate({
               <li key={a.target.index}>
                 <button
                   type="button"
-                  className={`rl-target ${a === shown ? "is-on" : ""} ${a.overSec > 0 ? "is-over" : "is-ok"}`}
+                  className={`rl-target ${a === shown ? "is-on" : ""} ${lateBy(a.overSec) > 0 ? "is-over" : "is-ok"}`}
                   aria-pressed={a === shown}
                   onClick={() => setPicked(a.target.index)}
                 >
@@ -131,13 +135,13 @@ export function RunningLate({
             <strong>
               {nameOf(shown, manyGames)} must start at {at(shown)}
             </strong>
-            <span className={shown.overSec > 0 ? "rl-need" : "rl-ok"}>
-              {shown.overSec > 0 ? `Find ${lateAmount(shown.overSec)} before then` : `${shown.overSec < 0 ? `${lateAmount(shown.overSec)} to spare` : "On time"} — nothing to trim`}
+            <span className={lateBy(shown.overSec) > 0 ? "rl-need" : "rl-ok"}>
+              {lateBy(shown.overSec) > 0 ? `Find ${lateAmount(lateBy(shown.overSec))} before then` : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"} — nothing to trim`}
             </span>
           </div>
           {/* With time in hand there is nothing to find, so no list of things
               to cut (21 Oct: a dozen Strike buttons under "nothing to find"). */}
-          {shown.overSec <= 0 ? null : trims.length === 0 ? (
+          {lateBy(shown.overSec) <= 0 ? null : trims.length === 0 ? (
             <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
           ) : (
             <ul>
@@ -168,7 +172,7 @@ export function RunningLate({
               ))}
             </ul>
           )}
-          {shown.overSec > 0 && (
+          {lateBy(shown.overSec) > 0 && (
             <p className="rl-foot">
               Strikes and trims move the times up to {shown.target.name}, never {shown.target.name} itself. One undo takes each back.
             </p>

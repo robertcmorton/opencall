@@ -5298,6 +5298,30 @@ export function RundownEditor({
               })()}
             />
           )}
+          {/* Between the cue timer and the show controls, their full width
+              (21 Oct, Robert: first "below the buttons", then "above the
+              message, live, stop, timer buttons"): the next fixed time, how
+              long until it and how the show will arrive; pressed, every fixed
+              time ahead. */}
+          {arrival && lateLvl && (
+            <RunningLate
+              arrivals={arrivals}
+              level={lateLvl}
+              use24h={meta.use24h}
+              manyGames={gameEnds.length > 1}
+              canEdit={canEditContent}
+              trimsFor={(targetIndex) => {
+                const target = fixedTimes.find((t) => t.index === targetIndex);
+                if (!target) return [];
+                return trimOptions(rows, lateActiveIdx, target).map((t) => {
+                  const r = rows[t.index]!;
+                  return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
+                });
+              }}
+              onStrike={(id, targetIndex) => trimBefore(id, targetIndex, "strike")}
+              onTrim={(id, by, targetIndex) => trimBefore(id, targetIndex, "trim", by)}
+            />
+          )}
           {/* The show's state sits directly under the cue timer, centred —
               that is where the eye already is — and the stopwatch rides on the
               end of the same line, to the right of Stop. It measures what the
@@ -5435,28 +5459,6 @@ export function RundownEditor({
                   it refers to. It appears with the show. */}
               {showIsLive && <Stopwatch />}
             </div>
-          )}
-          {/* Under the show controls, their full width (21 Oct, Robert's
-              call): the next fixed time, how long until it and how the show
-              will arrive; pressed, every fixed time ahead. */}
-          {arrival && lateLvl && (
-            <RunningLate
-              arrivals={arrivals}
-              level={lateLvl}
-              use24h={meta.use24h}
-              manyGames={gameEnds.length > 1}
-              canEdit={canEditContent}
-              trimsFor={(targetIndex) => {
-                const target = fixedTimes.find((t) => t.index === targetIndex);
-                if (!target) return [];
-                return trimOptions(rows, lateActiveIdx, target).map((t) => {
-                  const r = rows[t.index]!;
-                  return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
-                });
-              }}
-              onStrike={(id, targetIndex) => trimBefore(id, targetIndex, "strike")}
-              onTrim={(id, by, targetIndex) => trimBefore(id, targetIndex, "trim", by)}
-            />
           )}
         </div>
         <div className="topbar-right">

@@ -154,9 +154,22 @@ export type LateLevel = "far" | "spare" | "over" | "urgent";
  * amber when over inside that; red in the last five minutes once it is more
  * than thirty seconds — the point where the show can't simply absorb it.
  */
+/**
+ * Within this much either way, the show is ON TIME (21 Oct, Robert: "game 1 –
+ * 1st half keeps flashing orange — the Show light flashes green, then it
+ * flashes orange"). The arrival is worked out each second from two clocks that
+ * tick separately — now, and what is left of the item on air — so on time it
+ * wobbles a second either side of zero, and "over by anything" turned the
+ * line amber and back on every update. Fifteen seconds is noise no showcaller
+ * would act on.
+ */
+export const ON_TIME_SEC = 15;
+/** The verdict, with the same allowance: positive is over, negative to spare, 0 on time. */
+export const lateBy = (overSec: number): number => (Math.abs(overSec) <= ON_TIME_SEC ? 0 : overSec);
+
 export function lateLevel(a: Arrival): LateLevel {
   if (a.untilSec > 15 * 60) return "far";
-  if (a.overSec <= 0) return "spare";
+  if (a.overSec <= ON_TIME_SEC) return "spare";
   if (a.untilSec <= 5 * 60 && a.overSec > 30) return "urgent";
   return "over";
 }

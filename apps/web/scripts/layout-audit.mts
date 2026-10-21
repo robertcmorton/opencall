@@ -97,10 +97,10 @@ function measure(touch: boolean) {
    * adjust around it"). From a tablet up, the timer box and the controls under
    * it must sit on the screen's centreline, give or take 2px. Measured before
    * the fix: +26px at every width from 1280 up (the menu button's room was
-   * kept on one side only), −50px at 1024, −23px in a 768 window. A phone puts
-   * the timer beside the menu button on purpose, so it is left out.
+   * kept on one side only), −50px at 1024, −23px in a 768 window, +22px on a
+   * phone (beside the menu button, until the title took that row instead).
    */
-  if (vw >= 768 && document.querySelector(".show-page")) {
+  if (document.querySelector(".show-page")) {
     for (const sel of [".topbar-center", ".big-timer"]) {
       const e = document.querySelector(sel);
       if (!e || !shown(e)) continue;

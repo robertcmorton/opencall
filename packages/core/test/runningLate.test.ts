@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrivalAtNextFixed, arrivalsAhead, fixedTargets, lateLevel, trimOptions, type LateRow, type LateTiming } from "../src/runningLate";
+import { arrivalAtNextFixed, arrivalsAhead, fixedTargets, lateBy, lateLevel, ON_TIME_SEC, trimOptions, type LateRow, type LateTiming } from "../src/runningLate";
 
 /** Running late into a period that must start on time (20 Oct). */
 const row = (id: string, extra: Partial<LateRow & { durationSec: number; canDrop: boolean }> = {}) => ({ id, type: "cue", ...extra });
@@ -97,6 +97,13 @@ describe("every fixed time ahead (21 Oct)", () => {
     const t2 = [...timing, { startSec: 19 * H + 3120, effectiveDurationSec: 300 }];
     const got = fixedTargets(withGp, t2, [...periods, { from: 7, kind: "extra-time", label: "Golden point" }], (i) => withGp[i]!.id);
     expect(got.map((t) => t.name)).toEqual(["2nd half", "ad"]);
+  });
+
+  it("does not flicker: a second or two either side of on time is on time (21 Oct)", () => {
+    const at = (overSec: number) => lateLevel({ target: targets[0]!, arrivesSec: 0, overSec, untilSec: 10 * 60 });
+    for (const wobble of [-2, -1, 0, 1, 2, ON_TIME_SEC]) expect(at(wobble)).toBe("spare");
+    expect(at(ON_TIME_SEC + 1)).toBe("over");
+    expect([lateBy(1), lateBy(-14), lateBy(16), lateBy(-40)]).toEqual([0, 0, 16, -40]);
   });
 });
 

@@ -390,6 +390,27 @@ textarea.input {
   min-width: 0;
 }
 
+/* Every box you type in is at least 16px on a touch screen (21 Oct, Robert:
+   tapping Email on the sign-in page zoomed the whole page in). An iPhone zooms
+   in on any text box smaller than 16px the moment it is focused, and leaves
+   the page zoomed. Pinch-zoom stays allowed (see the viewport in layout.tsx),
+   so this is the fix, not turning zoom off. It was done once for the crew's
+   note box only. `max(16px, 1em)`: a box written larger than that — the
+   sheet's name being edited inside its heading — keeps its own size. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+  select,
+  select.input,
+  textarea,
+  textarea.input,
+  [contenteditable="true"] {
+    /* !important because it is a floor the phone sets, not a style choice:
+       `.admin-main select.input` outranked it and the dashboard's "Start
+       from" stayed at 12.8px. No later rule should be able to undercut it. */
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 .input,
 input.inline-edit,
 select.input,
@@ -2604,24 +2625,88 @@ kbd {
   .show-page .topbar-left {
     padding-left: 0;
   }
-  /* The cue timer and the caller's controls, first in the stack, clear the
-     menu button too. It is 44px wide on a touch screen (10…54), not the 34
-     the 48px above was measured against, and the timer's 300px floor centred
-     it from x=40 — 14px under the button (6 Oct). So this row runs from just
-     past the button to the right edge: 307px on a 375 phone, room for
-     Message stage, LIVE and Stop on one line. Off the page's centre by half
-     the button, which reads better than a box under a button. */
+  /* A phone's show page, top to bottom (21 Oct, Robert): the sheet's title
+     beside the menu button; the cue timer, the show's controls and the
+     running-late line under it, the full width and on the centreline; then
+     Time of day beside Proj. end; then the Sheet and Show lights side by
+     side.
+     The timer used to share the top row with the menu button, which put it
+     22px right of the middle — the one off-centre size left once desktop and
+     tablet were fixed. With the title up there instead, the button sits
+     beside something that already keeps equal room on both sides (the 48px
+     above), and the timer gets the whole width. */
+  .show-page .topbar-left {
+    grid-row: 1;
+    /* The menu button is 44px tall on a touch screen, fixed at top 10px: the
+       title's line is as tall and centred on it, so the two read as one row. */
+    min-height: 44px;
+    align-items: center;
+    /* The bar's own content starts 8px down; 2px more is the button's 10. */
+    margin-top: 2px;
+  }
   .show-page .topbar-center {
+    grid-row: 2;
     justify-self: stretch;
     width: auto;
     min-width: 0;
-    /* Past the column on the right, so no 100% cap. The head's content
-       starts 63px in (page gutter + 52px) and the button ends at 54, so
-       this starts 4px past the button: 58. */
     max-width: none;
     left: 0;
-    margin-left: -5px;
-    margin-right: -48px;
+    /* Out over the 48px kept for the menu button on each side — equally, so
+       the centre stays the centre. */
+    margin-inline: -48px;
+  }
+  .show-page .topbar-right {
+    grid-row: 3;
+    grid-template-columns: max-content max-content;
+    grid-template-rows: auto auto;
+    justify-content: center;
+    column-gap: 1.5rem;
+  }
+  .show-page .topbar-right > .header-clock-block {
+    grid-area: 1 / 1;
+  }
+  .show-page .topbar-right > .header-proj {
+    grid-area: 1 / 2;
+  }
+  .show-page .topbar-right > .status-cluster {
+    grid-area: 2 / 1 / 3 / 3;
+    justify-self: center;
+  }
+  /* During a show, Message, LIVE and Stop are three equal buttons across the
+     full width (21 Oct, Robert: "the live, stop and other buttons need to be
+     the same size in mobile"). They were 101×44, a 89×26 badge and 87×44.
+     Only while live — before the show this box holds Start show and the
+     walkthrough, which keep their own layout. */
+  .show-page .show-state-row > .preshow-group:has(.live-badge) {
+    flex: 1 1 100%;
+    display: grid;
+    /* One column each, exactly equal — a flex split of one against two came
+       out 113 / 111 / 111. */
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+    padding: 4px;
+  }
+  /* The box around LIVE and Stop steps aside so they are columns of the grid. */
+  .show-page .preshow-group:has(.live-badge) > .show-state {
+    display: contents;
+  }
+  .show-page .preshow-group:has(.live-badge) > .speaker-control,
+  .show-page .preshow-group:has(.live-badge) > .speaker-control > .speaker-toggle,
+  .show-page .preshow-group:has(.live-badge) > .show-state > * {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    margin: 0;
+  }
+  .show-page .preshow-group:has(.live-badge) .live-badge {
+    border-radius: var(--r-md);
+  }
+  /* Sheet and Show side by side here; stacked everywhere else. */
+  .show-page .status-cluster .conn-lamps {
+    flex-direction: row;
+    gap: var(--space-3);
   }
   .show-page .topbar-center .preshow-group,
   .show-page .topbar-center .preshow-group .show-state {

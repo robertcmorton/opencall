@@ -18,7 +18,7 @@
     "test:bars": "node apps/web/scripts/bar-timing.mts"
   },
   "devDependencies": {
-    "turbo": "^2.11.6",
+    "turbo": "^2.11.9",
     "typescript": "^7.0.2"
   }
 }

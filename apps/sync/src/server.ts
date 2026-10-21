@@ -39,6 +39,7 @@ import { scheduleRetention } from "./retention.ts";
 import { consume, release } from "./throttle.ts";
 import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
+import { applyAsPerson } from "./show.ts";
 import * as authMod from "./auth.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
@@ -698,33 +699,38 @@ wss.on("connection", (ws, req) => {
        * show should be holding — live, waiting, with the first item cued at its
        * own time. That is the whole promise of giving the clock the show.
        *
-       * NOT applied to `start`: it cannot help there. `clock_on` is refused
-       * unless the show is already live and `stop` clears the flag, so the
-       * follower is off at every start there is. A guard there would be a
-       * comment pretending to be code. If that ever changes — if the follower
-       * can be armed before a show goes live — this belongs on `start` too.
+       * And now on `start` too (21 Oct): a live show follows the clock by
+       * default, so Start is a hand-over to the clock and gets the same
+       * answer — see `clockNotReached` below and `applyAsPerson`.
        */
       let clearCue = false;
       if (msg.action === "clock_on") {
         sheet ??= await sheetNow(ctx.rundownId);
         if (sheet && clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) == null) clearCue = true;
       }
-      const result = (await showStore.get(ctx.rundownId)).apply(
-        msg.action,
-        msg.rowId,
-        undefined,
-        startedAtMs,
-        clearCue,
-      );
-      if (typeof result === "string") {
-        send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: result });
+      // Start hands the show to the clock (21 Oct) — so it needs the same
+      // "has the clock reached the sheet yet?" answer clock_on gets.
+      let clockNotReached = false;
+      if (msg.action === "start") {
+        sheet ??= await sheetNow(ctx.rundownId);
+        if (sheet && clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) == null) clockNotReached = true;
+      }
+      // A person's command, with the clock rules around it: Start hands the
+      // show to the clock, and a person's Next/Back/jump takes it back by
+      // hand first. See `applyAsPerson`.
+      const steps = applyAsPerson(await showStore.get(ctx.rundownId), msg.action, msg.rowId, { startedAtMs, clearCue, clockNotReached });
+      if (typeof steps === "string") {
+        send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: steps });
         return;
       }
+      const result = steps[steps.length - 1]!.state;
       // No fast path for the caller: everyone (including the sender) gets the broadcast.
       broadcast(ctx.rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
       // Walkthrough moves are rehearsal, not history — never written to the
-      // as-run record (and "walk" isn't a transition type).
-      if (msg.action !== "walk") showStore.persist(ctx.rundownId, result, msg.action, msg.rowId);
+      // as-run record (and "walk" isn't a transition type). Every step is
+      // written, in order: the clock handing over is part of the record.
+      for (const step of steps)
+        if (step.action !== "walk") showStore.persist(ctx.rundownId, step.state, step.action, step.action === msg.action ? msg.rowId : undefined);
 
       // Automatic safety snapshot the moment a show goes live.
       if (msg.action === "start") {

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import {
   absoluteNow,
-  clockTargetRow,
   computeTiming,
   secondsUntilShow,
   followRead,
@@ -14,7 +13,6 @@ import {
   PROMPTER_TAG,
   secondsUntilRow,
   zoneSecondsOfDay,
-  clockLinedUp,
 } from "@opencall/core";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
 import { useShowChannel } from "../lib/showChannel";
@@ -120,10 +118,8 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // surface — never from streamed ticks.
   const live = useLiveTiming(channel, timing);
 
-  // Clock-follow, exactly as the run sheet offers it: the SERVER drives the
-  // show off the TIME column. "Following clock" says who is driving; "Clock
-  // synced" says the show is actually on the row the sheet points at. They are
-  // different claims and the second is the one anybody is checking.
+  // Clock-follow: the SERVER drives the show off the TIME column unless a
+  // person took it with Next or Back (21 Oct) — see "Back to clock" below.
   const showLive = show?.state === "running" || show?.state === "paused";
   const clockFollow = show?.clockFollow ?? false;
   /**
@@ -137,11 +133,6 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
    */
   const mayDrive = channel.role === "caller" || channel.role === "admin";
   const nowAbsSec = absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing);
-  const clockRowId = clockTargetRow(
-    rows,
-    timing.rows.map((r) => r.startSec),
-    nowAbsSec,
-  );
   /**
    * How long until the show is due, when it has opened ahead of its first item.
    *
@@ -474,7 +465,6 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
   // its own — "the live cue is on the clock's row" — which is false for as
   // long as the show waits for its first cue, so the chip sat amber for hours
   // while the sheet's own chip, two tabs over, was green.
-  const clockSynced = clockLinedUp({ clockFollow, activeRowId: liveId, clockRowId, untilShowSec });
   // Auto pace is DOING something only while a read is on air in a live show.
   const pacing = autoPace && showLive && !!onAirId;
   const paceFraction = (() => {
@@ -800,28 +790,16 @@ export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinC
         <BackLink />
         {/* The same offer the run sheet makes: you scrolled away, here is the
             way back to the show. Only shown when it would do something. */}
-        {/* Sync to clock — the same control the run sheet carries, driving the
-            same server command. Same three labels for the same three states. */}
-        {showLive && mayDrive && (
+        {/* Back to clock — the same control the run sheet carries (21 Oct):
+            the clock has the show unless a person took it with Next or Back,
+            so it only appears while the show is being called by hand. */}
+        {showLive && mayDrive && !clockFollow && (
           <button
-            className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
-            style={
-              clockSynced
-                ? { borderColor: "var(--under)", color: "var(--under)", background: "var(--under-soft)" }
-                : clockFollow
-                  ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }
-                  : undefined
-            }
-            data-tip={
-              clockSynced
-                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off."
-                : clockFollow
-                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off."
-                  : "Hand the show to the SERVER: every item starts at its scheduled moment, even with every console closed."
-            }
-            onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
+            className="btn btn-sm"
+            data-tip="You are calling the show. Press to hand it back to the clock: every item starts at its time in the TIME column, even with every screen closed."
+            onClick={() => channel.sendCmd("clock_on")}
           >
-            ◷ {!channel.connected && clockFollow ? "Reconnecting…" : clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
+            ◷ Back to clock
           </button>
         )}
         {/* No play/pause: the show starts the words. Space still toggles a

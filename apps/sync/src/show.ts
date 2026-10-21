@@ -174,3 +174,44 @@ export class ShowStateMachine {
     }
   }
 }
+
+/**
+ * A command from a PERSON, with the clock rules around it (21 Oct, Robert:
+ * "shouldn't being live follow the clock regardless?" — decided: a live show
+ * follows the clock by default, and Next takes over).
+ *
+ *  · `start` hands the show to the clock straight away — the same `clock_on`
+ *    the old Follow clock button sent, with its `clearCue` when the clock has
+ *    not reached the sheet yet, so the show waits on its countdown.
+ *  · `next`, `prev` or `jump` from a person while the clock has the show
+ *    takes it back by hand first (`clock_off`): pressing Next means "I am
+ *    calling this now". "Back to clock" hands it back.
+ *
+ * The server's own follower moves the show with `machine.apply` directly and
+ * never comes through here, so it cannot switch itself off.
+ *
+ * Returns every transition that happened, in order, for broadcasting and the
+ * as-run record — or the refusal, with nothing changed.
+ */
+export function applyAsPerson(
+  machine: ShowStateMachine,
+  action: CmdAction,
+  rowId: string | undefined,
+  opts: { now?: number; startedAtMs?: number; clearCue?: boolean; clockNotReached?: boolean } = {},
+): { action: CmdAction; state: ShowStatePayload }[] | string {
+  const now = opts.now ?? Date.now();
+  const steps: { action: CmdAction; state: ShowStatePayload }[] = [];
+  const live = machine.current.state === "running" || machine.current.state === "paused";
+  if ((action === "next" || action === "prev" || action === "jump") && live && machine.current.clockFollow) {
+    const off = machine.apply("clock_off", undefined, now);
+    if (typeof off !== "string") steps.push({ action: "clock_off", state: off });
+  }
+  const result = machine.apply(action, rowId, now, opts.startedAtMs, opts.clearCue ?? false);
+  if (typeof result === "string") return result;
+  steps.push({ action, state: result });
+  if (action === "start") {
+    const on = machine.apply("clock_on", undefined, now, undefined, opts.clockNotReached ?? false);
+    if (typeof on !== "string") steps.push({ action: "clock_on", state: on });
+  }
+  return steps;
+}

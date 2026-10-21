@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ShowStateMachine } from "../src/show";
+import { applyAsPerson, ShowStateMachine } from "../src/show";
 
 describe("ShowStateMachine", () => {
   it("runs a full start → pause → resume → jump → stop lifecycle", () => {
@@ -264,3 +264,49 @@ describe("played rows by hand", () => {
     expect(m.apply("unplay", "r2", 8000)).toBe("not live");
   });
 });
+
+describe("a live show follows the clock by default; a person pressing Next takes over (21 Oct)", () => {
+  it("Start hands the show to the clock", () => {
+    const m = new ShowStateMachine();
+    const steps = applyAsPerson(m, "start", "r1", { now: 1000 });
+    expect(Array.isArray(steps) && steps.map((s) => s.action)).toEqual(["start", "clock_on"]);
+    expect(m.current.clockFollow).toBe(true);
+    expect(m.current.activeRowId).toBe("r1");
+  });
+  it("before the sheet's first item, Start waits on the countdown with nothing cued", () => {
+    const m = new ShowStateMachine();
+    applyAsPerson(m, "start", "r1", { now: 1000, clockNotReached: true });
+    expect(m.current.clockFollow).toBe(true);
+    expect(m.current.activeRowId).toBeNull();
+  });
+  it("Next from a person switches the clock off first, then moves", () => {
+    const m = new ShowStateMachine();
+    applyAsPerson(m, "start", "r1", { now: 1000 });
+    const steps = applyAsPerson(m, "next", "r2", { now: 2000 });
+    expect(Array.isArray(steps) && steps.map((s) => s.action)).toEqual(["clock_off", "next"]);
+    expect(m.current.clockFollow).toBe(false);
+    expect(m.current.activeRowId).toBe("r2");
+  });
+  it("Back to clock hands it back, and a second Next takes it again", () => {
+    const m = new ShowStateMachine();
+    applyAsPerson(m, "start", "r1", { now: 1000 });
+    applyAsPerson(m, "next", "r2", { now: 2000 });
+    applyAsPerson(m, "clock_on", undefined, { now: 3000 });
+    expect(m.current.clockFollow).toBe(true);
+    applyAsPerson(m, "prev", "r1", { now: 4000 });
+    expect(m.current.clockFollow).toBe(false);
+  });
+  it("pause and resume leave the clock alone", () => {
+    const m = new ShowStateMachine();
+    applyAsPerson(m, "start", "r1", { now: 1000 });
+    applyAsPerson(m, "pause", undefined, { now: 2000 });
+    applyAsPerson(m, "resume", undefined, { now: 3000 });
+    expect(m.current.clockFollow).toBe(true);
+  });
+  it("a refused command changes nothing", () => {
+    const m = new ShowStateMachine();
+    expect(applyAsPerson(m, "next", "r2", { now: 1000 })).toBe("not live");
+    expect(m.current.clockFollow).toBe(false);
+  });
+});
+

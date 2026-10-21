@@ -33,7 +33,6 @@ import {
   extraUnderWay,
   resultCalled,
   keepAfterResult,
-  clockLinedUp,
   type EndingRow,
   outcomesFor,
   findDecisionPoints,
@@ -2068,7 +2067,6 @@ export function RundownEditor({
    * there claiming it was following the clock. This is the claim that can be
    * checked: the live cue IS the row the clock points at.
    */
-  const clockSynced = clockLinedUp({ clockFollow, activeRowId, clockRowId, untilShowSec });
 
   const cueDriftRows = (() => {
     if (!showLive || clockFollow || !activeRowId || !clockRowId || activeRowId === clockRowId) return 0;
@@ -5565,27 +5563,16 @@ export function RundownEditor({
             nextRowId={nextRowId}
           />
         )}
-        {isShow && showLive && mayDrive && (
+        {/* The clock has the show unless somebody took it (21 Oct, Robert:
+            "shouldn't being live follow the clock regardless?"). Start hands
+            the show to the clock and a person's Next or Back takes it — so
+            there is no permanent Clock synced button any more, only this, and
+            only while the show is being called by hand. */}
+        {isShow && showLive && mayDrive && !clockFollow && (
           <button
-            className={`btn btn-sm ${clockFollow ? "is-on" : ""}`}
-            style={
-              clockSynced
-                ? { borderColor: "var(--under)", color: "var(--under)", background: "var(--under-soft)" }
-                : clockFollow
-                  ? { borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-soft)" }
-                  : undefined
-            }
-            /* The drift lives here now, appended to whichever state applies —
-               it is a fact ABOUT this chip's subject, and putting it in the
-               header meant a number that read +00:00 all night while the clock
-               was in charge. On hover it is one sentence that also says what it
-               is measured on, which the bare figure never did. */
+            className="btn btn-sm"
             data-tip={[
-              clockSynced
-                ? "The server is running the show off the TIME column, and the live cue is on the row the sheet says should be on air. Press to take the clock off and step the show yourself."
-                : clockFollow
-                  ? "The server is running the show off the TIME column, but the live cue is not on the row the sheet points at yet — it lines up at the next item. Press to take the clock off and step the show yourself."
-                  : "Hand the show to the SERVER: every item starts at its scheduled moment and finished items hand over automatically, even with every console closed. Manual jumps self-correct.",
+              "You are calling the show — Next and Back move it. Press to hand it back to the clock: every item starts at its time in the TIME column, even with every screen closed.",
               describeShowDrift(
                 live,
                 meta.use24h,
@@ -5595,13 +5582,9 @@ export function RundownEditor({
             ]
               .filter(Boolean)
               .join(" ")}
-            onClick={() => channel.sendCmd(clockFollow ? "clock_off" : "clock_on")}
+            onClick={() => channel.sendCmd("clock_on")}
           >
-            {/* "Following clock" is a claim about who is driving. "Clock
-                synced" is a claim about where the show IS, and that is the one
-                anybody is actually checking — the two came apart badly enough
-                once to be worth separating for good. */}
-            ◷ {!channel.connected && clockFollow ? "Reconnecting…" : clockSynced ? "Clock synced" : clockFollow ? "Following clock" : "Follow clock"}
+            ◷ Back to clock
           </button>
         )}
         {/* Undo stays out in the open while the show runs: the timing nudges are
@@ -7069,10 +7052,10 @@ export function RundownEditor({
             <button
               type="button"
               className="btn btn-sm btn-primary"
-              data-tip="Hand the show to the clock: it jumps to the row the sheet says should be on air, and the server advances it from there"
+              data-tip="Hand the show back to the clock: it jumps to the row the sheet says should be on air, and the server advances it from there"
               onClick={() => channel.sendCmd("clock_on")}
             >
-              Follow clock
+              Back to clock
             </button>
           )}
         </div>

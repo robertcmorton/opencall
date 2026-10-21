@@ -2,7 +2,7 @@
   "name": "opencall",
   "private": true,
   "version": "0.39.0",
-  "packageManager": "pnpm@12.8.1",
+  "packageManager": "pnpm@12.14.0",
   "engines": {
     "node": "26.x"
   },
@@ -19,7 +19,7 @@
     "test:clock": "node apps/web/scripts/clock-record.mts"
   },
   "devDependencies": {
-    "turbo": "^2.11.6",
+    "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   }
 }

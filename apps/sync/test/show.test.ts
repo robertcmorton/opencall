@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyAsPerson, ShowStateMachine } from "../src/show";
+import { applyAsPerson, msUntilClockTick, ShowStateMachine } from "../src/show";
 
 describe("ShowStateMachine", () => {
   it("runs a full start → pause → resume → jump → stop lifecycle", () => {
@@ -318,3 +318,20 @@ describe("a live show follows the clock by default; a person pressing Next takes
   });
 });
 
+
+/** The clock looks on the turn of each second, wherever the server's own timer has got to (22 Oct). */
+describe("when the clock next looks", () => {
+  it("is just after the coming whole second", () => {
+    expect(msUntilClockTick(1_700_000_000_000)).toBe(1020);
+    expect(msUntilClockTick(1_700_000_000_800)).toBe(220);
+    expect(msUntilClockTick(1_700_000_000_999)).toBe(21);
+  });
+  it("never drifts: every look lands 20 ms past a second", () => {
+    let now = 1_700_000_000_437;
+    for (let i = 0; i < 50; i++) {
+      now += msUntilClockTick(now) + (i % 7); // a timer that fires a few ms late
+      expect(now % 1000).toBeGreaterThanOrEqual(20);
+      expect(now % 1000).toBeLessThanOrEqual(26);
+    }
+  });
+});

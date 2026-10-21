@@ -286,7 +286,13 @@ async function extractPdf(buffer: ArrayBuffer, loader?: PdfjsLoader): Promise<Ex
   const pdfjs = loader ? await loader() : await import("pdfjs-dist");
   if (!loader) pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
-  const doc = await pdfjs.getDocument({ data: buffer }).promise;
+  // `fontExtraProperties`: the font's NAME is how italic is found below
+  // ("Arial-ItalicMT"), and from PDF.js 6.4 it only comes across when asked
+  // for. Without it every font read as upright, the italic lines a presenter
+  // reads aloud stopped being script, and three sample sheets lost their
+  // PROMPTER role without a word (found 22 Oct 2026 by reading every sample
+  // sheet with 6.3 and 6.4 side by side).
+  const doc = await pdfjs.getDocument({ data: buffer, fontExtraProperties: true }).promise;
   const Y_TOLERANCE = 4; // px: same visual line
   const X_GAP = 18; // px: bigger gaps start a new column band
 

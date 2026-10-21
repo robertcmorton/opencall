@@ -1,6 +1,6 @@
 FROM node:26-alpine AS build
 WORKDIR /app
-RUN npm install -g pnpm@12.8.1
+RUN npm install -g pnpm@12.14.0
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
@@ -16,7 +16,7 @@ RUN pnpm --filter @opencall/web build
 
 FROM node:26-alpine
 WORKDIR /app
-RUN npm install -g pnpm@12.8.1
+RUN npm install -g pnpm@12.14.0
 COPY --from=build /app ./
 ENV NODE_ENV=production
 EXPOSE 3000

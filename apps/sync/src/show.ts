@@ -216,3 +216,20 @@ export function applyAsPerson(
   }
   return steps;
 }
+
+/**
+ * How long until the clock should next look: just after the coming whole
+ * second (22 Oct 2026).
+ *
+ * Printed times are whole seconds, so an item is due on the turn of a second.
+ * The clock used to look once a second counted from whenever the server
+ * started, and Node's timer drifts as it goes: on one server, unrestarted, it
+ * looked 0.8 s after each second during one test show and 0.2 s after five
+ * minutes later. The show record was exact either way (a clock move is dated
+ * to when the item was due), but every screen showed the cue change that much
+ * late, and a test of the bars failed on it by a tenth of a second.
+ *
+ * `afterMs` makes sure the second has turned when it looks — a timer can fire
+ * a millisecond early.
+ */
+export const msUntilClockTick = (nowMs: number, afterMs = 20): number => 1000 - (nowMs % 1000) + afterMs;

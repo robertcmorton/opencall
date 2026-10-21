@@ -41,7 +41,7 @@ import { scheduleRetention } from "./retention.ts";
 import { consume, release } from "./throttle.ts";
 import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
-import { applyAsPerson } from "./show.ts";
+import { applyAsPerson, msUntilClockTick } from "./show.ts";
 import * as authMod from "./auth.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
@@ -1112,8 +1112,15 @@ const abandonLoop = setInterval(() => void abandonedSessionSweep(), 60 * 60 * 10
 abandonLoop.unref();
 void abandonedSessionSweep();
 
-const clockLoop = setInterval(() => void clockTick(), 1000);
-clockLoop.unref();
+// On the turn of each second, not once a second from whenever the server
+// started — see `msUntilClockTick`. Each look books the next.
+const scheduleClockTick = (): void => {
+  setTimeout(() => {
+    scheduleClockTick();
+    void clockTick();
+  }, msUntilClockTick(Date.now())).unref();
+};
+scheduleClockTick();
 
 // A client that sends its headers slowly, or a body slower still, is cut off
 // instead of holding a connection open indefinitely. Two minutes covers a

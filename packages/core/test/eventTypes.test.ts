@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EVENT_TYPES,
   gamesOf,
+  guessRugbyGame,
   eventTypeLabel,
   customEventTypeCode,
   eventType,
@@ -313,5 +314,37 @@ describe("rugby league games (21 Oct)", () => {
   });
   it("before a game is chosen it still offers golden point — most games go somewhere when level", () => {
     expect(outcomesFor("rugby-league", false)).toContain("golden");
+  });
+});
+
+describe("guessRugbyGame — the game read off its first-half row", () => {
+  it("reads NRLW as the women's game and NRL as the men's", () => {
+    expect(guessRugbyGame("NRLW RD1 | HARBOUR v RIVERS - FIRST HALF")?.id).toBe("nrlw");
+    expect(guessRugbyGame("NRL | COAST v RANGERS - FIRST HALF")?.id).toBe("nrl");
+  });
+  it("does not read the NRL inside NRLW", () => {
+    expect(guessRugbyGame("NRLW | HARBOUR v RIVERS")?.word).toBe("NRLW");
+  });
+  it("takes finals from the same row", () => {
+    expect(guessRugbyGame("NRL QUALIFYING FINAL | HARBOUR v RIVERS - FIRST HALF")?.id).toBe("nrl-finals");
+    expect(guessRugbyGame("NRL Grand Final - KICK OFF")?.id).toBe("nrl-finals");
+    expect(guessRugbyGame("NRLW GRAND FINAL | COAST v RANGERS")?.id).toBe("nrlw-gf");
+    expect(guessRugbyGame("NRLW GF - FIRST HALF")?.id).toBe("nrlw-gf");
+  });
+  it("keeps a women's semi-final on the regular rules", () => {
+    expect(guessRugbyGame("NRLW SEMI FINAL | HARBOUR v RIVERS")?.id).toBe("nrlw");
+  });
+  it("reads plain words too", () => {
+    expect(guessRugbyGame("Women's game — first half")?.id).toBe("nrlw");
+    expect(guessRugbyGame("Mens - kick off")?.id).toBe("nrl");
+  });
+  it("leaves a row that names neither competition to the showcaller", () => {
+    expect(guessRugbyGame("FIRST HALF")).toBeNull();
+    expect(guessRugbyGame("Kick off — HARBOUR v RIVERS")).toBeNull();
+    expect(guessRugbyGame(null)).toBeNull();
+  });
+  it("only ever names a game the picker offers", () => {
+    const ids = new Set(gamesOf("rugby-league").map((t) => t.id));
+    for (const t of ["NRLW", "NRL", "NRL final", "NRLW grand final"]) expect(ids.has(guessRugbyGame(t)!.id)).toBe(true);
   });
 });

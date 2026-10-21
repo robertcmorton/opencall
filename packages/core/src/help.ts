@@ -870,12 +870,13 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Says which rugby league game this is, shows its rules, and lets you change this match's times.",
         steps: [
           "Above the sheet, before the show starts, the **Match** line names the game — for example “40-min halves · golden point 5 + 5, then a draw”.",
-          "Press **Change** (or **Choose**, if the sheet doesn't know yet) and pick the game. Every screen switches straight away.",
-          "Under **This match**, change **Each half**, **Half time** or the length of each half of golden point or extra time. Press **Rules say …** to go back to the game's own figure.",
-          "More than one game on the sheet? Each gets its own section — **Game 1**, **Game 2** and so on, with its kick-off time. Choose for each one; a later game follows game 1 until you do.",
+          "OpenCall reads each game's first-half (or kick-off) row: **NRLW** means the women's game, **NRL** the men's, and **final** or **grand final** on that row picks the finals rules. A game nobody has chosen is set from it, and the card says which row it read.",
+          "Press **Change** (or **Choose**, if it couldn't tell) and pick the game. Every screen switches straight away. If you've chosen something the sheet's own words disagree with, the card says so and offers **Use it**.",
+          "Under **This match** you see the game's half and half-time lengths beside what the sheet's rows add up to, and can change the length of each half of golden point or extra time — what **⚡ Add** builds on the night. **Rules say …** puts it back.",
+          "More than one game on the sheet? Each gets its own section — **Game 1**, **Game 2** and so on, with its kick-off time — and each is chosen on its own: changing game 1 never changes the others.",
         ],
         who: CALLER,
-        good: "Beside each time is what the sheet's own rows add up to, so you can see if they disagree. Changing a time never changes the sheet's rows — the golden point or extra time length is what gets added if the scores are level at full time.",
+        good: "Nothing here changes the sheet's own rows. A broadcast sheet's halves often run longer than the game's (45:00 for a 40-minute half) because they carry the stoppage allowance — that is expected.",
       },
       {
         id: "result",

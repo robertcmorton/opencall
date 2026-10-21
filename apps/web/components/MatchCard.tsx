@@ -79,6 +79,8 @@ export interface MatchGame {
   kicksOff?: string;
   /** A later game with no choice of its own, following game 1. */
   follows?: boolean;
+  /** What the game's own first-half (or kick-off) row says it is — "NRLW" — and which row. */
+  fromSheet?: { id: string; word: string; at: number };
 }
 
 export function MatchCard({
@@ -86,13 +88,18 @@ export function MatchCard({
   canChange,
   onPick,
   onTimes,
+  rowLabel,
 }: {
   games: MatchGame[];
   canChange: boolean;
   onPick: (n: number, id: string) => Promise<void>;
   onTimes: (n: number, next: MatchTimes | null) => void;
+  /** The sheet's own name for a row, by index — "20". */
+  rowLabel: (index: number) => string;
 }) {
-  const unchosen = games.some((g) => g.type.needsGame);
+  // A game whose own words say something other than what it is set to.
+  const disagrees = games.some((g) => g.fromSheet && g.fromSheet.id !== g.type.id && !g.type.needsGame);
+  const unchosen = games.some((g) => g.type.needsGame) || disagrees;
   const [open, setOpen] = useState(unchosen);
   const many = games.length > 1;
   const one = games[0]!;
@@ -107,7 +114,9 @@ export function MatchCard({
       <div className="mc-head">
         <div className="mc-what">
           <span className="mc-kicker">{many ? `${games.length} games` : "Match"}</span>
-          {unchosen ? (
+          {disagrees ? (
+            <strong>{many ? "A game doesn't match what the sheet says — check it." : "This doesn't match what the sheet says — check it."}</strong>
+          ) : unchosen ? (
             <strong>{many ? "Which game is each one? The endings depend on it." : "Which game is this? The endings depend on it."}</strong>
           ) : many && games.length <= 4 ? (
             <span className="mc-list">
@@ -147,6 +156,7 @@ export function MatchCard({
               canChange={canChange}
               onPick={(id) => onPick(g.n, id)}
               onTimes={(next) => onTimes(g.n, next)}
+              rowLabel={rowLabel}
             />
           ))}
         </div>
@@ -163,6 +173,7 @@ function GameSetup({
   canChange,
   onPick,
   onTimes,
+  rowLabel,
 }: {
   game: MatchGame;
   eff: Required<MatchTimes>;
@@ -172,10 +183,12 @@ function GameSetup({
   canChange: boolean;
   onPick: (id: string) => Promise<void>;
   onTimes: (next: MatchTimes | null) => void;
+  rowLabel: (index: number) => string;
 }) {
-  const { type, times, periods } = game;
+  const { type, times, periods, fromSheet } = game;
   const unchosen = !!type.needsGame;
-  const [folded, setFolded] = useState(!!startFolded);
+  const disagrees = !!fromSheet && fromSheet.id !== type.id && !unchosen;
+  const [folded, setFolded] = useState(!!startFolded && !disagrees);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const choices = gamesOf("rugby-league");
@@ -213,7 +226,7 @@ function GameSetup({
   const sheet = (kind: SheetPeriod["kind"]) => {
     const found = periods.filter((p) => p.kind === kind);
     if (found.length === 0) return <span className="mc-sheet is-none">not on the sheet</span>;
-    const want = kind === "half-time" ? eff.halfTimeSec : eff.halfSec;
+    const want = kind === "half-time" ? (rules?.halfTimeSec ?? eff.halfTimeSec) : (rules?.halfSec ?? eff.halfSec);
     const shortest = Math.min(...found.map((p) => p.sec));
     const short = shortest < want - 60;
     return (
@@ -274,6 +287,23 @@ function GameSetup({
           {game.follows && !unchosen && <span className="mc-follows">same as game 1 until you choose</span>}
         </h3>
       )}
+      {fromSheet && (
+        <p className="mc-note" style={disagrees ? { color: "var(--warn)" } : undefined}>
+          {disagrees ? "The sheet says " : "Read from the sheet: "}“{fromSheet.word}” on row {rowLabel(fromSheet.at) || fromSheet.at + 1}
+          {disagrees ? (
+            <>
+              {" "}— that's {choices.find((c) => c.id === fromSheet.id)?.label ?? fromSheet.id}.{" "}
+              {canChange && (
+                <button type="button" className="btn btn-sm" disabled={busy != null} onClick={() => void pick(fromSheet.id)}>
+                  Use it
+                </button>
+              )}
+            </>
+          ) : (
+            "."
+          )}
+        </p>
+      )}
       <div className="mc-games" role="radiogroup" aria-label={heading ? `${heading.split(" · ")[0]}: which game` : "Which game"}>
         {choices.map((g) => (
           <button
@@ -318,14 +348,26 @@ function GameSetup({
           </div>
           <div>
             <h4>{heading ? "This game" : "This match"}</h4>
-            {timeRow("halfSec", "Each half", "first-half")}
-            {timeRow("halfTimeSec", "Half time", "half-time")}
+            {/* Facts, not settings (21 Oct, Robert: "if I change it — what does
+                it do???"). The half lengths only fed the comparison with the
+                sheet, so a box to type in promised control that wasn't there;
+                and writing the rules' 40:00 into a sheet's 45:00 half would be
+                wrong, since a broadcast half carries its stoppage allowance. */}
+            <div className="mc-time">
+              <span className="mc-time-label">Each half</span>
+              <span className="mono">{mmss(rules.halfSec)}</span>
+              {sheet("first-half")}
+            </div>
+            <div className="mc-time">
+              <span className="mc-time-label">Half time</span>
+              <span className="mono">{mmss(rules.halfTimeSec)}</span>
+              {sheet("half-time")}
+            </div>
             {rules.extraHalfSec > 0 && type.extraLabel && timeRow("extraHalfSec", `Each half of ${type.extraLabel.toLowerCase()}`)}
             <p className="mc-note">
               {rules.extraHalfSec > 0 && type.extraLabel
-                ? `The ${type.extraLabel.toLowerCase()} length is what's added to the sheet if the scores are level at full time.`
-                : "Level at full time ends the match — nothing is added."}{" "}
-              The sheet's own rows aren't changed.
+                ? `If the scores are level at full time and the sheet has no ${type.extraLabel.toLowerCase()} written in, ⚡ Add ${type.extraLabel.toLowerCase()} builds it at this length and moves every time below. Change it for a game played to different lengths.`
+                : "Level at full time ends the match — nothing is added."}
             </p>
           </div>
         </div>

@@ -406,6 +406,33 @@ export const eventType = (id: string | null | undefined): EventTypeDef | null =>
 export const gamesOf = (family: string): EventTypeDef[] => EVENT_TYPES.filter((t) => t.family === family && !t.needsGame);
 
 /**
+ * Which rugby league game a row's own words say it is (21 Oct, Robert: "look at
+ * the game start to decide — NRLW = women, NRL = men").
+ *
+ * Read off the first-half or kick-off row, which on these sheets names the
+ * competition and often the round: "NRLW RD1 | … - FIRST HALF", "NRL | … -
+ * FIRST HALF". The competition word is far more reliable than the half's
+ * length, which on a broadcast sheet runs long (a men's first half printed as
+ * 45:00 carries its stoppage allowance).
+ *
+ * Finals come from the same row. "Grand final" / "GF" is the women's one game
+ * with different rules; their semi-finals keep the regular-season rules, so
+ * any other women's final stays `nrlw`. Every men's final is `nrl-finals`.
+ * Null when the row names neither competition — the showcaller chooses.
+ */
+export function guessRugbyGame(title: string | null | undefined): { id: string; word: string } | null {
+  const t = (title ?? "").replace(/\s+/g, " ");
+  const women = /\bNRLW\b/i.exec(t) ?? /\bwomen'?s\b/i.exec(t);
+  const men = women ? null : (/\bNRL\b/i.exec(t) ?? /\bmen'?s\b/i.exec(t));
+  const which = women ?? men;
+  if (!which) return null;
+  const grand = /\bgrand[\s-]*final\b|\bGF\b/i.exec(t);
+  const final = grand ?? /\bfinals?\b/i.exec(t);
+  if (women) return grand ? { id: "nrlw-gf", word: `${which[0]} … ${grand[0]}` } : { id: "nrlw", word: which[0] };
+  return final ? { id: "nrl-finals", word: `${which[0]} … ${final[0]}` } : { id: "nrl", word: which[0] };
+}
+
+/**
  * A type as it survives storage and the wire.
  *
  * `EventTypeDef` carries a compiled RegExp, which does not survive JSON. This

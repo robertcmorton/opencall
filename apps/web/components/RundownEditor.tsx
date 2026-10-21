@@ -39,6 +39,7 @@ import {
   findDecisionPoints,
   findPhases,
   goldenPointBlock,
+  guessRugbyGame,
   goldenPointDurationSec,
   isSuddenDeathRow,
   shiftAnchorsAfter,
@@ -2839,6 +2840,29 @@ export function RundownEditor({
     return out;
   }, [phases, timing]);
   /** Each game on the sheet, for the match card — one section each. */
+  /**
+   * Which game each one says it is, read off its first-half row or, failing
+   * that, its kick-off (21 Oct, Robert: "look at the game start to decide —
+   * NRLW = women, NRL = men"). Only those two rows: a pre-game promo for
+   * "finals week" is not the game.
+   */
+  const sheetGuesses = useMemo(() => {
+    const out = new Map<number, { id: string; word: string; at: number }>();
+    for (const p of phases) {
+      if (p.kind !== "first-half" || out.has(p.game)) continue;
+      const after = p.game > 1 ? (gameEnds[p.game - 2] ?? -1) : -1;
+      const candidates = [p.from];
+      for (let i = p.from - 1; i > after; i--) if (/\bkick[\s-]?off\b/i.test(rows[i]?.title ?? "")) candidates.push(i);
+      for (const i of candidates) {
+        const g = guessRugbyGame(rows[i]?.title);
+        if (g) {
+          out.set(p.game, { ...g, at: i });
+          break;
+        }
+      }
+    }
+    return out;
+  }, [phases, gameEnds, rows]);
   const matchGames: MatchGame[] = [];
   if (showType?.family === "rugby-league") {
     for (let n = 1; n <= Math.max(1, gameEnds.length); n++) {
@@ -2854,9 +2878,50 @@ export function RundownEditor({
         periods,
         kicksOff: kickOff != null ? formatTimeOfDay(kickOff, meta.use24h) : undefined,
         follows: n > 1 && !own,
+        fromSheet: sheetGuesses.get(n),
       });
     }
   }
+  /** Set which game game `n` is. Game 1 is the sheet's own kind of show, so the
+   * dashboard and every screen agree on it; a later game's lives in the sheet. */
+  const chooseGame = async (n: number, id: string): Promise<void> => {
+    if (n === 1) await api.patchRundown(rundownId, { sport: id });
+    const m = doc.getMap("meta");
+    const all = { ...((m.get("games") as Record<string, { type?: string }> | undefined) ?? {}) };
+    // Each game is its own choice (21 Oct, Robert: "I changed the 1st game and
+    // it changed the 2nd to be the same — need to adjust them independently").
+    // A later game that was following game 1 keeps what it was showing, so
+    // changing game 1 changes game 1 only. Not while game 1 was still the
+    // unchosen "Rugby league": then there was nothing to keep.
+    if (n === 1 && channel.sport && !showType?.needsGame) {
+      for (const g of matchGames) if (g.n > 1 && g.follows) all[String(g.n)] = { ...(all[String(g.n)] ?? {}), type: channel.sport };
+    }
+    // A new game starts from its own rules, not the last game's changes.
+    if (n === 1) delete all["1"];
+    else all[String(n)] = { type: id };
+    if (Object.keys(all).length) m.set("games", all);
+    else if (m.has("games")) m.delete("games");
+  };
+  /**
+   * A game nobody has chosen is set from its own words — once per sheet, game
+   * and answer, by a screen allowed to change it, never during a show. A game
+   * somebody DID choose is never overwritten: if the sheet disagrees, the
+   * match card says so and offers the change.
+   */
+  const autoGamesTried = useRef(new Set<string>());
+  const autoGameKey = matchGames.map((g) => `${g.n}:${g.type.id}:${g.follows ? 1 : 0}:${g.fromSheet?.id ?? ""}`).join("|");
+  useEffect(() => {
+    if (!(mayDrive || canEditContent) || showLive) return;
+    for (const g of matchGames) {
+      const guess = g.fromSheet;
+      const unchosen = g.n === 1 ? !!g.type.needsGame : !!g.follows;
+      if (!guess || !unchosen || guess.id === g.type.id) continue;
+      const key = `${rundownId}:${g.n}:${guess.id}`;
+      if (autoGamesTried.current.has(key)) continue;
+      autoGamesTried.current.add(key);
+      void chooseGame(g.n, guess.id).catch(() => undefined);
+    }
+  }, [autoGameKey, mayDrive, canEditContent, showLive]); // eslint-disable-line react-hooks/exhaustive-deps
   /**
    * Running late into something that must start on time (20 Oct): the start
    * of each half / quarter / extra period, and rows marked "Must start on
@@ -5755,18 +5820,8 @@ export function RundownEditor({
         <MatchCard
           games={matchGames}
           canChange={mayDrive || canEditContent}
-          onPick={async (n, id) => {
-            // Game 1 is the sheet's own kind of show, so the dashboard and
-            // every screen agree on it; a later game's lives in the sheet.
-            if (n === 1) await api.patchRundown(rundownId, { sport: id });
-            const m = doc.getMap("meta");
-            const all = { ...((m.get("games") as Record<string, object> | undefined) ?? {}) };
-            // A new game starts from its own rules, not the last game's changes.
-            if (n === 1) delete all["1"];
-            else all[String(n)] = { type: id };
-            if (Object.keys(all).length) m.set("games", all);
-            else if (m.has("games")) m.delete("games");
-          }}
+          onPick={chooseGame}
+          rowLabel={numberOf}
           onTimes={(n, next) => {
             const m = doc.getMap("meta");
             const all = { ...((m.get("games") as Record<string, { type?: string }> | undefined) ?? {}) };

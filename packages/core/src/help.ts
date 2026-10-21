@@ -478,10 +478,14 @@ export const SECTIONS: HelpSection[] = [
       },
       {
         id: "endings-layout",
-        name: "Endings: layered / Endings: one line",
-        forWhat: "Chooses how the different endings look on the sheet.",
-        how: "Press the **Endings** button in the toolbar to switch. **One line until called** shows a single line at full time until a result is called. **Show all, in layers** shows every ending. The same choice is in the menu (☰) under Endings.",
-        good: "In the one-line layout, the small triangle at the far left opens an ending for a look. Looking does not call anything.",
+        name: "How endings look on the sheet",
+        forWhat: "Shows every way a match can end without filling the sheet with rows that may never play.",
+        steps: [
+          "At full time a **Full time** line says what the result decides, and what a level score means for this game — for example “Level: golden point, 5 + 5 min — still level is a draw.”",
+          "Under it, each ending is one line: **If we win · 3 rows · 1:36**, **If we lose**, **If it's level → Golden point**. Press one to open its rows, and again to fold it.",
+          "Once the result is called, that ending opens by itself and says **playing**; the others fold away and say **not playing**. **Change** on the Full time line takes the result back.",
+        ],
+        good: "Opening an ending only shows it on your screen — it calls nothing. Times the sheet didn't print are shown faintly, worked out from full time.",
       },
       {
         id: "copy-to-sheet",
@@ -879,9 +883,9 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Picks which ending happens, so the other endings are skipped on every screen.",
         steps: [
           "Near full time a bar appears at the bottom of the screen, with a countdown.",
-          "Press **Win**, **Lose**, **Draw** or **⚡ Golden point** — whichever happened. The show finishes the item on air, then plays that ending.",
-          "Golden point plays the extra-time rows, then asks for the final result again.",
-          "Pressed the wrong one? Press **Reset** and every ending comes back.",
+          "The bar asks **Full time — what's the result?** Press **Win**, **Lose**, **Draw** or **⚡ Golden point** (or **⚡ Extra time** in a final) — whichever happened. The show finishes the item on air, then plays that ending.",
+          "Golden point or extra time plays its rows, then asks for the result again.",
+          "Pressed the wrong one? Press **Change** and every ending comes back.",
         ],
         who: CALLER,
         good: "Which buttons you see depends on the kind of show. If nobody calls a result, the show carries on and the bar says so.",

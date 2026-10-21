@@ -1255,39 +1255,10 @@ kbd {
   opacity: 0.42;
 }
 
-/* ── Layered endings ──────────────────────────────────────────────────────
-   The endings are a diamond, not a list. Win and lose hang off full time AND
-   off the extra period a level score sends the match to; a draw hangs off the
-   extra period only. A header carries the ONE time its whole layer begins at,
-   because a time printed against each branch is exactly what made three
-   alternatives read as three things that all happen.                        */
-.layer-row > td {
-  background: var(--raised);
-  border-top: 2px solid var(--border);
-  padding-top: 5px;
-  padding-bottom: 5px;
-  font-size: var(--fs-xs);
-}
+/* The time on a banner row (full time, an ending's path line). */
 .layer-time {
   color: var(--text-2);
   font-weight: 600;
-}
-.layer-lbl {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  color: var(--text-2);
-}
-.layer-note {
-  margin-left: 10px;
-  color: var(--text-3);
-}
-/* The second layer is indented, because it is reached THROUGH the first. */
-.layer-row.layer-1 > td:first-child {
-  box-shadow: inset 3px 0 0 var(--warn);
-}
-.layer-row.layer-1 .layer-lbl {
-  color: var(--warn);
 }
 /* The other time a shared ending could start. Small and beneath, so the row's
    own time stays the one the eye lands on. */
@@ -1298,86 +1269,103 @@ kbd {
   white-space: nowrap;
 }
 
-/* ── The fork, when the block is one line until it is called ──────────── */
-.fork-row > td {
+/* ── Endings: paths you open (21 Oct) ──────────────────────────────────
+   Full time is a header saying what the result decides; each ending is one
+   summary line that opens to its rows. The line takes the ending's colour
+   down its left edge, the same rail its rows carry.                       */
+.ft-row > td {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-top: 2px solid var(--border);
-  border-bottom: 2px solid var(--border);
   padding-top: 7px;
   padding-bottom: 7px;
 }
-.fork-time {
-  color: var(--text-2);
-  font-weight: 600;
+.ft-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
 }
-/* The disclosure on a collapsed ending block. Rotates rather than swapping
-   glyphs, so the control does not change width as it opens. */
-/* The fork line's first cell: the disclosure sits in the row-number column,
-   where the eye already runs down the sheet. */
-.fork-first {
-  text-align: center;
-  padding: 0;
-}
-
-.fork-peek {
-  border: 0;
-  background: none;
-  color: var(--text-2);
-  cursor: pointer;
-  padding: 0 4px;
-  font-size: 11px;
-  line-height: 1;
-  transition: transform var(--t-fast) var(--ease);
-  transform-origin: 50% 50%;
-  /* Explicit, not inherited: the hit area below is positioned against this
-     box, and a `position` arriving from somewhere else would move it. This
-     project has been bitten once by a bare rule losing to `[data-tip]`. */
-  position: relative;
-}
-/* THE TRIANGLE IS 14x11 PIXELS, which is a fine thing to look at and a poor
-   thing to hit. Measured on a phone: 14x11 against a 44px guideline, on the
-   control that opens a block of endings — the one somebody rehearsing a show
-   reaches for over and over.
-   The glyph stays exactly as it is and the TARGET grows around it, so nothing
-   moves on the page. Deliberately kept inside the row's own height rather than
-   taken out to the full 44px: a taller box would reach over the rows above and
-   below and swallow their clicks, and in a walkthrough a click anywhere on a
-   row is how you go to it. ~30x29 against 14x11 is 5.6x the area. */
-.fork-peek::before {
-  content: "";
-  position: absolute;
-  inset: -9px -8px;
-}
-/* A fingertip's 44px on a touch screen, still without moving the row. */
-@media (pointer: coarse) {
-  .fork-peek::before {
-    inset: -17px -15px;
-  }
-}
-.fork-peek.is-open {
-  transform: rotate(90deg);
-  color: var(--text-1);
-}
-
-.fork-lead {
+.ft-lead {
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.fork-note {
-  margin-left: 10px;
-  margin-right: 10px;
+.ft-note {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.ft-rule {
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
-.fork-chip {
+.ft-change {
+  margin-left: auto;
+}
+.path-row > td {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: 1px solid var(--border);
+}
+.path-row > td:first-child {
+  box-shadow: inset 3px 0 0 var(--branch-rail);
+}
+.path-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .path-toggle {
+    min-height: 44px;
+  }
+}
+.path-toggle:disabled {
+  cursor: default;
+}
+.path-toggle:hover:not(:disabled) .path-name {
+  color: var(--branch-rail);
+}
+.path-caret {
   display: inline-block;
-  margin-right: 6px;
-  padding: 1px 8px;
-  border-radius: var(--r-pill);
-  font-size: var(--fs-xs);
+  width: 1em;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1;
+  transition: transform var(--t-fast) var(--ease);
+}
+.path-row.is-open .path-caret {
+  transform: rotate(90deg);
+}
+.path-name {
   font-weight: 650;
   color: var(--branch-rail);
-  border: 1px solid color-mix(in srgb, var(--branch-rail) 55%, transparent);
-  background: color-mix(in srgb, var(--branch-rail) 12%, transparent);
+}
+.path-meta {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.path-status {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.path-status.is-on {
+  color: var(--under);
+}
+.path-row.is-out .path-name,
+.path-row.is-out .path-meta {
+  opacity: 0.5;
 }
 
 /* Full time is close and no result picked yet — the chooser calls for a decision. */
@@ -7022,4 +7010,9 @@ a > svg,
 }
 .mc-scroll > .mc-body:has(> .mc-fold) + .mc-body:has(> .mc-fold) {
   padding-top: 0;
+}
+/* A time the sheet didn't print, worked out from full time. */
+.worked-time {
+  color: var(--text-3);
+  font-style: italic;
 }

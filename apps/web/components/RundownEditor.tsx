@@ -144,16 +144,6 @@ interface BranchMark {
   layerOpens: boolean;
 }
 
-/**
- * How the alternate endings are laid out on the sheet.
- *
- * `layers` keeps every branch on the page under a header that carries the
- * layer's one start time. `fork` collapses the whole block to a single row
- * until a result is called, and lets the chooser at the foot of the screen do
- * the calling. Both are being tried against real sheets before one wins.
- */
-type OutcomeLayout = "layers" | "fork";
-const OUTCOME_LAYOUT_KEY = "oc:outcomelayout";
 
 /**
  * How long before the end of the half the result chooser appears.
@@ -1002,49 +992,22 @@ export function RundownEditor({
   /** What was typed onto a time or length to open it — replaces what is there. */
   const [typedSeed, setTypedSeed] = useState<string | null>(null);
   /**
-   * Which of the two ending layouts this device is using.
+   * The endings a reader has opened, as "game:outcome" (21 Oct, Robert chose
+   * "paths you open" over the two layouts and the switch between them, which
+   * was the main source of confusion).
    *
-   * Per device rather than per sheet, and deliberately not synced: the point is
-   * to run the same sheet both ways and compare, which needs two screens
-   * disagreeing. Read after mount so the server render and the first client
-   * render match.
+   * Each ending is one summary line — "If we win · 3 rows · 1:36" — until it
+   * is opened. Local to this screen and this sitting: opening one is reading,
+   * not calling, so it reaches nobody else's sheet. The path that is actually
+   * playing opens by itself; see `pathHides`.
    */
-  /**
-   * One line until something is called — see `forkHides`.
-   *
-   * The default was "layers", which draws every ending at once: three or four
-   * versions of the same minute, stacked, on a sheet where only one of them
-   * will happen. That is a fair way to SHOW somebody what the alternatives
-   * are, and a poor way to read a run sheet, because the rows below the block
-   * are pushed down by endings that are not going to occur.
-   *
-   * Still a preference, still remembered per browser, and anybody who wants
-   * the stack can have it back from the toolbar. Only the starting point moved.
-   */
-  const [outcomeLayout, setOutcomeLayout] = useState<OutcomeLayout>("fork");
-  /**
-   * Ending blocks a reader has opened for a look, by game.
-   *
-   * Local to this screen and to this sitting: opening one is reading, not
-   * calling, so it must not reach anybody else's sheet and must not survive as
-   * a preference. A result being called closes it again, because by then the
-   * block is showing the path that is actually happening.
-   */
-  const [peekedGames, setPeekedGames] = useState<ReadonlySet<number>>(new Set());
-  const togglePeek = (g: number) =>
-    setPeekedGames((was) => {
+  const [openPaths, setOpenPaths] = useState<ReadonlySet<string>>(new Set());
+  const togglePath = (key: string) =>
+    setOpenPaths((was) => {
       const next = new Set(was);
-      if (!next.delete(g)) next.add(g);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
-  useEffect(() => {
-    const saved = window.localStorage.getItem(OUTCOME_LAYOUT_KEY);
-    if (saved === "fork" || saved === "layers") setOutcomeLayout(saved);
-  }, []);
-  const chooseOutcomeLayout = (v: OutcomeLayout): void => {
-    setOutcomeLayout(v);
-    window.localStorage.setItem(OUTCOME_LAYOUT_KEY, v);
-  };
   const [durationPopover, setDurationPopover] = useState<string | null>(null); // rowId
   const [panel, setPanel] = useState<"history" | "join" | "info" | null>(null);
   const [reconciling, setReconciling] = useState(false);
@@ -1394,10 +1357,7 @@ export function RundownEditor({
     for (const tr of tb.querySelectorAll<HTMLTableRowElement>("tr[data-rowid]")) {
       const i = indexOf.get(tr.dataset.rowid ?? "");
       if (i == null) continue;
-      let h = tr.getBoundingClientRect().height;
-      const prev = tr.previousElementSibling;
-      if (prev?.classList.contains("layer-row")) h += prev.getBoundingClientRect().height;
-      seen.set(i, h);
+      seen.set(i, tr.getBoundingClientRect().height);
     }
     /**
      * A row the layout chose not to draw takes NO space, and has to say so.
@@ -1419,15 +1379,15 @@ export function RundownEditor({
      */
     for (let i = rowWindow.from; i < rowWindow.to; i++) if (!seen.has(i)) seen.set(i, 0);
     /**
-     * …and the one line the collapsed block DOES draw belongs to the row it
-     * stands in for. It carries no `data-rowid` — it is not that row, it is a
-     * summary of the block — so without this it would be zeroed above and the
-     * spacers would come up one line short.
+     * …and the lines an ending DOES draw — the Full time header and each
+     * path's summary — belong to the row they sit above. They carry no
+     * `data-rowid` — they are not that row — so without this they would be
+     * zeroed above and the spacers would come up short, a line per path.
      */
-    for (const fork of tb.querySelectorAll<HTMLTableRowElement>("tr.fork-row[data-forkfor]")) {
-      const i = indexOf.get(fork.dataset.forkfor ?? "");
+    for (const banner of tb.querySelectorAll<HTMLTableRowElement>("tr[data-bannerfor]")) {
+      const i = indexOf.get(banner.dataset.bannerfor ?? "");
       if (i == null) continue;
-      seen.set(i, (seen.get(i) ?? 0) + fork.getBoundingClientRect().height);
+      seen.set(i, (seen.get(i) ?? 0) + banner.getBoundingClientRect().height);
     }
     if (seen.size > 0) rowWindow.report(seen);
   });
@@ -1577,11 +1537,12 @@ export function RundownEditor({
    * Calling golden point is the everyday case: five rows arrive under the cue
    * and the sheet does not move to it.
    *
-   * Counting struck rows catches all of it — `forkHides` reduces to exactly
-   * that once anything is called, and to "every ending" before — and it is one
-   * pass with no nested lookups, which `chosenOf` per row would not be.
+   * Counting struck rows catches all of it — `pathHides` reduces to exactly
+   * that once anything is called, and to "every closed ending" before — plus
+   * the paths opened by hand, and it is one pass with no nested lookups,
+   * which `chosenOf` per row would not be.
    */
-  const drawnSignature = `${outcomeLayout}:${rows.reduce((n, r) => n + (r.skipped ? 1 : 0), 0)}`;
+  const drawnSignature = `${[...openPaths].join(",")}:${rows.reduce((n, r) => n + (r.skipped ? 1 : 0), 0)}`;
   const syncToCue = () => {
     channel.resync();
     setFollowScroll(true);
@@ -2380,33 +2341,78 @@ export function RundownEditor({
     return goldenPlaying(g) && outcomesOfGame(g).includes("golden") ? "extra-time" : "full-time";
   };
 
+  /** Which ending path a row belongs to: "game:outcome". */
+  const pathKeyOf = (r: { outcome?: string | null; outcomeGame?: number | null }): string => `${r.outcomeGame ?? 1}:${r.outcome}`;
   /**
-   * In `fork` layout, is this row one the sheet is currently hiding?
-   *
-   * The whole block collapses to a single line until somebody calls something.
-   * Once the extra period is under way its rows are back — they are being
-   * played — and once a result is called that branch is back too. Nothing is
-   * deleted; the rows are simply not drawn, so un-calling puts them straight
-   * back and the sheet the crew shares is unchanged.
+   * The paths that open by themselves: the one the live cue or the
+   * walkthrough is on — a row nobody can see cannot be called or rehearsed.
    */
-  const forkHides = (i: number): boolean => {
-    if (outcomeLayout !== "fork") return false;
+  const autoOpenPaths = useMemo(() => {
+    const out = new Set<string>();
+    for (const id of [activeRowId, walkRowId]) {
+      const r = id ? rows.find((x) => x.id === id) : undefined;
+      if (r?.outcome) out.add(pathKeyOf(r));
+    }
+    return out;
+  }, [rows, activeRowId, walkRowId]);
+  /**
+   * Is this ending row folded away inside its path's summary line?
+   *
+   * Before anything is called every path is one line, opened by hand to read
+   * it. Once a result is called, or the extra period is under way, the RUNNING
+   * ORDER decides — the rows that will play are drawn and the rest fold away
+   * (opened by hand, they come back dimmed). Asking "is this the branch that
+   * was chosen" instead threw away the extra period the moment a result was
+   * called after it — twenty minutes of football everybody had just watched.
+   * Nothing is deleted; the rows are simply not drawn.
+   */
+  const pathHides = (i: number, ignoreOpened = false): boolean => {
     const r = rows[i];
     if (!r?.outcome) return false;
+    const key = pathKeyOf(r);
+    if ((!ignoreOpened && openPaths.has(key)) || autoOpenPaths.has(key)) return false;
     const g = r.outcomeGame ?? 1;
-    // Opened by hand from the fork line. Reading what is written against each
-    // result is exactly what a walkthrough is for — you cannot rehearse an
-    // ending you are not allowed to look at — and this asks nothing of the
-    // sheet: nothing is called, nothing is skipped, it is only drawn.
-    if (peekedGames.has(g)) return false;
-    // Still entirely hypothetical — nothing called, no extra period under way
-    // — so the block collapses to its one fork line.
     if (chosenOf(g) == null && !goldenPlaying(g)) return true;
-    // After that the RUNNING ORDER decides, which is the only honest test.
-    // Asking "is this the branch that was chosen" instead threw away the extra
-    // period the moment a result was called after it — twenty minutes of
-    // football everybody had just watched, gone off the sheet.
     return Boolean(r.skipped);
+  };
+  /** An ending path's summary line, in plain words. */
+  const pathName = (g: number, o: string): string => {
+    const t = typeOfGame(g);
+    const extra = t?.extraLabel ?? "Extra time";
+    const settles = (t?.afterExtra ?? []).length > 0 && !(t?.afterExtra ?? []).includes("draw");
+    if (o === "win") return "If we win";
+    if (o === "lose") return "If we lose";
+    if (o === "draw") return outcomesOfGame(g).includes("golden") ? "If it's still level" : "If it's a draw";
+    if (o === "golden") return `If it's level → ${extra}${settles && !/golden/i.test(extra) ? ", then golden point" : ""}`;
+    return `If ${o}`;
+  };
+  /** How many rows a path holds and how long they run; `untimed` when one has no length (golden point in a final). */
+  const pathInfo = (g: number, o: string): { rows: number; sec: number; untimed: boolean; plays: boolean } => {
+    const mine = rowsOfGame(g).filter((r) => r.outcome === o);
+    return {
+      // Any row still in the running order — a golden point that was played,
+      // with the result called after it, is still part of the story.
+      plays: mine.some((r) => !r.skipped),
+      rows: mine.length,
+      sec: mine.reduce((n, r) => n + (r.durationMuted ? 0 : (r.durationSec ?? 0)), 0),
+      // Only the extra period can run on with no end; a win's "full time"
+      // marker row has no length either, and is not open-ended.
+      untimed: o === "golden" && mine.some((r) => r.durationSec == null && !r.durationMuted),
+    };
+  };
+  /** The result, as the full-time header says it once called. */
+  const resultWord = (o: string, g: number): string =>
+    o === "win" ? "Win" : o === "lose" ? "Loss" : o === "draw" ? "Draw" : (typeOfGame(g)?.extraLabel ?? "Extra time");
+  /** What a level score means for this game, in one line — from its kind of show and its own times. */
+  const levelRule = (g: number): string | null => {
+    const t = typeOfGame(g);
+    if (!t) return null;
+    if (!t.fullTime.includes("golden")) return t.fullTime.includes("draw") ? "Level is a draw." : null;
+    const label = (t.extraLabel ?? "extra time").toLowerCase();
+    const half = meta.games?.[String(g)]?.extraHalfSec ?? t.game?.extraHalfSec;
+    const len = half ? `, ${Math.round(half / 60)} + ${Math.round(half / 60)} min` : "";
+    if (t.afterExtra.includes("draw")) return `Level: ${label}${len} — still level is a draw.`;
+    return t.family === "rugby-league" ? `Level: ${label}${len}, then golden point until someone scores.` : `Level: ${label}${len}, until there's a winner.`;
   };
   /** The game whose full time is nearest the live cue — the one being called. */
   const activeGame = activeOutcomeGame({
@@ -3077,7 +3083,7 @@ export function RundownEditor({
     const endingRuns: { from: number; to: number; outcome: string; game: number }[] = [];
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
-      if (!r.outcome || forkHides(i)) continue;
+      if (!r.outcome || pathHides(i)) continue;
       const game = r.outcomeGame ?? 1;
       const last = endingRuns[endingRuns.length - 1];
       if (last && last.to === i - 1 && last.outcome === r.outcome && last.game === game) last.to = i;
@@ -3135,10 +3141,10 @@ export function RundownEditor({
      * (which is what happens when measured heights settle), or the scroller
      * arrived. Nothing else moves them.
      */
-    // `peekedGames` too: opening an ending block changes which rows are drawn,
-    // and therefore which ending bands exist and how tall they are — without
-    // touching any of the four above.
-  }, [phases, gridEl, rowWindow.from, rowWindow.to, rowWindow.padTop, rows, peekedGames]);
+    // `drawnSignature` too: opening an ending path changes which rows are
+    // drawn, and therefore which ending bands exist and how tall they are —
+    // without touching any of the four above.
+  }, [phases, gridEl, rowWindow.from, rowWindow.to, rowWindow.padTop, rows, drawnSignature]);
 
   /**
    * Put a golden-point block into a sheet that has none, after full time.
@@ -3912,6 +3918,10 @@ export function RundownEditor({
     const i = rows.findIndex((r) => r.id === rowId);
     if (i < 0 || !gridEl) return;
     setFollowScroll(false);
+    // A row folded inside an ending: open its path first, or there is
+    // nothing on the page to go to. The retry below catches the re-render.
+    const folded = pathHides(i);
+    if (folded) setOpenPaths((was) => new Set(was).add(pathKeyOf(rows[i]!)));
     const centre = () => {
       const el = gridEl.querySelector(`tr[data-rowid="${rowId}"]`);
       if (!el) return false;
@@ -3923,7 +3933,7 @@ export function RundownEditor({
       window.setTimeout(() => el.classList.remove("jump-flash"), 1600);
       return true;
     };
-    if (!centre()) {
+    if (folded || !centre()) {
       gridEl.scrollTo({ top: Math.max(0, rowWindowRef.current.offsetOf(i) - gridEl.clientHeight / 3) });
       window.setTimeout(centre, 120);
     }
@@ -4205,7 +4215,7 @@ export function RundownEditor({
    * drive it with.
    */
   const gridOn = canEditContent && (!showLive || editTools) && !isPhone;
-  const gridRowIds = useMemo(() => rows.filter((_, i) => !forkHides(i)).map((r) => r.id), [rows, outcomeLayout, peekedGames]); // eslint-disable-line react-hooks/exhaustive-deps
+  const gridRowIds = useMemo(() => rows.filter((_, i) => !pathHides(i)).map((r) => r.id), [rows, drawnSignature, autoOpenPaths]); // eslint-disable-line react-hooks/exhaustive-deps
   const gridColumns = useMemo(() => orderedColumns.map((c) => ({ id: c.id, kind: c.kind })), [orderedColumns.map((c) => c.id).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const grid = useSheetGrid({
     enabled: gridOn,
@@ -4854,30 +4864,6 @@ export function RundownEditor({
           </a>
         ))}
       </SideNavSection>
-      {/* Only worth showing on a sheet that HAS alternate endings — on a
-          corporate day it is a setting for something that never happens. */}
-      {outcomeGames.length > 0 && (
-        <SideNavSection heading="Endings">
-          <button
-            type="button"
-            className="menu-item"
-            data-tip="Every ending stays on the sheet, grouped under the one time its layer starts at"
-            onClick={() => chooseOutcomeLayout("layers")}
-          >
-            <span className="check">{outcomeLayout === "layers" && "✓"}</span>
-            Show all, in layers
-          </button>
-          <button
-            type="button"
-            className="menu-item"
-            data-tip="One line at full time; the branch appears once you call the result"
-            onClick={() => chooseOutcomeLayout("fork")}
-          >
-            <span className="check">{outcomeLayout === "fork" && "✓"}</span>
-            One line until called
-          </button>
-        </SideNavSection>
-      )}
       <SideNavSection heading="Output">
         <button type="button" className="menu-item" onClick={exportPdf}>
           <span className="check" />
@@ -5608,22 +5594,6 @@ export function RundownEditor({
           )}
         </Dropdown>
         )}
-        {/* Testing the two ending layouts against a live sheet needs the switch
-            ON the sheet, not three levels into a menu. Only shown where there
-            is something to switch — a sheet with alternate endings. */}
-        {outcomeGames.length > 0 && (
-          <button
-            className="btn btn-sm"
-            data-tip={
-              outcomeLayout === "layers"
-                ? "Every ending is on the sheet, grouped under the one time its layer starts at. Press to collapse each to a single line until it is called."
-                : "Each set of endings is one line until you call the result. Press to show them all, in layers."
-            }
-            onClick={() => chooseOutcomeLayout(outcomeLayout === "layers" ? "fork" : "layers")}
-          >
-            {outcomeLayout === "layers" ? "⌸ Endings: layered" : "⑂ Endings: one line"}
-          </button>
-        )}
         {/* The prompter, out here with the transport rather than three levels
             into the Views menu — it is opened mid-show, by somebody who is
             already holding the sheet. Same tab, like every link in the app;
@@ -6211,7 +6181,7 @@ export function RundownEditor({
                  * cue-number column, a third of its width.
                  */
                 const timeIdx = orderedColumns.findIndex((c) => c.kind === "startTime");
-                const bannerCells = (timeSec: number | null, body: React.ReactNode, firstCell?: React.ReactNode): React.ReactNode => {
+                const bannerCells = (timeSec: number | null | undefined, body: React.ReactNode, firstCell?: React.ReactNode): React.ReactNode => {
                   // The far-left column, which on a fork line carries the
                   // disclosure — the same column the row numbers live in, so
                   // the control sits where the eye already runs down the sheet.
@@ -6225,7 +6195,7 @@ export function RundownEditor({
                   if (timeIdx >= 0)
                     cells.push(
                       <td key="t" className="mono layer-time">
-                        {timeSec != null ? formatTimeOfDay(timeSec, meta.use24h) : "—"}
+                        {timeSec === undefined ? "" : timeSec != null ? formatTimeOfDay(timeSec, meta.use24h) : "—"}
                       </td>,
                     );
                   const used = 1 + lead + (timeIdx >= 0 ? 1 : 0);
@@ -6479,6 +6449,14 @@ export function RundownEditor({
                                   }}
                                 />
                               </>
+                            ) : rowRecord.untimed && rowRecord.hardStartSec == null && rowRecord.outcome && t.startSec != null ? (
+                              // Inside an ending the paper often prints no times —
+                              // but every path starts at full time, so when each
+                              // row comes is known. Shown faintly, as worked out
+                              // rather than printed (21 Oct, "real times on every row").
+                              <span className="worked-time mono" data-tip="Not printed on the sheet — worked out from full time">
+                                {formatTimeOfDay(t.startSec, meta.use24h)}
+                              </span>
                             ) : rowRecord.untimed && rowRecord.hardStartSec == null ? (
                               // The source sheet left this row untimed (a sub-cue) —
                               // faithful blank instead of an invented cascade time.
@@ -6492,9 +6470,8 @@ export function RundownEditor({
                                     extra period runs the same rows later, and a
                                     sheet printing only the earlier time is
                                     quietly wrong for half the paths through the
-                                    day. Hidden in fork layout, where the block
-                                    is one line until the path is known. */}
-                                {outcomeLayout === "layers" && t.altStartSec != null && (
+                                    day. */}
+                                {t.altStartSec != null && (
                                   <span
                                     className="alt-time"
                                     data-tip={`Or ${formatTimeOfDay(t.altStartSec, meta.use24h)}, if the match goes to ${(typeOfGame(rowRecord.outcomeGame ?? 1)?.extraLabel ?? "extra time").toLowerCase()} first`}
@@ -6539,83 +6516,91 @@ export function RundownEditor({
                 if (!mark) return sheetRow;
 
                 /**
-                 * Fork layout: the block is one line until something is called.
-                 *
-                 * Nothing is deleted — the rows are simply not drawn — so
-                 * un-calling a result puts them straight back, and every other
-                 * screen on the sheet is unaffected by which layout this one
-                 * happens to be using.
+                 * Paths you open (21 Oct, Robert's pick of five). Full time
+                 * gets a header saying what the result decides and what a level
+                 * score means; each ending is one summary line — "If we win ·
+                 * 3 rows · 1:36" — that opens to its rows. The path that plays
+                 * opens by itself once it is known; the others fold away, and
+                 * opened by hand they come back dimmed.
                  */
-                if (outcomeLayout === "fork") {
-                  const open = chosenOf(game) == null && !goldenPlaying(game);
-                  const forkRow =
-                    mark.blockOpens && open ? (
-                      <tr key={`fork-${rowRecord.id}`} className="fork-row" data-forkfor={rowRecord.id}>
-                        {bannerCells(
-                          t.startSec,
-                          <>
-                            <span className="fork-lead">Full time</span>
-                            <span className="fork-note">
-                              {isShow ? "call it below — the sheet fills in" : "one of these will happen"}
-                            </span>
-                            {visibleOutcomesOf(game).map((o) => (
-                              <span key={o} className={`fork-chip oc-rail-${o}`}>
-                                {outcomeLabel(o, game)}
-                              </span>
-                            ))}
-                          </>,
+                const called = chosenOf(game);
+                const header = mark.blockOpens ? (
+                  <tr key={`ft-${rowRecord.id}`} className="ft-row" data-bannerfor={rowRecord.id}>
+                    {bannerCells(
+                      t.startSec,
+                      <span className="ft-body">
+                        <span className="ft-lead">Full time</span>
+                        <span className="ft-note">
+                          {called != null
+                            ? `${resultWord(called, game)} called`
+                            : goldenPlaying(game)
+                              ? `${typeOfGame(game)?.extraLabel ?? "Extra time"} under way`
+                              : "what plays next depends on the result"}
+                        </span>
+                        {called == null && !goldenPlaying(game) && levelRule(game) && <span className="ft-rule">{levelRule(game)}</span>}
+                        {called != null && (isShow ? mayDrive : canEditContent) && (
                           <button
                             type="button"
-                            className={`fork-peek ${peekedGames.has(game) ? "is-open" : ""}`}
-                            aria-expanded={peekedGames.has(game)}
-                            data-tip={
-                              peekedGames.has(game)
-                                ? "Hide the rows written for each result"
-                                : "Show the rows written for each result — reading them changes nothing"
-                            }
+                            className="btn btn-sm btn-ghost ft-change"
+                            data-tip="Take the result back — every ending is possible again"
                             onClick={(e) => {
                               e.stopPropagation();
-                              togglePeek(game);
+                              clearOutcomeOf(game);
                             }}
                           >
-                            ▸
-                          </button>,
+                            Change
+                          </button>
                         )}
-                      </tr>
-                    ) : null;
-                  if (forkHides(i)) return forkRow;
-                  return forkRow ? (
-                    <Fragment key={`fk-${rowRecord.id}`}>
-                      {forkRow}
-                      {sheetRow}
-                    </Fragment>
-                  ) : (
-                    sheetRow
-                  );
-                }
-
-                // Layered layout: a header carries the one time its whole
-                // layer starts at, so no branch row has to repeat it.
-                if (mark.layerOpens)
-                  return (
-                    <Fragment key={`ly-${rowRecord.id}`}>
-                      <tr className={`layer-row layer-${mark.layer}`}>
-                        {bannerCells(
-                          t.startSec,
-                          <>
-                            <span className="layer-lbl">{layerLabel(game, mark.layer)}</span>
-                            <span className="layer-note">
-                              {mark.layer === 1
-                                ? "only if it goes that far — one of these, all from this time"
-                                : "one of these, all from this time"}
-                            </span>
-                          </>,
-                        )}
-                      </tr>
-                      {sheetRow}
-                    </Fragment>
-                  );
-                return sheetRow;
+                      </span>,
+                    )}
+                  </tr>
+                ) : null;
+                const hidden = pathHides(i);
+                const pathLine = mark.opens
+                  ? (() => {
+                      const key = pathKeyOf(rowRecord);
+                      const o = rowRecord.outcome!;
+                      const forced = !pathHides(i, true);
+                      const info = pathInfo(game, o);
+                      const out = called != null && !info.plays;
+                      return (
+                        <tr key={`path-${rowRecord.id}`} data-bannerfor={rowRecord.id} className={`path-row oc-rail-${o} ${hidden ? "" : "is-open"} ${out ? "is-out" : ""}`}>
+                          {bannerCells(
+                            undefined,
+                            <button
+                              type="button"
+                              className="path-toggle"
+                              aria-expanded={!hidden}
+                              disabled={forced}
+                              data-tip={forced ? "Playing — it stays open" : hidden ? "Open to read its rows — reading changes nothing" : "Fold it back to one line"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePath(key);
+                              }}
+                            >
+                              <span className="path-caret" aria-hidden>
+                                ▸
+                              </span>
+                              <span className="path-name">{pathName(game, o)}</span>
+                              <span className="path-meta">
+                                {info.rows} {info.rows === 1 ? "row" : "rows"}
+                                {info.sec > 0 ? ` · ${formatDuration(info.sec).replace(/^0(\d:)/, "$1").replace(/^0:/, "")}${info.untimed ? "+" : ""}` : ""}
+                              </span>
+                              {called != null && <span className={`path-status ${out ? "" : "is-on"}`}>{out ? "not playing" : "playing"}</span>}
+                            </button>,
+                          )}
+                        </tr>
+                      );
+                    })()
+                  : null;
+                if (!header && !pathLine) return hidden ? null : sheetRow;
+                return (
+                  <Fragment key={`ending-${rowRecord.id}`}>
+                    {header}
+                    {pathLine}
+                    {!hidden && sheetRow}
+                  </Fragment>
+                );
                 });
                 if (!rowWindow.active) return body;
                 return (
@@ -6655,14 +6640,14 @@ export function RundownEditor({
         <div ref={publishOutcomeHeight} className={`outcome-dock no-print ${decisionSoon ? "pressing" : ""}`} style={{ bottom: `calc(${dockBottom}px + var(--callerdock-h, 0px) + var(--nudgedock-h, 0px))` }}>
           <span className="od-what">
             {outcomeStage(activeGame) === "settled" ? (
-              <span className="od-stage od-done">Result called</span>
+              <span className="od-stage od-done">{resultWord(chosenOf(activeGame) ?? "", activeGame)} called</span>
             ) : (
               <span className={`od-stage ${outcomeStage(activeGame) === "missed" ? "od-missed" : decisionSoon ? "od-soon" : ""}`}>
                 {outcomeStage(activeGame) === "missed"
                   ? <>{Icon.warning} The result was never called — the show has moved on</>
                   : outcomeStage(activeGame) === "extra-time"
-                    ? `⚡ ${typeOfGame(activeGame)?.extraLabel ?? "Extra time"} — call the result`
-                    : "Full time — call the result"}
+                    ? `⚡ ${typeOfGame(activeGame)?.extraLabel ?? "Extra time"} — what's the result?`
+                    : "Full time — what's the result?"}
               </span>
             )}
             {/* A deadline, not just a prompt. The chooser is only up for the
@@ -6675,8 +6660,8 @@ export function RundownEditor({
             {outcomeGames.length > 1 && <span className="od-game">game {activeGame}</span>}
             <span className="od-hint">
               {outcomeStage(activeGame) === "settled"
-                ? "The other endings are skipped — the show carries on to it when this item finishes."
-                : "Pick one. The show stays on what is on air and moves to it when this item ends."}
+                ? "The other endings are skipped. The show plays this one when the item on air finishes."
+                : "Pick one. The show finishes what's on air, then plays that ending."}
             </span>
           </span>
           <span className="od-picks">
@@ -6686,7 +6671,7 @@ export function RundownEditor({
                 className={`btn od-pick od-${o} ${chosenOf(activeGame) === o ? "is-on" : ""}`}
                 data-tip={
                   o === "golden"
-                    ? "Scores level — play the golden-point block. The final result is asked for again once it lands."
+                    ? `Scores level — play ${(typeOfGame(activeGame)?.extraLabel ?? "extra time").toLowerCase()}. You'll be asked for the result again after it.`
                     : `Play the ${o} ending and skip the others`
                 }
                 onClick={() => pickOutcome(o, activeGame)}
@@ -6695,8 +6680,8 @@ export function RundownEditor({
               </button>
             ))}
             {chosenOf(activeGame) && (
-              <button className="btn od-reset" data-tip="Un-call it: every ending comes back" onClick={() => clearOutcomeOf(activeGame)}>
-                Reset
+              <button className="btn od-reset" data-tip="Take the result back — every ending is possible again" onClick={() => clearOutcomeOf(activeGame)}>
+                Change
               </button>
             )}
           </span>

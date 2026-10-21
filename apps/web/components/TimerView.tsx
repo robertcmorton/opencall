@@ -1,6 +1,6 @@
 "use client";
 
-import { absoluteNow, computeTiming, firstCueRow, formatDuration, nextCueRow, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
+import { absoluteNow, computeTiming, firstCueRow, formatDuration, nextCueRow, passThroughRows, secondsUntilShow, zoneSecondsOfDay } from "@opencall/core";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
@@ -54,9 +54,11 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
     return () => window.clearInterval(id);
   }, [waiting]);
   const starts = timing.rows.map((r) => r.startSec);
+  // As the clock sees them: the note rows it goes past are marked.
+  const clockRows = passThroughRows(rows, starts);
   const untilShowSec =
-    waiting && nowMs != null ? secondsUntilShow(rows, starts, absoluteNow(zoneSecondsOfDay(nowMs, channel.timezone), timing)) : null;
-  const firstCue = waiting ? firstCueRow(rows, starts) : null;
+    waiting && nowMs != null ? secondsUntilShow(clockRows, starts, absoluteNow(zoneSecondsOfDay(nowMs, channel.timezone), timing)) : null;
+  const firstCue = waiting ? firstCueRow(clockRows, starts) : null;
   const firstCueRecord = firstCue ? rows.find((r) => r.id === firstCue.id) : null;
 
   const planned = active?.durationSec ?? 0;
@@ -113,7 +115,7 @@ export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode
   // the walkthrough there is no cue and no played list, so it is the row
   // after.
   const next = active
-    ? name(rows.find((r) => r.id === nextCueRow(rows, active.id, new Set(channel.show?.playedRowIds ?? []))))
+    ? name(rows.find((r) => r.id === nextCueRow(clockRows, active.id, new Set(channel.show?.playedRowIds ?? []), channel.show?.clockFollow ?? false)))
     : at >= 0 && at < steppable.length - 1
       ? name(steppable[at + 1])
       : null;

@@ -20,6 +20,7 @@ import {
   checkStartTimes,
   clockTargetRow,
   firstCueRow,
+  passThroughRows,
   secondsUntilShow,
   findConcurrentRows,
   rowsOnAt,
@@ -104,7 +105,7 @@ import { rowNumbering } from "../lib/rowNumbering";
 import { useRowNotes } from "../lib/useRowNotes";
 import { useInk } from "../lib/useInk";
 import { InkLayer } from "./InkLayer";
-import { formatOverUnder, INK_COLOURS, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
+import { blockRowIds, formatOverUnder, INK_COLOURS, joinedLateSec, nextWindowEdge, ranOverUnder, nextCueRow, wrapTimeOfDay, type InkColour, type InkMode } from "@opencall/core";
 import { NotesPanel } from "./NotesPanel";
 import { BarFill } from "./BarFill";
 import { RunningLate, lateAmount } from "./RunningLate";
@@ -914,6 +915,8 @@ export function RundownEditor({
     [doc, revision],
   );
   const timing = useMemo(() => computeTiming(rows, meta.plannedStartSec), [rows, meta.plannedStartSec]);
+  /** The rows as the clock sees them: the note rows it goes past marked (`passThroughRows`). */
+  const clockRows = useMemo(() => passThroughRows(rows, timing.rows.map((r) => r.startSec)), [rows, timing]);
   // Panel API calls (join codes, snapshots…) inherit this page's code.
   useEffect(() => {
     setActiveJoinCode(joinCode ?? null);
@@ -1774,7 +1777,8 @@ export function RundownEditor({
   // The same rule the server's clock uses, so the readout, Next and the
   // clock agree on where the show goes from here.
   const playedRowIds = useMemo(() => new Set(channel.show?.playedRowIds ?? []), [channel.show?.playedRowIds]);
-  const nextRowId = activeRowId ? nextCueRow(rows, activeRowId, playedRowIds) : null;
+  // While the clock runs the show, "next" is where the clock goes; Next pressed by hand still stops on every row.
+  const nextRowId = activeRowId ? nextCueRow(clockRows, activeRowId, playedRowIds, channel.show?.clockFollow ?? false) : null;
   /** Take the tick off: the row is offered again in its turn. Reached only through the strip's armed button. */
   /** Rows whose tick a MOVE took off (dragged below the cue). Undo puts the
    *  row back but cannot reach the tick, which lives on the server, so the
@@ -1855,7 +1859,7 @@ export function RundownEditor({
     nowAbsSec == null
       ? null
       : clockTargetRow(
-          rows,
+          clockRows,
           timing.rows.map((r) => r.startSec),
           nowAbsSec,
         );
@@ -1866,7 +1870,7 @@ export function RundownEditor({
    * so it ticks with them rather than on a timer of its own.
    */
   const firstCue = firstCueRow(
-    rows,
+    clockRows,
     timing.rows.map((r) => r.startSec),
   );
   const untilShowSec =
@@ -4787,8 +4791,22 @@ export function RundownEditor({
     );
   };
 
+  /**
+   * Rows whose time on air says nothing about their length, so they get a word
+   * instead of a plus or minus and stay out of the total: blocks played by the
+   * rows inside them, and rows the show started part-way through.
+   */
+  const blockRows = blockRowIds(rows, timing);
+  const joinedLate = new Map<string, number>();
+  if (runTimes) {
+    const sheetSecOf = (ms: number) => absoluteNow(zoneSecondsOfDay(ms, channel.timezone), timing);
+    rows.forEach((r, i) => {
+      const late = joinedLateSec(runTimes.rows[r.id], timing.rows[i]?.startSec, r.durationSec, sheetSecOf);
+      if (late != null) joinedLate.set(r.id, late);
+    });
+  }
   /** Over or under across the items played — see `ranOverUnder`. */
-  const ranTotal = runTimes ? ranOverUnder(rows, (id) => runTimes.rows[id]) : null;
+  const ranTotal = runTimes ? ranOverUnder(rows, (id) => runTimes.rows[id], new Set([...blockRows, ...joinedLate.keys()])) : null;
 
   const renderDurationCell = (rowRecord: ProjectedRow) => {
     const open = durationPopover === rowRecord.id;
@@ -4833,12 +4851,35 @@ export function RundownEditor({
           if (!run || rowRecord.type !== "cue") return null;
           const planned = rowRecord.durationSec;
           const goes = run.runs > 1 ? `, over ${run.runs} goes` : "";
-          if (planned == null)
+          if (blockRows.has(rowRecord.id))
+            return (
+              <span
+                className="ran-chip ran-word"
+                data-tip={`Its ${formatDuration(planned ?? 0)} is played by the rows inside it, so it isn't measured on its own`}
+              >
+                in its items
+              </span>
+            );
+          const late = joinedLate.get(rowRecord.id);
+          if (late != null && planned != null)
+            return (
+              <span
+                className="ran-chip ran-word"
+                data-tip={`The show joined this row ${formatDuration(late)} after it was due to start, so it was on air for ${formatDuration(run.sec)} of its ${formatDuration(planned)}`}
+              >
+                joined late
+              </span>
+            );
+          if (!planned) {
+            // A second on a row with no length is the clock passing by (older
+            // shows stopped on such rows for one tick). Nothing worth saying.
+            if (run.sec <= 1) return null;
             return (
               <span className="ran-chip" data-tip={`Ran ${formatDuration(run.sec)}${goes}; no length was planned`}>
                 ran {formatDuration(run.sec)}
               </span>
             );
+          }
           const d = run.sec - planned;
           return (
             <span

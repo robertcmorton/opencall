@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clockStep, type ClockTargetRow, rowStartedAtMs } from "../src/live";
+import { clockStep, clockTargetRow, type ClockTargetRow, firstCueRow, nextCueRow, passThroughRows, rowStartedAtMs } from "../src/live";
 
 /**
  * Extra time is the case this exists for: nobody knows when golden point will
@@ -33,12 +33,12 @@ describe("clockStep", () => {
 
   /** The jump that carried the show into the next match with the result uncalled. */
   it("steps into the untimed block rather than over it", () => {
-    expect(clockStep(sheet, durations, "half2", 240)).toEqual({ kind: "advance", rowId: "gpHead" });
+    expect(clockStep(sheet, durations, "half2", 240)).toEqual({ kind: "advance", rowId: "gpHead", overSec: 0 });
   });
 
   it("plays an untimed row for its length and moves on", () => {
     expect(clockStep(sheet, durations, "hold", 5)).toEqual({ kind: "hold", reason: "running" });
-    expect(clockStep(sheet, durations, "hold", 12)).toEqual({ kind: "advance", rowId: "gp1" });
+    expect(clockStep(sheet, durations, "hold", 12)).toEqual({ kind: "advance", rowId: "gp1", overSec: 0 });
   });
 
   /**
@@ -47,17 +47,17 @@ describe("clockStep", () => {
    * and the chooser waits for the cue to reach the period's LAST row.
    */
   it("passes straight through a row with no length of its own", () => {
-    expect(clockStep(sheet, durations, "gpHead", 0)).toEqual({ kind: "advance", rowId: "hold" });
+    expect(clockStep(sheet, durations, "gpHead", 0)).toEqual({ kind: "advance", rowId: "hold", overSec: 0 });
   });
 
   it("hands back to the clock once the block is behind it", () => {
-    expect(clockStep(sheet, durations, "gp1", 30)).toEqual({ kind: "advance", rowId: "nextKick" });
+    expect(clockStep(sheet, durations, "gp1", 30)).toEqual({ kind: "advance", rowId: "nextKick", overSec: 0 });
     expect(clockStep(sheet, durations, "nextKick", 5)).toEqual({ kind: "clock" });
   });
 
   it("steps over a heading and a pre-record to find the next real row", () => {
     const rows = [row("a", 100), row("head", null, { type: "group" }), row("vt", null, { parallel: true }), row("b", null)];
-    expect(clockStep(rows, [60, null, 45, 30], "a", 60)).toEqual({ kind: "advance", rowId: "b" });
+    expect(clockStep(rows, [60, null, 45, 30], "a", 60)).toEqual({ kind: "advance", rowId: "b", overSec: 0 });
   });
 
   it("waits when there is nowhere left to go", () => {
@@ -84,7 +84,7 @@ describe("when the row it moved to began", () => {
   });
 
   it("starts a stepped-into row now", () => {
-    expect(rowStartedAtMs({ kind: "advance", rowId: "r7" }, plannedMs, nowMs)).toBe(nowMs);
+    expect(rowStartedAtMs({ kind: "advance", rowId: "r7", overSec: 0 }, plannedMs, nowMs)).toBe(nowMs);
   });
 
   /**
@@ -99,9 +99,10 @@ describe("when the row it moved to began", () => {
     ];
     const durations = [120, 300];
     const backdated = (nowMs - plannedMs) / 1000; // 240s elapsed on a 120s hold
-    expect(clockStep(rows, durations, "hold", backdated)).toEqual({ kind: "advance", rowId: "half" });
+    const step = clockStep(rows, durations, "hold", backdated);
+    expect(step).toEqual({ kind: "advance", rowId: "half", overSec: 120 });
 
-    const stampedNow = (nowMs - rowStartedAtMs({ kind: "advance", rowId: "hold" }, plannedMs, nowMs)) / 1000;
+    const stampedNow = (nowMs - rowStartedAtMs(step, plannedMs, nowMs)) / 1000;
     expect(clockStep(rows, durations, "hold", stampedNow)).toEqual({ kind: "hold", reason: "running" });
   });
 });
@@ -136,12 +137,110 @@ describe("an open-ended period", () => {
    * show on a label while the extra period ran underneath it.
    */
   it("still passes through the caption that opens the block", () => {
-    expect(clockStep(rows, durations, "cap", 0)).toEqual({ kind: "advance", rowId: "hold" });
+    expect(clockStep(rows, durations, "cap", 0)).toEqual({ kind: "advance", rowId: "hold", overSec: 0 });
   });
 
   // A hold before the period is a hold, and runs its length like any other.
   it("runs the hold before it for its length", () => {
     expect(clockStep(rows, durations, "hold", 30)).toEqual({ kind: "hold", reason: "running" });
-    expect(clockStep(rows, durations, "hold", 120)).toEqual({ kind: "advance", rowId: "gp" });
+    expect(clockStep(rows, durations, "hold", 120)).toEqual({ kind: "advance", rowId: "gp", overSec: 0 });
+  });
+});
+
+/**
+ * The note rows a person reads past (21 Oct 2026).
+ *
+ * A show run on the clock from start to finish came back with every timed item
+ * at ±0:00 except the ones either side of a few rows like "(3:30)": no time,
+ * no length, the next item starting at the same moment. The clock stopped on
+ * each for a tick — "ran 00:01" in the record — and started the next item a
+ * second late.
+ */
+describe("rows the clock goes past", () => {
+  type R = ClockTargetRow & { durationSec?: number | null };
+  const r = (id: string, extra: Partial<R> = {}): R => ({ id, type: "cue", hardStartSec: null, durationSec: 60, ...extra });
+
+  it("marks a row with no time and no length when the next item starts at the same moment", () => {
+    const rows = [r("relay", { hardStartSec: 100 }), r("note", { durationSec: null, title: "(3:30)" }), r("anthem")];
+    const marked = passThroughRows(rows, [100, 160, 160]);
+    expect(marked.map((x) => !!x.passThrough)).toEqual([false, true, false]);
+  });
+
+  it("keeps a row that stands for the time up to the next printed row", () => {
+    // "STANDBY FOR HALF TIME": nothing in its cells, and the hooter 40 minutes on.
+    const rows = [r("kick", { hardStartSec: 100, durationSec: 0 }), r("standby", { durationSec: null }), r("ht", { hardStartSec: 2500 })];
+    expect(passThroughRows(rows, [100, 100, 2500]).map((x) => !!x.passThrough)).toEqual([false, false, false]);
+  });
+
+  it("keeps endings, golden point, printed times and rows with a length", () => {
+    const rows = [
+      r("a", { hardStartSec: 100 }),
+      r("ending", { durationSec: null, outcome: "golden" }),
+      r("gp", { durationSec: null, title: "Golden point" }),
+      r("printed", { durationSec: null, hardStartSec: 160 }),
+      r("zero", { durationSec: 0, hardStartSec: null }),
+      r("last", { durationSec: null }),
+    ];
+    const starts = [100, 160, 160, 160, 160, 160];
+    // `zero` has no length either and passes; the last row has nothing after it to say so.
+    expect(passThroughRows(rows, starts).map((x) => !!x.passThrough)).toEqual([false, false, false, false, true, false]);
+  });
+
+  it("looks past headings and pre-records for the next item", () => {
+    const rows = [r("note", { durationSec: null }), r("head", { type: "group" }), r("vt", { parallel: true, hardStartSec: 900 }), r("item")];
+    expect(passThroughRows(rows, [100, 100, 900, 100]).map((x) => !!x.passThrough)).toEqual([true, false, false, false]);
+  });
+
+  it("steps from the item before straight to the item after", () => {
+    const rows = passThroughRows([r("relay"), r("note", { durationSec: null }), r("anthem")], [100, 160, 160]);
+    expect(clockStep(rows, [60, null, 60], "relay", 60.4)).toEqual({ kind: "advance", rowId: "anthem", overSec: expect.closeTo(0.4, 5) });
+  });
+
+  it("never aims at one or opens the show on one", () => {
+    const rows = passThroughRows([r("note", { durationSec: null }), r("first", { hardStartSec: 100 })], [100, 100]);
+    expect(clockTargetRow(rows, [100, 100], 130)).toBe("first");
+    expect(firstCueRow(rows, [100, 100])?.id).toBe("first");
+  });
+
+  // On a cue sheet the untimed lines ARE the cues; Next goes through each.
+  it("is still where Next goes when a person presses it", () => {
+    const rows = passThroughRows([r("relay"), r("note", { durationSec: null }), r("anthem")], [100, 160, 160]);
+    expect(nextCueRow(rows, "relay")).toBe("note");
+    expect(nextCueRow(rows, "relay", new Set(), true)).toBe("anthem");
+  });
+
+  /** The bug the STANDBY row would have hit: half time, called at kick-off. */
+  it("leaves a row with no length to the clock when a printed time follows", () => {
+    const rows = [r("kick", { hardStartSec: 100, durationSec: 0 }), r("standby", { durationSec: null }), r("ht", { hardStartSec: 2500 })];
+    expect(clockStep(rows, [0, null, 900], "standby", 5)).toEqual({ kind: "clock" });
+  });
+});
+
+describe("a step lands on the second the last row ended", () => {
+  const nowMs = 1_700_000_000_000;
+
+  it("dates the next row back to when the length ran out", () => {
+    expect(rowStartedAtMs({ kind: "advance", rowId: "b", overSec: 0.7 }, 0, nowMs)).toBe(nowMs - 700);
+  });
+
+  it("starts it now when the length ran out long ago", () => {
+    expect(rowStartedAtMs({ kind: "advance", rowId: "b", overSec: 30 }, 0, nowMs)).toBe(nowMs);
+  });
+
+  /** Five rows of a minute each, looked at once a second, lose nothing. */
+  it("loses no time over a run of steps", () => {
+    const rows = [0, 1, 2, 3, 4].map((i) => ({ id: `r${i}`, type: "cue", hardStartSec: i === 0 ? 0 : null }));
+    const durations = rows.map(() => 60);
+    let startedAt = 0;
+    let at = "r0";
+    for (let tick = 1; tick <= 400 && at !== "r4"; tick++) {
+      const nowMs = tick * 1000 + 337; // the clock looks a third of a second off the beat
+      const step = clockStep(rows, durations, at, (nowMs - startedAt) / 1000);
+      if (step.kind !== "advance") continue;
+      startedAt = rowStartedAtMs(step, 0, nowMs);
+      at = step.rowId;
+    }
+    expect(at).toBe("r4");
+    expect(startedAt).toBe(4 * 60 * 1000);
   });
 });

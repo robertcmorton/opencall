@@ -328,6 +328,61 @@ export interface ClockTargetRow {
   /** One of the alternate endings, and which game's — see `EndingRow`. */
   outcome?: string | null;
   outcomeGame?: number | null;
+  /** The clock goes past this row without stopping — see `passThroughRows`. */
+  passThrough?: boolean;
+}
+
+/** What `passThroughRows` reads besides the clock's own fields. */
+export interface PassThroughRow extends ClockTargetRow {
+  durationSec?: number | null;
+}
+
+/**
+ * Rows the clock goes straight past.
+ *
+ * A run sheet is full of lines that are not items: a note such as "(3:30)"
+ * left on a row of its own, a line that names who is standing by. No time, no
+ * length, and the item below starts at the same moment. A person reading the
+ * sheet skips them without thinking. The clock used to stop on each one for a
+ * tick, so the show record said "ran 00:01" against it, and the next item
+ * began a second late. On a sheet with a dozen of them the show had lost
+ * seconds by half time without anybody touching a time (21 Oct 2026, a local
+ * show run entirely on the clock: every timed item ran ±0:00 except the ones
+ * either side of these rows).
+ *
+ * The test is narrow on purpose:
+ *
+ * - No printed time and no length. A row with either has something to play.
+ * - Not one of the alternate endings. The result chooser and the walk back to
+ *   a called ending count on the cue landing on those rows.
+ * - Not golden point or sudden death, which have no length because nobody
+ *   knows how long they last (see `isOpenEndedPeriodRow`).
+ * - The next item starts at the same moment. "STANDBY FOR HALF TIME" has no
+ *   time and no length either, but the next printed row is forty minutes
+ *   later, so the sheet is saying it covers the whole half. That row stays.
+ *
+ * Only the CLOCK uses this. A person pressing Next still lands on every row,
+ * because on a cue sheet the untimed lines are the cues a showcaller steps
+ * through one at a time.
+ */
+export function passThroughRows<T extends PassThroughRow>(rows: readonly T[], startSecs: readonly (number | null)[]): T[] {
+  const passes = (i: number): boolean => {
+    const r = rows[i]!;
+    if (r.type !== "cue" || r.skipped || r.parallel || r.outcome) return false;
+    if (r.hardStartSec != null || (r.durationSec ?? 0) > 0) return false;
+    if (isOpenEndedPeriodRow(r.title)) return false;
+    const at = startSecs[i] ?? null;
+    if (at == null) return false;
+    for (let j = i + 1; j < rows.length; j++) {
+      const n = rows[j]!;
+      if (n.type === "group" || n.type === "milestone" || n.parallel || n.skipped) continue;
+      const next = startSecs[j] ?? null;
+      return next != null && Math.abs(next - at) < 1;
+    }
+    // The last row of the sheet: nothing comes after it to say it takes no time.
+    return false;
+  };
+  return rows.map((r, i) => (passes(i) ? { ...r, passThrough: true } : r));
 }
 
 /** Somewhere the show can stand: not a heading, a deadline, a struck row or one running alongside. */
@@ -383,11 +438,13 @@ export function nextCueRow(
   rows: readonly ClockTargetRow[],
   activeRowId: string | null,
   played: ReadonlySet<string> = new Set(),
+  /** Where the CLOCK goes next: past the rows it does not stop on (`passThroughRows`). */
+  byClock = false,
 ): string | null {
   const behind = calledEndingBehind(rows, activeRowId, played);
   if (behind.length > 0) return behind[0]!.id;
   const at = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-  const next = rows.find((r, i) => i > at && canStandOn(r) && !played.has(r.id));
+  const next = rows.find((r, i) => i > at && canStandOn(r) && !(byClock && r.passThrough) && !played.has(r.id));
   return next?.id ?? null;
 }
 
@@ -423,6 +480,7 @@ export function cueable(r: ClockTargetRow): boolean {
   if (r.type === "group" || r.type === "milestone") return false;
   if (r.skipped || r.parallel) return false;
   if (r.untimed && r.hardStartSec == null) return false;
+  if (r.passThrough) return false;
   return true;
 }
 
@@ -505,7 +563,8 @@ export function secondsUntilShow(
 export type ClockStep =
   | { kind: "clock" }
   | { kind: "hold"; reason: "running" | "unknowable" }
-  | { kind: "advance"; rowId: string };
+  /** `overSec`: how long ago the row on air used up its length — see `rowStartedAtMs`. */
+  | { kind: "advance"; rowId: string; overSec: number };
 
 export function clockStep(
   rows: readonly ClockTargetRow[],
@@ -528,7 +587,7 @@ export function clockStep(
    */
   // Where the show goes from here is the shared rule — a called ending left
   // behind the cue comes first, then the next unplayed row it can stand on.
-  const nextId = nextCueRow(rows, activeRowId, played);
+  const nextId = nextCueRow(rows, activeRowId, played, true);
   const nextAt = nextId ? rows.findIndex((r) => r.id === nextId) : -1;
   const next = nextAt >= 0 ? rows[nextAt] : null;
   const onUntimed = rows[at]!.hardStartSec == null;
@@ -565,10 +624,21 @@ export function clockStep(
      * describing as "as long as it takes".
      */
     if (isOpenEndedPeriodRow(rows[at]!.title)) return { kind: "hold", reason: "unknowable" };
-    return { kind: "advance", rowId: next.id };
+    /**
+     * Nor when the next item has a PRINTED time. Then this row is not a label
+     * that takes no time: it runs until that time, and the sheet says so. The
+     * case is "STANDBY FOR HALF TIME" with nothing in its time or length
+     * cells, standing for the whole forty-minute half because the next
+     * printed row is the hooter. Stepping on after a tick would have taken
+     * the show to half time at kick-off. The clock knows when that row is
+     * due, so the clock decides. Endings are left as they were: their
+     * captions lead into the extra period, not to a printed time.
+     */
+    if (next.hardStartSec != null && !rows[at]!.outcome) return { kind: "clock" };
+    return { kind: "advance", rowId: next.id, overSec: Math.max(0, elapsedInRowSec) };
   }
   if (elapsedInRowSec < planned) return { kind: "hold", reason: "running" };
-  return { kind: "advance", rowId: next.id };
+  return { kind: "advance", rowId: next.id, overSec: elapsedInRowSec - planned };
 }
 
 /**
@@ -581,9 +651,11 @@ export function clockStep(
  * backdating to the planned start keeps the item's countdown honest and the
  * drift at zero, instead of reporting however long ago the row was due.
  *
- * A row `clockStep` reached begins NOW. It was not reached because a printed
- * time came round — it has no printed time, which is the only reason it needed
- * stepping into at all. Asking the timing model where it was PLANNED to start
+ * A row `clockStep` reached begins when the row before it used up its length:
+ * a second ago at most, so in practice NOW (see `EXACT_STEP_SEC`). It was not
+ * reached because a printed time came round — it has no printed time, which is
+ * the only reason it needed stepping into at all. Asking the timing model
+ * where it was PLANNED to start
  * gets the answer "at full time", which was minutes ago, so the row is stamped
  * as having begun before it began. The next tick finds it already past its
  * length and advances again, and again, one row per tick at 1Hz.
@@ -595,7 +667,23 @@ export function clockStep(
  * appear on the way past, for a single second.
  */
 export const rowStartedAtMs = (step: ClockStep, plannedMs: number, nowMs: number): number =>
-  step.kind === "advance" ? nowMs : plannedMs;
+  step.kind !== "advance" ? plannedMs : step.overSec <= EXACT_STEP_SEC ? Math.round(nowMs - step.overSec * 1000) : nowMs;
+
+/**
+ * How late a step can be and still be dated to the moment the length ran out.
+ *
+ * The clock looks once a second, so it notices a row has used up its length
+ * up to a second after it did. Starting the next row "now" lost that second,
+ * every step, and the show record charged it to the row before: a five-minute
+ * item read "ran 05:01" and the one after it started late. Dating the next row
+ * to the exact end of the last one gives both their true lengths.
+ *
+ * Only for a fresh step. A row that went over its length long ago (the clock
+ * was switched off while it ran on, or the server was restarting) starts now,
+ * for the reason above: dated back into the past, it is already over its own
+ * length and the clock steps again, one row per tick.
+ */
+export const EXACT_STEP_SEC = 2;
 
 export function clockTargetRow(
   rows: readonly ClockTargetRow[],

@@ -1,5 +1,5 @@
 import { inArray } from "drizzle-orm";
-import { computeTiming, ranOverUnder, runTimes } from "@opencall/core";
+import { absoluteNow, blockRowIds, computeTiming, joinedLateSec, ranOverUnder, runTimes, zoneSecondsOfDay, type PlanTiming } from "@opencall/core";
 import { decodeDoc, projectRundownDoc, schema, type DbHandle } from "@opencall/db";
 
 /**
@@ -33,7 +33,12 @@ export interface SheetSummary {
 }
 
 type Db = DbHandle["db"];
-type Plan = Pick<SheetSummary, "rows" | "startSec" | "endSec" | "durationSec"> & { lengths: Parameters<typeof ranOverUnder>[0] };
+type Plan = Pick<SheetSummary, "rows" | "startSec" | "endSec" | "durationSec"> & {
+  lengths: Parameters<typeof ranOverUnder>[0];
+  /** For the rows the total leaves out, as the sheet's "Ran" does: blocks, and a row the show joined late. */
+  timing: PlanTiming | null;
+  blocks: Set<string>;
+};
 
 const plans = new Map<string, { key: string; plan: Plan }>();
 /** A finished show never changes, so its total is kept by session (and the sheet stamp, since lengths count). */
@@ -46,7 +51,7 @@ export async function sheetSummaries(db: Db, rundownIds: readonly string[]): Pro
 
   const stamps = await db.query.rundowns.findMany({
     where: inArray(schema.rundowns.id, ids),
-    columns: { id: true, docEpoch: true, docUpdatedAt: true, updatedAt: true, plannedStartSec: true },
+    columns: { id: true, eventId: true, docEpoch: true, docUpdatedAt: true, updatedAt: true, plannedStartSec: true },
   });
   const keyOf = (r: (typeof stamps)[number]) => `${r.docEpoch}:${r.docUpdatedAt?.getTime() ?? 0}:${r.plannedStartSec ?? ""}`;
   const stale = stamps.filter((r) => plans.get(r.id)?.key !== keyOf(r)).map((r) => r.id);
@@ -81,10 +86,30 @@ export async function sheetSummaries(db: Db, rundownIds: readonly string[]): Pro
       ),
       columns: { sessionId: true, at: true, type: true, rowId: true },
     });
+    // The event's zone, to read when a show started in the sheet's own time.
+    const eventOf = new Map(stamps.map((r) => [r.id, r.eventId]));
+    const events = await db.query.events.findMany({
+      where: inArray(schema.events.id, [...new Set(want.map((s) => eventOf.get(s.rundownId)!).filter(Boolean))]),
+      columns: { id: true, timezone: true },
+    });
+    const zoneOf = new Map(events.map((e) => [e.id, e.timezone]));
     for (const s of want) {
       const runs = runTimes(log.filter((t) => t.sessionId === s.id).map((t) => ({ atMs: t.at.getTime(), type: t.type, rowId: t.rowId })));
       const plan = plans.get(s.rundownId)?.plan;
-      ran.set(`${s.id}:${plans.get(s.rundownId)?.key}`, plan ? ranOverUnder(plan.lengths, (id) => runs.get(id)) : null);
+      if (!plan) {
+        ran.set(`${s.id}:${plans.get(s.rundownId)?.key}`, null);
+        continue;
+      }
+      const leaveOut = new Set(plan.blocks);
+      const { timing } = plan;
+      if (timing) {
+        const zone = zoneOf.get(eventOf.get(s.rundownId) ?? "") ?? null;
+        const sheetSecOf = (ms: number) => absoluteNow(zoneSecondsOfDay(ms, zone), timing);
+        plan.lengths.forEach((r, i) => {
+          if (joinedLateSec(runs.get(r.id), timing.rows[i]?.startSec, r.durationSec, sheetSecOf) != null) leaveOut.add(r.id);
+        });
+      }
+      ran.set(`${s.id}:${plans.get(s.rundownId)?.key}`, ranOverUnder(plan.lengths, (id) => runs.get(id), leaveOut));
     }
   }
 
@@ -111,14 +136,25 @@ export async function sheetSummaries(db: Db, rundownIds: readonly string[]): Pro
 }
 
 function planOf(doc: Uint8Array | null, plannedStartSec: number | null): Plan {
-  if (!doc) return { rows: 0, startSec: null, endSec: null, durationSec: 0, lengths: [] };
+  if (!doc) return { rows: 0, startSec: null, endSec: null, durationSec: 0, lengths: [], timing: null, blocks: new Set() };
   const projected = projectRundownDoc(decodeDoc(doc));
   const timing = computeTiming(projected.rows, projected.meta.plannedStartSec ?? plannedStartSec);
+  const lengths = projected.rows.map((r) => ({
+    id: r.id,
+    type: r.type,
+    durationSec: r.durationSec,
+    parallel: r.parallel,
+    durationMuted: r.durationMuted,
+    skipped: r.skipped,
+    spans: r.spans,
+  }));
   return {
     rows: projected.rows.filter((r) => r.type !== "group").length,
     startSec: timing.startSec,
     endSec: timing.endSec,
     durationSec: timing.totalDurationSec,
-    lengths: projected.rows.map((r) => ({ id: r.id, type: r.type, durationSec: r.durationSec, parallel: r.parallel, durationMuted: r.durationMuted })),
+    lengths,
+    timing,
+    blocks: blockRowIds(lengths, timing),
   };
 }

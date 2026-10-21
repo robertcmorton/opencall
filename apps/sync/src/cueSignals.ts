@@ -3,7 +3,7 @@ import { isIP } from "node:net";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { eq } from "drizzle-orm";
 import type * as Y from "yjs";
-import { nextCueRow } from "@opencall/core";
+import { computeTiming, nextCueRow, passThroughRows } from "@opencall/core";
 import { decodeDoc, projectRundownDoc, schema, type DbHandle } from "@opencall/db";
 
 /**
@@ -111,7 +111,7 @@ interface RowView {
 export function createCueSignals(
   handle: DbHandle,
   docServer: Pick<Hocuspocus, "documents">,
-  liveState: (id: string) => Promise<{ state: string; activeRowId: string | null; playedRowIds?: string[] }>,
+  liveState: (id: string) => Promise<{ state: string; activeRowId: string | null; playedRowIds?: string[]; clockFollow?: boolean }>,
   /** For tests only: a stand-in for fetch, and for the address check. */
   test: { fetch?: typeof fetch; check?: typeof webhookProblem } = {},
 ) {
@@ -191,7 +191,10 @@ export function createCueSignals(
     const live = await liveState(rundownId);
     const isLive = live.state === "running" || live.state === "paused";
     const onAir = isLive ? rowView(s.projected, live.activeRowId) : null;
-    const nextId = isLive && live.activeRowId ? nextCueRow(s.projected.rows, live.activeRowId, new Set(live.playedRowIds ?? [])) : null;
+    // Where the show goes next — past the note rows the clock does not stop on, while it runs the show.
+    const timing = computeTiming(s.projected.rows, s.projected.meta.plannedStartSec ?? s.rundown.plannedStartSec);
+    const rows = passThroughRows(s.projected.rows, timing.rows.map((r) => r.startSec));
+    const nextId = isLive && live.activeRowId ? nextCueRow(rows, live.activeRowId, new Set(live.playedRowIds ?? []), live.clockFollow ?? false) : null;
     return {
       sheet: { id: s.rundown.id, name: s.rundown.name },
       state: live.state,

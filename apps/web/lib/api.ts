@@ -431,7 +431,7 @@ export const api = {
     }),
   /** How long each row actually ran in the current (or last) show — the over/under trail. */
   runTimes: (rundownId: string) =>
-    request<{ sessionId: string | null; live: boolean; rows: Record<string, { sec: number; runs: number }> }>(`/rundowns/${rundownId}/run-times`),
+    request<{ sessionId: string | null; live: boolean; rows: Record<string, { sec: number; runs: number; joinedAtMs?: number }> }>(`/rundowns/${rundownId}/run-times`),
   sheetChanges: (rundownId: string) =>
     request<{ rundown: { id: string; name: string; eventId: string }; entries: ChangeLogEntry[] }>(`/rundowns/${rundownId}/changes`),
   sheetChange: (changeId: string) => request<SheetChangeDetail>(`/sheet-changes/${encodeURIComponent(changeId)}`),

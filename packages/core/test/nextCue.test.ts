@@ -58,13 +58,13 @@ describe("clockStep with played rows", () => {
     const played = new Set(["h2", "ft", "gp1", "gp2"]);
     const durations = won.map((r) => (r.outcome === "golden" ? 300 : r.outcome ? 60 : 1800));
     const step = clockStep(won, durations, "gp3", 301, played);
-    expect(step).toEqual({ kind: "advance", rowId: "win1" });
+    expect(step).toEqual({ kind: "advance", rowId: "win1", overSec: 1 });
   });
   it("stepping off the winning song passes the played extra time", () => {
     const won = sheet({ lose1: true, draw1: true });
     const played = new Set(["h2", "ft", "gp1", "gp2", "gp3", "win1"]);
     const durations = won.map((r) => (r.outcome === "golden" ? 300 : r.outcome ? 60 : 1800));
     const step = clockStep(won, durations, "win2", 61, played);
-    expect(step).toEqual({ kind: "advance", rowId: "plug" });
+    expect(step).toEqual({ kind: "advance", rowId: "plug", overSec: 1 });
   });
 });

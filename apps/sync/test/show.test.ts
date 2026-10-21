@@ -273,6 +273,14 @@ describe("a live show follows the clock by default; a person pressing Next takes
     expect(m.current.clockFollow).toBe(true);
     expect(m.current.activeRowId).toBe("r1");
   });
+  // The server passes the clock's row and its planned start: the show opens where the clock is.
+  it("Start on the clock's row is dated to that row's planned start", () => {
+    const m = new ShowStateMachine();
+    applyAsPerson(m, "start", "half1", { now: 900_000, startedAtMs: 100_000 });
+    expect(m.current.activeRowId).toBe("half1");
+    expect(m.current.activeRowStartedAtMs).toBe(100_000);
+    expect(m.current.sessionStartedAtMs).toBe(900_000);
+  });
   it("before the sheet's first item, Start waits on the countdown with nothing cued", () => {
     const m = new ShowStateMachine();
     applyAsPerson(m, "start", "r1", { now: 1000, clockNotReached: true });

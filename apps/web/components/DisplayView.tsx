@@ -1,6 +1,6 @@
 "use client";
 
-import { computeTiming, formatDuration, formatTimeOfDay, nextCueRow, zoneSecondsOfDay } from "@opencall/core";
+import { computeTiming, formatDuration, formatTimeOfDay, nextCueRow, passThroughRows, zoneSecondsOfDay } from "@opencall/core";
 import { useEffect, useEffectEvent, useState } from "react";
 import { projectRundownDoc } from "@opencall/db/doc";
 import { useRundownDoc, useWakeLock } from "../lib/useRundownDoc";
@@ -52,8 +52,10 @@ export function DisplayView({ rundownId, joinCode }: { rundownId: string; joinCo
     if (first) upcoming.push(first);
     cursor = first?.id ?? null;
   }
+  // While the clock runs the show, the rows it goes past are not coming up.
+  const clockRows = passThroughRows(rows, timing.rows.map((r) => r.startSec));
   while (cursor && upcoming.length < NEXT_COUNT) {
-    const nextId = nextCueRow(rows, cursor, played);
+    const nextId = nextCueRow(clockRows, cursor, played, show?.clockFollow ?? false);
     const r = nextId ? rows.find((x) => x.id === nextId) : null;
     if (!r || upcoming.includes(r)) break;
     upcoming.push(r);

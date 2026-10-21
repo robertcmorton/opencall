@@ -37,8 +37,9 @@ export class ShowStateMachine {
   /**
    * Apply a transport command. Returns the new state, or an error string.
    *
-   * `startedAtMs` backdates the row's start. Two callers want it: the clock
-   * follower, and a sync-cue jump. Both are saying the same thing — the show
+   * `startedAtMs` backdates the row's start. Three callers want it: the clock
+   * follower, a sync-cue jump, and a Start the clock has already reached (it
+   * opens on the clock's row). All are saying the same thing — the show
    * is where the SHEET says it is — and moving onto a row that way does NOT
    * mean the row has just begun. The sheet may say it started half an hour
    * ago, and recording it as beginning now makes the item countdown and the
@@ -70,7 +71,7 @@ export class ShowStateMachine {
           state: "running",
           sessionId: ulid(),
           activeRowId: rowId ?? null,
-          activeRowStartedAtMs: now,
+          activeRowStartedAtMs: rowId != null ? (startedAtMs ?? now) : now,
           pausedAtMs: null,
           pausedAccumMs: 0,
           sessionStartedAtMs: now,

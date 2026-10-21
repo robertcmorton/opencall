@@ -72,10 +72,10 @@ export class PersistentShowStore {
   /** Queue the DB write-through for an accepted command. Walkthrough moves
    *  ("walk") are rehearsal, not history — they are never persisted, and the
    *  type says so. */
-  persist(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string): void {
+  persist(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number): void {
     const prev = this.writeChains.get(rundownId) ?? Promise.resolve();
     const next = prev
-      .then(() => this.write(rundownId, state, action, rowId))
+      .then(() => this.write(rundownId, state, action, rowId, atMs))
       .catch((err) => console.error("[sync] session persist failed:", err));
     this.writeChains.set(rundownId, next);
   }
@@ -100,8 +100,21 @@ export class PersistentShowStore {
     await Promise.allSettled([...this.writeChains.values()]);
   }
 
-  private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string): Promise<void> {
+  /**
+   * When each sheet's last show-record entry was stamped, so the next is later.
+   *
+   * The clock dates an entry to the second a row was due (`atMs`), which can
+   * be a moment before the tick that wrote it. Two entries must never swap
+   * places or share a stamp: the record is read in time order, and a row that
+   * appears to start before the one it followed is credited with that row's
+   * time on air.
+   */
+  private lastAt = new Map<string, number>();
+
+  private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number): Promise<void> {
     const { db } = this.handle;
+    const at = new Date(Math.max(atMs ?? Date.now(), (this.lastAt.get(rundownId) ?? 0) + 1));
+    this.lastAt.set(rundownId, at.getTime());
     // Read once into a const: the two statements below run inside a closure,
     // where TypeScript drops the narrowing on a property access.
     const sessionId = state.sessionId;
@@ -150,7 +163,7 @@ export class PersistentShowStore {
       await tx.insert(schema.showTransitions).values({
         id: ulid(),
         sessionId,
-        at: new Date(),
+        at,
         type: action,
         rowId: rowId ?? state.activeRowId,
       });

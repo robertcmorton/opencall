@@ -5200,6 +5200,17 @@ a.change-line:hover {
   color: var(--text-2);
   background: var(--surface-2);
 }
+/* A word instead of a number ("joined late", "in its items"). The duration
+   column's text area is 58px and a number chip just fits; the words are wider,
+   so they are a size smaller and may use the cell's right padding (10px)
+   before they wrap — on one line at every width the layout audit checks. */
+.ran-chip.ran-word {
+  width: max-content;
+  max-width: calc(100% + 10px);
+  padding: 0 3px;
+  font-size: var(--fs-xs);
+  white-space: normal;
+}
 .ran-chip.over {
   color: var(--over);
   background: var(--over-soft);

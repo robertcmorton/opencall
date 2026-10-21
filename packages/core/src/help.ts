@@ -781,9 +781,9 @@ export const SECTIONS: HelpSection[] = [
         id: "follow-clock",
         name: "The clock runs the show",
         forWhat: "Each item goes on air at its printed time by itself, even if every laptop is closed.",
-        how: "Nothing to press: starting the show hands it to the clock. Press **Next** or **Back** and you're calling it by hand — **◷ Back to clock** then appears in the toolbar to hand it back.",
+        how: "Nothing to press: starting the show hands it to the clock, and the show opens on the item the clock says is on now. Press **Next** or **Back** and you're calling it by hand — **◷ Back to clock** then appears in the toolbar to hand it back.",
         who: CALLER,
-        good: "The green **Show** light top right is the live link to the show — it flashes as updates arrive. Who moves the show on is the clock, unless you've pressed Next or Back.",
+        good: "The clock goes straight past note rows that have no time and no length when the next item starts at the same moment — a line like “(3:30)” is read, not played. Next pressed by hand still stops on every row. The green **Show** light top right is the live link to the show — it flashes as updates arrive. Who moves the show on is the clock, unless you've pressed Next or Back.",
       },
       {
         id: "step-by-hand",
@@ -845,7 +845,11 @@ export const SECTIONS: HelpSection[] = [
         name: "Over and under",
         forWhat: "Shows how long each item really took against its plan.",
         how: "After an item leaves the air, a small chip appears by its length: red “+0:12” ran over, green “−0:08” ran under. Point at it for the real time.",
-        good: "The figures stay after the show, so the next morning you can see where the time went.",
+        steps: [
+          "**joined late** — the show got to this item after it was due to start (it was started late, or handed back to the clock part-way through), so it only saw the rest of it. Point at it to see how late.",
+          "**in its items** — a block such as half time, whose length is played by the rows inside it. Those rows carry the figures.",
+        ],
+        good: "Neither counts in **Ran** at the top. The figures stay after the show, so the next morning you can see where the time went.",
       },
       {
         id: "ticks",

@@ -15,6 +15,8 @@ import {
   clockTargetRow as coreClockTargetRow,
   calledEndingBehind,
   clockStep,
+  EXACT_STEP_SEC,
+  passThroughRows,
   rowStartedAtMs,
   followerMayMove,
   reportClockRefusal,
@@ -371,8 +373,8 @@ const editTracker = createEditTracker(dbHandle, parseDocName);
 const docServer = createDocServer(dbHandle, editTracker);
 /** What the show on a sheet is doing right now. */
 const liveState = async (rundownId: string) => {
-  const { state, activeRowId, playedRowIds } = (await showStore.get(rundownId)).current;
-  return { state, activeRowId, playedRowIds };
+  const { state, activeRowId, playedRowIds, clockFollow } = (await showStore.get(rundownId)).current;
+  return { state, activeRowId, playedRowIds, clockFollow };
 };
 // Fire on cue: webhooks when a row goes on air, and the "now" answer.
 const cueSignals = createCueSignals(dbHandle, docServer, liveState);
@@ -711,14 +713,30 @@ wss.on("connection", (ws, req) => {
       // Start hands the show to the clock (21 Oct) — so it needs the same
       // "has the clock reached the sheet yet?" answer clock_on gets.
       let clockNotReached = false;
+      let rowId = msg.rowId;
       if (msg.action === "start") {
         sheet ??= await sheetNow(ctx.rundownId);
-        if (sheet && clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) == null) clockNotReached = true;
+        const clockRow = sheet ? clockTargetRow(sheet.rows, sheet.timing, sheet.nowSec) : null;
+        if (sheet && clockRow == null) clockNotReached = true;
+        /**
+         * And when it HAS reached the sheet, Start opens on the clock's row,
+         * dated to that row's planned start. The button sends the sheet's
+         * first row, which is right for a show nobody hands to the clock;
+         * here the clock took over a second later anyway. That second was the
+         * first item "running" for one tick, and it put the show record's
+         * Start on the wrong row: a first half joined thirteen minutes late
+         * looked like a half cut short, because the record had it reached by
+         * an ordinary clock move (21 Oct 2026).
+         */
+        if (sheet && clockRow != null) {
+          rowId = clockRow;
+          startedAtMs = plannedStartMs(sheet.timing, sheet.rows.findIndex((r) => r.id === clockRow), sheet.nowMs, sheet.nowSec);
+        }
       }
       // A person's command, with the clock rules around it: Start hands the
       // show to the clock, and a person's Next/Back/jump takes it back by
       // hand first. See `applyAsPerson`.
-      const steps = applyAsPerson(await showStore.get(ctx.rundownId), msg.action, msg.rowId, { startedAtMs, clearCue, clockNotReached });
+      const steps = applyAsPerson(await showStore.get(ctx.rundownId), msg.action, rowId, { startedAtMs, clearCue, clockNotReached });
       if (typeof steps === "string") {
         send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: steps });
         return;
@@ -730,7 +748,7 @@ wss.on("connection", (ws, req) => {
       // as-run record (and "walk" isn't a transition type). Every step is
       // written, in order: the clock handing over is part of the record.
       for (const step of steps)
-        if (step.action !== "walk") showStore.persist(ctx.rundownId, step.state, step.action, step.action === msg.action ? msg.rowId : undefined);
+        if (step.action !== "walk") showStore.persist(ctx.rundownId, step.state, step.action, step.action === msg.action ? rowId : undefined);
 
       // Automatic safety snapshot the moment a show goes live.
       if (msg.action === "start") {
@@ -847,6 +865,9 @@ async function sheetNow(
   }
 
   const nowMs = Date.now();
+  // Marked fresh each call (the cached rows are shared): the note rows the
+  // clock goes straight past, so it neither aims at them nor steps onto them.
+  rows = passThroughRows(rows, timing.rows.map((r) => r.startSec));
   return { rows, timing, nowMs, nowSec: zoneSecondsOfDay(nowMs, tzEntry.tz ?? undefined) };
 }
 
@@ -1006,7 +1027,11 @@ async function clockTick(): Promise<void> {
       if (typeof result === "string") continue;
       refusedClockTarget.delete(rundownId);
       broadcast(rundownId, { v: PROTOCOL_VERSION, t: "show_state", ...result });
-      showStore.persist(rundownId, result, "jump", target);
+      // The show record gets the same moment as the cue, when that is the
+      // second the row was due rather than the tick that noticed it. A catch-up
+      // (a row due minutes ago) is recorded when it happened: now.
+      const lagMs = nowMs - startedAtMs;
+      showStore.persist(rundownId, result, "jump", target, lagMs >= 0 && lagMs <= EXACT_STEP_SEC * 1000 ? startedAtMs : nowMs);
     }
   } catch (err) {
     console.error("[sync] clock-follow tick failed:", err);

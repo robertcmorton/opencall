@@ -70,7 +70,7 @@ export function RunningLate({
   const verdict = overSec > 0 ? `${lateAmount(overSec)} over` : overSec < 0 ? `${lateAmount(overSec)} to spare` : "on time";
   const tip =
     overSec > 0
-      ? `If every item from here runs to plan, the show reaches ${target.name} at ${formatTimeOfDayWithDay(arrivesSec, use24h)} — ${lateAmount(overSec)} after it must start. Press to see what could be trimmed.`
+      ? `If every item from here runs to plan, the show reaches ${target.name} at ${formatTimeOfDayWithDay(Math.round(arrivesSec), use24h)} — ${lateAmount(overSec)} after it must start. Press to see what could be trimmed.`
       : `If every item from here runs to plan, the show reaches ${target.name} ${overSec < 0 ? `${lateAmount(overSec)} early` : "exactly on time"}.`;
   return (
     <div className={`running-late is-${level}`} ref={box}>

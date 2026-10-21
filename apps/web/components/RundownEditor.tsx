@@ -6246,15 +6246,34 @@ export function RundownEditor({
                     </td>,
                   ];
                   const lead = timeIdx < 0 ? 0 : timeIdx;
-                  for (let c = 0; c < lead; c++) cells.push(<td key={`b${c}`} />);
-                  if (timeIdx >= 0)
-                    cells.push(
+                  const timeCell =
+                    timeIdx >= 0 ? (
                       <td key="t" className="mono layer-time">
                         {timeSec === undefined ? "" : timeSec != null ? formatTimeOfDay(timeSec, meta.use24h) : "—"}
-                      </td>,
-                    );
-                  const used = 1 + lead + (timeIdx >= 0 ? 1 : 0);
+                      </td>
+                    ) : null;
                   const totalCells = orderedColumns.length + (showZero ? 1 : 0) + 1;
+                  /**
+                   * Little room after the time: the line goes in front of it.
+                   * On a phone the columns after the time are the duration and
+                   * perhaps a role — 54px — and the Full time line drawn there
+                   * read "FULL TIME / Win / called / Chang", with Change off
+                   * the screen and the item column beside it empty (21 Oct).
+                   */
+                  const roomAfter = orderedColumns.slice(timeIdx + 1).reduce((n, c) => n + (widthOf(c.key) ?? 0), 0) + (showZero ? (widthOf("zero") ?? 0) : 0);
+                  if (lead > 0 && roomAfter < MIN_TITLE) {
+                    cells.push(
+                      <td key="body" colSpan={lead}>
+                        {body}
+                      </td>,
+                      timeCell,
+                    );
+                    if (totalCells - 2 - lead > 0) cells.push(<td key="rest" colSpan={totalCells - 2 - lead} />);
+                    return cells;
+                  }
+                  for (let c = 0; c < lead; c++) cells.push(<td key={`b${c}`} />);
+                  if (timeCell) cells.push(timeCell);
+                  const used = 1 + lead + (timeIdx >= 0 ? 1 : 0);
                   cells.push(
                     <td key="body" colSpan={Math.max(1, totalCells - used)}>
                       {body}

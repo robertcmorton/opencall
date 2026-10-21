@@ -176,6 +176,40 @@ function measure(touch: boolean) {
       const shared = tops.every((r) => tops.every((q) => r.top < q.bottom && q.top < r.bottom));
       if (!shared) problems.push(`controls split onto two lines: ${row.className.split(" ")[0]} (${Math.round(row.getBoundingClientRect().height)}px tall)`);
     }
+  /**
+   * The endings (21 Oct): the Full time header and each ending's one line
+   * live inside table cells, which every check above leaves alone. Their
+   * pieces — "If we win", "3 rows · 3:30", "playing", Change — must not sit
+   * on each other, and must not run past the side of the sheet: a line that
+   * says "not playing" off the right of a phone is a line that says nothing.
+   */
+  for (const line of document.querySelectorAll(".ft-body, .path-toggle")) {
+    if (!shown(line)) continue;
+    // 21 Oct: on a phone the line was given the 54px duration column, and
+    // read one word to a line. Nothing overlapped, so nothing else saw it.
+    // Fixed, it has the item column — 132px on a phone, the width every
+    // row's own text gets there — so the floor sits below that.
+    const w = line.getBoundingClientRect().width;
+    if (w < 100) problems.push(`ending line squeezed into ${Math.round(w)}px: "${name(line)}"`);
+    const parts = [...line.children].filter((k) => shown(k) && (k as HTMLElement).innerText?.trim());
+    const rects = parts.map((k) => k.getBoundingClientRect());
+    for (let i = 0; i < parts.length; i++) {
+      for (let j = i + 1; j < parts.length; j++)
+        if (overlap(rects[i]!, rects[j]!) > 4) problems.push(`ending line, on top of each other: "${name(parts[i]!)}" and "${name(parts[j]!)}"`);
+      // Cut off sideways by the box it scrolls in. Only rows in view — a row
+      // scrolled out of the sheet top or bottom is not a finding.
+      const r = rects[i]!;
+      for (let p = line.parentElement; p; p = p.parentElement) {
+        const st = getComputedStyle(p);
+        if (st.overflowX === "visible") continue;
+        const c = p.getBoundingClientRect();
+        if (r.bottom <= c.top || r.top >= c.bottom) break;
+        if (r.left < c.left - 1 || r.right > c.right + 1)
+          problems.push(`ending line cut off: "${name(parts[i]!)}" (${Math.round(r.left)}…${Math.round(r.right)}, box ${Math.round(c.left)}…${Math.round(c.right)})`);
+        break;
+      }
+    }
+  }
   if (touch)
     for (const e of document.querySelectorAll("button, a, input, select, [role=button]")) {
       if (!shown(e)) continue;
@@ -230,6 +264,7 @@ async function press(page: Page, label: string | RegExp) {
  * label for its measurements. Leaves the show stopped.
  */
 async function* showStates(page: Page, size: (typeof SIZES)[number]): AsyncGenerator<string> {
+  yield* endingStates(page);
   // Walkthrough, before the doors: Next starts it (the "Walkthrough" beside
   // it is a label, not a button).
   const next = page.locator('.preshow-group button[aria-label="Next row"]').first();
@@ -276,6 +311,7 @@ async function* showStates(page: Page, size: (typeof SIZES)[number]): AsyncGener
     yield "live, Message stage open";
     await page.keyboard.press("Escape");
   }
+  yield* fullTimeStates(page);
   // Stop asks twice; its second face is labelled "Confirm — end the show now".
   await page.locator('.show-state button[aria-label="Stop the show"]').first().click();
   await page.waitForTimeout(300);
@@ -284,6 +320,111 @@ async function* showStates(page: Page, size: (typeof SIZES)[number]): AsyncGener
   yield "after the show (End event bar)";
 }
 const liveCrew: string[] = [];
+
+/**
+ * Scroll the sheet until the Full time line is in view; false when the sheet
+ * has none. The sheet builds only the rows near the screen, and the endings
+ * sit at the foot of the demo sheet — on a phone, and live on a desktop, they
+ * were never built at all, so nothing in them was measured (21 Oct). Moves
+ * the sheet up and down only: a sideways scroll is itself a finding.
+ */
+async function toEndings(page: Page): Promise<boolean> {
+  const found = await page.evaluate(async () => {
+    const scroller = () => {
+      const g = document.querySelector(".grid-scroll");
+      for (let p = g; p; p = p.parentElement) {
+        const o = getComputedStyle(p).overflowY;
+        if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) return p;
+      }
+      return document.scrollingElement ?? document.documentElement;
+    };
+    const wait = () => new Promise((r) => setTimeout(r, 300));
+    // Walk down a screen at a time until the line is built.
+    for (let n = 0; n < 40 && !document.querySelector(".ft-row"); n++) {
+      const s = scroller();
+      if (s.scrollTop + s.clientHeight >= s.scrollHeight - 1) break;
+      s.scrollTop += Math.max(200, s.clientHeight * 0.8);
+      await wait();
+    }
+    const ft = document.querySelector(".ft-row");
+    if (!ft) return false;
+    const s = scroller();
+    const top = s === document.scrollingElement ? 0 : s.getBoundingClientRect().top;
+    // A little below the top: the sheet's own header row is sticky there.
+    s.scrollTop += ft.getBoundingClientRect().top - top - 120;
+    await wait();
+    return true;
+  });
+  await page.waitForTimeout(200);
+  return found;
+}
+
+/**
+ * The endings with one opened by hand (21 Oct). At rest every ending is one
+ * folded line; opened, its rows draw under it. Folds it back afterwards.
+ */
+async function* endingStates(page: Page): AsyncGenerator<string> {
+  if (!(await toEndings(page))) {
+    // The demo sheet has endings; a sheet page that draws none means they
+    // have stopped being measured, which is a failure, not a pass.
+    if (process.env.AUDIT_EXPECT_ENDINGS) liveCrew.push("the sheet's endings are not drawn, so they go unmeasured");
+    return;
+  }
+  yield "scrolled to the endings";
+  const toggle = page.locator(".path-toggle:visible:enabled").first();
+  if (!(await toggle.count())) return;
+  await toggle.click();
+  await page.waitForTimeout(300);
+  yield "with an ending opened";
+  await toggle.click().catch(() => undefined);
+  await page.waitForTimeout(200);
+}
+
+/**
+ * Live, at full time: the result bar up, a result called, and a skipped
+ * ending opened (21 Oct). Steps the cue with Space — a live show has no Next
+ * button — until the bar appears. The demo match puts a 30-second siren row
+ * before its endings, so the bar comes up there, counting down, with every
+ * ending still folded. Takes the result back afterwards, so the next size
+ * starts from the same sheet.
+ */
+async function* fullTimeStates(page: Page): AsyncGenerator<string> {
+  if (!(await toEndings(page))) return;
+  const dock = page.locator(".outcome-dock:not(.end-event-dock):visible");
+  for (let n = 0; n < 40 && !(await dock.count()); n++) {
+    // Space on a focused button would press it rather than step the cue.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(250);
+  }
+  if (!(await dock.count())) {
+    liveCrew.push("the result bar never came up at full time");
+    return;
+  }
+  await page.waitForTimeout(300);
+  yield "live at full time (result bar up)";
+  const win = page.locator(".outcome-dock .od-pick.od-win").first();
+  if (!(await win.count())) {
+    liveCrew.push("the result bar offers no Win");
+    return;
+  }
+  await win.click();
+  await page.waitForTimeout(500);
+  const status = await page.locator(".path-status").allInnerTexts();
+  if (!status.some((s) => /^playing$/i.test(s.trim())) || !status.some((s) => /not playing/i.test(s)))
+    liveCrew.push(`a called result should mark one ending "playing" and the rest "not playing" (saw: ${status.join(", ") || "nothing"})`);
+  yield "live, result called";
+  const skipped = page.locator(".path-row.is-out .path-toggle:enabled").first();
+  if (await skipped.count()) {
+    await skipped.click();
+    await page.waitForTimeout(300);
+    yield "live, a skipped ending opened";
+    await skipped.click().catch(() => undefined);
+  }
+  // Change, on the bar: every ending possible again.
+  await page.locator(".outcome-dock .od-reset").first().click().catch(() => undefined);
+  await page.waitForTimeout(300);
+}
 
 /** The dashboard while searching for something that is not there. */
 async function* dashboardStates(page: Page): AsyncGenerator<string> {
@@ -304,6 +445,7 @@ async function* dashboardStates(page: Page): AsyncGenerator<string> {
  * when the box is switched off.
  */
 async function* viewStates(page: Page): AsyncGenerator<string> {
+  yield* endingStates(page);
   const row = page.locator("tr[data-rowid]").first();
   if (await row.count()) await row.click();
   const notes = page.locator("button:visible", { hasText: "Notes" }).first();
@@ -345,9 +487,19 @@ for (const size of SIZES) {
       await drive(page);
       after = (await page.evaluate(measure, size.touch)).filter((p) => !before.includes(p)).map((p) => `after moving the box: ${p}`);
     }
-    const states = /^\/show\//.test(path) ? showStates(page, size) : path === "/admin" ? dashboardStates(page) : /^\/view\//.test(path) ? viewStates(page) : null;
+    const states = /^\/show\//.test(path)
+      ? showStates(page, size)
+      : path === "/admin"
+        ? dashboardStates(page)
+        : /^\/view\//.test(path)
+          ? viewStates(page)
+          : /^\/edit\//.test(path)
+            ? endingStates(page)
+            : null;
+    const measured: string[] = [];
     if (states)
       for await (const label of states) {
+        measured.push(label);
         const found = (await page.evaluate(measure, size.touch)).filter((p) => !before.includes(p));
         after.push(...found.map((p) => `${label}: ${p}`));
       }
@@ -356,6 +508,8 @@ for (const size of SIZES) {
     failures += all.length;
     console.log(`${all.length ? "✗" : "✓"} ${size.name.padEnd(7)} ${path}`);
     for (const p of all) console.log(`    ${p}`);
+    // AUDIT_STATES=1 lists what was measured beyond the page at rest.
+    if (process.env.AUDIT_STATES && measured.length) console.log(`    measured: ${measured.join(" · ")}`);
   }
   await context.close();
 }

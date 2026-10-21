@@ -2205,6 +2205,19 @@ kbd {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* The match card, open and asking which game, was 500px on a phone: the
+   sheet under it got 0px and the card's last choice sat beneath the bar at
+   the foot of the screen, where this page — which never scrolls — could not
+   bring it out (21 Oct). Capped, it scrolls inside itself; one scroll, so the
+   long list's own cap stands down. */
+.show-page > .match-card {
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+.show-page > .match-card .mc-scroll {
+  max-height: none;
+  overflow: visible;
+}
 @media print {
   .show-page {
     display: block;
@@ -6562,6 +6575,12 @@ a > svg,
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
+}
+/* 23px tall at 3px padding — a pixel short of a finger (21 Oct). */
+@media (pointer: coarse) {
+  .rl-pill {
+    padding-block: 5px;
+  }
 }
 .rl-pill .rl-name {
   color: var(--text);

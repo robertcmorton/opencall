@@ -52,4 +52,5 @@ for _ in $(seq 1 60); do curl -sf "http://localhost:$WEB_PORT/" >/dev/null 2>&1 
 
 echo "▸ measuring"
 cd "$ROOT/apps/web"
-SYNC_URL="http://localhost:$SYNC_PORT" node scripts/layout-audit.mts "http://localhost:$WEB_PORT"
+# The demo sheet has a match with endings: fail if a sheet page stops drawing them.
+AUDIT_EXPECT_ENDINGS=1 SYNC_URL="http://localhost:$SYNC_PORT" node scripts/layout-audit.mts "http://localhost:$WEB_PORT"

@@ -68,6 +68,24 @@ const DEMO_ROWS: SeedRow[] = [
       script: "It's an exciting time to be part of this team, and today's all about equipping you with the tools, knowledge, and inspiration for your best year yet.",
     },
   },
+  /**
+   * A short rugby league match with its endings written in, so the layout
+   * check draws the Full time header, the ending lines and the result bar
+   * (21 Oct) — with no endings on the demo sheet none of them was ever
+   * measured. Invented teams and sponsors, as in the test fixtures.
+   */
+  { type: "group", title: "Charity Match: HARBOUR v RIVERS", color: "#25333d" },
+  { type: "cue", title: "Kick off", durationSec: 60, cells: { audio: "Ref Mic", graphics: "Score bug on" } },
+  { type: "cue", title: "First half", durationSec: 2400, cells: { video: "Match cams", graphics: "Score bug" } },
+  { type: "cue", title: "Half time — Sponsor A break", durationSec: 900, cells: { video: "Sponsor A spot", graphics: "Half-time score" } },
+  { type: "cue", title: "Second half", durationSec: 2400, cells: { video: "Match cams", graphics: "Score bug" } },
+  { type: "cue", title: "Full time siren", durationSec: 30, cells: { audio: "Siren", graphics: "Full-time score" } },
+  { type: "cue", title: "HARBOUR win — team song", durationSec: 90, outcome: "win", cells: { audio: "Team song", lights: "Victory Chase" } },
+  { type: "cue", title: "Player of the match — Northbank", durationSec: 120, outcome: "win", cells: { graphics: "Lower third: Northbank" } },
+  { type: "cue", title: "RIVERS win — coach's word", durationSec: 120, outcome: "lose", cells: { audio: "Handheld 1" } },
+  { type: "cue", title: "Golden point — first half", durationSec: 300, outcome: "golden", cells: { graphics: "Golden point bug" } },
+  { type: "cue", title: "Golden point — second half", durationSec: 300, outcome: "golden", cells: { graphics: "Golden point bug" } },
+  { type: "cue", title: "Post-match wrap — Advertiser", durationSec: 300, cells: { video: "Advertiser close", lights: "House Up" } },
 ];
 
 async function main(): Promise<void> {

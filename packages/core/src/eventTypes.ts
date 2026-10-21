@@ -66,6 +66,35 @@ export interface EventTypeDef {
   resultDueAfter?: RegExp;
   /** Shown under the picker so the choice is not a guess. */
   blurb: string;
+  /**
+   * The sport these belong to, when one sport has several games (21 Oct).
+   * Rugby league is ONE choice at import ("Rugby league"); which game it is —
+   * men's or women's, regular season or final — is chosen afterwards, on the
+   * dashboard or in the walkthrough, with its rules laid out.
+   */
+  family?: "rugby-league";
+  /** The family's placeholder: chosen at import, the game not picked yet. */
+  needsGame?: boolean;
+  /** Left out of the import picker (the specific games of a family). */
+  notAtImport?: boolean;
+  /** The game's own numbers, the starting values a sheet can adjust, and its rules in words. */
+  game?: GameDefaults;
+}
+
+/**
+ * A game's lengths, as the competition plays them (checked 21 Oct 2026
+ * against nrl.com's NRLW premiership page and 2026 rules explainer, and the
+ * NRL's 2016 finals statement; half time from the sample run sheets: 15:00 on
+ * nearly all of them, both competitions). Starting values only — each sheet
+ * can change them in "Set up the match".
+ */
+export interface GameDefaults {
+  halfSec: number;
+  halfTimeSec: number;
+  /** Each half of the extra period (golden point, or a final's extra time). 0 = none. */
+  extraHalfSec: number;
+  /** The rules, one plain sentence each, for "Set up the match". */
+  rules: string[];
 }
 
 /**
@@ -138,20 +167,112 @@ export const EVENT_TYPES: EventTypeDef[] = [
    * match down on the first try scored in them.
    */
   {
-    id: "nrl",
-    label: "Rugby league (NRL) — regular season",
+    /*
+     * Rugby league, before the game is chosen (21 Oct, Robert: the import
+     * dropdown should just be "rugby league", then a second step to pick the
+     * game and see its rules). Behaves as a regular-season match until then —
+     * golden point is offered, because a level score in nearly every rugby
+     * league game goes somewhere — and "Set up the match" asks for the game.
+     */
+    id: "rugby-league",
+    label: "Rugby league",
     group: "Sport",
+    family: "rugby-league",
+    needsGame: true,
+    ...extraCanDraw("Golden point"),
+    resultDueAfter: SECOND_HALF,
+    blurb: "Choose which game it is — men's or women's, regular season or final — on the dashboard or in the walkthrough.",
+  },
+  {
+    id: "nrl",
+    label: "Men's (NRL) — regular season",
+    group: "Sport",
+    family: "rugby-league",
+    notAtImport: true,
     ...extraCanDraw("Golden point"),
     resultDueAfter: SECOND_HALF,
     blurb: "Level at full time goes to golden point — two five-minute halves, first score wins and the match ends there. Still level at the end and it is a draw.",
+    game: {
+      halfSec: 40 * 60,
+      halfTimeSec: 15 * 60,
+      extraHalfSec: 5 * 60,
+      rules: [
+        "Two 40-minute halves.",
+        "Level at full time: golden point — five minutes each way, and the first score wins the match on the spot.",
+        "Nobody scores in those ten minutes: it's a draw.",
+      ],
+    },
   },
   {
     id: "nrl-finals",
-    label: "Rugby league (NRL) — final",
+    label: "Men's (NRL) — finals",
     group: "Sport",
+    family: "rugby-league",
+    notAtImport: true,
     ...extraMustSettle("Extra time"),
     resultDueAfter: SECOND_HALF,
     blurb: "Level at full time plays two five-minute halves of extra time in full, then golden point until somebody scores. A final cannot be drawn.",
+    game: {
+      halfSec: 40 * 60,
+      halfTimeSec: 15 * 60,
+      extraHalfSec: 5 * 60,
+      rules: [
+        "Two 40-minute halves. Every final, the grand final included.",
+        "Level at full time: a coin toss, then extra time — five minutes each way, played in full whatever the score.",
+        "Still level: golden point, with no time limit, until somebody scores. A final can't be drawn.",
+      ],
+    },
+  },
+  {
+    /*
+     * The women's game: 35-minute halves, and — from nrl.com's NRLW
+     * premiership rules — golden point "for matches other than the grand
+     * final", semi-finals included, with a draw if nobody scores.
+     */
+    id: "nrlw",
+    label: "Women's (NRLW) — regular season & semi-finals",
+    group: "Sport",
+    family: "rugby-league",
+    notAtImport: true,
+    ...extraCanDraw("Golden point"),
+    resultDueAfter: SECOND_HALF,
+    blurb: "Level at full time goes to golden point — up to five minutes each way, first score wins. Nobody scores and it is a draw. Semi-finals too.",
+    game: {
+      halfSec: 35 * 60,
+      halfTimeSec: 15 * 60,
+      extraHalfSec: 5 * 60,
+      rules: [
+        "Two 35-minute halves.",
+        "Level at full time: golden point — up to five minutes each way, and the first score wins.",
+        "Nobody scores: it's a draw. The same in the semi-finals.",
+      ],
+    },
+  },
+  {
+    /*
+     * The NRLW grand final: "five minutes extra time each way will be played
+     * (regardless of how many points are scored). If, after 80 minutes, the
+     * game remains a draw, unlimited golden point will be played, with no
+     * change of ends or time limit" (nrl.com, NRLW premiership rules).
+     */
+    id: "nrlw-gf",
+    label: "Women's (NRLW) — grand final",
+    group: "Sport",
+    family: "rugby-league",
+    notAtImport: true,
+    ...extraMustSettle("Extra time"),
+    resultDueAfter: SECOND_HALF,
+    blurb: "Level at full time plays five minutes of extra time each way in full, then golden point with no time limit until somebody scores.",
+    game: {
+      halfSec: 35 * 60,
+      halfTimeSec: 15 * 60,
+      extraHalfSec: 5 * 60,
+      rules: [
+        "Two 35-minute halves.",
+        "Level at full time: extra time — five minutes each way, played in full whatever the score.",
+        "Still level: golden point, with no time limit and no change of ends, until somebody scores.",
+      ],
+    },
   },
   {
     /**
@@ -169,8 +290,16 @@ export const EVENT_TYPES: EventTypeDef[] = [
      * chosen once, deliberately, by whoever knows which kind of match it is.
      */
     id: "nrl-no-extra",
-    label: "Rugby league — no extra time (junior, trial, exhibition)",
+    label: "No extra time (junior, trial, exhibition)",
     group: "Sport",
+    family: "rugby-league",
+    notAtImport: true,
+    game: {
+      halfSec: 40 * 60,
+      halfTimeSec: 15 * 60,
+      extraHalfSec: 0,
+      rules: ["Level at full time is a draw. No golden point, no extra time."],
+    },
     ...drawAtFullTime,
     resultDueAfter: SECOND_HALF,
     blurb: "No golden point: level at full time is a draw. For fixtures that do not play extra time.",
@@ -272,6 +401,9 @@ export const EVENT_TYPES: EventTypeDef[] = [
 
 export const eventType = (id: string | null | undefined): EventTypeDef | null =>
   EVENT_TYPES.find((t) => t.id === id) ?? null;
+
+/** The specific games a family offers in "Set up the match" and the dashboard picker. */
+export const gamesOf = (family: string): EventTypeDef[] => EVENT_TYPES.filter((t) => t.family === family && !t.needsGame);
 
 /**
  * A type as it survives storage and the wire.

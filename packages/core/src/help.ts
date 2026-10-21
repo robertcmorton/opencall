@@ -271,8 +271,8 @@ export const SECTIONS: HelpSection[] = [
         id: "kind-of-show",
         name: "Kind of show",
         forWhat: "Tells OpenCall how this show can end — for example, a rugby league match can go to golden point, a product launch cannot.",
-        how: "Click the kind-of-show chip under the show's name on the dashboard and choose from the list.",
-        good: "Kinds that are not finished yet are greyed out. A company can add its own kinds on the **Kinds of show** page.",
+        how: "Click the kind-of-show chip under the show's name on the dashboard and choose from the list. For rugby league, choose the game: **Men's (NRL) — regular season**, **Men's (NRL) — finals**, **Women's (NRLW) — regular season & semi-finals**, **Women's (NRLW) — grand final** or **No extra time**. Point at one to read its rules.",
+        good: "A sheet imported as just **Rugby league** asks which game it is on the show page. Kinds that are not finished yet are greyed out. A company can add its own kinds on the **Kinds of show** page.",
       },
       {
         id: "archive",
@@ -859,6 +859,19 @@ export const SECTIONS: HelpSection[] = [
         name: "Behind the clock",
         forWhat: "Warns everyone when the show has stopped moving and the clock has run ahead.",
         how: "A bar says how many rows behind the live cue is. The Showcaller can press **Follow clock** in that bar to catch up.",
+      },
+      {
+        id: "match",
+        name: "Match — which game, and its times",
+        forWhat: "Says which rugby league game this is, shows its rules, and lets you change this match's times.",
+        steps: [
+          "Above the sheet, before the show starts, the **Match** line names the game — for example “40-min halves · golden point 5 + 5, then a draw”.",
+          "Press **Change** (or **Choose**, if the sheet doesn't know yet) and pick the game. Every screen switches straight away.",
+          "Under **This match**, change **Each half**, **Half time** or the length of each half of golden point or extra time. Press **Rules say …** to go back to the game's own figure.",
+          "More than one game on the sheet? Each gets its own section — **Game 1**, **Game 2** and so on, with its kick-off time. Choose for each one; a later game follows game 1 until you do.",
+        ],
+        who: CALLER,
+        good: "Beside each time is what the sheet's own rows add up to, so you can see if they disagree. Changing a time never changes the sheet's rows — the golden point or extra time length is what gets added if the scores are level at full time.",
       },
       {
         id: "result",

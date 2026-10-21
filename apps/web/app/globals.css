@@ -6818,3 +6818,208 @@ a > svg,
 .tp-amount-gap {
   fill: var(--warn);
 }
+
+/* The match card: which rugby league game, its rules and this match's times
+   (21 Oct). One line folded; the choices and times open beneath it. */
+.match-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+}
+.match-card.is-unchosen {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.mc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.mc-what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  flex-wrap: wrap;
+}
+.mc-kicker {
+  font-size: var(--fs-xs, 0.75rem);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.mc-summary {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.mc-body {
+  display: grid;
+  gap: var(--space-3);
+}
+.mc-games {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+.mc-game {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 44px;
+  font: inherit;
+}
+.mc-game:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.mc-game.is-on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.mc-game:disabled {
+  cursor: default;
+}
+.mc-game:disabled:not(.is-on) {
+  opacity: 0.7;
+}
+.mc-game-name {
+  font-weight: 600;
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.mc-game-sum {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.mc-tag {
+  font-size: var(--fs-xs, 0.75rem);
+  font-weight: 500;
+  color: var(--accent);
+}
+.mc-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3) var(--space-4, 24px);
+}
+.mc-detail h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  font-weight: 600;
+}
+.mc-rules {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+.mc-time {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.mc-time label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mc-time-label {
+  min-width: 11em;
+}
+.mc-time input {
+  width: 6.5em;
+  text-align: right;
+}
+.mc-sheet {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.mc-sheet.is-short {
+  color: var(--warn);
+  font-weight: 600;
+}
+.mc-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.mc-error {
+  margin: 0;
+  color: var(--over);
+}
+.mc-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.mc-list strong {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: var(--fs-xs, 0.75rem);
+  margin-right: 4px;
+}
+.mc-all,
+.mc-scroll {
+  display: grid;
+  gap: var(--space-3);
+}
+.mc-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+  gap: 0;
+}
+.mc-all > .mc-body + .mc-body,
+.mc-scroll > .mc-body + .mc-body {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+.mc-game-head {
+  margin: 0;
+  font-size: var(--fs-md, 1rem);
+  display: flex;
+  gap: var(--space-2) var(--space-3);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.mc-follows {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--text-2);
+}
+.mc-fold {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: var(--space-1) 0;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  min-height: 44px;
+}
+.mc-fold:hover .mc-game-head {
+  color: var(--accent);
+}
+.mc-scroll > .mc-body:has(> .mc-fold) + .mc-body:has(> .mc-fold) {
+  padding-top: 0;
+}

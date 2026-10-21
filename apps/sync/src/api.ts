@@ -224,6 +224,8 @@ export function createApiHandler(
   /** Ways into the show channel the API has no handle on itself. */
   hooks: {
     stopShow?: (rundownId: string) => Promise<void>;
+    /** The sheet's kind of show changed: tell its open screens. */
+    kindChanged?: (rundownId: string) => Promise<void>;
     /** What the show on a sheet is doing, for refusing changes under a live show. */
     liveState?: (rundownId: string) => Promise<{ state: string; activeRowId: string | null }>;
     /** People's editing sessions, closed into the change log at the right moments. */
@@ -1761,6 +1763,7 @@ export function createApiHandler(
           const sport = body.sport.trim().toLowerCase().slice(0, 40) || null;
           await db.update(schema.rundowns).set({ sport }).where(eq(schema.rundowns.id, id));
         }
+        if (body.sport !== undefined) await hooks.kindChanged?.(id);
         // The two teams of this show, home and away. Null clears one.
         const homeImage = imageValue(body.homeImage);
         if (homeImage !== undefined) await db.update(schema.rundowns).set({ homeImage }).where(eq(schema.rundowns.id, id));

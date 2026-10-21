@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_TYPES,
+  gamesOf,
   eventTypeLabel,
   customEventTypeCode,
   eventType,
@@ -133,7 +134,7 @@ describe("a kind of show a company added", () => {
 
   it("resolves beside the built-ins rather than instead of them", () => {
     expect(resolveEventType("own:water-polo", [waterPolo])?.label).toBe("Water polo");
-    expect(resolveEventType("nrl", [waterPolo])?.label).toBe("Rugby league (NRL) — regular season");
+    expect(resolveEventType("nrl", [waterPolo])?.label).toBe("Men's (NRL) — regular season");
     expect(resolveEventType("own:water-polo", [])).toBeNull();
   });
 
@@ -288,5 +289,29 @@ describe("eventTypeLabel", () => {
   it("never marks a type a company added itself", () => {
     // "Provisional" is a statement about OUR homework, not theirs.
     expect(eventTypeLabel({ label: "Beach volleyball" })).toBe("Beach volleyball");
+  });
+});
+
+describe("rugby league games (21 Oct)", () => {
+  it("one choice at import, five games to pick from afterwards", () => {
+    expect(gamesOf("rugby-league").map((t) => t.id)).toEqual(["nrl", "nrl-finals", "nrlw", "nrlw-gf", "nrl-no-extra"]);
+    expect(resolveEventType("rugby-league")?.needsGame).toBe(true);
+  });
+  it("women's regular season and semi-finals end like the men's regular season: golden point, a draw possible", () => {
+    expect(outcomesFor("nrlw", false)).toEqual(outcomesFor("nrl", false));
+    expect(outcomesFor("nrlw", true)).toEqual(["win", "lose", "draw"]);
+  });
+  it("the women's grand final ends like a men's final: extra time, then it must be settled", () => {
+    expect(outcomesFor("nrlw-gf", true)).toEqual(outcomesFor("nrl-finals", true));
+    expect(outcomesFor("nrlw-gf", true)).not.toContain("draw");
+    expect(resolveEventType("nrlw-gf")?.extraLabel).toBe("Extra time");
+  });
+  it("halves: 40 minutes for the men, 35 for the women; half time 15 for both", () => {
+    expect(resolveEventType("nrl")?.game?.halfSec).toBe(2400);
+    expect(resolveEventType("nrlw")?.game?.halfSec).toBe(2100);
+    expect(resolveEventType("nrlw-gf")?.game?.halfTimeSec).toBe(900);
+  });
+  it("before a game is chosen it still offers golden point — most games go somewhere when level", () => {
+    expect(outcomesFor("rugby-league", false)).toContain("golden");
   });
 });

@@ -38,6 +38,16 @@ const crewCode = ((await (
   })
 ).json()) as { code?: string }).code;
 if (!crewCode) throw new Error("Could not make a view-only link for the crew pages.");
+/**
+ * Rugby league with the game not yet chosen, so the sheet pages carry the
+ * match card at its biggest — open, asking which game it is (21 Oct). The
+ * seed sheet has no kind of show, and without one the card never drew.
+ */
+await fetch(`${sync}/rundowns/${sheet}`, {
+  method: "PATCH",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ sport: "rugby-league" }),
+});
 
 // AUDIT_SIZES=laptop,phone runs just those.
 const SIZES = [

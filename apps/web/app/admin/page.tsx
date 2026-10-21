@@ -13,7 +13,7 @@ import { imageFileToDataUrl, pickImage } from "../../lib/pickImage";
 import { AdminNavSection, CredentialsNavSection } from "../../components/AdminNav";
 import { VersionBadge } from "../../components/VersionBadge";
 import { LocationDialog, TimezoneField } from "../../components/TimezoneField";
-import { formatTimeOfDay, formatTimeOfDayWithDay, isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
+import { formatTimeOfDay, formatTimeOfDayWithDay, gamesOf, isValidTimeZone, EVENT_TYPES, eventTypeLabel, resolveEventType, type EventTypeSpec } from "@opencall/core";
 import { ask, askText, say, sayError, showSecret } from "../../lib/dialogs";
 
 /** Event artwork slot: click (or drop an image on it) to set, hover ✕ to clear. */
@@ -1328,10 +1328,26 @@ export default function AdminPage() {
                             <div style={{ color: "var(--text-3)", fontSize: "var(--fs-xs)", padding: "2px 9px 6px", maxWidth: 240, lineHeight: 1.4 }}>
                               This decides which result buttons you get when the show ends. A rugby league match ends differently from a product launch.
                             </div>
+                            {/* Rugby league first, as its games (21 Oct): the rules
+                                differ between men's and women's, season and final,
+                                so the choice is the game, not the sport. */}
+                            <div className="menu-heading">Rugby league — which game?</div>
+                            {gamesOf("rugby-league").map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                className="menu-item"
+                                data-tip={t.game?.rules.join(" ")}
+                                onClick={() => void api.patchRundown(r.id, { sport: t.id }).then(reload)}
+                              >
+                                <span className="check">{(r.sport ?? event.sport) === t.id && Icon.check}</span>
+                                {eventTypeLabel(t)}
+                              </button>
+                            ))}
                             {(["Sport", "Production"] as const).map((g) => (
                               <Fragment key={g}>
-                                <div className="menu-heading">{g}</div>
-                                {EVENT_TYPES.filter((t) => t.group === g).map((t) => (
+                                <div className="menu-heading">{g === "Sport" ? "Other sport" : g}</div>
+                                {EVENT_TYPES.filter((t) => t.group === g && !t.family).map((t) => (
                                   <button
                                     key={t.id}
                                     type="button"

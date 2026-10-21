@@ -5,6 +5,7 @@ import {
   buildSheet,
   classifySheet,
   EVENT_TYPES,
+  resolveEventType,
   eventTypeLabel,
   looksLikeBotchedValue,
   detectRoles,
@@ -195,7 +196,10 @@ const KIND_STYLE: Record<ClassifiedRow["kind"], { label: string; color: string }
  * Everything else stays: the selector is how a sheet gets its rules, and it
  * grows as more sports are added.
  */
-const NOT_AT_IMPORT = new Set(["nrl-no-extra"]);
+// (21 Oct) The specific rugby league games — men's or women's, season or final,
+// or no extra time — are all chosen afterwards, on the dashboard or in the
+// walkthrough's "Set up the match", where the rules are laid out. Import offers
+// "Rugby league" once. See EventTypeDef.notAtImport.
 
 export function ImportPanel({
   eventId,
@@ -743,14 +747,21 @@ export function ImportPanel({
               </label>
               <select
                 className={"input " + (tried && !type ? "field-missing" : "")}
-                value={type ?? ""}
-                onChange={(e) => setType(e.target.value || null)}
+                // A sheet already set to a specific game (updating an import)
+                // shows as "Rugby league" here and KEEPS its game unless the
+                // sport itself is changed.
+                value={(resolveEventType(type, customTypes)?.family ?? type) || ""}
+                onChange={(e) => {
+                  const v = e.target.value || null;
+                  if (v && resolveEventType(type, customTypes)?.family === v) return;
+                  setType(v);
+                }}
                 style={{ minWidth: 190 }}
               >
                 <option value="">Choose…</option>
                 {(["Sport", "Production"] as const).map((g) => (
                   <optgroup key={g} label={g}>
-                    {EVENT_TYPES.filter((t) => t.group === g && !NOT_AT_IMPORT.has(t.id)).map((t) => (
+                    {EVENT_TYPES.filter((t) => t.group === g && !t.notAtImport).map((t) => (
                       <option key={t.id} value={t.id} disabled={t.provisional} className={t.provisional ? "opt-soon" : undefined}>
                         {eventTypeLabel(t)}
                       </option>

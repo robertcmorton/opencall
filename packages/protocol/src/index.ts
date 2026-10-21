@@ -222,6 +222,18 @@ export const SpeakerMessage = z.object({ text: z.string(), from: z.string(), atM
 export type SpeakerMessage = z.infer<typeof SpeakerMessage>;
 export const SpeakerMsg = z.object({ ...envelope, t: z.literal("speaker"), message: SpeakerMessage.nullable() });
 
+/**
+ * The sheet's kind of show changed while screens were open — the dashboard or
+ * the walkthrough's match card picked a different game. Carries what the
+ * welcome would have, so every screen switches without reconnecting (additive).
+ */
+export const KindMsg = z.object({
+  ...envelope,
+  t: z.literal("kind"),
+  sport: z.string().nullable(),
+  eventTypeSpec: z.lazy(() => WelcomeMsg.shape.eventTypeSpec),
+});
+
 export const HeartbeatMsg = z.object({ ...envelope, t: z.literal("hb") });
 
 export const ErrorMsg = z.object({
@@ -239,6 +251,7 @@ export const ServerMsg = z.union([
   DocProjectionMsg,
   PresenceMsg,
   SpeakerMsg,
+  KindMsg,
   HeartbeatMsg,
   ErrorMsg,
 ]);

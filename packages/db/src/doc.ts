@@ -59,6 +59,14 @@ function fillFragment(fragment: Y.XmlFragment, text: string): void {
   fragment.insert(0, [paragraph]);
 }
 
+/** One game's choices on the match card — see `DocMeta.games`. */
+export interface MatchSetup {
+  type?: string;
+  halfSec?: number;
+  halfTimeSec?: number;
+  extraHalfSec?: number;
+}
+
 export interface DocMeta {
   name?: string;
   plannedStartSec?: number | null;
@@ -71,6 +79,14 @@ export interface DocMeta {
   use24h?: boolean;
   /** Free-text version label shown on headers and print ("V2", "FINAL"). */
   versionLabel?: string;
+  /**
+   * Each game on the sheet, by number from "1", where the showcaller changed
+   * it on the match card: which game it is (`type`, a kind-of-show id) and its
+   * own times — a shortened trial, a long half time. Game 1's type is the
+   * sheet's own kind of show and is not stored here; a later game with no
+   * type follows game 1. Any time left out uses the game's rules. Seconds.
+   */
+  games?: Record<string, MatchSetup> | null;
   /**
    * What the source document carried that is NOT the running order — the
    * masthead it printed on every page. Kept because it is about the show, and
@@ -300,6 +316,7 @@ export function projectRundownDoc(doc: Y.Doc): {
     use24h: (metaMap.get("use24h") as boolean | undefined) ?? false,
     showInfo: (metaMap.get("showInfo") as { kind: string; lines: string[] }[] | undefined) ?? [],
     versionLabel: (metaMap.get("versionLabel") as string | undefined) ?? "",
+    games: (metaMap.get("games") as DocMeta["games"] | undefined) ?? null,
     roleColumnKey: (metaMap.get("roleColumnKey") as string | undefined) ?? null,
     // Rundowns made before role columns could be plural carry only the one.
     roleColumnKeys:

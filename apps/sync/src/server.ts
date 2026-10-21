@@ -170,6 +170,28 @@ const broadcast = (rundownId: string, msg: ServerMsg): void => {
   for (const [ws, ctx] of clients) if (ctx.rundownId === rundownId) send(ws, msg);
 };
 
+/**
+ * A sheet's kind of show, falling back to its event's for sheets made before a
+ * sheet could have its own — a match day running netball on one sheet and
+ * rugby league on another needs the answer per sheet. A company's own type is
+ * sent whole, so it behaves live exactly like a built-in one.
+ */
+async function sheetKind(rundownId: string) {
+  const rundownRow = await dbHandle.db.query.rundowns.findFirst({
+    where: eq(schema.rundowns.id, rundownId),
+    columns: { eventId: true, sport: true, homeImage: true, awayImage: true },
+  });
+  const eventRow = rundownRow
+    ? await dbHandle.db.query.events.findFirst({
+        where: eq(schema.events.id, rundownRow.eventId),
+        columns: { teamId: true, timezone: true, sport: true },
+      })
+    : null;
+  const sport = rundownRow?.sport ?? eventRow?.sport ?? undefined;
+  const eventTypeSpec = await customEventTypeSpec(dbHandle.db, sport, eventRow?.teamId);
+  return { rundownRow, eventRow, sport, eventTypeSpec };
+}
+
 const broadcastPresence = (rundownId: string): void => {
   const counts: Partial<Record<Role, number>> = {};
   /**
@@ -360,6 +382,12 @@ const handleApi = createApiHandler(dbHandle, docServer, {
   liveState,
   editTracker,
   cueSignals,
+  // A different game picked on the dashboard or in the walkthrough: every open
+  // screen gets the new endings without reconnecting.
+  kindChanged: async (rundownId) => {
+    const { sport, eventTypeSpec } = await sheetKind(rundownId);
+    broadcast(rundownId, { v: PROTOCOL_VERSION, t: "kind", sport: sport ?? null, eventTypeSpec: eventTypeSpec ?? undefined });
+  },
   // "End event" from the sheet or the dashboard: the show stops with it.
   stopShow: async (rundownId) => {
     const machine = await showStore.get(rundownId);
@@ -538,24 +566,9 @@ wss.on("connection", (ws, req) => {
       }
       const connId = ulid();
       clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo });
-      // The event's location decides the timezone every clock renders in.
-      const rundownRow = await dbHandle.db.query.rundowns.findFirst({
-        where: eq(schema.rundowns.id, rundownId),
-        columns: { eventId: true, sport: true, homeImage: true, awayImage: true },
-      });
-      const eventRow = rundownRow
-        ? await dbHandle.db.query.events.findFirst({
-            where: eq(schema.events.id, rundownRow.eventId),
-            columns: { teamId: true, timezone: true, sport: true },
-          })
-        : null;
-      // THIS sheet's kind of show, falling back to the event's for sheets made
-      // before a sheet could have its own. A match day running netball on one
-      // sheet and rugby league on another needs the answer per sheet.
-      const sport = rundownRow?.sport ?? eventRow?.sport ?? undefined;
-      // Sent whole rather than as a code, so a type a company invented behaves
-      // live exactly like a built-in one without the screen fetching anything.
-      const eventTypeSpec = await customEventTypeSpec(dbHandle.db, sport, eventRow?.teamId);
+      // The event's location decides the timezone every clock renders in;
+      // the sheet's kind of show decides its endings.
+      const { rundownRow, eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);
       send(ws, {
         v: PROTOCOL_VERSION,
         t: "welcome",

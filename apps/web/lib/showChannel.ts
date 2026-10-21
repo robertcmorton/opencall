@@ -209,6 +209,11 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         const msg = JSON.parse(String(event.data));
         if (msg.v !== PROTOCOL_VERSION) return;
         switch (msg.t) {
+          case "kind": {
+            setSport(msg.sport ?? null);
+            setEventTypeSpec((msg.eventTypeSpec as EventTypeSpec | undefined) ?? null);
+            break;
+          }
           case "presence": {
             setPeople(Array.isArray(msg.people) ? msg.people : []);
             break;

@@ -57,6 +57,7 @@ import { exportRundownPdf } from "../lib/exportPdf";
 import { projectRundownDoc, type ColumnDef, type ProjectedRow } from "@opencall/db/doc";
 import { CuePool } from "./CuePool";
 import { ReconcilePanel, findTimingGaps } from "./ReconcilePanel";
+import { MatchCard, type MatchGame, type SheetPeriod } from "./MatchCard";
 import { KeyTimesEditor } from "./KeyTimes";
 /**
  * The cell editor arrives only if somebody edits a cell.
@@ -945,6 +946,14 @@ export function RundownEditor({
     () => resolveEventType(channel.sport, customTypes),
     [channel.sport, customTypes],
   );
+  /**
+   * Each game's own kind, for a sheet carrying more than one (21 Oct, Robert:
+   * "if there are multiple games on the same day we need to make a selection
+   * for each"). Game 1 is the sheet's kind of show; a later game follows it
+   * until the match card gives it its own.
+   */
+  const sportOfGame = (g: number): string | null => (g > 1 ? meta.games?.[String(g)]?.type : undefined) ?? channel.sport;
+  const typeOfGame = (g: number) => (g > 1 && meta.games?.[String(g)]?.type ? resolveEventType(sportOfGame(g), customTypes) : showType);
   const live = useLiveTiming(channel, timing);
   const showIsLive = channel.show?.state === "running" || channel.show?.state === "paused";
   /**
@@ -2305,7 +2314,7 @@ export function RundownEditor({
     // sheet's own wording, stopping at the kick-off so a later game's second
     // half is never mistaken for this one's.
     let notBeforeIndex = -1;
-    const dueAfter = showType?.resultDueAfter;
+    const dueAfter = typeOfGame(g)?.resultDueAfter;
     if (dueAfter && firstEndingIndex > 0) {
       for (let i = firstEndingIndex - 1; i >= 0; i--) {
         if (dueAfter.test(rows[i]!.title)) {
@@ -2346,7 +2355,7 @@ export function RundownEditor({
   /** What the layer header says, and when it begins. */
   const layerLabel = (g: number, layer: 0 | 1): string =>
     layer === 1
-      ? `After ${(showType?.extraLabel ?? "extra time").toLowerCase()}`
+      ? `After ${(typeOfGame(g)?.extraLabel ?? "extra time").toLowerCase()}`
       : outcomesOfGame(g).includes("golden")
         ? "At full time"
         : "How it ends";
@@ -2659,7 +2668,7 @@ export function RundownEditor({
      * of true. The app can build the block on the night now, which is what
      * that offer is FOR.
      */
-    const offered = outcomesFor(channel.sport, outcomeStage(g) === "extra-time", customTypes);
+    const offered = outcomesFor(sportOfGame(g), outcomeStage(g) === "extra-time", customTypes);
     // A type the app does not know, or a sheet with no type set, shows whatever
     // endings the sheet itself carries — better than offering nothing.
     if (offered.length === 0) return [...present];
@@ -2675,9 +2684,9 @@ export function RundownEditor({
     if (present.every((o) => o === "golden")) return offered;
     return offered.filter((o) => present.includes(o));
   };
-  const outcomeLabel = (o: string): string =>
+  const outcomeLabel = (o: string, g = 1): string =>
     o === "golden"
-      ? `⚡ ${showType?.extraLabel ?? "Extra time"}`
+      ? `⚡ ${typeOfGame(g)?.extraLabel ?? "Extra time"}`
       : o === "win"
         ? "Win"
         : o === "lose"
@@ -2812,6 +2821,36 @@ export function RundownEditor({
    * do not are the ones with no game in them or a game played in quarters.
    */
   const phases = useMemo(() => findPhases(rows, gameEnds), [rows, gameEnds]);
+  /** What the sheet's halves and half time add up to, for the match card. */
+  const sheetPeriods = useMemo<SheetPeriod[]>(() => {
+    const out: SheetPeriod[] = [];
+    for (const p of phases) {
+      if (p.kind !== "first-half" && p.kind !== "half-time" && p.kind !== "second-half") continue;
+      const a = timing.rows[p.from]?.startSec;
+      const b = timing.rows[p.to]?.endSec;
+      if (a != null && b != null && b > a) out.push({ kind: p.kind, sec: b - a, game: p.game, startSec: a });
+    }
+    return out;
+  }, [phases, timing]);
+  /** Each game on the sheet, for the match card — one section each. */
+  const matchGames: MatchGame[] = [];
+  if (showType?.family === "rugby-league") {
+    for (let n = 1; n <= Math.max(1, gameEnds.length); n++) {
+      const own = n > 1 ? meta.games?.[String(n)]?.type : undefined;
+      const type = typeOfGame(n);
+      if (!type) continue;
+      const periods = sheetPeriods.filter((p) => p.game === n);
+      const kickOff = periods.find((p) => p.kind === "first-half")?.startSec;
+      matchGames.push({
+        n,
+        type,
+        times: meta.games?.[String(n)] ?? null,
+        periods,
+        kicksOff: kickOff != null ? formatTimeOfDay(kickOff, meta.use24h) : undefined,
+        follows: n > 1 && !own,
+      });
+    }
+  }
   /**
    * Running late into something that must start on time (20 Oct): the start
    * of each half / quarter / extra period, and rows marked "Must start on
@@ -3052,7 +3091,7 @@ export function RundownEditor({
       return {
         key: `end-${e.game}-${e.outcome}-${e.from}`,
         kind: `end-${e.outcome}`,
-        label: outcomeLabel(e.outcome),
+        label: outcomeLabel(e.outcome, e.game),
         short: outcomeChip(e.outcome),
         top,
         height: Math.max(0, bottom - top),
@@ -3126,11 +3165,15 @@ export function RundownEditor({
   const insertGoldenPointAfter = (rowId: string): void => {
     const at = rows.findIndex((r) => r.id === rowId);
     if (at < 0 || !titleColumn) return;
-    const label = showType?.extraLabel ?? "Golden point";
+    const g = gameOfDecision(rowId);
+    const type = typeOfGame(g);
+    const label = type?.extraLabel ?? "Golden point";
     // A competition that cannot end level plays on past the two periods.
-    const mustSettle = (showType?.afterExtra ?? []).length > 0 && !(showType?.afterExtra ?? []).includes("draw");
-    const block = goldenPointBlock(label, mustSettle);
-    const moved = shiftAnchorsAfter(rows, at, goldenPointDurationSec(label, mustSettle));
+    const mustSettle = (type?.afterExtra ?? []).length > 0 && !(type?.afterExtra ?? []).includes("draw");
+    // This match's own length where the match card changed it, else the game's.
+    const halfSec = meta.games?.[String(g)]?.extraHalfSec ?? type?.game?.extraHalfSec ?? undefined;
+    const block = goldenPointBlock(label, mustSettle, halfSec || undefined);
+    const moved = shiftAnchorsAfter(rows, at, goldenPointDurationSec(label, mustSettle, halfSec || undefined));
     doc.transact(() => {
       const order = yOrder.toArray();
       let insertAt = order.indexOf(rowId) + 1;
@@ -3180,8 +3223,9 @@ export function RundownEditor({
    */
   const goldenFor = (rowId: string): { label: string; onInsert: () => void } | null => {
     if (!decisionRowIds.has(rowId)) return null;
-    const label = showType?.extraLabel ?? "Golden point";
-    if (!(showType?.fullTime ?? []).includes("golden")) return null;
+    const type = typeOfGame(gameOfDecision(rowId));
+    const label = type?.extraLabel ?? "Golden point";
+    if (!(type?.fullTime ?? []).includes("golden")) return null;
     // Already built. Offering it again is how a sheet ends up with twenty
     // minutes of football in it at the one moment nobody can stop and look.
     //
@@ -5736,6 +5780,35 @@ export function RundownEditor({
         )}
       </div>
 
+      {/* Before the show only: once it has ended the game no longer decides anything. */}
+      {matchGames.length > 0 && channel.show?.state !== "ended" && !showLive && rows.length > 0 && (
+        <MatchCard
+          games={matchGames}
+          canChange={mayDrive || canEditContent}
+          onPick={async (n, id) => {
+            // Game 1 is the sheet's own kind of show, so the dashboard and
+            // every screen agree on it; a later game's lives in the sheet.
+            if (n === 1) await api.patchRundown(rundownId, { sport: id });
+            const m = doc.getMap("meta");
+            const all = { ...((m.get("games") as Record<string, object> | undefined) ?? {}) };
+            // A new game starts from its own rules, not the last game's changes.
+            if (n === 1) delete all["1"];
+            else all[String(n)] = { type: id };
+            if (Object.keys(all).length) m.set("games", all);
+            else if (m.has("games")) m.delete("games");
+          }}
+          onTimes={(n, next) => {
+            const m = doc.getMap("meta");
+            const all = { ...((m.get("games") as Record<string, { type?: string }> | undefined) ?? {}) };
+            const type = all[String(n)]?.type;
+            const merged = { ...(type ? { type } : {}), ...(next ?? {}) };
+            if (Object.keys(merged).length) all[String(n)] = merged;
+            else delete all[String(n)];
+            if (Object.keys(all).length) m.set("games", all);
+            else if (m.has("games")) m.delete("games");
+          }}
+        />
+      )}
       {reconciling && (
         <ReconcilePanel
           doc={doc}
@@ -6424,7 +6497,7 @@ export function RundownEditor({
                                 {outcomeLayout === "layers" && t.altStartSec != null && (
                                   <span
                                     className="alt-time"
-                                    data-tip={`Or ${formatTimeOfDay(t.altStartSec, meta.use24h)}, if the match goes to ${(showType?.extraLabel ?? "extra time").toLowerCase()} first`}
+                                    data-tip={`Or ${formatTimeOfDay(t.altStartSec, meta.use24h)}, if the match goes to ${(typeOfGame(rowRecord.outcomeGame ?? 1)?.extraLabel ?? "extra time").toLowerCase()} first`}
                                   >
                                     or {formatTimeOfDay(t.altStartSec, meta.use24h)}
                                   </span>
@@ -6487,7 +6560,7 @@ export function RundownEditor({
                             </span>
                             {visibleOutcomesOf(game).map((o) => (
                               <span key={o} className={`fork-chip oc-rail-${o}`}>
-                                {outcomeLabel(o)}
+                                {outcomeLabel(o, game)}
                               </span>
                             ))}
                           </>,
@@ -6588,7 +6661,7 @@ export function RundownEditor({
                 {outcomeStage(activeGame) === "missed"
                   ? <>{Icon.warning} The result was never called — the show has moved on</>
                   : outcomeStage(activeGame) === "extra-time"
-                    ? `⚡ ${showType?.extraLabel ?? "Extra time"} — call the result`
+                    ? `⚡ ${typeOfGame(activeGame)?.extraLabel ?? "Extra time"} — call the result`
                     : "Full time — call the result"}
               </span>
             )}
@@ -6618,7 +6691,7 @@ export function RundownEditor({
                 }
                 onClick={() => pickOutcome(o, activeGame)}
               >
-                {outcomeLabel(o)}
+                {outcomeLabel(o, activeGame)}
               </button>
             ))}
             {chosenOf(activeGame) && (

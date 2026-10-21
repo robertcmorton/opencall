@@ -86,8 +86,12 @@ produce.
 
 | id | Label | Shape | Extra period | Result due after |
 |---|---|---|---|---|
-| `nrl` | Rugby league (NRL) — regular season | extraCanDraw | Golden point | second half |
-| `nrl-finals` | Rugby league (NRL) — final | extraMustSettle | Golden point | second half |
+| `rugby-league` | Rugby league *(game not chosen yet)* | extraCanDraw | Golden point | second half |
+| `nrl` | Men's (NRL) — regular season | extraCanDraw | Golden point | second half |
+| `nrl-finals` | Men's (NRL) — finals | extraMustSettle | Extra time, then golden point | second half |
+| `nrlw` | Women's (NRLW) — regular season & semi-finals | extraCanDraw | Golden point | second half |
+| `nrlw-gf` | Women's (NRLW) — grand final | extraMustSettle | Extra time, then golden point | second half |
+| `nrl-no-extra` | No extra time (junior, trial, exhibition) | drawAtFullTime | — | second half |
 | `afl` | Australian rules (AFL) | drawAtFullTime | — | final/4th quarter or term |
 | `afl-finals` | AFL — final | extraMustSettle | Extra time | final/4th quarter or term |
 | `soccer` | Football — league | drawAtFullTime | — | second half |
@@ -101,9 +105,21 @@ produce.
 
 Notes on the ones that are easy to get wrong:
 
-- **Regular-season NRL is the only `extraCanDraw`.** Golden point runs a fixed
-  ten minutes and a match nobody wins in that time is a draw. Everywhere else —
-  including an NRL final — the extra period is played until somebody leads.
+- **Golden point that can end level is the regular season's.** `nrl` and `nrlw`
+  are `extraCanDraw`: golden point runs a fixed ten minutes and a match nobody
+  wins in that time is a draw. Everywhere else — an NRL final, the NRLW grand
+  final — the extra period is played until somebody leads.
+- **Rugby league is chosen in two steps.** Import offers only **Rugby league**
+  (`rugby-league`, marked `needsGame`); the game itself — men's or women's,
+  season or final — is picked on the dashboard or on the show page's match
+  card, where its rules and lengths are shown. The games carry a `family` and
+  `notAtImport`, and `gamesOf("rugby-league")` lists them in order.
+- **A sheet can hold more than one game, each its own kind.** A double-header
+  can be the women's game then the men's. Game 1 is the sheet's own kind of
+  show (the one the dashboard shows); a later game's choice lives in the doc's
+  `meta.games["2"].type`, and follows game 1 until it has one. Games are
+  numbered as the endings are (`outcomeGame`), so the result buttons, the
+  extra-period label and "Build extra time" all follow the game they belong to.
 - **Test cricket has no `resultDueAfter`.** Five days with no "second half" to
   match on; it falls back to the buffer alone, which asks late rather than never.
 - **`cricket` and `soccer` keep their old ids** rather than being renamed to
@@ -119,9 +135,14 @@ Notes on the ones that are easy to get wrong:
 Written down because it is the shape most of these sheets have, and because
 two of its numbers are easy to get wrong.
 
-**The two halves are 40 minutes each.** They are the longest rows on the sheet
-and they carry a real duration; if a half imports as anything else, something
-has gone wrong reading the source.
+**The two halves are 40 minutes each in the men's game and 35 in the women's.**
+They are the longest rows on the sheet and they carry a real duration; if a
+half imports as anything else, something has gone wrong reading the source —
+or the game is the other competition's. Half time is 15:00 on nearly every
+sample sheet, in both. These are starting values: the match card stores a
+sheet's own figures per game in the doc's `meta.games` (`halfSec`,
+`halfTimeSec`, `extraHalfSec`), and the extra-period length is what "Build
+extra time" uses.
 
 **The 5-minute block after each half is not extra content.** Run sheets write
 a 5:00 row (often labelled "Extra time", "Extra Buffer", "Extra Time Buffer")
@@ -142,12 +163,22 @@ minutes the match is a draw and each side takes a competition point. This is
 why `nrl` offers Win / Lose / Golden point at full time and Win / Lose /
 **Draw** after it.
 
-**Golden point, finals: the same ten minutes, then it is played out.** Five
-minutes each way as in the regular season; if the scores are still level there
-is a short break and a new coin toss, and further periods are played until
-somebody scores. A final cannot be drawn. That is a different shape from the
-regular season and it has its own kind of show, `nrl-finals`, which offers no
-Draw at all.
+**Finals: extra time played in full, then golden point.** Level at full time
+in any men's final, the grand final included, a coin toss is followed by
+**extra time** — five minutes each way, played out in full whatever the score
+(it is NOT sudden death; a try in the third minute does not end it). Still
+level after those ten minutes, the match goes to **golden point**, continuous
+and unlimited, until somebody scores. A final cannot be drawn. That is a
+different shape from the regular season and it has its own kind of show,
+`nrl-finals`, which offers no Draw at all. (Corrected 21 Oct 2026: this
+paragraph used to call the first ten minutes golden point.)
+
+**The women's game (NRLW).** Two 35-minute halves. In the regular season and
+the semi-finals, level at full time goes to golden point — up to five minutes
+each way, first score wins, and nobody scoring is a draw: `nrlw`, the same shape
+as `nrl`. The **grand final** alone plays five minutes each way of extra time in
+full, then golden point with no time limit and no change of ends: `nrlw-gf`,
+the same shape as `nrl-finals`. The 2026 season kept 2025's rules.
 
   Because the end of a final is genuinely open-ended, no sheet can put a
   duration on it. Leave the block untimed rather than guessing at one: the app
@@ -163,8 +194,10 @@ Golden point replaced that in 2003 for the regular season, and the current
 finals structure (five each way, then sudden death) dates from 2016. If a
 template or an old sheet carries 2 × 10:00, that is where it came from.
 
-Sources for the two golden-point rules:
+Sources for the golden-point rules (checked 21 Oct 2026):
 [NRL statement on extra time in finals](https://www.nrl.com/news/2016/07/08/nrl-statement-extra-time-in-finals-matches/) ·
+[NRL finals series (Wikipedia)](https://en.wikipedia.org/wiki/NRL_finals_series) ·
+NRLW premiership rules and the 2026 NRLW rules explainer, both on nrl.com ·
 [Golden point (Wikipedia)](https://en.wikipedia.org/wiki/Golden_point)
 
 ### Custom kinds

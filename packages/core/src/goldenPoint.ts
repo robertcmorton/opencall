@@ -36,7 +36,7 @@ export interface GoldenPointRow {
  */
 export const HOLDING_SEC = 120;
 
-/** Each half of golden point. Fixed by the competition: five minutes a side. */
+/** Each half of golden point or extra time, by default: five minutes a side in every competition this knows. A match card can change it for one sheet. */
 export const GOLDEN_HALF_SEC = 300;
 
 /** The unlimited period a final goes to when extra time settles nothing. */
@@ -74,7 +74,7 @@ export const SUDDEN_DEATH_TITLE = "Golden point";
  * writes a thing whose end nobody knows. Leaving it off would be worse — the
  * sheet would run out of rows while a final was still being played.
  */
-export function goldenPointBlock(label = "Golden point", mustSettle = false): GoldenPointRow[] {
+export function goldenPointBlock(label = "Golden point", mustSettle = false, halfSec = GOLDEN_HALF_SEC): GoldenPointRow[] {
   const block: GoldenPointRow[] = [
     /**
      * A FINAL TOSSES A COIN BEFORE EXTRA TIME, and it is in the laws rather
@@ -90,9 +90,9 @@ export function goldenPointBlock(label = "Golden point", mustSettle = false): Go
      * document does not mention.
      */
     { type: "cue", title: mustSettle ? "HOLDING — coin toss" : "HOLDING", durationSec: HOLDING_SEC },
-    { type: "cue", title: `${label} — first half`, durationSec: GOLDEN_HALF_SEC },
+    { type: "cue", title: `${label} — first half`, durationSec: halfSec },
     { type: "cue", title: "HOLDING", durationSec: HOLDING_SEC },
-    { type: "cue", title: `${label} — second half`, durationSec: GOLDEN_HALF_SEC },
+    { type: "cue", title: `${label} — second half`, durationSec: halfSec },
   ];
   if (mustSettle) {
     block.push(
@@ -151,8 +151,8 @@ export const isSuddenDeathRow = (title: string | null | undefined): boolean => {
  * until it is over. Everything printed after the block moves by this much and
  * then moves again if that period is ever played.
  */
-export const goldenPointDurationSec = (label?: string, mustSettle?: boolean): number =>
-  goldenPointBlock(label, mustSettle).reduce((total, r) => total + (r.durationSec ?? 0), 0);
+export const goldenPointDurationSec = (label?: string, mustSettle?: boolean, halfSec?: number): number =>
+  goldenPointBlock(label, mustSettle, halfSec).reduce((total, r) => total + (r.durationSec ?? 0), 0);
 
 /** The shape this needs from a row: only its printed start, if it has one. */
 export interface Anchoredish {

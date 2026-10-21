@@ -130,6 +130,19 @@ describe("findDecisionPoints", () => {
   });
 });
 
+describe("goldenPointBlock — the match's own length", () => {
+  it("uses the length the match card set, and only for the periods", () => {
+    const block = goldenPointBlock("Golden point", false, 4 * 60);
+    expect(block.filter((r) => /half$/.test(r.title)).map((r) => r.durationSec)).toEqual([240, 240]);
+    expect(block.filter((r) => r.title.startsWith("HOLDING")).every((r) => r.durationSec === HOLDING_SEC)).toBe(true);
+    expect(goldenPointDurationSec("Golden point", false, 4 * 60)).toBe(2 * 240 + 2 * HOLDING_SEC);
+  });
+
+  it("falls back to five minutes when none is given", () => {
+    expect(goldenPointBlock("Extra time", true, undefined)[1]?.durationSec).toBe(GOLDEN_HALF_SEC);
+  });
+});
+
 describe("goldenPointBlock — a final cannot end level", () => {
   // Regular season: the ten minutes are sudden death and nobody scoring is a
   // draw, so the block ends where the second half does.

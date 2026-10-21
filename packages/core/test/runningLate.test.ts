@@ -172,3 +172,60 @@ describe("what could be trimmed (21 Oct)", () => {
   });
 });
 
+describe("muted items inside a block still hold the plan (21 Oct: '12:21 to spare' on time)", () => {
+  // HALF TIME 15:00 from 8:38 carries the time; the items printed inside it
+  // are MUTED (out of the cascade's sum) but keep their printed times and
+  // their own lengths. The live cue is on one of them.
+  const M = 60;
+  const T = 20 * H + 38 * M; // 8:38 pm
+  const r = [
+    row("halftime", { durationSec: 15 * M }),
+    row("relay", { durationSec: 5 * M, durationMuted: true }),
+    row("reel", { durationSec: 105, durationMuted: true }),
+    row("intro", { durationSec: 15, durationMuted: true }),
+    row("squat", { durationSec: 2 * M, durationMuted: true }),
+    row("bell", { durationSec: 4 * M, parallel: true }),
+    row("entry", { durationSec: 4 * M + 30, durationMuted: true }),
+    row("half2", { durationSec: 45 * M }),
+  ];
+  const tm: LateTiming[] = [
+    { startSec: T, effectiveDurationSec: 15 * M },
+    { startSec: T + 3 * M + 30, effectiveDurationSec: 0 }, // 8:41:30
+    { startSec: T + 8 * M + 30, effectiveDurationSec: 0 }, // 8:46:30
+    { startSec: T + 10 * M + 15, effectiveDurationSec: 0 }, // 8:48:15
+    { startSec: T + 10 * M + 30, effectiveDurationSec: 0 }, // 8:48:30
+    { startSec: T + 11 * M, effectiveDurationSec: 240 },
+    { startSec: T + 12 * M + 30, effectiveDurationSec: 0 }, // 8:50:30 → 8:55?
+    { startSec: T + 15 * M, effectiveDurationSec: 45 * M }, // 8:53
+  ];
+  // The entry runs 8:50:30–8:55:00 on paper: two minutes past the half, so
+  // the plan itself is 2:00 late; the test below accounts for it.
+  const tg = fixedTargets(r, tm, [{ from: 7, kind: "second-half", label: "2nd half" }], (i) => r[i]!.id);
+  it("on a muted item, on time, the 2nd half is not 'all the way to spare'", () => {
+    // Relay on air at 8:44:30, cued at 8:41:30 — on time, two minutes of its
+    // five left. The live timer, which gives a muted row no length, reports
+    // that as 3:00 over (−180).
+    const a = arrivalAtNextFixed(r, tm, tg, 1, -180, T + 6 * M + 30)!;
+    // On plan, the printed items reach 8:55:00 — 2:00 past the 8:53 half.
+    expect(a.overSec).toBe(120);
+  });
+  it("forty-six seconds over on a muted item is forty-six seconds more", () => {
+    // 8:47:16, cued at 8:41:30: 5:46 in, so the live timer says −346.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, -346, T + 9 * M + 16)!;
+    expect(a.overSec).toBe(120 + 46);
+  });
+  it("striking a muted item gives its time back", () => {
+    const struck = r.map((x) => (x.id === "entry" ? { ...x, skipped: true } : x));
+    const a = arrivalAtNextFixed(struck, tm, tg, 1, -180, T + 6 * M + 30)!;
+    // Without the entry the printed plan ends at 8:50:30 — 2:30 in hand.
+    expect(a.overSec).toBe(-150);
+  });
+  it("a muted item on air is measured by its own length, not the live timer's zero", () => {
+    // Relay (5:00, muted) cued at 8:41:30; at 8:43:55 the live timer, which
+    // gives it no length, says 2:25 over. By its own five minutes it has 2:35
+    // left and is exactly on time.
+    const a = arrivalAtNextFixed(r, tm, tg, 1, -145, T + 5 * M + 55)!;
+    expect(a.overSec).toBe(120);
+  });
+});
+

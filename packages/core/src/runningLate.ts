@@ -17,6 +17,8 @@ export interface LateRow {
   durationMuted?: boolean;
   /** A branch of the endings: played only if chosen, so not counted on the way. */
   outcome?: string | null;
+  /** Its own length, which a MUTED row still has — see `lengthOnTheWay`. */
+  durationSec?: number | null;
   mustStart?: boolean;
 }
 
@@ -76,9 +78,23 @@ export function fixedTargets(
   return [...out.values()].sort((a, b) => a.index - b.index);
 }
 
-/** Does this row take time on the way to the target? */
-export const countsOnTheWay = (r: LateRow): boolean =>
-  r.type !== "group" && !r.parallel && !r.skipped && !r.durationMuted && !r.outcome;
+/**
+ * Does this row take time on the way to the target?
+ *
+ * MUTED ROWS DO (21 Oct). A muted row is out of the cascade's sum because
+ * something else carries its time — the half-time items printed inside a
+ * HALF TIME 15:00 block, a stoppage buffer — but it is still on the plan, at
+ * its printed time, for its own length. Leaving it out made those items empty
+ * air: with the cue on a half-time item, the next fixed time read "12:21 to
+ * spare" — every minute to the 2nd half — on a show running to time. Counted
+ * by its own start and length, the overlap rule in `carry` keeps a block and
+ * its contents from ever counting twice.
+ */
+export const countsOnTheWay = (r: LateRow): boolean => r.type !== "group" && !r.parallel && !r.skipped && !r.outcome;
+
+/** How long a row holds the plan: its own length if muted, else what the cascade gives it. */
+const lengthOnTheWay = (r: LateRow, t: LateTiming | undefined): number =>
+  r.durationMuted ? Math.max(0, r.durationSec ?? 0) : (t?.effectiveDurationSec ?? 0);
 
 export interface Arrival {
   target: FixedTarget;
@@ -122,9 +138,12 @@ function carry(
     const start = timing[i]?.startSec;
     if (start == null) continue;
     if (start > frontier) late -= start - frontier;
-    frontier = Math.max(frontier, start + (timing[i]?.effectiveDurationSec ?? 0));
+    frontier = Math.max(frontier, start + lengthOnTheWay(rows[i]!, timing[i]));
   }
+  // Room before the fixed time takes lateness up; items PRINTED to run past
+  // it are late by that much even if every one runs to plan.
   if (target.atSec > frontier) late -= target.atSec - frontier;
+  else late += frontier - target.atSec;
   return late;
 }
 
@@ -147,9 +166,17 @@ export function arrivalAtNextFixed(
   if (activeIndex < 0) return null;
   const target = targets.find((t) => t.index > activeIndex);
   if (!target) return null;
-  const endsSec = nowSec + Math.max(0, remainingInRowSec ?? 0);
+  // What is left of the item on air, by ITS OWN length. The live timer
+  // measures a muted row against the cascade's length for it — none — so a
+  // five-minute item two minutes in reads "+2:00 over"; measured by its own
+  // five minutes, three are left.
+  const activeRow = rows[activeIndex] ?? { id: "", type: "cue" };
+  const ownLen = lengthOnTheWay(activeRow, timing[activeIndex]);
+  const cascadeLen = timing[activeIndex]?.effectiveDurationSec ?? 0;
+  const left = (remainingInRowSec ?? cascadeLen) + (ownLen - cascadeLen);
+  const endsSec = nowSec + Math.max(0, left);
   const plannedStart = timing[activeIndex]?.startSec ?? nowSec;
-  const plannedEnd = plannedStart + (timing[activeIndex]?.effectiveDurationSec ?? 0);
+  const plannedEnd = plannedStart + ownLen;
   const late = carry(rows, timing, activeIndex + 1, plannedEnd, endsSec - plannedEnd, target);
   const arrives = target.atSec + late;
   return { target, arrivesSec: arrives, overSec: Math.round(late), untilSec: target.atSec - nowSec };

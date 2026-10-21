@@ -173,12 +173,18 @@ export function Stopwatch() {
       </button>
       <button
         type="button"
-        className="btn btn-sm btn-ghost"
+        className="btn btn-sm btn-ghost sw-reset"
         onClick={reset}
         disabled={elapsed === 0}
+        aria-label="Reset the stopwatch"
         data-tip="Back to zero"
       >
-        Reset
+        {/* The word on a desk, the symbol on a phone, where the stopwatch has a
+            quarter of a row (21 Oct). */}
+        <span className="sw-reset-word">Reset</span>
+        <span className="sw-reset-icon" aria-hidden="true">
+          ↺
+        </span>
       </button>
     </span>
   );

@@ -4182,8 +4182,13 @@ th.col-drop-target {
    your typing is the worst one to have the sheet showing through.          */
 .edit-lock-bar {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centred without a transform, which would make the bar the containing
+     block for its buttons' fixed hover tips and put them in the wrong place
+     (the same trap as the running-late list, 21 Oct). */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   bottom: calc(16px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--nudgedock-h, 0px) + max(var(--outcomedock-h, 0px), var(--enddock-h, 0px)));
   z-index: 95;
   display: flex;
@@ -6625,11 +6630,18 @@ a > svg,
 .rl-list {
   position: absolute;
   top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centred WITHOUT a transform (21 Oct). A transform makes this box the
+     containing block for `position: fixed`, so every button's hover tip —
+     placed in screen coordinates — landed inside the list instead, invisible
+     but widening it: 381px wide, 1768px to scroll, on Robert's iPad a list
+     cut off on the left with blank space on the right. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   z-index: 90;
   width: min(420px, calc(100vw - 32px));
   max-height: 60vh;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: var(--space-3);
   text-align: left;
@@ -6669,10 +6681,20 @@ a > svg,
   color: var(--text-3);
 }
 .rl-title {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+/* The words shorten; a "can drop" tag beside them stays whole and in the box. */
+.rl-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.rl-tag {
+  flex: none;
 }
 .rl-tag {
   margin-left: 6px;

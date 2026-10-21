@@ -86,17 +86,19 @@ export function RunningLate({
               {target.name} must start at {at}
             </strong>
             <span className={overSec > 0 ? "rl-need" : "rl-ok"}>
-              {overSec > 0 ? `Find ${lateAmount(overSec)} before then` : "On course — nothing to find"}
+              {overSec > 0 ? `Find ${lateAmount(overSec)} before then` : `${overSec < 0 ? `${lateAmount(overSec)} to spare` : "On time"} — nothing to trim`}
             </span>
           </div>
-          {trims.length === 0 ? (
+          {/* With time in hand there is nothing to find, so no list of things
+              to cut (21 Oct: a dozen Strike buttons under "nothing to find"). */}
+          {overSec <= 0 ? null : trims.length === 0 ? (
             <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
           ) : (
             <ul>
               {trims.map((t) => (
                 <li key={t.id} className={t.struck ? "is-struck" : undefined}>
                   <span className="rl-title">
-                    {t.title || "Untitled item"}
+                    <span className="rl-text">{t.title || "Untitled item"}</span>
                     {t.canDrop && <span className="rl-tag">can drop</span>}
                   </span>
                   <span className="rl-dur">{formatDuration(t.durationSec)}</span>
@@ -120,9 +122,11 @@ export function RunningLate({
               ))}
             </ul>
           )}
-          <p className="rl-foot">
-            Strikes and trims move the times up to {target.name}, never {target.name} itself. One undo takes each back.
-          </p>
+          {overSec > 0 && (
+            <p className="rl-foot">
+              Strikes and trims move the times up to {target.name}, never {target.name} itself. One undo takes each back.
+            </p>
+          )}
         </div>
       )}
     </div>

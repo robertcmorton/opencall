@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The running-late list no longer scrolls sideways or leaves blank space.** On an iPad it opened cut off on the left with empty space on the right, because the hover tips of its buttons were being laid out inside it. With time to spare it now just says so — "15:00 to spare — nothing to trim" — instead of listing a dozen things to cut, and a **can drop** tag stays whole beside a long title. The editing bar at the foot of the sheet had the same fault in its tips, fixed the same way.
 - **Each game on a sheet is chosen on its own.** Changing game 1 also changed any later game you hadn't set yourself; now a later game keeps what it was.
 - **The Match line only offers what does something.** Each half and half time are shown as facts — the rules' figure beside what the sheet's rows add up to — rather than boxes that changed nothing. The golden point or extra time length stays adjustable, and the line now says what it's for: the length **⚡ Add** builds on the night.
 - **On a phone, the Full time line and the ending lines are readable.** They were drawn in the narrow duration column, one word to a line — "FULL TIME / Win / called / Chang" — with **Change** cut off at the edge of the screen and the item column beside them empty. They now sit in the item column, where every row's own text goes.

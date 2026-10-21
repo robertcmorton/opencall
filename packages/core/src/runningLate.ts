@@ -36,6 +36,8 @@ export interface FixedTarget {
   name: string;
   /** The time it must start, on the sheet's scale. */
   atSec: number;
+  /** Which game on the day it belongs to, from 1 (a double-header has two first halves). */
+  game?: number;
 }
 
 /**
@@ -46,18 +48,30 @@ export interface FixedTarget {
 export function fixedTargets(
   rows: readonly LateRow[],
   timing: readonly LateTiming[],
-  periods: readonly { from: number; kind: string; label: string }[],
+  periods: readonly { from: number; to?: number; kind: string; label: string; game?: number }[],
   titleOf: (index: number) => string,
 ): FixedTarget[] {
   const out = new Map<number, FixedTarget>();
   for (const p of periods) {
     if (!MUST_START_PERIODS.has(p.kind)) continue;
+    // An ENDING is not a fixed time: golden point happens only if the scores
+    // are level (21 Oct — it was listed as "Game 58 · Golden point must
+    // start at 2:27"). Only the halves of the game itself must be made.
+    if (rows[p.from]?.outcome) continue;
     const at = timing[p.from]?.startSec;
-    if (at != null) out.set(p.from, { index: p.from, name: p.label, atSec: at });
+    if (at != null) out.set(p.from, { index: p.from, name: p.label, atSec: at, ...(p.game != null ? { game: p.game } : {}) });
   }
+  // A row marked by hand belongs to the game of the period it sits in, or the
+  // one before it.
+  const gameAt = (i: number): number | undefined => {
+    let g: number | undefined;
+    for (const p of periods) if (p.from <= i && p.game != null) g = p.game;
+    return g;
+  };
   rows.forEach((r, i) => {
     const at = timing[i]?.startSec;
-    if (r.mustStart && at != null && !out.has(i)) out.set(i, { index: i, name: titleOf(i) || "Fixed time", atSec: at });
+    const game = gameAt(i);
+    if (r.mustStart && at != null && !out.has(i)) out.set(i, { index: i, name: titleOf(i) || "Fixed time", atSec: at, ...(game != null ? { game } : {}) });
   });
   return [...out.values()].sort((a, b) => a.index - b.index);
 }
@@ -98,6 +112,39 @@ export function arrivalAtNextFixed(
   let arrives = nowSec + Math.max(0, remainingInRowSec ?? 0);
   for (let i = activeIndex + 1; i < target.index; i++) if (countsOnTheWay(rows[i]!)) arrives += timing[i]?.effectiveDurationSec ?? 0;
   return { target, arrivesSec: arrives, overSec: Math.round(arrives - target.atSec), untilSec: target.atSec - nowSec };
+}
+
+/**
+ * Every fixed time still ahead, in order, with how the show will arrive at
+ * each (21 Oct, Robert: "game 1 – 1st half start and time, and how much
+ * running over; game 1 – 2nd half…; game 2…").
+ *
+ * The first is `arrivalAtNextFixed`. Each one after starts from the one
+ * before: from when the show reaches it if that is LATE (the lateness carries
+ * on), from its fixed time if early (nothing starts before its time — the
+ * show holds), then adds the items between.
+ */
+export function arrivalsAhead(
+  rows: readonly LateRow[],
+  timing: readonly LateTiming[],
+  targets: readonly FixedTarget[],
+  activeIndex: number,
+  remainingInRowSec: number | null,
+  nowSec: number,
+): Arrival[] {
+  const first = arrivalAtNextFixed(rows, timing, targets, activeIndex, remainingInRowSec, nowSec);
+  if (!first) return [];
+  const out: Arrival[] = [first];
+  let prev = first;
+  for (const target of targets) {
+    if (target.index <= prev.target.index) continue;
+    let arrives = Math.max(prev.arrivesSec, prev.target.atSec);
+    for (let i = prev.target.index; i < target.index; i++) if (countsOnTheWay(rows[i]!)) arrives += timing[i]?.effectiveDurationSec ?? 0;
+    const next: Arrival = { target, arrivesSec: arrives, overSec: Math.round(arrives - target.atSec), untilSec: target.atSec - nowSec };
+    out.push(next);
+    prev = next;
+  }
+  return out;
 }
 
 export type LateLevel = "far" | "spare" | "over" | "urgent";

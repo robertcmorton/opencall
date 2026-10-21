@@ -6567,10 +6567,12 @@ a > svg,
   width: 100%;
 }
 .rl-pill {
-  display: inline-flex;
+  /* The full width of the show controls above it (21 Oct). */
+  display: flex;
+  justify-content: center;
   align-items: baseline;
   gap: var(--space-2);
-  max-width: 100%;
+  width: 100%;
   padding: 3px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-pill);
@@ -6593,6 +6595,22 @@ a > svg,
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+.rl-until {
+  color: var(--text-2);
+}
+.rl-pill {
+  position: relative;
+  padding-right: 28px;
+}
+/* At the right end, out of the centred words' way. */
+.rl-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 11px;
 }
 .rl-verdict {
   text-transform: uppercase;
@@ -6639,7 +6657,7 @@ a > svg,
   right: 0;
   margin-inline: auto;
   z-index: 90;
-  width: min(420px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   max-height: 60vh;
   overflow-x: hidden;
   overflow-y: auto;
@@ -7141,4 +7159,74 @@ a > svg,
   .crew-message.fresh {
     animation: none;
   }
+}
+
+/* Every fixed time ahead, in the running-late list (21 Oct): pick one to see
+   what could be trimmed before it. */
+.rl-list ul.rl-targets {
+  margin-bottom: var(--space-3);
+  gap: 2px;
+}
+.rl-list .rl-targets li {
+  display: block;
+  padding: 0;
+  border-top: 0;
+}
+.rl-target {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .rl-target {
+    min-height: 44px;
+  }
+}
+.rl-target:hover {
+  background: var(--surface-2);
+}
+.rl-target.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.rl-t-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rl-t-at,
+.rl-t-until {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.rl-t-verdict {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.rl-target.is-over .rl-t-verdict {
+  color: var(--warn);
+}
+.rl-target.is-ok .rl-t-verdict {
+  color: var(--under);
+}
+.rl-list .rl-targets li.rl-more {
+  padding: 4px 8px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
 }

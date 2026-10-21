@@ -29,7 +29,16 @@ const trims: TrimRow[] = Array.from({ length: 10 }, (_, i) => ({
   struck: false,
 }));
 
-const draw = (overSec: number) => {
+const H = 3600;
+const target = (index: number, name: string, atSec: number, game: number) => ({ index, name, atSec, game });
+/** Game 1's two halves and game 2's first, the next one `overSec` late or early. */
+const arrivalsFor = (overSec: number) => [
+  { target: target(5, "1st half", 17 * H + 40 * 60, 1), arrivesSec: 17 * H + 40 * 60 + overSec, overSec, untilSec: 600 },
+  { target: target(9, "2nd half", 18 * H + 35 * 60, 1), arrivesSec: 18 * H + 35 * 60 + Math.max(0, overSec), overSec: Math.max(0, overSec), untilSec: 3900 },
+  { target: target(30, "1st half", 20 * H, 2), arrivesSec: 20 * H, overSec: 0, untilSec: 9000 },
+];
+
+const draw = (overSec: number, onStrike: (id: string, t: number) => void = () => undefined) => {
   const el = document.createElement("div");
   el.style.cssText = "width: 560px; margin: 0 auto;";
   document.body.appendChild(el);
@@ -37,12 +46,13 @@ const draw = (overSec: number) => {
   act(() =>
     root!.render(
       <RunningLate
-        arrival={{ target: { name: "1st half", atSec: 63600 }, overSec, arrivesSec: 63600 + overSec, untilSec: 600 } as never}
+        arrivals={arrivalsFor(overSec) as never}
         level={(overSec > 0 ? "over" : "spare") as never}
         use24h={false}
-        trims={trims}
+        manyGames
+        trimsFor={() => trims}
         canEdit
-        onStrike={() => undefined}
+        onStrike={onStrike}
         onTrim={() => undefined}
       />,
     ),
@@ -67,7 +77,34 @@ describe("running late — the list of what could be trimmed", () => {
 
   it("lists nothing to trim when there is time to spare", () => {
     const list = draw(-900);
-    expect(list.querySelectorAll("li").length).toBe(0);
+    expect(list.querySelectorAll(".rl-actions").length).toBe(0);
     expect(list.textContent).toContain("15:00 to spare");
+  });
+
+  it("says how long until the next fixed time, on the line itself", () => {
+    const list = draw(-900);
+    const pill = list.parentElement!.querySelector(".rl-pill")!.textContent!;
+    expect(pill).toContain("Game 1 · 1st half");
+    expect(pill).toContain("in 10:00");
+  });
+
+  it("lists every half of every game ahead, with its time and how it will arrive", () => {
+    const list = draw(80);
+    const lines = [...list.querySelectorAll(".rl-target")].map((b) => b.textContent);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("Game 1 · 1st half");
+    expect(lines[0]).toContain("1:20 over");
+    expect(lines[1]).toContain("Game 1 · 2nd half");
+    expect(lines[2]).toContain("Game 2 · 1st half");
+    expect(lines[2]).toContain("on time");
+  });
+
+  it("trims before whichever one is picked", () => {
+    const struck: [string, number][] = [];
+    const list = draw(80, (id, t) => void struck.push([id, t]));
+    act(() => list.querySelectorAll<HTMLButtonElement>(".rl-target")[1]!.click());
+    expect(list.querySelector(".rl-head")!.textContent).toContain("Game 1 · 2nd half must start");
+    act(() => [...list.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Strike")!.click());
+    expect(struck).toEqual([["0", 9]]);
   });
 });

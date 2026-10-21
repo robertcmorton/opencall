@@ -50,7 +50,7 @@ import {
   parseTimeOfDay,
   serializeCsv,
   startEditKind,
-  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalAtNextFixed, lateLevel, trimOptions, cueWindows, type PlanTiming,
+  zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalsAhead, lateLevel, trimOptions, cueWindows, type PlanTiming,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -2935,9 +2935,10 @@ export function RundownEditor({
     [rows, timing, phases],
   );
   const lateActiveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-  const arrival =
+  /** Every fixed time ahead, the next first — see `arrivalsAhead`. */
+  const arrivals =
     isShow && showLive && lateActiveIdx >= 0 && fixedTimes.length > 0
-      ? arrivalAtNextFixed(
+      ? arrivalsAhead(
           rows,
           timing.rows,
           fixedTimes,
@@ -2945,7 +2946,8 @@ export function RundownEditor({
           live?.rowId === activeRowId ? (live?.remainingInRowSec ?? null) : (rows[lateActiveIdx]?.durationSec ?? null),
           absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing),
         )
-      : null;
+      : [];
+  const arrival = arrivals[0] ?? null;
   const lateLvl = arrival ? lateLevel(arrival) : null;
   /** Said once as each line is crossed, per fixed time — not every second. */
   const lateSaid = useRef(new Set<string>());
@@ -5143,14 +5145,18 @@ export function RundownEditor({
         <div className="hide-mobile topbar-shape">
           <div
             className="header-clock mono"
-            style={canEditContent ? { cursor: "pointer" } : undefined}
-            data-tip={canEditContent ? "Click to change the planned start time (an anchored first row overrides it)" : undefined}
+            style={canEditContent && !showLive ? { cursor: "pointer" } : undefined}
+            data-tip={canEditContent && !showLive ? "Click to change the planned start time (an anchored first row overrides it)" : undefined}
             onClick={async () => {
-              if (!canEditContent) return;
+              // Not during a show (21 Oct, Robert: "why is this showing up" —
+              // a stray tap on these numbers opened it live, where changing
+              // the planned start would move every time that isn't fixed).
+              if (!canEditContent || showLive) return;
               const raw = await askText({
                 title: "When does the show start?",
                 label: "Planned start time",
-                value: timing.startSec != null ? formatTimeOfDay(timing.startSec, true) : "9:00 am",
+                // In the sheet's own style: 2:00 pm, not 14:00:00.
+                value: timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "9:00 am",
                 hint: "For example 7:30 pm or 19:30",
                 validate: (v) => (parseTimeOfDay(v.trim()) == null ? `That isn't a time we can read — try 7:30 pm or 19:30.` : null),
               });
@@ -5292,20 +5298,6 @@ export function RundownEditor({
               })()}
             />
           )}
-          {arrival && lateLvl && (
-            <RunningLate
-              arrival={arrival}
-              level={lateLvl}
-              use24h={meta.use24h}
-              canEdit={canEditContent}
-              trims={trimOptions(rows, lateActiveIdx, arrival.target).map((t) => {
-                const r = rows[t.index]!;
-                return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
-              })}
-              onStrike={(id) => trimBefore(id, arrival.target.index, "strike")}
-              onTrim={(id, by) => trimBefore(id, arrival.target.index, "trim", by)}
-            />
-          )}
           {/* The show's state sits directly under the cue timer, centred —
               that is where the eye already is — and the stopwatch rides on the
               end of the same line, to the right of Stop. It measures what the
@@ -5443,6 +5435,28 @@ export function RundownEditor({
                   it refers to. It appears with the show. */}
               {showIsLive && <Stopwatch />}
             </div>
+          )}
+          {/* Under the show controls, their full width (21 Oct, Robert's
+              call): the next fixed time, how long until it and how the show
+              will arrive; pressed, every fixed time ahead. */}
+          {arrival && lateLvl && (
+            <RunningLate
+              arrivals={arrivals}
+              level={lateLvl}
+              use24h={meta.use24h}
+              manyGames={gameEnds.length > 1}
+              canEdit={canEditContent}
+              trimsFor={(targetIndex) => {
+                const target = fixedTimes.find((t) => t.index === targetIndex);
+                if (!target) return [];
+                return trimOptions(rows, lateActiveIdx, target).map((t) => {
+                  const r = rows[t.index]!;
+                  return { id: t.id, title: (r.title ?? "").split("\n")[0]!.trim(), durationSec: t.durationSec, canDrop: t.canDrop, locked: !!r.locked, struck: !!r.skipped };
+                });
+              }}
+              onStrike={(id, targetIndex) => trimBefore(id, targetIndex, "strike")}
+              onTrim={(id, by, targetIndex) => trimBefore(id, targetIndex, "trim", by)}
+            />
           )}
         </div>
         <div className="topbar-right">

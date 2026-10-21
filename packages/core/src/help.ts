@@ -721,9 +721,10 @@ export const SECTIONS: HelpSection[] = [
         id: "running-late",
         name: "Running late into a fixed time",
         forWhat: "Warns you, during the show, when you're running late into something that must start on time — the 2nd half, a broadcast window — and by how much.",
-        how: "Under the big timer, one line names the next thing that must start on time, its time, and how you'll arrive if every item from now runs to plan: **1:20 over**, **0:40 to spare** or **on time**. Grey while it's more than 15 minutes away; amber if you're over inside 15 minutes; red and pulsing in the last 5 minutes once you're more than 30 seconds over. A note tells you the first time each line is crossed.",
+        how: "Under the show controls, one line the full width of them names the next thing that must start on time, its time, how long until it, and how you'll arrive if every item from now runs to plan — for example **1st half · 5:40 PM · in 12:30 · 1:20 over** (on a day with two games, **Game 2 · 1st half**). Grey while it's more than 15 minutes away; amber if you're over inside 15 minutes; red and pulsing in the last 5 minutes once you're more than 30 seconds over. A note tells you the first time each line is crossed. Once a half starts, the line moves on to the next fixed time by itself.",
         steps: [
-          "Press the line to see what could be trimmed before then — rows marked **Can drop if running late** first, then the longest.",
+          "Press the line for every fixed time still ahead — each half of each game — with its time, how long until it, and how you'll arrive. Lateness carries on from one to the next; time to spare doesn't, because a half never starts before its time.",
+          "Pick one to see what could be trimmed before it — rows marked **Can drop if running late** first, then the longest. With time to spare there's nothing to trim, and it says so.",
           "Press **Strike** to skip one, or **−30 s** to take thirty seconds off it. The line updates straight away.",
         ],
         who: CALLER,

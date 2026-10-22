@@ -79,8 +79,20 @@ that ends up somewhere it should not.
 | A personal token | Users & access → New token | The old token stops at once. |
 | A password | The person changes it, or an admin resets it | Every other session of that account ends, and every assistant connected to it is disconnected. |
 | An assistant's access | My account → AI assistants → Disconnect | Stops at once; the assistant has to be approved again. |
-| `opencall_app` password | Re-run `setup-app-role.ts` with a new `APP_DB_PASSWORD`, update `DATABASE_URL`, redeploy | Brief reconnect of the sync server. |
+| `opencall_app` password | `railway connect Postgres`, then `\password opencall_app`; put the new password into the sync service's `DATABASE_URL`; redeploy sync | The running server cannot open new connections with the old password, so change it, set the variable and redeploy in one go. |
+| Database owner password | `railway connect Postgres`, then `\password postgres`; set `POSTGRES_PASSWORD` on the Postgres service (its `PGPASSWORD` and `DATABASE_URL`, and the sync service's `MIGRATION_DATABASE_URL`, follow it); redeploy sync | Used only at boot, to apply schema changes — but a sync restart between the change and the new variable cannot start. |
 | SMTP password | New value in Railway | Invitations fail until set. |
+
+**A database password is changed in the database, not in Railway.** Postgres
+reads `POSTGRES_PASSWORD` only when the database is first created, so changing
+the variable on its own changes nothing and leaves the variable wrong. Change
+it inside the database first, then the variable, then redeploy.
+
+`\password` (in psql) sends the new password already hashed, so it never
+reaches the server's logs — the same reason `setup-app-role.ts` hashes it. The
+database has no public address, so `railway connect Postgres` is the way in: it
+opens a private tunnel and starts psql. It needs the Railway CLI and psql on
+the machine (`brew install libpq && brew link --force libpq` on a Mac).
 
 ## If something goes wrong
 
@@ -95,6 +107,39 @@ that ends up somewhere it should not.
    Breaches scheme applies (OAIC).
 5. **Record it** here, with the date, what happened and the check added to the
    security suite so it cannot happen again unnoticed.
+
+## Incidents
+
+### 21 Oct 2026 — the hosting provider's stored settings were read
+
+**What happened.** Railway reported that an unauthorised party had reached the
+systems holding customers' environment variables and, for some of them,
+obtained the decrypted values. It paused all builds and deploys and advised
+every customer to revoke and reissue every variable.
+
+**What was exposed here.** Treated as read: the sync service's `ADMIN_TOKEN`,
+`DATABASE_URL` (`opencall_app`) and `MIGRATION_DATABASE_URL` (the owner). The
+web service holds only public addresses, and no mail settings were configured,
+so there was no mail password to lose.
+
+**What limited it.** The database has no public address, so neither database
+password can be used from outside the project's private network. The admin
+token is the one secret that works from the internet.
+
+**Checked, 22 Oct.** The error log since 21 Oct: nothing unexplained. Account
+activity since 21 Oct: every change and sign-in from an address the owner had
+used before, bar one sign-in as the owner from a new address on the evening of
+21 Oct — awaiting the owner's confirmation. Reads made with the
+admin token are not recorded — only changes are — so the log cannot rule out
+the token having been used to read sheets.
+
+**Rotation.** All three, together, the moment deploys return: the admin token,
+then both database passwords (`\password`), then the variables, then one
+deploy. Open until done.
+
+**What it showed.** The owner password was missing from the rotation table, and
+the table did not say that a database password is changed in the database
+(both fixed above). Admin-token reads leave no trace (open item below).
 
 ## Photos and who is here (20 Oct 2026)
 
@@ -137,6 +182,12 @@ live show are respected, a replayed refresh token ends the connection, and
 Disconnect stops it at once.
 
 ## Open items
+
+- **Admin-token reads leave no record.** Account activity records changes made
+  with the admin token, with the address they came from, but not reads. After
+  the 21 Oct 2026 hosting incident there was no way to tell whether the token
+  had been used to read sheets. Recording the first use of the token from each
+  new address would answer that.
 
 - **Backups.** Not kept off-site: the production deployment is a test server
   (decided 5 Oct 2026). Railway's own volume backups are all there is. Revisit

@@ -878,7 +878,7 @@ export const SECTIONS: HelpSection[] = [
         id: "behind-clock",
         name: "Behind the clock",
         forWhat: "Warns everyone when the show has stopped moving and the clock has run ahead.",
-        how: "A bar says how many rows behind the live cue is. The Showcaller can press **Back to clock** in that bar to catch up.",
+        how: "A bar along the bottom names the item the sheet says should be on now, and the one the show is still on — for example \"The sheet says 5 · Teams run out should be on now. The show is still on 2 · Team warm-ups.\" The Showcaller can press **Back to clock** in that bar to catch up.",
       },
       {
         id: "match",

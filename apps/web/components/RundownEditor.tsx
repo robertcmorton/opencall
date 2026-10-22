@@ -2100,14 +2100,6 @@ export function RundownEditor({
     const want = rows.findIndex((r) => r.id === clockRowId);
     return at >= 0 && want > at ? want - at : 0;
   })();
-  const cueDriftSec = (() => {
-    if (cueDriftRows === 0) return 0;
-    const at = rows.findIndex((r) => r.id === activeRowId);
-    const want = rows.findIndex((r) => r.id === clockRowId);
-    const a = timing.rows[at]?.startSec;
-    const b = timing.rows[want]?.startSec;
-    return a != null && b != null ? b - a : 0;
-  })();
 
 
   const yRows = doc.getMap<Y.Map<unknown>>("rows");
@@ -4292,6 +4284,21 @@ export function RundownEditor({
       if (value) return value.split("\n")[0]!.trim();
     }
     return "";
+  };
+
+  /**
+   * A row as a sentence names it: "5 · Teams run out". Its own words, or
+   * what stands in for them on a row with none; long ones shortened, so a
+   * bar along the bottom stays two lines on a phone.
+   */
+  const rowName = (i: number): string => {
+    const r = rows[i];
+    if (!r) return "";
+    const first = (r.title ?? "").split("\n")[0]!.trim();
+    const words = blankTitle(first) ? itemStandIn(r) || "an untitled item" : first;
+    const short = words.length > 48 ? `${words.slice(0, 47).trimEnd()}…` : words;
+    const number = numberOf(i);
+    return number ? `${number} · ${short}` : short;
   };
 
   const richColClass = (column: ColumnDef): string =>
@@ -7105,10 +7112,14 @@ export function RundownEditor({
         // Publishes its height, so notes and the running-late panel sit above
         // it however many lines it wraps to (two on an iPad, 22 Oct).
         <div className="cue-drift no-print" role="status" ref={publishDriftHeight}>
+          {/* In plain words (22 Oct, Robert: "that language is hard to
+              understand" — it read "The live cue is 3 rows (3 min) behind
+              the clock — nothing is advancing it"): which item the sheet
+              says should be on, and which one still is. */}
           <span>
-            The live cue is <strong>{cueDriftRows} rows</strong>
-            {cueDriftSec > 60 ? ` (${Math.round(cueDriftSec / 60)} min)` : ""} behind the clock — nothing is advancing
-            it.
+            The sheet says <strong>{rowName(rows.findIndex((r) => r.id === clockRowId))}</strong> should be on now. The show is still on{" "}
+            <strong>{rowName(rows.findIndex((r) => r.id === activeRowId))}</strong>
+            {rowName(rows.findIndex((r) => r.id === activeRowId)).endsWith("…") ? "" : "."}
           </span>
           {/* The warning is for everybody — "the sheet you are reading is
               five rows behind" is worth knowing wherever you are sitting. The

@@ -129,7 +129,7 @@ describe("running late — the list of what could be trimmed", () => {
     expect(Math.abs(box.left + box.width / 2 - (pill.left + pill.width / 2))).toBeLessThanOrEqual(1);
   });
 
-  it("keeps a struck item in the list, crossed out, with Undo strike — even once it is on time (21 Oct)", () => {
+  it("keeps a struck item in the list, crossed out, with Undo strike — and the rest beside it — once it is on time (21 Oct)", () => {
     const unstruck: [string, number][] = [];
     const el = document.createElement("div");
     el.style.cssText = "width: 560px; margin: 0 auto;";
@@ -156,11 +156,59 @@ describe("running late — the list of what could be trimmed", () => {
     );
     act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
     const items = [...el.querySelectorAll(".rl-list li.is-struck")];
-    // On time: only the struck one is listed, with its number, to be put back.
+    // On time: the struck one, with its number, to be put back…
     expect(items).toHaveLength(1);
     expect(items[0]!.textContent).toContain("23");
+    // …and the other, still there to strike instead (22 Oct).
+    expect(el.querySelectorAll(".rl-list ul:not(.rl-targets) > li")).toHaveLength(2);
     act(() => [...el.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Undo strike")!.click());
     expect(unstruck).toEqual([["a", 5]]);
   });
-});
 
+  /**
+   * 22 Oct, Robert: "if I select something that brings it on time, it removes
+   * all the options that are available to me." Strike or trim until on time,
+   * and every option is still there to change your mind or take more.
+   */
+  it("keeps every option once a strike or a trim brings it on time", () => {
+    const el = document.createElement("div");
+    el.style.cssText = "width: 560px; margin: 0 auto;";
+    document.body.appendChild(el);
+    root = createRoot(el);
+    const list: TrimRow[] = [
+      { id: "a", number: "23", title: "Wrap the scores", durationSec: 30, canDrop: false, locked: false, struck: false },
+      { id: "b", number: "24", title: "Reel", durationSec: 60, canDrop: false, locked: false, struck: false },
+      { id: "c", number: "25", title: "Crowd cam", durationSec: 45, canDrop: false, locked: false, struck: false },
+    ];
+    const show = (overSec: number) =>
+      act(() =>
+        root!.render(
+          <RunningLate
+            arrivals={arrivalsFor(overSec) as never}
+            level={(overSec > 0 ? "over" : "spare") as never}
+            use24h={false}
+            manyGames
+            trimsFor={() => list}
+            canEdit
+            onStrike={() => undefined}
+            onTrim={() => undefined}
+          />,
+        ),
+      );
+    const rows = () => el.querySelectorAll(".rl-list ul:not(.rl-targets) > li").length;
+    show(40);
+    act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
+    expect(rows()).toBe(3);
+    // −30 s on the reel: 40 s over becomes 10 s, inside the allowance — on time.
+    act(() => [...el.querySelectorAll<HTMLButtonElement>(".rl-actions button")].filter((b) => b.textContent === "−30 s")[1]!.click());
+    show(10);
+    expect(el.querySelector(".rl-head")!.textContent).toContain("On time now");
+    expect(rows()).toBe(3);
+  });
+
+  it("still lists nothing when it is on time and nothing has been done", () => {
+    const list = draw(-300); // opens the list
+    expect(list.querySelectorAll("ul:not(.rl-targets) > li")).toHaveLength(0);
+    expect(list.querySelector(".rl-head")!.textContent).toContain("nothing to trim");
+  });
+});

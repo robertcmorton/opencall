@@ -73,6 +73,9 @@ export function RunningLate({
 }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
+  /** Fixed times you have struck or trimmed for, while this page is open. */
+  const [worked, setWorked] = useState<ReadonlySet<number>>(() => new Set());
+  const workedOn = (targetIndex: number) => setWorked((prev) => (prev.has(targetIndex) ? prev : new Set(prev).add(targetIndex)));
   const box = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -103,10 +106,21 @@ export function RunningLate({
     lateBy(next.overSec) > 0
       ? `If every item from here runs to plan, ${reaches} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after ${next.target.end ? "it is due to" : "it must start"}. Press for every fixed time ahead and what could be trimmed.`
       : `If every item from here runs to plan, ${reaches} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
-  // Over: everything that could go. On time: only what has been struck, so a
-  // strike can still be put back once it has done its job.
+  /**
+   * Over: everything that could go. On time with nothing done: nothing at
+   * all (21 Oct: a dozen Strike buttons under "nothing to find").
+   *
+   * On time BECAUSE of what you did: still everything (22 Oct, Robert: "if I
+   * select something that brings it on time, it removes all the options that
+   * are available to me"). The strike that closed the gap is rarely the last
+   * word — you may want a different item gone instead, or a second one for
+   * time in hand — so once you have struck or trimmed for a fixed time, its
+   * whole list stays.
+   */
   const over = lateBy(shown.overSec) > 0;
-  const trims = over ? trimsFor(shown.target.index) : trimsFor(shown.target.index).filter((t) => t.struck);
+  const all = trimsFor(shown.target.index);
+  const working = over || worked.has(shown.target.index) || all.some((t) => t.struck);
+  const trims = working ? all : [];
   return (
     <div className={`running-late is-${level}`} ref={box}>
       <button ref={button} type="button" className="rl-pill" aria-expanded={open} data-tip={tip} onClick={() => setOpen((v) => !v)}>
@@ -145,12 +159,14 @@ export function RunningLate({
               {shown.target.end ? `The show is due to end at ${at(shown)}` : `${nameOf(shown, manyGames)} must start at ${at(shown)}`}
             </strong>
             <span className={lateBy(shown.overSec) > 0 ? "rl-need" : "rl-ok"}>
-              {lateBy(shown.overSec) > 0 ? `Find ${lateAmount(lateBy(shown.overSec))} before then` : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"} — nothing to trim`}
+              {lateBy(shown.overSec) > 0
+                ? `Find ${lateAmount(lateBy(shown.overSec))} before then`
+                : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"}${working ? " now" : " — nothing to trim"}`}
             </span>
           </div>
           {/* With time in hand there is nothing to find, so no list of things
               to cut (21 Oct: a dozen Strike buttons under "nothing to find"). */}
-          {!over && trims.length === 0 ? null : trims.length === 0 ? (
+          {!working ? null : trims.length === 0 ? (
             <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
           ) : (
             <ul>
@@ -169,13 +185,24 @@ export function RunningLate({
                           type="button"
                           className="btn btn-sm"
                           disabled={!onUnstrike}
-                          onClick={() => onUnstrike?.(t.id, shown.target.index)}
+                          onClick={() => {
+                            workedOn(shown.target.index);
+                            onUnstrike?.(t.id, shown.target.index);
+                          }}
                           data-tip="Put it back: it plays again, and its time is taken back"
                         >
                           Undo strike
                         </button>
                       ) : (
-                        <button type="button" className="btn btn-sm" onClick={() => onStrike(t.id, shown.target.index)} data-tip="Strike it out: skipped, and its time given back">
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => {
+                            workedOn(shown.target.index);
+                            onStrike(t.id, shown.target.index);
+                          }}
+                          data-tip="Strike it out: skipped, and its time given back"
+                        >
                           Strike
                         </button>
                       )}
@@ -183,7 +210,10 @@ export function RunningLate({
                         type="button"
                         className="btn btn-sm"
                         disabled={t.struck || t.locked || t.durationSec <= 0}
-                        onClick={() => onTrim(t.id, Math.min(30, t.durationSec), shown.target.index)}
+                        onClick={() => {
+                          workedOn(shown.target.index);
+                          onTrim(t.id, Math.min(30, t.durationSec), shown.target.index);
+                        }}
                         data-tip={t.locked ? "Locked — its length can't change" : "Take 30 seconds off it"}
                       >
                         −30 s
@@ -194,7 +224,7 @@ export function RunningLate({
               ))}
             </ul>
           )}
-          {(over || trims.length > 0) && (
+          {working && (
             <p className="rl-foot">
               {shown.target.end
                 ? "Strikes and trims move the times up to the end of the show. One undo takes each back."

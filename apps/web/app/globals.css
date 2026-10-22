@@ -6124,6 +6124,30 @@ a > svg,
   width: min(560px, calc(100vw - 32px));
   pointer-events: none;
 }
+/* On the show page the top centre is the cue timer, so notes rise from the
+   bottom there instead (22 Oct: "Running 3:18 over…" sat on the clock, and on
+   a phone on Proj. end, Time and the lights too, words on words). */
+body:has(.show-page) .app-notes {
+  --notes-floor: calc(var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px));
+  top: auto;
+  /* …above the "behind the clock" bar too, when it is up (it publishes its height). */
+  bottom: calc(var(--notes-floor) + var(--cuedrift-h, 0px) + var(--space-4) + env(safe-area-inset-bottom));
+}
+/* …and beside the running-late panel, never over it: centred in the room
+   left of it on a wide screen, and at the top on a phone, where the panel
+   fills the bottom and its buttons are what you are pressing. */
+@media (min-width: 761px) {
+  body:has(.rl-panel) .app-notes {
+    left: calc((100vw - 424px) / 2);
+    width: min(560px, calc(100vw - 456px));
+  }
+}
+@media (max-width: 760px) {
+  body:has(.rl-panel) .app-notes {
+    top: var(--space-3);
+    bottom: auto;
+  }
+}
 .app-note {
   pointer-events: auto;
   display: flex;
@@ -6148,7 +6172,9 @@ a > svg,
 }
 .app-note.is-error {
   border-color: var(--over);
-  background: var(--over-soft);
+  /* The red wash over a solid card: on its own it is see-through, and a
+     warning landing on the cue timer read as words on words (22 Oct). */
+  background: linear-gradient(var(--over-soft), var(--over-soft)), var(--surface-2);
 }
 .app-note-close {
   flex: none;
@@ -6804,32 +6830,130 @@ a > svg,
     animation: none;
   }
 }
-.rl-list {
-  position: absolute;
-  top: calc(100% + 6px);
-  /* Centred WITHOUT a transform (21 Oct). A transform makes this box the
-     containing block for `position: fixed`, so every button's hover tip —
-     placed in screen coordinates — landed inside the list instead, invisible
-     but widening it: 381px wide, 1768px to scroll, on Robert's iPad a list
-     cut off on the left with blank space on the right. */
-  /* Centred on the line, by a margin: `left/right: 0` + auto margins only
-     centre a box narrower than its parent, and this one is wider than the
-     line it hangs from, so it fell back to the left edge ("centre the
-     dropdown", 21 Oct). Still no transform (see above). */
-  left: 50%;
-  margin-left: calc(min(520px, 100vw - 32px) / -2);
-  z-index: 90;
-  width: min(520px, calc(100vw - 32px));
-  max-height: 60vh;
+/* ── The running-late panel (22 Oct, option B of three Robert was shown) ────
+   Down the right of the sheet on a laptop or iPad, over the crew columns, so
+   Title, Start and Duration stay in view; up from the bottom on a phone. In
+   <body> (a portal), so no transformed ancestor can trap it or its tips. */
+.rl-panel {
+  position: fixed;
+  z-index: 150;
+  top: var(--rl-top, 120px);
+  right: 12px;
+  /* Above the bars along the bottom (the caller's dock, the role bar), and
+     above "behind the clock" when it is up — its Back to clock stays pressable. */
+  bottom: calc(12px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--cuedrift-h, 0px));
+  width: min(400px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--space-3);
+  overscroll-behavior: contain;
+  background: var(--overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-overlay);
   text-align: left;
+  animation: rl-panel-in var(--t-med) var(--ease);
+}
+/* Each part keeps its height; the panel scrolls as a whole. (A sideways-
+   scrolling chip row in a shrinking column was squashed flat on a phone.) */
+.rl-panel > * {
+  flex: none;
+}
+/* Opacity only: a transform, even mid-animation, would trap the tips. */
+@keyframes rl-panel-in {
+  from {
+    opacity: 0;
+  }
+}
+.rl-backdrop,
+.rl-grab {
+  display: none;
+}
+.rl-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rl-close {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rl-close:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+/* Every fixed time ahead, as chips to pick. */
+.rl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rl-chip:hover {
+  background: var(--raised);
+}
+.rl-chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.rl-c-name {
+  font-weight: 600;
+}
+.rl-c-verdict {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rl-chip.is-over .rl-c-verdict {
+  color: var(--warn);
+}
+.rl-chip.is-ok .rl-c-verdict {
+  color: var(--under);
+}
+@media (pointer: coarse) {
+  .rl-chip {
+    min-height: 40px;
+  }
+}
+.rl-more {
+  align-self: center;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
 }
 .rl-head {
   display: grid;
-  gap: 2px;
-  margin-bottom: var(--space-2);
+  gap: 4px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.rl-when {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
 }
 .rl-need {
   color: var(--warn);
@@ -6840,44 +6964,60 @@ a > svg,
   color: var(--under);
   font-size: var(--fs-sm);
 }
-.rl-list ul {
+/* Found so far, of what there is to find. */
+.rl-progress {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.rl-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--warn);
+  transition: width var(--t-med) var(--ease);
+}
+.rl-progress.is-done > span {
+  background: var(--under);
+}
+.rl-items {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 2px;
 }
-.rl-list li {
+.rl-items li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
   gap: var(--space-2);
-  padding: 4px 0;
+  padding: 8px 0;
   border-top: 1px solid var(--border-subtle);
 }
-.rl-list li.is-struck .rl-title,
-.rl-list li.is-struck .rl-dur {
+/* The whole name, wrapping — never cut (22 Oct: 300px of a 520px box). */
+.rl-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+.rl-text {
+  overflow-wrap: anywhere;
+}
+.rl-sub {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.rl-items li.is-struck .rl-text,
+.rl-items li.is-struck .rl-dur {
   text-decoration: line-through;
   color: var(--text-3);
 }
-.rl-title {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-  font-size: var(--fs-sm);
-}
-/* The words shorten; a "can drop" tag beside them stays whole and in the box. */
-.rl-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 .rl-tag {
-  flex: none;
-}
-.rl-tag {
-  margin-left: 6px;
   padding: 0 6px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
@@ -6889,11 +7029,74 @@ a > svg,
 .rl-dur {
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
 }
 .rl-actions {
   display: inline-flex;
   gap: 4px;
+}
+/* The item's number, which shows its row in the sheet. */
+.rl-num-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .rl-num-link {
+    min-height: 32px;
+    align-self: start;
+  }
+}
+@media (max-width: 760px) {
+  .rl-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 149;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .rl-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 72vh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  }
+  .rl-grab {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: -4px auto 2px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+  /* Chips slide sideways rather than stacking up the screen. */
+  .rl-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--space-3));
+    padding-inline: var(--space-3);
+  }
+  .rl-items li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .rl-items .rl-actions {
+    grid-column: 2;
+  }
+  .rl-items .rl-actions .btn {
+    min-height: 40px;
+    padding-inline: 14px;
+  }
 }
 .rl-empty,
 .rl-foot {
@@ -7323,76 +7526,6 @@ a > svg,
   }
 }
 
-/* Every fixed time ahead, in the running-late list (21 Oct): pick one to see
-   what could be trimmed before it. */
-.rl-list ul.rl-targets {
-  margin-bottom: var(--space-3);
-  gap: 2px;
-}
-.rl-list .rl-targets li {
-  display: block;
-  padding: 0;
-  border-top: 0;
-}
-.rl-target {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  align-items: baseline;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-  text-align: left;
-  cursor: pointer;
-}
-@media (pointer: coarse) {
-  .rl-target {
-    min-height: 44px;
-  }
-}
-.rl-target:hover {
-  background: var(--surface-2);
-}
-.rl-target.is-on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.rl-t-name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rl-t-at,
-.rl-t-until {
-  color: var(--text-2);
-  white-space: nowrap;
-}
-.rl-t-verdict {
-  font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-.rl-target.is-over .rl-t-verdict {
-  color: var(--warn);
-}
-.rl-target.is-ok .rl-t-verdict {
-  color: var(--under);
-}
-.rl-list .rl-targets li.rl-more {
-  padding: 4px 8px;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
-
 /* The QR code under a view-only link (21 Oct). White behind it whatever the
    theme — a camera needs dark on light, with a quiet margin. */
 .qr-box {
@@ -7415,7 +7548,6 @@ a > svg,
 .rl-num {
   flex: none;
   min-width: 2.2em;
-  margin-right: 6px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }

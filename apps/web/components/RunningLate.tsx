@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { formatDuration, formatTimeOfDayWithDay, lateBy, type Arrival, type LateLevel } from "@opencall/core";
 
 /**
@@ -40,13 +41,35 @@ const verdictOf = (raw: number): string => {
 };
 
 /**
+ * Where the panel starts on a wide screen: the top of the sheet, so the
+ * timer, this line and the toolbar stay in view above it.
+ */
+const panelTop = (pill: HTMLElement | null): number => {
+  const sheet = document.querySelector(".grid-scroll");
+  const top = sheet?.getBoundingClientRect().top ?? (pill ? pill.getBoundingClientRect().bottom + 8 : 120);
+  return Math.max(8, Math.round(top));
+};
+
+/** A phone: the panel rises from the bottom instead (same breakpoint as the show page's own). */
+const isPhone = () => typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+
+/**
  * The line under the show controls, the full width of them (21 Oct, Robert:
  * "place 1st half below the next button set — make it full width", "also add
  * time to 1st half"). It names the NEXT fixed time, when it is, how long until
- * it, and how the show will arrive. Pressed, it lists EVERY fixed time still
- * ahead — each half of each game — with the same three facts ("game 1 – 1st
- * half … game 1 – 2nd half … game 2…"); pick one to see what could be trimmed
- * before it. Once a half starts, the line moves on to the next by itself.
+ * it, and how the show will arrive.
+ *
+ * Pressed, it opens a PANEL (22 Oct, option B of three Robert was shown):
+ * down the right of the sheet on a laptop or iPad, up from the bottom on a
+ * phone. It used to be a dropdown under the line, and measured on a test
+ * double-header it covered the very rows it was listing — items 6 to 8 sat
+ * behind it — cut their names to 300px of a 520px box (136px on a phone, so
+ * even "Half time — Sponsor A break" lost its end), and nothing in it led to
+ * the sheet. Now: every fixed time ahead as a chip along the top; for the one
+ * picked, how much there is to find and how much could go; the items with
+ * their whole names, each number a link to its row, and the rows themselves
+ * lit up in the sheet while the panel is open. It stays open until closed —
+ * the show moving on updates it rather than shutting it.
  */
 export function RunningLate({
   arrivals,
@@ -58,6 +81,8 @@ export function RunningLate({
   onStrike,
   onUnstrike,
   onTrim,
+  onShowRow,
+  onListing,
 }: {
   /** Every fixed time ahead, in order; the first is the next one. */
   arrivals: Arrival[];
@@ -70,35 +95,61 @@ export function RunningLate({
   /** Put a struck item back. Optional: without it a struck item just shows as struck. */
   onUnstrike?: (rowId: string, targetIndex: number) => void;
   onTrim: (rowId: string, bySec: number, targetIndex: number) => void;
+  /** Scroll the sheet to a row (the item's number is the link). */
+  onShowRow?: (rowId: string) => void;
+  /** The rows the open panel is listing, for the sheet to light up; null once it closes. */
+  onListing?: (rowIds: string[] | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   /** Fixed times you have struck or trimmed for, while this page is open. */
   const [worked, setWorked] = useState<ReadonlySet<number>>(() => new Set());
-  const workedOn = (targetIndex: number) => setWorked((prev) => (prev.has(targetIndex) ? prev : new Set(prev).add(targetIndex)));
-  const box = useRef<HTMLDivElement>(null);
+  /** Time found for each fixed time by what you struck or trimmed here. */
+  const [found, setFound] = useState<ReadonlyMap<number, number>>(() => new Map());
+  const workedOn = (targetIndex: number, sec: number) => {
+    setWorked((prev) => (prev.has(targetIndex) ? prev : new Set(prev).add(targetIndex)));
+    setFound((prev) => new Map(prev).set(targetIndex, Math.max(0, (prev.get(targetIndex) ?? 0) + sec)));
+    // Working one keeps it in view, even once it no longer needs anything.
+    setPicked(targetIndex);
+  };
   const button = useRef<HTMLButtonElement>(null);
+  const [top, setTop] = useState(120);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => setTop(panelTop(button.current));
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
-    const off = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setOpen(false);
       button.current?.focus();
     };
-    document.addEventListener("pointerdown", off, true);
     document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("pointerdown", off, true);
-      document.removeEventListener("keydown", key);
-    };
+    return () => document.removeEventListener("keydown", key);
   }, [open]);
 
   const next = arrivals[0]!;
-  // The one being looked at in the list: the one picked, while it is still ahead.
-  const shown = arrivals.find((a) => a.target.index === picked) ?? next;
+  /**
+   * Somewhere a strike or a trim would still help: late, not already due,
+   * and with something before it left to take out.
+   */
+  const canHelp = (a: Arrival) => lateBy(a.overSec) > 0 && a.untilSec > 0 && trimsFor(a.target.index).some((t) => !t.struck);
+  /**
+   * Opens on the first fixed time something can still be done about (22 Oct).
+   * A half due NOW cannot be helped, and opening on it showed "nothing left to
+   * trim" while the next one was six minutes over and needed another tap.
+   * Chosen once, as it opens, so the panel does not jump about underneath you
+   * as items finish.
+   */
+  const openPanel = () => {
+    setPicked((arrivals.find(canHelp) ?? next).target.index);
+    setOpen(true);
+  };
+  const shown = arrivals.find((a) => a.target.index === picked) ?? arrivals.find(canHelp) ?? next;
   const at = (a: Arrival) => formatTimeOfDayWithDay(a.target.atSec, use24h);
   const until = (a: Arrival) => (a.untilSec > 0 ? `in ${lateAmount(a.untilSec)}` : "now");
   const reaches = next.target.end ? "the show ends" : `the show reaches ${next.target.name}`;
@@ -121,118 +172,188 @@ export function RunningLate({
   const all = trimsFor(shown.target.index);
   const working = over || worked.has(shown.target.index) || all.some((t) => t.struck);
   const trims = working ? all : [];
+
+  // The sheet lights up what the panel lists. Keyed on the ids, because the
+  // list is a new array every render and the parent re-renders every second.
+  const listedKey = open ? trims.map((t) => t.id).join(",") : "";
+  useEffect(() => {
+    onListing?.(listedKey ? listedKey.split(",") : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the key is the dependency
+  }, [listedKey]);
+  useEffect(
+    () => () => onListing?.(null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on unmount only
+    [],
+  );
+
+  /**
+   * How it stands, in one line (22 Oct): what is still to find, what has been
+   * found here, and how much could go at most — so it is plain at a glance
+   * whether the gap can be closed at all.
+   */
+  const stillSec = Math.max(0, lateBy(shown.overSec));
+  const foundSec = found.get(shown.target.index) ?? 0;
+  const couldSec = all.filter((t) => !t.struck).reduce((sum, t) => sum + t.durationSec, 0);
+  const progress = over
+    ? `${foundSec > 0 ? `Found ${lateAmount(foundSec)} of ${lateAmount(foundSec + stillSec)}` : `Find ${lateAmount(stillSec)} before then`} · up to ${lateAmount(couldSec)} could go${couldSec < stillSec ? ` — even all of it leaves ${lateAmount(stillSec - couldSec)} over` : ""}`
+    : working
+      ? `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"} now${foundSec > 0 ? ` · found ${lateAmount(foundSec)}` : ""}`
+      : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"} — nothing to trim`;
+  const filled = foundSec + stillSec > 0 ? Math.round((foundSec / (foundSec + stillSec)) * 100) : 100;
+
+  const close = () => {
+    setOpen(false);
+    button.current?.focus();
+  };
+
+  const panel = (
+    <>
+      <div className="rl-backdrop" onClick={close} aria-hidden="true" />
+      <aside className={`rl-panel is-${level}`} role="dialog" aria-label="Running late" style={{ "--rl-top": `${top}px` } as CSSProperties}>
+        <div className="rl-grab" aria-hidden="true" />
+        <div className="rl-bar">
+          <strong>Running late</strong>
+          <button type="button" className="rl-close" aria-label="Close" onClick={close}>
+            ×
+          </button>
+        </div>
+        {/* Every fixed time ahead, each a chip to pick (the next eight: a test
+            sheet with a match every fifteen minutes would list two hundred). */}
+        <div className="rl-chips" role="group" aria-label="Every fixed time ahead">
+          {arrivals.slice(0, LIST_MAX).map((a) => (
+            <button
+              key={a.target.index}
+              type="button"
+              className={`rl-chip ${a === shown ? "is-on" : ""} ${lateBy(a.overSec) > 0 ? "is-over" : "is-ok"}`}
+              aria-pressed={a === shown}
+              data-tip={`${nameOf(a, manyGames)} · ${at(a)} · ${until(a)}`}
+              onClick={() => setPicked(a.target.index)}
+            >
+              <span className="rl-c-name">{nameOf(a, manyGames)}</span>
+              <span className="rl-c-verdict">{verdictOf(a.overSec)}</span>
+            </button>
+          ))}
+          {arrivals.length > LIST_MAX && <span className="rl-more">and {arrivals.length - LIST_MAX} more later</span>}
+        </div>
+        <div className="rl-head">
+          <strong>{shown.target.end ? `The show is due to end at ${at(shown)}` : `${nameOf(shown, manyGames)} must start at ${at(shown)}`}</strong>
+          <span className="rl-when">{until(shown)}</span>
+          {(over || foundSec > 0) && (
+            <span className={`rl-progress ${over ? "" : "is-done"}`} aria-hidden="true">
+              <span style={{ width: `${filled}%` }} />
+            </span>
+          )}
+          <span className={over ? "rl-need" : "rl-ok"}>{progress}</span>
+        </div>
+        {!working ? null : trims.length === 0 ? (
+          <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
+        ) : (
+          <ul className="rl-items">
+            {trims.map((t) => (
+              <li key={t.id} className={t.struck ? "is-struck" : undefined}>
+                {t.number && onShowRow ? (
+                  <button
+                    type="button"
+                    className="rl-num rl-num-link"
+                    aria-label={`Show row ${t.number} in the sheet`}
+                    data-tip="Show this row in the sheet"
+                    onClick={() => {
+                      onShowRow(t.id);
+                      // On a phone the panel covers the sheet: out of the way.
+                      if (isPhone()) setOpen(false);
+                    }}
+                  >
+                    {t.number}
+                  </button>
+                ) : (
+                  <span className="rl-num">{t.number}</span>
+                )}
+                <span className="rl-title">
+                  <span className="rl-text">{t.title || "Untitled item"}</span>
+                  <span className="rl-sub">
+                    <span className="rl-dur">{formatDuration(t.durationSec)}</span>
+                    {t.canDrop && <span className="rl-tag">can drop</span>}
+                  </span>
+                </span>
+                {canEdit && (
+                  <span className="rl-actions">
+                    {t.struck ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        disabled={!onUnstrike}
+                        onClick={() => {
+                          workedOn(shown.target.index, -t.durationSec);
+                          onUnstrike?.(t.id, shown.target.index);
+                        }}
+                        data-tip="Put it back: it plays again, and its time is taken back"
+                      >
+                        Undo strike
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => {
+                          workedOn(shown.target.index, t.durationSec);
+                          onStrike(t.id, shown.target.index);
+                        }}
+                        data-tip="Strike it out: skipped, and its time given back"
+                      >
+                        Strike
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={t.struck || t.locked || t.durationSec <= 0}
+                      onClick={() => {
+                        const by = Math.min(30, t.durationSec);
+                        workedOn(shown.target.index, by);
+                        onTrim(t.id, by, shown.target.index);
+                      }}
+                      data-tip={t.locked ? "Locked — its length can't change" : "Take 30 seconds off it"}
+                    >
+                      −30 s
+                    </button>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {working && (
+          <p className="rl-foot">
+            {shown.target.end
+              ? "Strikes and trims move the times up to the end of the show. One undo takes each back."
+              : `Strikes and trims move the times up to ${shown.target.name}, never ${shown.target.name} itself. One undo takes each back.`}
+            {onShowRow ? " Press a number to see its row in the sheet." : ""}
+          </p>
+        )}
+      </aside>
+    </>
+  );
+
   return (
-    <div className={`running-late is-${level}`} ref={box}>
-      <button ref={button} type="button" className="rl-pill" aria-expanded={open} data-tip={tip} onClick={() => setOpen((v) => !v)}>
+    <div className={`running-late is-${level}`}>
+      <button
+        ref={button}
+        type="button"
+        className="rl-pill"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        data-tip={tip}
+        onClick={() => (open ? close() : openPanel())}
+      >
         <span className="rl-name">{nameOf(next, manyGames)}</span>
         <span className="rl-at">{at(next)}</span>
         <span className="rl-until">{until(next)}</span>
         <strong className="rl-verdict">{verdictOf(next.overSec)}</strong>
         <span className="rl-caret" aria-hidden>
-          ▾
+          {open ? "▸" : "▾"}
         </span>
       </button>
-      {open && (
-        <div className="popover rl-list" role="dialog" aria-label="Fixed times ahead" data-popover>
-          <ul className="rl-targets" aria-label="Every fixed time ahead">
-            {/* The next eight: a double-header has four; a test sheet with a
-                match every fifteen minutes would otherwise list two hundred. */}
-            {arrivals.slice(0, LIST_MAX).map((a) => (
-              <li key={a.target.index}>
-                <button
-                  type="button"
-                  className={`rl-target ${a === shown ? "is-on" : ""} ${lateBy(a.overSec) > 0 ? "is-over" : "is-ok"}`}
-                  aria-pressed={a === shown}
-                  onClick={() => setPicked(a.target.index)}
-                >
-                  <span className="rl-t-name">{nameOf(a, manyGames)}</span>
-                  <span className="rl-t-at">{at(a)}</span>
-                  <span className="rl-t-until">{until(a)}</span>
-                  <strong className="rl-t-verdict">{verdictOf(a.overSec)}</strong>
-                </button>
-              </li>
-            ))}
-            {arrivals.length > LIST_MAX && <li className="rl-more">and {arrivals.length - LIST_MAX} more later</li>}
-          </ul>
-          <div className="rl-head">
-            <strong>
-              {shown.target.end ? `The show is due to end at ${at(shown)}` : `${nameOf(shown, manyGames)} must start at ${at(shown)}`}
-            </strong>
-            <span className={lateBy(shown.overSec) > 0 ? "rl-need" : "rl-ok"}>
-              {lateBy(shown.overSec) > 0
-                ? `Find ${lateAmount(lateBy(shown.overSec))} before then`
-                : `${lateBy(shown.overSec) < 0 ? `${lateAmount(lateBy(shown.overSec))} to spare` : "On time"}${working ? " now" : " — nothing to trim"}`}
-            </span>
-          </div>
-          {/* With time in hand there is nothing to find, so no list of things
-              to cut (21 Oct: a dozen Strike buttons under "nothing to find"). */}
-          {!working ? null : trims.length === 0 ? (
-            <p className="rl-empty">Nothing left to play before it that could be trimmed.</p>
-          ) : (
-            <ul>
-              {trims.map((t) => (
-                <li key={t.id} className={t.struck ? "is-struck" : undefined}>
-                  <span className="rl-title">
-                    {t.number && <span className="rl-num">{t.number}</span>}
-                    <span className="rl-text">{t.title || "Untitled item"}</span>
-                    {t.canDrop && <span className="rl-tag">can drop</span>}
-                  </span>
-                  <span className="rl-dur">{formatDuration(t.durationSec)}</span>
-                  {canEdit && (
-                    <span className="rl-actions">
-                      {t.struck ? (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          disabled={!onUnstrike}
-                          onClick={() => {
-                            workedOn(shown.target.index);
-                            onUnstrike?.(t.id, shown.target.index);
-                          }}
-                          data-tip="Put it back: it plays again, and its time is taken back"
-                        >
-                          Undo strike
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          onClick={() => {
-                            workedOn(shown.target.index);
-                            onStrike(t.id, shown.target.index);
-                          }}
-                          data-tip="Strike it out: skipped, and its time given back"
-                        >
-                          Strike
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        disabled={t.struck || t.locked || t.durationSec <= 0}
-                        onClick={() => {
-                          workedOn(shown.target.index);
-                          onTrim(t.id, Math.min(30, t.durationSec), shown.target.index);
-                        }}
-                        data-tip={t.locked ? "Locked — its length can't change" : "Take 30 seconds off it"}
-                      >
-                        −30 s
-                      </button>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {working && (
-            <p className="rl-foot">
-              {shown.target.end
-                ? "Strikes and trims move the times up to the end of the show. One undo takes each back."
-                : `Strikes and trims move the times up to ${shown.target.name}, never ${shown.target.name} itself. One undo takes each back.`}
-            </p>
-          )}
-        </div>
-      )}
+      {open && typeof document !== "undefined" && createPortal(panel, document.body)}
     </div>
   );
 }

@@ -90,7 +90,7 @@ import { usePresence, type PresenceSpot } from "../lib/usePresence";
 import { LiveBadge, LiveReadouts, ShowStateControls, TransportBar, describeShowDrift, startShow } from "./TransportBar";
 import { Dropdown, HeaderClock, Icon, EmptyState } from "./ui";
 import { SideNavSection, WithSideNav } from "./SideNav";
-import { RoleBar, RolePicker, highlightRoles, matchingRole } from "./RoleBar";
+import { RoleBar, RolePicker, highlightRoles, matchingRole, usePublishedBarHeight } from "./RoleBar";
 import { RichCellText } from "./RichCellText";
 import { useColWidths } from "../lib/useColWidths";
 import { useEditLock } from "../lib/useEditLock";
@@ -2974,6 +2974,9 @@ export function RundownEditor({
       : [];
   const arrival = arrivals[0] ?? null;
   const lateLvl = arrival ? lateLevel(arrival) : null;
+  /** What the running-late panel is listing, while it is open — lit up in the sheet. */
+  const [lateListed, setLateListed] = useState<string[] | null>(null);
+  const publishDriftHeight = usePublishedBarHeight("--cuedrift-h");
   /** Said once as each line is crossed, per fixed time — not every second. */
   const lateSaid = useRef(new Set<string>());
   const lateKey = arrival && (lateLvl === "over" || lateLvl === "urgent") ? `${arrival.target.index}:${lateLvl}` : null;
@@ -5392,7 +5395,18 @@ export function RundownEditor({
               onStrike={(id, targetIndex) => trimBefore(id, targetIndex, "strike")}
               onUnstrike={(id, targetIndex) => trimBefore(id, targetIndex, "unstrike")}
               onTrim={(id, by, targetIndex) => trimBefore(id, targetIndex, "trim", by)}
+              onShowRow={goToRow}
+              onListing={setLateListed}
             />
+          )}
+          {/* The rows the running-late panel is listing, lit up in the sheet
+              while it is open (22 Oct). A style rule rather than a prop on
+              every row: it survives the sheet re-drawing rows as it scrolls. */}
+          {lateListed && lateListed.length > 0 && (
+            <style>
+              {`${lateListed.map((id) => `.rundown-grid tr[data-rowid="${id.replace(/[^\w-]/g, "")}"] > td`).join(",")}{background:color-mix(in srgb,var(--warn) 9%,transparent)}` +
+                `${lateListed.map((id) => `.rundown-grid tr[data-rowid="${id.replace(/[^\w-]/g, "")}"] > td:first-child`).join(",")}{box-shadow:inset 3px 0 0 var(--warn)}`}
+            </style>
           )}
           {/* The show's state sits directly under the cue timer, centred —
               that is where the eye already is — and the stopwatch rides on the
@@ -7088,7 +7102,9 @@ export function RundownEditor({
           the other's first move. Catching up without handing over is still
           there — it is cueing the row, which is what that button did. */}
       {cueDriftRows >= 3 && (
-        <div className="cue-drift no-print" role="status">
+        // Publishes its height, so notes and the running-late panel sit above
+        // it however many lines it wraps to (two on an iPad, 22 Oct).
+        <div className="cue-drift no-print" role="status" ref={publishDriftHeight}>
           <span>
             The live cue is <strong>{cueDriftRows} rows</strong>
             {cueDriftSec > 60 ? ` (${Math.round(cueDriftSec / 60)} min)` : ""} behind the clock — nothing is advancing

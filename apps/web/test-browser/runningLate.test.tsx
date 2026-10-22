@@ -1,28 +1,36 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { RunningLate, type TrimRow } from "../components/RunningLate";
 import "../app/globals.css";
 
 /**
- * The running-late list (21 Oct, Robert's iPad: "a lot of empty space with
- * nothing in it"). It was centred with a CSS transform, and a transform makes
- * an ancestor the containing block for `position: fixed` — so every button's
- * hover tip, placed in SCREEN coordinates by keepTipsOnScreen, landed inside
- * the list instead, invisible but still widening what it scrolls. The list
- * scrolled sideways, cut its first letters off and showed blank space.
+ * The running-late panel (22 Oct, option B). It used to be a dropdown under
+ * the line: measured on a test double-header it covered the rows it listed,
+ * cut their names to 300px of a 520px box, and nothing in it led to the sheet.
+ * Now it opens down the right of the sheet (up from the bottom on a phone),
+ * shows names whole, links each number to its row, and tells the sheet which
+ * rows to light up.
+ *
+ * Kept from the dropdown's tests: it never scrolls sideways (21 Oct, the
+ * transform that trapped every button's tip inside it), on time a few seconds
+ * either side, and the 21–22 Oct rules about what is listed when.
  */
 
 let root: Root | null = null;
-afterEach(() => {
+afterEach(async () => {
   act(() => root?.unmount());
   root = null;
   document.body.innerHTML = "";
+  await page.viewport(1280, 800);
 });
 
+const LONG = "Half-time highlights package with the pre-recorded interviews from both coaches and the HARBOUR captain";
 const trims: TrimRow[] = Array.from({ length: 10 }, (_, i) => ({
   id: String(i),
-  title: i % 3 ? "Rehearsals | collect comms and in ears for everyone on the field" : "",
+  number: String(20 + i),
+  title: i % 3 ? LONG : "",
   durationSec: 600 + i,
   canDrop: i === 2,
   locked: false,
@@ -31,108 +39,182 @@ const trims: TrimRow[] = Array.from({ length: 10 }, (_, i) => ({
 
 const H = 3600;
 const target = (index: number, name: string, atSec: number, game: number) => ({ index, name, atSec, game });
-/** Game 1's two halves and game 2's first, the next one `overSec` late or early. */
 const arrivalsFor = (overSec: number) => [
   { target: target(5, "1st half", 17 * H + 40 * 60, 1), arrivesSec: 17 * H + 40 * 60 + overSec, overSec, untilSec: 600 },
   { target: target(9, "2nd half", 18 * H + 35 * 60, 1), arrivesSec: 18 * H + 35 * 60 + Math.max(0, overSec), overSec: Math.max(0, overSec), untilSec: 3900 },
   { target: target(30, "1st half", 20 * H, 2), arrivesSec: 20 * H, overSec: 0, untilSec: 9000 },
 ];
 
-const draw = (overSec: number, onStrike: (id: string, t: number) => void = () => undefined) => {
+const panelEl = () => document.querySelector<HTMLElement>(".rl-panel");
+const pillEl = () => document.querySelector<HTMLButtonElement>(".rl-pill")!;
+
+const draw = (
+  overSec: number,
+  opts: { onStrike?: (id: string, t: number) => void; onShowRow?: (id: string) => void; onListing?: (ids: string[] | null) => void; arrivals?: unknown; list?: TrimRow[] } = {},
+) => {
   const el = document.createElement("div");
   el.style.cssText = "width: 560px; margin: 0 auto;";
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() =>
-    root!.render(
-      <RunningLate
-        arrivals={arrivalsFor(overSec) as never}
-        level={(overSec > 0 ? "over" : "spare") as never}
-        use24h={false}
-        manyGames
-        trimsFor={() => trims}
-        canEdit
-        onStrike={onStrike}
-        onTrim={() => undefined}
-      />,
-    ),
-  );
-  act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
-  return el.querySelector<HTMLElement>(".rl-list")!;
+  const render = (o: number) =>
+    act(() =>
+      root!.render(
+        <RunningLate
+          arrivals={(opts.arrivals ?? arrivalsFor(o)) as never}
+          level={(o > 0 ? "over" : "spare") as never}
+          use24h={false}
+          manyGames
+          trimsFor={() => opts.list ?? trims}
+          canEdit
+          onStrike={opts.onStrike ?? (() => undefined)}
+          onTrim={() => undefined}
+          onShowRow={opts.onShowRow}
+          onListing={opts.onListing}
+        />,
+      ),
+    );
+  render(overSec);
+  act(() => pillEl().click());
+  return { panel: panelEl()!, render };
 };
 
-describe("running late — the list of what could be trimmed", () => {
+describe("running late — the panel of what could be trimmed", () => {
   it("never scrolls sideways, wherever the buttons' tips have been placed", () => {
-    const list = draw(80);
+    const { panel } = draw(80);
     // Where keepTipsOnScreen would put each tip: far across the screen.
-    for (const b of list.querySelectorAll<HTMLElement>("[data-tip]")) b.style.setProperty("--tip-left", "1500px");
-    expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth + 1);
+    for (const b of panel.querySelectorAll<HTMLElement>("[data-tip]")) b.style.setProperty("--tip-left", "1500px");
+    expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth + 1);
   });
 
-  it("keeps a 'can drop' tag inside the list beside a long title", () => {
-    const list = draw(80);
-    const tag = list.querySelector<HTMLElement>(".rl-tag")!;
-    expect(tag.getBoundingClientRect().right).toBeLessThanOrEqual(list.getBoundingClientRect().right);
+  it("opens down the right of the sheet on a wide screen, below the sheet's top", () => {
+    const sheet = document.createElement("div");
+    sheet.className = "grid-scroll";
+    sheet.style.cssText = "position: absolute; top: 210px; left: 0; right: 0; height: 400px;";
+    document.body.appendChild(sheet);
+    const { panel } = draw(80);
+    const r = panel.getBoundingClientRect();
+    expect(Math.round(r.top)).toBe(210);
+    expect(Math.round(window.innerWidth - r.right)).toBe(12);
+    expect(r.width).toBeLessThanOrEqual(400);
+  });
+
+  it("shows each name whole, wrapping, with a 'can drop' tag inside the panel", () => {
+    const { panel } = draw(80);
+    const names = [...panel.querySelectorAll<HTMLElement>(".rl-text")].filter((t) => t.textContent === LONG);
+    expect(names.length).toBeGreaterThan(0);
+    for (const t of names) expect(t.scrollWidth).toBeLessThanOrEqual(t.clientWidth + 1);
+    expect(names[0]!.getBoundingClientRect().height).toBeGreaterThan(30); // more than one line
+    const tag = panel.querySelector<HTMLElement>(".rl-tag")!;
+    expect(tag.getBoundingClientRect().right).toBeLessThanOrEqual(panel.getBoundingClientRect().right);
   });
 
   it("lists nothing to trim when there is time to spare", () => {
-    const list = draw(-900);
-    expect(list.querySelectorAll(".rl-actions").length).toBe(0);
-    expect(list.textContent).toContain("15:00 to spare");
+    const { panel } = draw(-900);
+    expect(panel.querySelectorAll(".rl-actions").length).toBe(0);
+    expect(panel.textContent).toContain("15:00 to spare");
   });
 
   it("says how long until the next fixed time, on the line itself", () => {
-    const list = draw(-900);
-    const pill = list.parentElement!.querySelector(".rl-pill")!.textContent!;
+    draw(-900);
+    const pill = pillEl().textContent!;
     expect(pill).toContain("Game 1 · 1st half");
     expect(pill).toContain("in 10:00");
   });
 
-  it("lists every half of every game ahead, with its time and how it will arrive", () => {
-    const list = draw(80);
-    const lines = [...list.querySelectorAll(".rl-target")].map((b) => b.textContent);
-    expect(lines).toHaveLength(3);
-    expect(lines[0]).toContain("Game 1 · 1st half");
-    expect(lines[0]).toContain("1:20 over");
-    expect(lines[1]).toContain("Game 1 · 2nd half");
-    expect(lines[2]).toContain("Game 2 · 1st half");
-    expect(lines[2]).toContain("on time");
+  it("shows every half of every game ahead as a chip, with how it will arrive", () => {
+    const { panel } = draw(80);
+    const chips = [...panel.querySelectorAll(".rl-chip")].map((b) => b.textContent);
+    expect(chips).toHaveLength(3);
+    expect(chips[0]).toContain("Game 1 · 1st half");
+    expect(chips[0]).toContain("1:20 over");
+    expect(chips[1]).toContain("Game 1 · 2nd half");
+    expect(chips[2]).toContain("Game 2 · 1st half");
+    expect(chips[2]).toContain("on time");
   });
 
   it("trims before whichever one is picked", () => {
     const struck: [string, number][] = [];
-    const list = draw(80, (id, t) => void struck.push([id, t]));
-    act(() => list.querySelectorAll<HTMLButtonElement>(".rl-target")[1]!.click());
-    expect(list.querySelector(".rl-head")!.textContent).toContain("Game 1 · 2nd half must start");
-    act(() => [...list.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Strike")!.click());
+    const { panel } = draw(80, { onStrike: (id, t) => void struck.push([id, t]) });
+    act(() => panel.querySelectorAll<HTMLButtonElement>(".rl-chip")[1]!.click());
+    expect(panel.querySelector(".rl-head")!.textContent).toContain("Game 1 · 2nd half must start");
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Strike")!.click());
     expect(struck).toEqual([["0", 9]]);
+  });
+
+  /** 22 Oct: it opened on a half due NOW, "nothing left to trim", while the next was 6:03 over. */
+  it("opens on the first fixed time something can still be done about", () => {
+    const arrivals = arrivalsFor(80);
+    arrivals[0] = { ...arrivals[0]!, untilSec: 0 }; // the 1st half is due now
+    const { panel } = draw(80, { arrivals });
+    expect(panel.querySelector(".rl-chip.is-on")!.textContent).toContain("Game 1 · 2nd half");
+  });
+
+  it("says what there is to find, what has been found and what could go", () => {
+    const list: TrimRow[] = [
+      { id: "a", number: "23", title: "Reel", durationSec: 60, canDrop: false, locked: false, struck: false },
+      { id: "b", number: "24", title: "Crowd cam", durationSec: 45, canDrop: false, locked: false, struck: false },
+    ];
+    const { panel, render } = draw(80, { list });
+    expect(panel.querySelector(".rl-need")!.textContent).toBe("Find 1:20 before then · up to 1:45 could go");
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Strike")!.click());
+    render(20);
+    expect(panelEl()!.querySelector(".rl-need")!.textContent).toContain("Found 1:00 of 1:20");
+  });
+
+  it("says when even everything left is not enough", () => {
+    const list: TrimRow[] = [{ id: "a", number: "23", title: "Reel", durationSec: 30, canDrop: false, locked: false, struck: false }];
+    const { panel } = draw(80, { list });
+    expect(panel.querySelector(".rl-need")!.textContent).toContain("even all of it leaves 50 s over");
+  });
+
+  it("links each number to its row, and tells the sheet which rows to light up", () => {
+    const shown: string[] = [];
+    const listed: (string[] | null)[] = [];
+    const { panel } = draw(80, { onShowRow: (id) => void shown.push(id), onListing: (ids) => void listed.push(ids) });
+    const link = panel.querySelector<HTMLButtonElement>(".rl-num-link")!;
+    expect(link.getAttribute("aria-label")).toBe("Show row 20 in the sheet");
+    act(() => link.click());
+    expect(shown).toEqual(["0"]);
+    expect(listed.at(-1)).toEqual(trims.map((t) => t.id));
+    act(() => panel.querySelector<HTMLButtonElement>(".rl-close")!.click());
+    expect(panelEl()).toBeNull();
+    expect(listed.at(-1)).toBeNull();
+  });
+
+  it("stays open while you work the sheet, and closes on Escape", () => {
+    draw(80);
+    act(() => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
+    expect(panelEl()).not.toBeNull();
+    act(() => void document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    expect(panelEl()).toBeNull();
   });
 
   it("reads 'on time', not amber, a few seconds either side (21 Oct: it flashed orange every update)", () => {
     for (const wobble of [2, -2, 15]) {
-      const list = draw(wobble);
-      const pill = list.parentElement!.querySelector(".rl-pill")!;
-      expect(pill.textContent).toContain("on time");
-      expect(list.querySelector(".rl-target")!.className).not.toContain("is-over");
+      const { panel } = draw(wobble);
+      expect(pillEl().textContent).toContain("on time");
+      expect(panel.querySelector(".rl-chip")!.className).not.toContain("is-over");
       act(() => root?.unmount());
       root = null;
       document.body.innerHTML = "";
     }
   });
 
-  it("hangs centred under the line, even when it is wider than the line (21 Oct)", () => {
-    const list = draw(80);
-    // Make the line narrower than the list, as it is beside the cue timer.
-    (list.parentElement as HTMLElement).style.width = "360px";
-    const pill = list.parentElement!.querySelector(".rl-pill")!.getBoundingClientRect();
-    const box = list.getBoundingClientRect();
-    expect(Math.abs(box.left + box.width / 2 - (pill.left + pill.width / 2))).toBeLessThanOrEqual(1);
+  it("rises from the bottom on a phone, the full width, with a backdrop to close it", async () => {
+    await page.viewport(390, 800);
+    const { panel } = draw(80);
+    const r = panel.getBoundingClientRect();
+    expect(Math.round(r.bottom)).toBe(800);
+    expect(Math.round(r.left)).toBe(0);
+    expect(Math.round(r.width)).toBe(390);
+    expect(r.height).toBeLessThanOrEqual(800 * 0.72 + 1);
+    act(() => document.querySelector<HTMLElement>(".rl-backdrop")!.click());
+    expect(panelEl()).toBeNull();
   });
 
-  it("keeps a struck item in the list, crossed out, with Undo strike — and the rest beside it — once it is on time (21 Oct)", () => {
+  it("keeps a struck item, crossed out, with Undo strike — and the rest beside it — once it is on time (21 Oct)", () => {
     const unstruck: [string, number][] = [];
     const el = document.createElement("div");
-    el.style.cssText = "width: 560px; margin: 0 auto;";
     document.body.appendChild(el);
     root = createRoot(el);
     const list: TrimRow[] = [
@@ -154,14 +236,15 @@ describe("running late — the list of what could be trimmed", () => {
         />,
       ),
     );
-    act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
-    const items = [...el.querySelectorAll(".rl-list li.is-struck")];
+    act(() => pillEl().click());
+    const panel = panelEl()!;
+    const items = [...panel.querySelectorAll(".rl-items li.is-struck")];
     // On time: the struck one, with its number, to be put back…
     expect(items).toHaveLength(1);
     expect(items[0]!.textContent).toContain("23");
     // …and the other, still there to strike instead (22 Oct).
-    expect(el.querySelectorAll(".rl-list ul:not(.rl-targets) > li")).toHaveLength(2);
-    act(() => [...el.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Undo strike")!.click());
+    expect(panel.querySelectorAll(".rl-items > li")).toHaveLength(2);
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>(".rl-actions button")].find((b) => b.textContent === "Undo strike")!.click());
     expect(unstruck).toEqual([["a", 5]]);
   });
 
@@ -171,44 +254,24 @@ describe("running late — the list of what could be trimmed", () => {
    * and every option is still there to change your mind or take more.
    */
   it("keeps every option once a strike or a trim brings it on time", () => {
-    const el = document.createElement("div");
-    el.style.cssText = "width: 560px; margin: 0 auto;";
-    document.body.appendChild(el);
-    root = createRoot(el);
     const list: TrimRow[] = [
       { id: "a", number: "23", title: "Wrap the scores", durationSec: 30, canDrop: false, locked: false, struck: false },
       { id: "b", number: "24", title: "Reel", durationSec: 60, canDrop: false, locked: false, struck: false },
       { id: "c", number: "25", title: "Crowd cam", durationSec: 45, canDrop: false, locked: false, struck: false },
     ];
-    const show = (overSec: number) =>
-      act(() =>
-        root!.render(
-          <RunningLate
-            arrivals={arrivalsFor(overSec) as never}
-            level={(overSec > 0 ? "over" : "spare") as never}
-            use24h={false}
-            manyGames
-            trimsFor={() => list}
-            canEdit
-            onStrike={() => undefined}
-            onTrim={() => undefined}
-          />,
-        ),
-      );
-    const rows = () => el.querySelectorAll(".rl-list ul:not(.rl-targets) > li").length;
-    show(40);
-    act(() => el.querySelector<HTMLButtonElement>(".rl-pill")!.click());
+    const { panel, render } = draw(40, { list });
+    const rows = () => panelEl()!.querySelectorAll(".rl-items > li").length;
     expect(rows()).toBe(3);
     // −30 s on the reel: 40 s over becomes 10 s, inside the allowance — on time.
-    act(() => [...el.querySelectorAll<HTMLButtonElement>(".rl-actions button")].filter((b) => b.textContent === "−30 s")[1]!.click());
-    show(10);
-    expect(el.querySelector(".rl-head")!.textContent).toContain("On time now");
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>(".rl-actions button")].filter((b) => b.textContent === "−30 s")[1]!.click());
+    render(10);
+    expect(panelEl()!.querySelector(".rl-head")!.textContent).toContain("On time now");
     expect(rows()).toBe(3);
   });
 
   it("still lists nothing when it is on time and nothing has been done", () => {
-    const list = draw(-300); // opens the list
-    expect(list.querySelectorAll("ul:not(.rl-targets) > li")).toHaveLength(0);
-    expect(list.querySelector(".rl-head")!.textContent).toContain("nothing to trim");
+    const { panel } = draw(-300);
+    expect(panel.querySelectorAll(".rl-items > li")).toHaveLength(0);
+    expect(panel.querySelector(".rl-head")!.textContent).toContain("nothing to trim");
   });
 });

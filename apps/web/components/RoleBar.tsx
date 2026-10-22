@@ -130,17 +130,24 @@ export function rowMatchesRole(row: ProjectedRow, role: string, roleColumnKeys?:
  * air. Measuring it from the page above meant reading a height before the bar
  * had rendered; the bar itself always knows.
  */
-export function usePublishedBarHeight(): (el: HTMLDivElement | null) => void {
-  return useCallback((el: HTMLDivElement | null) => {
-    const root = document.documentElement;
-    if (!el) {
-      root.style.removeProperty("--rolebar-h");
-      return;
-    }
-    const measure = () => root.style.setProperty("--rolebar-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
-    measure();
-    new ResizeObserver(measure).observe(el);
-  }, []);
+export function usePublishedBarHeight(name = "--rolebar-h"): (el: HTMLDivElement | null) => void {
+  const watching = useRef<ResizeObserver | null>(null);
+  return useCallback(
+    (el: HTMLDivElement | null) => {
+      const root = document.documentElement;
+      watching.current?.disconnect();
+      watching.current = null;
+      if (!el) {
+        root.style.removeProperty(name);
+        return;
+      }
+      const measure = () => root.style.setProperty(name, `${Math.ceil(el.getBoundingClientRect().height)}px`);
+      measure();
+      watching.current = new ResizeObserver(measure);
+      watching.current.observe(el);
+    },
+    [name],
+  );
 }
 
 /** A user can hold several roles — the first of theirs this row involves (for its colour), or null. */

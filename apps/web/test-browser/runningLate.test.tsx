@@ -6,16 +6,17 @@ import { RunningLate, type TrimRow } from "../components/RunningLate";
 import "../app/globals.css";
 
 /**
- * The running-late panel (22 Oct, option B). It used to be a dropdown under
- * the line: measured on a test double-header it covered the rows it listed,
- * cut their names to 300px of a 520px box, and nothing in it led to the sheet.
- * Now it opens down the right of the sheet (up from the bottom on a phone),
- * shows names whole, links each number to its row, and tells the sheet which
- * rows to light up.
+ * The running-late list (22 Oct, option A): a dropdown under the line, up to
+ * 720px. Measured on a test double-header the old one cut names to 300px of a
+ * 520px box, opened on a half due now with nothing to trim, and led nowhere in
+ * the sheet. Now: fixed times as chips, a line saying what there is to find,
+ * whole names, and each item a link to its row. (Robert tried a side panel,
+ * option B, and preferred the dropdown.)
  *
- * Kept from the dropdown's tests: it never scrolls sideways (21 Oct, the
- * transform that trapped every button's tip inside it), on time a few seconds
- * either side, and the 21–22 Oct rules about what is listed when.
+ * Kept from before: it never scrolls sideways (21 Oct, the transform that
+ * trapped every button's tip inside it), it hangs centred under the line, on
+ * time a few seconds either side, and the 21–22 Oct rules about what is listed
+ * when.
  */
 
 let root: Root | null = null;
@@ -45,7 +46,7 @@ const arrivalsFor = (overSec: number) => [
   { target: target(30, "1st half", 20 * H, 2), arrivesSec: 20 * H, overSec: 0, untilSec: 9000 },
 ];
 
-const panelEl = () => document.querySelector<HTMLElement>(".rl-panel");
+const panelEl = () => document.querySelector<HTMLElement>(".rl-list");
 const pillEl = () => document.querySelector<HTMLButtonElement>(".rl-pill")!;
 
 const draw = (
@@ -78,7 +79,7 @@ const draw = (
   return { panel: panelEl()!, render };
 };
 
-describe("running late — the panel of what could be trimmed", () => {
+describe("running late — the list of what could be trimmed", () => {
   it("never scrolls sideways, wherever the buttons' tips have been placed", () => {
     const { panel } = draw(80);
     // Where keepTipsOnScreen would put each tip: far across the screen.
@@ -86,19 +87,31 @@ describe("running late — the panel of what could be trimmed", () => {
     expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth + 1);
   });
 
-  it("opens down the right of the sheet on a wide screen, below the sheet's top", () => {
-    const sheet = document.createElement("div");
-    sheet.className = "grid-scroll";
-    sheet.style.cssText = "position: absolute; top: 210px; left: 0; right: 0; height: 400px;";
-    document.body.appendChild(sheet);
+  it("hangs centred under the line, even when it is wider than the line (21 Oct)", () => {
     const { panel } = draw(80);
-    const r = panel.getBoundingClientRect();
-    expect(Math.round(r.top)).toBe(210);
-    expect(Math.round(window.innerWidth - r.right)).toBe(12);
-    expect(r.width).toBeLessThanOrEqual(400);
+    // Make the line narrower than the list, as it is beside the cue timer.
+    (panel.parentElement as HTMLElement).style.width = "360px";
+    const pill = pillEl().getBoundingClientRect();
+    const box = panel.getBoundingClientRect();
+    expect(box.width).toBeGreaterThan(pill.width);
+    expect(Math.abs(box.left + box.width / 2 - (pill.left + pill.width / 2))).toBeLessThanOrEqual(1);
   });
 
-  it("shows each name whole, wrapping, with a 'can drop' tag inside the panel", () => {
+  it("is up to 720px wide, and 16px clear of each edge on a phone", async () => {
+    expect(Math.round(draw(80).panel.getBoundingClientRect().width)).toBe(720);
+    act(() => root?.unmount());
+    root = null;
+    document.body.innerHTML = "";
+    await page.viewport(390, 800);
+    const { panel } = draw(80);
+    // On a phone the line spans the screen, centred, as it does on the show page.
+    (panel.parentElement!.parentElement as HTMLElement).style.cssText = "width: 100%; display: flex; justify-content: center;";
+    const box = panel.getBoundingClientRect();
+    expect(Math.round(box.width)).toBe(358);
+    expect(Math.round(box.left)).toBe(16);
+  });
+
+  it("shows each name whole, wrapping, with a 'can drop' tag inside the list", () => {
     const { panel } = draw(80);
     const names = [...panel.querySelectorAll<HTMLElement>(".rl-text")].filter((t) => t.textContent === LONG);
     expect(names.length).toBeGreaterThan(0);
@@ -167,23 +180,28 @@ describe("running late — the panel of what could be trimmed", () => {
     expect(panel.querySelector(".rl-need")!.textContent).toContain("even all of it leaves 50 s over");
   });
 
-  it("links each number to its row, and tells the sheet which rows to light up", () => {
+  it("takes the sheet to an item's row from its name or its number, and closes", () => {
     const shown: string[] = [];
     const listed: (string[] | null)[] = [];
-    const { panel } = draw(80, { onShowRow: (id) => void shown.push(id), onListing: (ids) => void listed.push(ids) });
-    const link = panel.querySelector<HTMLButtonElement>(".rl-num-link")!;
+    draw(80, { onShowRow: (id) => void shown.push(id), onListing: (ids) => void listed.push(ids) });
+    expect(listed.at(-1)).toEqual(trims.map((t) => t.id));
+    const link = panelEl()!.querySelector<HTMLButtonElement>(".rl-num-link")!;
     expect(link.getAttribute("aria-label")).toBe("Show row 20 in the sheet");
     act(() => link.click());
     expect(shown).toEqual(["0"]);
-    expect(listed.at(-1)).toEqual(trims.map((t) => t.id));
-    act(() => panel.querySelector<HTMLButtonElement>(".rl-close")!.click());
     expect(panelEl()).toBeNull();
     expect(listed.at(-1)).toBeNull();
+    act(() => pillEl().click());
+    act(() => panelEl()!.querySelectorAll<HTMLButtonElement>(".rl-text-link")[1]!.click());
+    expect(shown).toEqual(["0", "1"]);
+    expect(panelEl()).toBeNull();
   });
 
-  it("stays open while you work the sheet, and closes on Escape", () => {
+  it("closes when you press outside it, or Escape", () => {
     draw(80);
     act(() => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
+    expect(panelEl()).toBeNull();
+    act(() => pillEl().click());
     expect(panelEl()).not.toBeNull();
     act(() => void document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
     expect(panelEl()).toBeNull();
@@ -198,18 +216,6 @@ describe("running late — the panel of what could be trimmed", () => {
       root = null;
       document.body.innerHTML = "";
     }
-  });
-
-  it("rises from the bottom on a phone, the full width, with a backdrop to close it", async () => {
-    await page.viewport(390, 800);
-    const { panel } = draw(80);
-    const r = panel.getBoundingClientRect();
-    expect(Math.round(r.bottom)).toBe(800);
-    expect(Math.round(r.left)).toBe(0);
-    expect(Math.round(r.width)).toBe(390);
-    expect(r.height).toBeLessThanOrEqual(800 * 0.72 + 1);
-    act(() => document.querySelector<HTMLElement>(".rl-backdrop")!.click());
-    expect(panelEl()).toBeNull();
   });
 
   it("keeps a struck item, crossed out, with Undo strike — and the rest beside it — once it is on time (21 Oct)", () => {

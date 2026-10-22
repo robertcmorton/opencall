@@ -6133,17 +6133,10 @@ body:has(.show-page) .app-notes {
   /* …above the "behind the clock" bar too, when it is up (it publishes its height). */
   bottom: calc(var(--notes-floor) + var(--cuedrift-h, 0px) + var(--space-4) + env(safe-area-inset-bottom));
 }
-/* …and beside the running-late panel, never over it: centred in the room
-   left of it on a wide screen, and at the top on a phone, where the panel
-   fills the bottom and its buttons are what you are pressing. */
-@media (min-width: 761px) {
-  body:has(.rl-panel) .app-notes {
-    left: calc((100vw - 424px) / 2);
-    width: min(560px, calc(100vw - 456px));
-  }
-}
+/* …and on a phone, at the top while the running-late list is open: it
+   reaches the bottom of the screen, and its buttons are what you are pressing. */
 @media (max-width: 760px) {
-  body:has(.rl-panel) .app-notes {
+  body:has(.rl-list) .app-notes {
     top: var(--space-3);
     bottom: auto;
   }
@@ -6830,67 +6823,36 @@ body:has(.show-page) .app-notes {
     animation: none;
   }
 }
-/* ── The running-late panel (22 Oct, option B of three Robert was shown) ────
-   Down the right of the sheet on a laptop or iPad, over the crew columns, so
-   Title, Start and Duration stay in view; up from the bottom on a phone. In
-   <body> (a portal), so no transformed ancestor can trap it or its tips. */
-.rl-panel {
-  position: fixed;
-  z-index: 150;
-  top: var(--rl-top, 120px);
-  right: 12px;
-  /* Above the bars along the bottom (the caller's dock, the role bar), and
-     above "behind the clock" when it is up — its Back to clock stays pressable. */
-  bottom: calc(12px + var(--tabbar-h, 0px) + var(--callerdock-h, 0px) + var(--rolebar-h, 0px) + var(--cuedrift-h, 0px));
-  width: min(400px, calc(100vw - 24px));
+/* ── The running-late list (22 Oct, option A of three Robert was shown) ─────
+   A dropdown hanging under the line, up to 720px wide (it was 520, and cut
+   long names to 300px). Robert tried a side panel (B) and preferred this. */
+.rl-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  /* Centred WITHOUT a transform (21 Oct). A transform makes this box the
+     containing block for `position: fixed`, so every button's hover tip —
+     placed in screen coordinates — landed inside the list instead, invisible
+     but widening it: 381px wide, 1768px to scroll, on Robert's iPad a list
+     cut off on the left with blank space on the right. Centred on the line by
+     a margin, because the list is wider than the line it hangs from. */
+  left: 50%;
+  margin-left: calc(min(720px, 100vw - 32px) / -2);
+  z-index: 90;
+  width: min(720px, calc(100vw - 32px));
+  max-height: 60vh;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-overlay);
+  padding: var(--space-3);
   text-align: left;
-  animation: rl-panel-in var(--t-med) var(--ease);
 }
-/* Each part keeps its height; the panel scrolls as a whole. (A sideways-
+/* Each part keeps its height; the list scrolls as a whole. (A sideways-
    scrolling chip row in a shrinking column was squashed flat on a phone.) */
-.rl-panel > * {
+.rl-list > * {
   flex: none;
-}
-/* Opacity only: a transform, even mid-animation, would trap the tips. */
-@keyframes rl-panel-in {
-  from {
-    opacity: 0;
-  }
-}
-.rl-backdrop,
-.rl-grab {
-  display: none;
-}
-.rl-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.rl-close {
-  min-width: 32px;
-  min-height: 32px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--text-2);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-.rl-close:hover {
-  background: var(--raised);
-  color: var(--text);
 }
 /* Every fixed time ahead, as chips to pick. */
 .rl-chips {
@@ -7035,7 +6997,22 @@ body:has(.show-page) .app-notes {
   display: inline-flex;
   gap: 4px;
 }
-/* The item's number, which shows its row in the sheet. */
+/* The item's name and number both take the sheet to its row. */
+.rl-text-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rl-text-link:hover,
+.rl-text-link:focus-visible {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .rl-num-link {
   padding: 0;
   border: 0;
@@ -7054,31 +7031,6 @@ body:has(.show-page) .app-notes {
   }
 }
 @media (max-width: 760px) {
-  .rl-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 149;
-    background: rgba(0, 0, 0, 0.35);
-  }
-  .rl-panel {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: auto;
-    max-height: 72vh;
-    border-radius: 16px 16px 0 0;
-    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
-  }
-  .rl-grab {
-    display: block;
-    width: 36px;
-    height: 4px;
-    margin: -4px auto 2px;
-    border-radius: 2px;
-    background: var(--border);
-  }
   /* Chips slide sideways rather than stacking up the screen. */
   .rl-chips {
     flex-wrap: nowrap;

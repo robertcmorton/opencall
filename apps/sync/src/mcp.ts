@@ -26,7 +26,7 @@ import {
   type DbHandle,
 } from "@opencall/db";
 import { canEditEvent, canSeeEvent, contextForAccount, type AuthCtx } from "./auth.ts";
-import { audit } from "./audit.ts";
+import { audit, userAgentOf } from "./audit.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume } from "./throttle.ts";
 import { recordChange, versionBefore } from "./sheetChanges.ts";
@@ -181,7 +181,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
 
   // ── One MCP server per request (stateless) ─────────────────────────────────
 
-  function buildServer(caller: McpCaller, ctx: AuthCtx, ip: string) {
+  function buildServer(caller: McpCaller, ctx: AuthCtx, ip: string, ua: string | null) {
     const server = new McpServer({ name: "opencall", title: "OpenCall", version }, { instructions: INSTRUCTIONS });
     const mayWrite = caller.scopes.includes("sheets:write");
 
@@ -283,7 +283,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       } finally {
         await conn.disconnect();
       }
-      audit(handle, { actor: caller.userId, action: `mcp.${tool}`, target: rundownId, ip, detail: { assistant: caller.clientName, ...summary } });
+      audit(handle, { actor: caller.userId, action: `mcp.${tool}`, target: rundownId, ip, ua, detail: { assistant: caller.clientName, ...summary } });
       return {
         result,
         report: recorded
@@ -425,7 +425,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
           const where = and(after ? gt(t.at, after) : undefined, source ? eq(t.source, source) : undefined, include_resolved ? undefined : isNull(t.resolvedAt));
           const rows = await db.select().from(t).where(where).orderBy(desc(t.at)).limit(limit ?? 50);
           const total = (await db.select({ n: count() }).from(t).where(where))[0]?.n ?? 0;
-          audit(handle, { actor: caller.userId, action: "mcp.read_error_log", target: null, ip, detail: { assistant: caller.clientName, since: since ?? null, returned: rows.length } });
+          audit(handle, { actor: caller.userId, action: "mcp.read_error_log", target: null, ip, ua, detail: { assistant: caller.clientName, since: since ?? null, returned: rows.length } });
           return ok({
             total,
             shown: rows.length,
@@ -481,7 +481,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
               ),
             )
             .returning();
-          audit(handle, { actor: caller.userId, action: "mcp.resolve_errors", target: null, ip, detail: { assistant: caller.clientName, resolved: done.length, fix: fix.trim() } });
+          audit(handle, { actor: caller.userId, action: "mcp.resolve_errors", target: null, ip, ua, detail: { assistant: caller.clientName, resolved: done.length, fix: fix.trim() } });
           const left = (await db.select({ n: count() }).from(t).where(isNull(t.resolvedAt)))[0]?.n ?? 0;
           return ok({
             resolved: done.length,
@@ -721,6 +721,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
 
     const base = syncBase(req);
     const ip = clientIp(req);
+    const ua = userAgentOf(req);
     const ipKey = ipBucket(ip);
 
     if (path.startsWith("/.well-known/oauth-protected-resource") && req.method === "GET") {
@@ -771,7 +772,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
           respond(res, 200, await exchangeToken(handle, req, base, form, async (userId) => (await contextForAccount(handle, userId)) != null));
         } else {
           const ended = await revokeToken(handle, req, form);
-          if (ended) audit(handle, { actor: ended.userId ?? null, action: "mcp.disconnected", target: ended.grantId ?? null, ip, detail: { assistant: ended.clientName, by: "assistant" } });
+          if (ended) audit(handle, { actor: ended.userId ?? null, action: "mcp.disconnected", target: ended.grantId ?? null, ip, ua, detail: { assistant: ended.clientName, by: "assistant" } });
           res.statusCode = 200;
           res.end();
         }
@@ -855,7 +856,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       return true;
     }
 
-    const server = buildServer(caller, ctx, ip);
+    const server = buildServer(caller, ctx, ip, ua);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => {
       void transport.close();

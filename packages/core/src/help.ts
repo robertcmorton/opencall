@@ -156,13 +156,24 @@ export const SECTIONS: HelpSection[] = [
       {
         id: "my-account",
         name: "My account",
-        forWhat: "Change your photo, your name, your email or your password.",
+        forWhat: "Change your photo, your name, your email or your password, and see where you're signed in.",
         steps: [
           "Open the menu (☰) and choose **My account**.",
           "Under **Your photo**, press **Upload a photo** (or **Change photo**, or **Remove**). It shows beside your name on every sheet you open.",
           "Change what you need under **My details** or **Change password**, and save.",
         ],
         good: "Changing your password also disconnects any AI assistant you had connected.",
+      },
+      {
+        id: "signed-in-devices",
+        name: "Where you're signed in",
+        forWhat: "Shows every phone, tablet and computer signed in to your account, and lets you sign one out.",
+        steps: [
+          "Open the menu (☰), choose **My account**, and find **Where you're signed in**.",
+          "Each device shows what it is (\"iPhone · Safari\", \"Mac · Chrome\"), when it signed in and when it was last used. Yours says **This device**.",
+          "Press **Sign out** beside one you don't recognise, or **Sign out everywhere else** for all but this one. Then change your password.",
+        ],
+        good: "**This device** also shows the internet address the app sees you coming from.",
       },
       {
         id: "sign-out",
@@ -1266,10 +1277,10 @@ export const SECTIONS: HelpSection[] = [
       {
         id: "account-activity",
         name: "Account activity",
-        forWhat: "A record of sign-ins, password changes, invitations, access changes and deletions — who, when, and from where.",
+        forWhat: "A record of sign-ins, password changes, invitations, access changes and deletions — who, when, on what device, and from where.",
         how: "Open **Account activity** from the menu.",
         who: "Only a System Administrator.",
-        good: "Old records are cleared on a schedule: failed sign-ins after 90 days, the rest after two years.",
+        good: "**Device** says what it was, as the device describes itself (\"iPhone · Safari\"). Entries from before 22 October 2026 have no device, and their address, shown grey, is the hosting company's server rather than the person's. Old records are cleared on a schedule: failed sign-ins after 90 days, the rest after two years.",
       },
     ],
   },

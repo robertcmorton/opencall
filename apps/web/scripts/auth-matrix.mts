@@ -423,6 +423,73 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   await req(`/users/${account.id}`, ADMIN, { method: "DELETE" });
 }
 
+// ── Where you're signed in (22 Oct 2026) ──────────────────────────────────────
+{
+  // Its own two accounts, so nothing above or below counts these sessions.
+  const mk = async (email: string) =>
+    (await req("/users", ADMIN, { method: "POST", body: JSON.stringify({ name: email, email, password: "devices-pass-9", grants: [] }) })).body as { id: string };
+  const alice = await mk("matrix.devices.a@example.com");
+  const bob = await mk("matrix.devices.b@example.com");
+  const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1";
+  const LAPTOP = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
+  const as = async (path: string, token: string | null, ua: string, init: RequestInit = {}) => {
+    const headers: Record<string, string> = { "content-type": "application/json", "user-agent": ua };
+    if (token) headers.authorization = `Bearer ${token}`;
+    const res = await fetch(API + path, { ...init, headers });
+    return { status: res.status, body: (await res.json().catch(() => null)) as any };
+  };
+  const login = async (email: string, ua: string) =>
+    (await as("/auth/login", null, ua, { method: "POST", body: JSON.stringify({ email, password: "devices-pass-9" }) })).body.token as string;
+
+  const aPhone = await login("matrix.devices.a@example.com", PHONE);
+  const aLaptop = await login("matrix.devices.a@example.com", LAPTOP);
+  const bPhone = await login("matrix.devices.b@example.com", PHONE);
+
+  const listed = await as("/auth/sessions", aLaptop, LAPTOP);
+  const mine = (listed.body?.sessions ?? []) as { id: string; userAgent: string; current: boolean }[];
+  check(
+    "devices: an account lists its own sessions, each with its device, this one marked",
+    listed.status === 200 && mine.length === 2 && mine.filter((d) => d.current).length === 1 && mine.find((d) => d.current)?.userAgent === LAPTOP && mine.some((d) => d.userAgent === PHONE),
+    listed.body,
+  );
+  const bobs = ((await as("/auth/sessions", bPhone, PHONE)).body?.sessions ?? []) as { id: string }[];
+  check("devices: never another account's sessions", bobs.length === 1 && !mine.some((d) => d.id === bobs[0]!.id), bobs);
+  check("devices: an admin or company token has no list", (await req("/auth/sessions", ADMIN)).status === 401 && (await req("/auth/sessions", companyToken)).status === 401);
+  check("devices: no list without signing in", (await req("/auth/sessions", null)).status === 401);
+
+  const bobsOut = await as(`/auth/sessions/${bobs[0]!.id}/sign-out`, aLaptop, LAPTOP, { method: "POST" });
+  check("devices: another account's session cannot be signed out, and reads as not there", bobsOut.status === 404 && (await req("/me", bPhone)).body?.role === "user", bobsOut);
+
+  const phoneId = mine.find((d) => !d.current)!.id;
+  const out = await as(`/auth/sessions/${phoneId}/sign-out`, aLaptop, LAPTOP, { method: "POST" });
+  check("devices: signing out one of your own devices ends it, not this one", out.status === 200 && (await req("/me", aPhone)).body?.role === null && (await req("/me", aLaptop)).body?.role === "user", out);
+
+  const aPhone2 = await login("matrix.devices.a@example.com", PHONE);
+  const aTablet = await login("matrix.devices.a@example.com", "Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1");
+  const others = await as("/auth/sessions/sign-out-others", aLaptop, LAPTOP, { method: "POST" });
+  check(
+    "devices: sign out everywhere else keeps only this device, and touches no one else",
+    others.status === 200 && others.body?.signedOut === 2 && (await req("/me", aPhone2)).body?.role === null && (await req("/me", aTablet)).body?.role === null && (await req("/me", aLaptop)).body?.role === "user" && (await req("/me", bPhone)).body?.role === "user",
+    others.body,
+  );
+
+  const seen = await as("/me/device", null, PHONE);
+  check("devices: /me/device tells a device only about itself", seen.status === 200 && seen.body?.userAgent === PHONE && typeof seen.body?.address === "string" && Object.keys(seen.body).length === 2, seen.body);
+
+  await new Promise((r) => setTimeout(r, 400)); // recorded after the answer goes
+  const log = ((await req("/audit?limit=500", ADMIN)).body ?? []) as { action: string; actor: string | null; detail: any }[];
+  const signIn = log.find((r) => r.action === "login.ok" && r.actor === alice.id);
+  check("devices: Account activity records the device with each entry", signIn?.detail?.ua === PHONE || signIn?.detail?.ua === LAPTOP || signIn?.detail?.ua?.includes("iPad"), signIn);
+  check(
+    "devices: signing devices out is recorded, with the device signed out",
+    log.some((r) => r.action === "session.signed_out" && r.detail?.device === PHONE) && log.some((r) => r.action === "session.others_signed_out" && r.detail?.count === 2),
+    log.filter((r) => r.action.startsWith("session.")),
+  );
+
+  await req(`/users/${alice.id}`, ADMIN, { method: "DELETE" });
+  await req(`/users/${bob.id}`, ADMIN, { method: "DELETE" });
+}
+
 // ── View-only link (follower join code shared as a URL to camera ops) ─────────
 {
   const created = await req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower" }) });

@@ -127,9 +127,12 @@ password can be used from outside the project's private network. The admin
 token is the one secret that works from the internet.
 
 **Checked, 22 Oct.** The error log since 21 Oct: nothing unexplained. Account
-activity since 21 Oct: every change and sign-in from an address the owner had
-used before, bar one sign-in as the owner from a new address on the evening of
-21 Oct — awaiting the owner's confirmation. Reads made with the
+activity since 21 Oct showed nothing the owner did not recognise — but its
+"From" column turned out to be worthless (below), so one sign-in as the owner
+at 19:36 AEDT on 21 Oct, recorded "from Singapore", cannot be placed by its
+address. It stays open until the device that made it can be read: My account →
+Where you're signed in (22 Oct) shows it once that release is live, if the
+session has not ended. Reads made with the
 admin token are not recorded — only changes are — so the log cannot rule out
 the token having been used to read sheets.
 
@@ -140,6 +143,19 @@ deploy. Open until done.
 **What it showed.** The owner password was missing from the rotation table, and
 the table did not say that a database password is changed in the database
 (both fixed above). Admin-token reads leave no trace (open item below).
+
+And the address recorded for every request was Railway's, not the visitor's.
+Every entry in Account activity — the owner's Mac on an Australian network, the
+AI assistant connector calling from the US — was recorded as one of a handful
+of Railway front-door servers (San Jose, Los Angeles, Ashburn, Singapore; the
+server answers name the one used, e.g. `x-railway-edge: sjc1`). The app took
+the last `X-Forwarded-For` entry, which behind Railway's current edge is the
+edge's own address. Two consequences: the "From" column could not say where
+anything came from, and the sign-in attempt limit counted per Railway server,
+so everyone arriving through one front door shared a single allowance. Fixed
+by reading `X-Real-IP`, which Railway's edge sets to the visitor's address —
+to be confirmed against a deliberately faked header straight after the next
+deploy, since Railway's own answers on the point disagree.
 
 ## Photos and who is here (20 Oct 2026)
 

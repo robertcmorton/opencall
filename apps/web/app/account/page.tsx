@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, API_URL, type AssistantConnection } from "../../lib/api";
+import { api, API_URL, type AssistantConnection, type SignedInDevice } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
-import { passwordProblem, PASSWORD_HINT } from "@opencall/core";
+import { describeDevice, passwordProblem, PASSWORD_HINT } from "@opencall/core";
 import { Icon } from "../../components/ui";
 import { pickImage } from "../../lib/pickImage";
 import { colorFor, initialsOf } from "../../lib/usePresence";
@@ -198,6 +198,8 @@ export default function AccountPage() {
         </div>
       )}
 
+      <DevicesPanel />
+
       <AssistantsPanel />
     </main>
   );
@@ -283,6 +285,120 @@ function AssistantsPanel() {
             </button>
           </div>
         ))
+      )}
+    </div>
+  );
+}
+
+/** A moment, as a list reads it: "21 Oct, 7:36 pm". */
+const moment = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+/**
+ * Where you're signed in (22 Oct 2026): this device as the server sees it, and
+ * every phone, tablet or computer signed in to the account, each of which can
+ * be signed out from here.
+ *
+ * Asked for after a sign-in turned up in Account activity that nobody could
+ * place. The device was recorded all along; nothing showed it.
+ */
+function DevicesPanel() {
+  const [here, setHere] = useState<{ address: string | null; userAgent: string | null } | null>(null);
+  const [list, setList] = useState<SignedInDevice[] | null>(null);
+  const [refused, setRefused] = useState(false);
+  const load = () =>
+    void api
+      .signedInDevices()
+      .then((r) => setList(r.sessions))
+      .catch(() => setRefused(true));
+  useEffect(() => {
+    void api
+      .myDevice()
+      .then(setHere)
+      .catch(() => setHere(null));
+    load();
+  }, []);
+  const others = (list ?? []).filter((d) => !d.current);
+  // "Last seen" is kept to the hour, so anything inside it reads as now.
+  const seen = (iso: string | null) => (!iso ? "" : Date.now() - new Date(iso).getTime() < 90 * 60_000 ? " · active in the last hour" : ` · last active ${moment(iso)}`);
+  return (
+    <div className="panel" style={{ display: "grid", gap: "var(--space-3)" }}>
+      <strong>Where you&apos;re signed in</strong>
+      {here && (
+        <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+          This device: {describeDevice(here.userAgent).label}
+          {here.address ? <span className="mono"> · {here.address}</span> : null}
+        </span>
+      )}
+      {refused ? null : list == null ? (
+        <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>Loading…</span>
+      ) : (
+        <>
+          <span style={{ color: "var(--text-2)", fontSize: "var(--fs-sm)" }}>
+            Every phone, tablet and computer signed in to your account. If you don&apos;t recognise one, sign it out and change your password.
+          </span>
+          {list.map((d) => (
+            <div key={d.id} className="device-row">
+              <div style={{ flex: "1 1 220px", display: "grid", gap: 2 }}>
+                <span>
+                  {describeDevice(d.userAgent).label}
+                  {d.current ? <span className="device-here"> This device</span> : null}
+                </span>
+                <span style={{ color: "var(--text-3)", fontSize: "var(--fs-sm)" }}>
+                  Signed in {moment(d.signedInAt)}
+                  {seen(d.lastSeenAt)}
+                </span>
+              </div>
+              {!d.current && (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={async () => {
+                    if (
+                      !(await ask({
+                        title: `Sign out ${describeDevice(d.userAgent).label}?`,
+                        message: "That device will have to sign in again with your email and password.",
+                        confirmLabel: "Sign out",
+                        danger: true,
+                      }))
+                    )
+                      return;
+                    void api
+                      .signOutDevice(d.id)
+                      .then(load)
+                      .catch((err) => sayError(err));
+                  }}
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
+          ))}
+          {others.length > 1 && (
+            <div>
+              <button
+                className="btn"
+                type="button"
+                onClick={async () => {
+                  if (
+                    !(await ask({
+                      title: `Sign out the other ${others.length} devices?`,
+                      message: "Every device except this one will have to sign in again.",
+                      confirmLabel: "Sign out everywhere else",
+                      danger: true,
+                    }))
+                  )
+                    return;
+                  void api
+                    .signOutOtherDevices()
+                    .then(load)
+                    .catch((err) => sayError(err));
+                }}
+              >
+                Sign out everywhere else
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

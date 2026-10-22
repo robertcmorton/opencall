@@ -326,6 +326,16 @@ export interface AssistantRequest {
 }
 
 /** An assistant connected to this account. */
+/** One place an account is signed in. */
+export interface SignedInDevice {
+  id: string;
+  userAgent: string | null;
+  signedInAt: string;
+  lastSeenAt: string | null;
+  /** The browser asking. */
+  current: boolean;
+}
+
 export interface AssistantConnection {
   id: string;
   name: string;
@@ -367,6 +377,12 @@ export const api = {
     request<{ redirect: string }>("/oauth/authorize/decide", { method: "POST", body: JSON.stringify({ params, allow, scopes }) }),
   assistants: () => request<{ assistants: AssistantConnection[] }>("/me/assistants"),
   disconnectAssistant: (id: string) => request<Record<string, never>>(`/me/assistants/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** What the server sees of this device: its address and its own description. */
+  myDevice: () => request<{ address: string | null; userAgent: string | null }>("/me/device"),
+  /** Where this account is signed in — see `/auth/sessions` on the server. */
+  signedInDevices: () => request<{ sessions: SignedInDevice[] }>("/auth/sessions"),
+  signOutDevice: (id: string) => request<Record<string, never>>(`/auth/sessions/${encodeURIComponent(id)}/sign-out`, { method: "POST" }),
+  signOutOtherDevices: () => request<{ signedOut: number }>("/auth/sessions/sign-out-others", { method: "POST" }),
   changePassword: (current: string, next: string) =>
     request<Record<string, never>>("/auth/change-password", { method: "POST", body: JSON.stringify({ current, next }) }),
   setUserPassword: (id: string, password: string) =>
@@ -503,7 +519,19 @@ export const api = {
     >(`/errors?limit=${limit}${resolved ? "&resolved=1" : ""}`),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
   audit: (limit = 200) =>
-    request<{ id: string; at: string; actor: string | null; actorName: string | null; action: string; target: string | null; ip: string | null }[]>(
+    request<
+      {
+        id: string;
+        at: string;
+        actor: string | null;
+        actorName: string | null;
+        action: string;
+        target: string | null;
+        ip: string | null;
+        /** `ua`: the device's own description, recorded from 22 Oct 2026. */
+        detail: ({ ua?: string; device?: string | null; count?: number } & Record<string, unknown>) | null;
+      }[]
+    >(
       `/audit?limit=${limit}`,
     ),
   templates: () => request<TemplateSummary[]>("/templates"),

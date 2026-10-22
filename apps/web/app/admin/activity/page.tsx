@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { describeDevice } from "@opencall/core";
 import { api } from "../../../lib/api";
 import { sendToSignIn } from "../../../lib/session";
 import { WithSideNav } from "../../../components/SideNav";
@@ -48,7 +49,21 @@ const ACTION_LABEL: Record<string, string> = {
   "mcp.move_row": "AI assistant moved a row",
   "mcp.strike_row": "AI assistant struck a row, or put one back",
   "mcp.delete_rows": "AI assistant deleted rows",
+  "mcp.read_error_log": "AI assistant read the error log",
+  "mcp.resolve_errors": "AI assistant marked errors as fixed",
+  "sheet.signals_changed": "Changed a show's on-cue signals",
+  "session.signed_out": "Signed out one of their devices",
+  "session.others_signed_out": "Signed out everywhere else",
 };
+
+/**
+ * Entries from before 22 Oct 2026 carry no device, and their address is the
+ * hosting company's front-door server rather than the person's: the app read
+ * the wrong header until then. The two were fixed in the same release, so a
+ * missing device is how an old address is told apart.
+ */
+const OLD_ADDRESS_TIP =
+  "Recorded before 22 October 2026, when the app noted the hosting company's server instead of the person's address. It does not say where this came from.";
 
 /**
  * Who did what to accounts and access (System Administrators only): sign-ins
@@ -99,7 +114,8 @@ export default function AdminActivityPage() {
                     <th>When</th>
                     <th>Who</th>
                     <th>What</th>
-                    <th data-tip="The internet address the person used">From</th>
+                    <th data-tip="The phone, tablet or computer, as it describes itself">Device</th>
+                    <th data-tip="The internet address it came from">From</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,8 +126,20 @@ export default function AdminActivityPage() {
                       <td>
                         {ACTION_LABEL[r.action] ?? r.action}
                         {r.target?.startsWith("email:") && <span className="activity-sub"> · {r.target.slice(6)}</span>}
+                        {r.action === "session.signed_out" && r.detail?.device && <span className="activity-sub"> · {describeDevice(r.detail.device).label}</span>}
                       </td>
-                      <td className="mono">{r.ip ?? "—"}</td>
+                      <td>{r.detail?.ua ? describeDevice(r.detail.ua).label : <span className="activity-sub">—</span>}</td>
+                      <td className="mono">
+                        {r.ip == null ? (
+                          "—"
+                        ) : r.detail?.ua ? (
+                          r.ip
+                        ) : (
+                          <span className="activity-sub" data-tip={OLD_ADDRESS_TIP}>
+                            {r.ip}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

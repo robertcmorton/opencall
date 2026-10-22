@@ -17,3 +17,4 @@ export * from "./password.ts";
 export * from "./runTimes.ts";
 export * from "./runningLate.ts";
 export * from "./timingFix.ts";
+export * from "./device.ts";

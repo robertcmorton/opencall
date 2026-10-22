@@ -5090,6 +5090,21 @@ tr.played-row td {
 .activity-table tr.activity-warn td:nth-child(3) {
   color: var(--warn);
 }
+/* Where you're signed in (My account, 22 Oct 2026). */
+.device-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.device-here {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xs);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
 .activity-sub {
   color: var(--text-2);
 }

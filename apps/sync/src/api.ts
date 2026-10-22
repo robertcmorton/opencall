@@ -10,6 +10,7 @@ import {
   createSession,
   hashPassword,
   hashToken,
+  IDLE_DAYS,
   isOpenAccess,
   newToken,
   passwordProblem,
@@ -25,7 +26,7 @@ import { runTimes, serializeCsv } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
-import { audit } from "./audit.ts";
+import { audit, userAgentOf } from "./audit.ts";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
 import { MAX_WEBHOOKS, webhookProblem, type CueSignals } from "./cueSignals.ts";
@@ -314,6 +315,7 @@ export function createApiHandler(
     const url = new URL(req.url ?? "/", "http://localhost");
     const { pathname } = url;
     const ip = clientIp(req);
+    const ua = userAgentOf(req);
     // Successful changes on audited routes are recorded once the answer has
     // gone, with who made them (worked out from the same credentials).
     const audited = AUDITED.find((a) => a.method === req.method && a.pattern.test(pathname));
@@ -325,7 +327,7 @@ export function createApiHandler(
           .then((ctx) => {
             const actor =
               ctx?.kind === "user" ? ctx.userId : ctx?.kind === "company" ? `company:${ctx.teamId}` : ctx?.kind === "admin" ? "admin" : (ctx?.kind ?? null);
-            audit(handle, { actor, action: audited.action, target: audited.pattern.exec(pathname)?.[1] ?? null, ip, detail: { path: pathname } });
+            audit(handle, { actor, action: audited.action, target: audited.pattern.exec(pathname)?.[1] ?? null, ip, ua, detail: { path: pathname } });
           });
       });
     }
@@ -807,7 +809,7 @@ export function createApiHandler(
         const tooMany = (retryAfterSec: number, why: string) => {
           res.setHeader("retry-after", String(retryAfterSec));
           json(res, 429, { error: `Too many tries. Wait ${retryAfterSec < 90 ? `${retryAfterSec} seconds` : `${Math.ceil(retryAfterSec / 60)} minutes`}, then try again.` });
-          audit(handle, { actor: null, action: "login.throttled", target: email ? `email:${email}` : null, ip, detail: { why } });
+          audit(handle, { actor: null, action: "login.throttled", target: email ? `email:${email}` : null, ip, ua, detail: { why } });
         };
         // Slowdown for an address under attack from anywhere: wait out the
         // backoff since the last try before another one is even counted.
@@ -837,13 +839,13 @@ export function createApiHandler(
         // One indistinct error for unknown email and wrong password alike, and
         // the same time taken for both (verifyPassword checks a dummy hash).
         if (!verifyPassword(password, user?.passwordHash ?? null) || !user) {
-          audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip });
+          audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip, ua });
           json(res, 401, { error: "That email and password don't match an account. Check them and try again." });
           return true;
         }
         // Right password: the attempt was not a guess, so it does not count.
         await Promise.all([release(handle, pairKey), release(handle, ipLimitKey), release(handle, emailKey)]);
-        audit(handle, { actor: user.id, action: "login.ok", target: `user:${user.id}`, ip });
+        audit(handle, { actor: user.id, action: "login.ok", target: `user:${user.id}`, ip, ua });
         const session = await createSession(handle, user.id, req.headers["user-agent"]);
         json(res, 200, { token: session.token, expiresAt: session.expiresAt.toISOString(), name: user.name });
         return true;
@@ -893,7 +895,7 @@ export function createApiHandler(
           const allow = body.allow === true;
           const ticked = (Array.isArray(body.scopes) ? body.scopes.map(String) : []).filter((s: string) => offered(s));
           const out = await decideAuthorize(handle, base, userId, p, allow, ticked);
-          if (out.grantId) audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, detail: { assistant: out.clientName, scopes: ticked } });
+          if (out.grantId) audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, ua, detail: { assistant: out.clientName, scopes: ticked } });
           json(res, 200, { redirect: out.redirect });
         } catch (err) {
           if (err instanceof OAuthError) json(res, 400, { error: err.description });
@@ -920,10 +922,105 @@ export function createApiHandler(
             return true;
           }
           await revokeGrant(handle, grant.id);
-          audit(handle, { actor: userId, action: "mcp.disconnected", target: grant.id, ip, detail: { assistant: grant.clientName, by: "person" } });
+          audit(handle, { actor: userId, action: "mcp.disconnected", target: grant.id, ip, ua, detail: { assistant: grant.clientName, by: "person" } });
           json(res, 200, {});
           return true;
         }
+      }
+
+      /**
+       * What the server sees of the device asking: its address and its own
+       * description (22 Oct 2026). Open to anyone, because it only ever tells
+       * a device about itself. My account shows it as "This device", and it is
+       * how the address reading is checked after a deploy: ask once with a
+       * made-up X-Real-IP, and the answer must still be the real address.
+       */
+      if (req.method === "GET" && pathname === "/me/device") {
+        json(res, 200, { address: ip, userAgent: ua });
+        return true;
+      }
+
+      /**
+       * Where you're signed in (22 Oct 2026): every live session of this
+       * account and the device it signed in from.
+       *
+       * Built after a sign-in turned up in Account activity that nobody could
+       * place, during the check that followed the hosting provider's security
+       * incident. The device was in the database all along — every session
+       * keeps it — but nothing showed it, so the only way to answer "was that
+       * my phone?" was a query against production. Now the account holder
+       * can see it, and sign out anything that should not be there.
+       *
+       * Only the caller's OWN sessions, by account: a session or a personal
+       * token. An admin or company token has no account and gets a 401.
+       */
+      if (req.method === "GET" && pathname === "/auth/sessions") {
+        const token = bearerToken(req);
+        const userId = await accountIdForToken(handle, token);
+        if (!userId) {
+          json(res, 401, { error: "Sign in with your email and password to see where you are signed in." });
+          return true;
+        }
+        const current = token?.startsWith("ses_") ? hashToken(token) : null;
+        const now = Date.now();
+        const rows = await db.query.authSessions.findMany({
+          where: and(eq(schema.authSessions.userId, userId), isNull(schema.authSessions.revokedAt)),
+          orderBy: desc(schema.authSessions.createdAt),
+        });
+        const live = rows.filter((r) => r.expiresAt.getTime() > now && (!r.lastSeenAt || now - r.lastSeenAt.getTime() <= IDLE_DAYS * 24 * 3600_000));
+        json(res, 200, {
+          sessions: live.map((r) => ({
+            id: r.id,
+            userAgent: r.userAgent ?? null,
+            signedInAt: r.createdAt.toISOString(),
+            lastSeenAt: r.lastSeenAt?.toISOString() ?? null,
+            current: r.token === current,
+          })),
+        });
+        return true;
+      }
+
+      if (req.method === "POST" && /^\/auth\/sessions\/[^/]+\/sign-out$/.test(pathname)) {
+        const userId = await accountIdForToken(handle, bearerToken(req));
+        if (!userId) {
+          json(res, 401, { error: "Sign in with your email and password first." });
+          return true;
+        }
+        const id = pathname.split("/")[3]!;
+        const row = await db.query.authSessions.findFirst({ where: and(eq(schema.authSessions.id, id), eq(schema.authSessions.userId, userId)) });
+        // Somebody else's session reads exactly like one that does not exist.
+        if (!row || row.revokedAt) {
+          json(res, 404, { error: "That device is already signed out." });
+          return true;
+        }
+        await db.update(schema.authSessions).set({ revokedAt: new Date() }).where(eq(schema.authSessions.id, row.id));
+        audit(handle, { actor: userId, action: "session.signed_out", target: `user:${userId}`, ip, ua, detail: { device: row.userAgent ?? null } });
+        json(res, 200, {});
+        return true;
+      }
+
+      if (req.method === "POST" && pathname === "/auth/sessions/sign-out-others") {
+        const token = bearerToken(req);
+        const userId = await accountIdForToken(handle, token);
+        if (!userId) {
+          json(res, 401, { error: "Sign in with your email and password first." });
+          return true;
+        }
+        const keep = token?.startsWith("ses_") ? hashToken(token) : null;
+        const ended = await db
+          .update(schema.authSessions)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(schema.authSessions.userId, userId),
+              isNull(schema.authSessions.revokedAt),
+              ...(keep ? [ne(schema.authSessions.token, keep)] : []),
+            ),
+          )
+          .returning();
+        audit(handle, { actor: userId, action: "session.others_signed_out", target: `user:${userId}`, ip, ua, detail: { count: ended.length } });
+        json(res, 200, { signedOut: ended.length });
+        return true;
       }
 
       if (req.method === "POST" && pathname === "/auth/logout") {
@@ -970,13 +1067,13 @@ export function createApiHandler(
             return true;
           }
           if (!verifyPassword(current, user.passwordHash)) {
-            audit(handle, { actor: userId, action: "password.change_failed", target: `user:${userId}`, ip });
+            audit(handle, { actor: userId, action: "password.change_failed", target: `user:${userId}`, ip, ua });
             json(res, 401, { error: "Your current password isn't right. Type it again." });
             return true;
           }
           await release(handle, pwKey);
         }
-        audit(handle, { actor: userId, action: "password.changed", target: `user:${userId}`, ip });
+        audit(handle, { actor: userId, action: "password.changed", target: `user:${userId}`, ip, ua });
         await db.update(schema.users).set({ passwordHash: hashPassword(next) }).where(eq(schema.users.id, userId));
         // Every other session dies with the old password; this one stays.
         // Assistants connected under the old password are disconnected too.
@@ -1006,7 +1103,7 @@ export function createApiHandler(
         await revokeUserSessions(handle, id); // old sessions die with the old password
         await revokeUserGrants(handle, id); // and so do its assistant connections
         if (target?.email) await clearStartingWith(handle, `login:email:${target.email}`);
-        audit(handle, { actor: "admin", action: "password.reset_by_admin", target: `user:${id}`, ip });
+        audit(handle, { actor: "admin", action: "password.reset_by_admin", target: `user:${id}`, ip, ua });
         json(res, 200, { id });
         return true;
       }
@@ -1349,7 +1446,7 @@ export function createApiHandler(
           accessToken: null,
           passwordHash: hashPassword(password),
         });
-        audit(handle, { actor: userId, action: "invite.accepted", target: `user:${userId}`, ip, detail: { invite: row.id } });
+        audit(handle, { actor: userId, action: "invite.accepted", target: `user:${userId}`, ip, ua, detail: { invite: row.id } });
         // Exactly what the invitation carried — accepting cannot ask for more.
         for (const g of row.grants) {
           await db.insert(schema.userGrants).values({ userId, kind: g.kind as never, targetId: g.targetId }).onConflictDoNothing();
@@ -1383,7 +1480,7 @@ export function createApiHandler(
           accessToken: hashToken(token),
           passwordHash: password ? hashPassword(password) : null,
         });
-        audit(handle, { actor: "admin", action: "user.created", target: `user:${id}`, ip });
+        audit(handle, { actor: "admin", action: "user.created", target: `user:${id}`, ip, ua });
         const grants = Array.isArray(body.grants) ? (body.grants as { kind: string; targetId?: string }[]) : [];
         for (const g of grants) {
           if (!["admin", "company", "event", "view"].includes(g.kind)) continue;
@@ -1494,7 +1591,7 @@ export function createApiHandler(
         const id = pathname.split("/")[2]!;
         const token = newToken("usr");
         await db.update(schema.users).set({ accessToken: hashToken(token) }).where(eq(schema.users.id, id));
-        audit(handle, { actor: "admin", action: "token.user_rotated", target: `user:${id}`, ip });
+        audit(handle, { actor: "admin", action: "token.user_rotated", target: `user:${id}`, ip, ua });
         // Shown this once; only its hash is kept.
         json(res, 200, { id, accessToken: token });
         return true;
@@ -1618,7 +1715,7 @@ export function createApiHandler(
           slug: `co-${id.slice(-8).toLowerCase()}`,
           companyToken: hashToken(token),
         });
-        audit(handle, { actor: "admin", action: "company.created", target: `team:${id}`, ip });
+        audit(handle, { actor: "admin", action: "company.created", target: `team:${id}`, ip, ua });
         json(res, 201, { id, companyToken: token });
         return true;
       }
@@ -1628,7 +1725,7 @@ export function createApiHandler(
         const id = pathname.split("/")[2]!;
         const token = newToken("co");
         await db.update(schema.teams).set({ companyToken: hashToken(token) }).where(eq(schema.teams.id, id));
-        audit(handle, { actor: "admin", action: "token.company_rotated", target: `team:${id}`, ip });
+        audit(handle, { actor: "admin", action: "token.company_rotated", target: `team:${id}`, ip, ua });
         // Shown this once; only its hash is kept.
         json(res, 200, { id, companyToken: token });
         return true;
@@ -2629,11 +2726,8 @@ export function createApiHandler(
           json(res, 400, { error: "Type your name first." });
           return true;
         }
-        // Behind Railway's proxy the socket address is the proxy's; the first
-        // entry of x-forwarded-for is the client. Trusting it is fine for a
-        // record kept for the showcaller's own eyes — it is not a credential.
-        const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",")[0]?.trim();
-        const ip = forwarded || req.socket.remoteAddress || null;
+        // The same reading as everywhere else (`clientIp`): it used to take
+        // the first X-Forwarded-For entry, which the visitor writes themselves.
         let existing = await db.query.shareViews.findFirst({
           where: and(eq(schema.shareViews.shareTokenId, resolved.tokenId), eq(schema.shareViews.deviceId, deviceId)),
         });
@@ -2962,7 +3056,7 @@ export function createApiHandler(
           }
           await db.update(schema.rundowns).set({ cueWebhooks: [...new Set(urls)] }).where(eq(schema.rundowns.id, rundownId));
           const who = await authContext(handle, req, rundownId);
-          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.signals_changed", target: rundownId, ip, detail: { count: urls.length } });
+          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.signals_changed", target: rundownId, ip, ua, detail: { count: urls.length } });
         }
         const r = await db.query.rundowns.findFirst({ where: eq(schema.rundowns.id, rundownId), columns: { cueWebhooks: true } });
         json(res, 200, { webhooks: r?.cueWebhooks ?? [], deliveries: hooks.cueSignals?.deliveries(rundownId) ?? [] });
@@ -3281,7 +3375,7 @@ export function createApiHandler(
             undoes: change.id,
           }))?.id ?? null;
           if (entryId) await db.update(schema.sheetChanges).set({ undoneBy: entryId }).where(eq(schema.sheetChanges.id, change.id));
-          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.change_undone", target: rundown.id, ip, detail: { change: change.id, summary: change.summary } });
+          audit(handle, { actor: who?.kind === "user" ? who.userId : (who?.kind ?? null), action: "sheet.change_undone", target: rundown.id, ip, ua, detail: { change: change.id, summary: change.summary } });
         }
         json(res, 200, { undone: result.undone, skipped: result.skipped, entryId });
         return true;

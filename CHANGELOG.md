@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **When the cue moves on, the next row's bar starts at once.** It sat empty and still for up to half a second — until the once-a-second timing caught up — so for a moment nothing on the sheet was moving. It now runs from the moment the row went on air.
 - **Security: a library under the AI-assistant connection is updated** (body-parser 2.3.0 → 2.4.0), after a newly published advisory that a malformed request could tie the server up.
 - **The right-click menu opens at once, even on a big sheet.** Opening it re-drew the whole sheet first; it now appears on its own in a few thousandths of a second, and the row lights up as picked just after. Whatever you choose acts on the row you right-clicked, even if you choose before it has lit up.
 - **A muted length is no longer crossed out.** It's shown in grey italics. Crossed out, it read as "this doesn't happen" — the look of a struck row — on rows that do happen, alongside another.

@@ -6692,11 +6692,26 @@ export function RundownEditor({
                           // against this row's length pins the bar full. A row that has
                           // just started has run for no time.
                           const mine = live.rowId === rowRecord.id;
+                          // Until they catch up, the bar runs from the moment the row
+                          // went on air, which the show state already carries (24 Oct,
+                          // Robert: "when the cue is jumping between lines … there is a
+                          // moment where no item has a bar moving after the blue reaches
+                          // the end"). It used to sit empty and still for up to a second —
+                          // the timing publishes once a second — so nothing on the sheet
+                          // moved between one row finishing and the next one's bar
+                          // starting. Handed the same row and length, the sweep carries
+                          // straight on when the timing arrives (BarFill keys on them).
+                          const sinceCue =
+                            !mine && channel.show?.activeRowId === rowRecord.id && channel.show.activeRowStartedAtMs != null
+                              ? Math.max(0, channel.serverNow() - channel.show.activeRowStartedAtMs)
+                              : null;
                           // Red only after a full second over — the moment between a cue
                           // ending and the next taking over must not flash red.
                           const over = mine && live.remainingInRowSec != null && live.remainingInRowSec < -1;
                           const frac = !mine
-                            ? 0
+                            ? sinceCue != null
+                              ? Math.min(1, sinceCue / (rowRecord.durationSec * 1000))
+                              : 0
                             : over
                               ? 1
                               : live.remainingInRowSec != null
@@ -6712,7 +6727,9 @@ export function RundownEditor({
                                 sweep={
                                   mine && !over && !isPaused && live.remainingInRowSec != null && live.remainingInRowSec > 0
                                     ? { key: rowRecord.id, durationMs: rowRecord.durationSec * 1000, elapsedMs: live.elapsedInRowSec * 1000 }
-                                    : null
+                                    : !mine && !isPaused && sinceCue != null && sinceCue < rowRecord.durationSec * 1000
+                                      ? { key: rowRecord.id, durationMs: rowRecord.durationSec * 1000, elapsedMs: sinceCue }
+                                      : null
                                 }
                               />
                             </td>

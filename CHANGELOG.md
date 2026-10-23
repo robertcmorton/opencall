@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The right-click menu opens at once, even on a big sheet.** Opening it re-drew the whole sheet first; it now appears on its own in a few thousandths of a second, and the row lights up as picked just after. Whatever you choose acts on the row you right-clicked, even if you choose before it has lit up.
 - **A muted length is no longer crossed out.** It's shown in grey italics. Crossed out, it read as "this doesn't happen" — the look of a struck row — on rows that do happen, alongside another.
 - **The right-click menu and the ⋯ menus appear at once.** They were ready in a few hundredths of a second and then took 0.13 s to fade in, which is what made them feel slow.
 - **A yellow fixed time (DOORS OPEN 6:00) keeps its time** when the sheet re-times — adding, deleting, changing a length, striking or nudging an item before it — while the cues around it move as they would have. It used to move with them, as if the doors would open later because an item ran long.

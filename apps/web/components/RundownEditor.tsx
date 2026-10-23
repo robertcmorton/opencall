@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
-import { Activity, useCallback, Fragment, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Activity, startTransition, useCallback, Fragment, useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as Y from "yjs";
 import { useIsNarrow, useIsPhone } from "../lib/useIsPhone";
 import { highlightCss, ROW_HIGHLIGHTS } from "../lib/highlights";
@@ -402,6 +402,55 @@ function SortableRow({
       </td>
       {children}
     </tr>
+  );
+}
+
+/** Where the row menu is open, and for which row. */
+type RowMenuAt = { rowId: string; x: number; y: number; from: "row" | "bar"; touch?: boolean; onlyThis?: boolean };
+type RowMenuHandle = { open: (at: RowMenuAt) => void; close: () => void };
+
+/**
+ * The row menu, holding its own "is it open" (24 Oct, Robert: "the right mouse
+ * click is very slow to open even on localhost … needs to be instant like
+ * google sheets").
+ *
+ * It lived in the editor's state, so opening it re-drew the whole editor —
+ * every visible row, the timing, the bars — before the menu could appear:
+ * about 0.2 s in development, a frame or two in production, on top of a 0.13 s
+ * fade removed the day before. Here only this re-draws to open it. The editor
+ * learns which row was picked just after the menu is on screen (openRowMenu),
+ * and every action in the menu is handed the rows it was opened for, so
+ * nothing waits on that.
+ */
+function RowMenuHost({
+  ref,
+  entriesFor,
+  isPhone,
+  onClosed,
+}: {
+  ref: React.Ref<RowMenuHandle>;
+  entriesFor: (at: RowMenuAt) => RowMenuEntry[];
+  isPhone: boolean;
+  onClosed: () => void;
+}) {
+  const [at, setAt] = useState<RowMenuAt | null>(null);
+  useImperativeHandle(ref, () => ({ open: setAt, close: () => setAt(null) }), []);
+  if (!at) return null;
+  return (
+    <RowMenu
+      x={at.x}
+      y={at.y}
+      entries={entriesFor(at)}
+      onClose={() => {
+        setAt(null);
+        onClosed();
+      }}
+      touch={at.touch}
+      // A phone gets the menu as a sheet from the bottom, where a thumb
+      // reaches; a tablet keeps it by the finger, with bigger targets —
+      // the way iPadOS shows its own menus.
+      sheet={!!at.touch && isPhone}
+    />
   );
 }
 
@@ -3456,8 +3505,8 @@ export function RundownEditor({
     return rows.findIndex((r) => r.id === id) > liveIdx && id !== activeRowId && !playedRowIds.has(id);
   };
 
-  const deleteSelected = (): void => {
-    if (selected.size === 0) return;
+  const deleteSelected = (targets: ReadonlySet<string> = selected): void => {
+    if (targets.size === 0) return;
     // The rule lives with the ACTION, not only with the button that is
     // currently the one way to reach it. Twice today a control turned out to
     // have a second copy somewhere else obeying the old rule; a shortcut added
@@ -3465,20 +3514,20 @@ export function RundownEditor({
     // because nobody remembered this. During the show only rows still to come
     // can go: the row on air and everything played are the record of what
     // happened.
-    const played = [...selected].filter((id) => !stillToCome(id));
+    const played = [...targets].filter((id) => !stillToCome(id));
     if (played.length > 0) {
       say(`${played.length === 1 ? "A row that has played, or is on air," : `${played.length} rows that have played, or are on air,`} can't be deleted during the show — strike instead.`, "error");
       return;
     }
     // Locked rows are approved: they are left where they are, and said so.
-    const lockedPicked = [...selected].filter((id) => yRows.get(id)?.get("locked"));
+    const lockedPicked = [...targets].filter((id) => yRows.get(id)?.get("locked"));
     if (lockedPicked.length > 0) {
       say(
         `${lockedPicked.length === 1 ? "That row is" : `${lockedPicked.length} of those rows are`} locked, so ${lockedPicked.length === 1 ? "it was" : "they were"} not deleted. Unlock first to delete.`,
         "error",
       );
     }
-    const deletable = [...selected].filter((id) => !lockedPicked.includes(id));
+    const deletable = [...targets].filter((id) => !lockedPicked.includes(id));
     if (deletable.length === 0) return;
     // The time they took leaves the running order: every fixed time below
     // starts earlier by it, as a strike does — see timesAfterDelete.
@@ -3501,16 +3550,16 @@ export function RundownEditor({
 
   /** Lock (or unlock) the selected rows. Anyone who can edit may do either. */
   /** A yes/no mark on every picked row (Must start on time, Can drop). */
-  const setSelectedFlag = (field: "mustStart" | "canDrop", value: boolean): void => {
+  const setSelectedFlag = (field: "mustStart" | "canDrop", value: boolean, targets: ReadonlySet<string> = selected): void => {
     doc.transact(() => {
-      for (const id of selected) yRows.get(id)?.set(field, value);
+      for (const id of targets) yRows.get(id)?.set(field, value);
     });
   };
-  const setSelectedLocked = (locked: boolean): void => {
-    if (selected.size === 0) return;
+  const setSelectedLocked = (locked: boolean, targets: ReadonlySet<string> = selected): void => {
+    if (targets.size === 0) return;
     const who = channel.userLabel ?? (lock.mine ? "this editor" : null);
     doc.transact(() => {
-      for (const id of selected) {
+      for (const id of targets) {
         const r = yRows.get(id);
         if (!r) continue;
         r.set("locked", locked);
@@ -3527,10 +3576,10 @@ export function RundownEditor({
    * came straight back and nothing below moved. The strike is a change of
    * length, and ripples like one.
    */
-  const strikeSelected = (): void => {
+  const strikeSelected = (targets: ReadonlySet<string> = selected): void => {
     const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
     doc.transact(() =>
-      selected.forEach((id) => {
+      targets.forEach((id) => {
         const yRow = yRows.get(id);
         if (!yRow) return;
         const struck = !(yRow.get("skipped") as boolean | undefined);
@@ -3569,11 +3618,11 @@ export function RundownEditor({
     }, 50);
   };
 
-  const duplicateSelected = (): void => {
-    if (selected.size === 0) return;
+  const duplicateSelected = (targets: ReadonlySet<string> = selected): void => {
+    if (targets.size === 0) return;
     doc.transact(() => {
       const order = yOrder.toArray();
-      const picked = order.filter((id) => selected.has(id));
+      const picked = order.filter((id) => targets.has(id));
       const last = picked[picked.length - 1];
       const start = (last ? order.indexOf(last) : order.length - 1) + 1;
       let at = start;
@@ -3606,8 +3655,8 @@ export function RundownEditor({
    * one button both applies and removes it and nothing needs a second control
    * to undo it.
    */
-  const toggleTypeSelected = (kind: "group" | "milestone"): void => {
-    const ids = [...selected];
+  const toggleTypeSelected = (kind: "group" | "milestone", targets: ReadonlySet<string> = selected): void => {
+    const ids = [...targets];
     const allAlready = ids.length > 0 && ids.every((id) => yRows.get(id)?.get("type") === kind);
     doc.transact(() => {
       ids.forEach((id) => yRows.get(id)?.set("type", allAlready ? "cue" : kind));
@@ -4498,13 +4547,9 @@ export function RundownEditor({
    * actions mean the row that was clicked.
    */
   /** `bar`: opened from the selection's own Row actions button — rows only, no show controls. */
-  const [rowMenu, setRowMenu] = useState<{ rowId: string; x: number; y: number; from: "row" | "bar"; touch?: boolean } | null>(null);
+  const rowMenu = useRef<RowMenuHandle>(null);
   const [menuResultsOpen, setMenuResultsOpen] = useState(false);
   const [speakerOpen, setSpeakerOpen] = useState(0);
-  const closeRowMenu = useCallback(() => {
-    setRowMenu(null);
-    setMenuResultsOpen(false);
-  }, []);
   const menuShow = isShow && mayDrive && !showLive && rows.length > 0;
   /** The row under a point, if a menu may open there. */
   const menuRowAt = (t: HTMLElement): string | null => {
@@ -4514,13 +4559,25 @@ export function RundownEditor({
     return rowId && (menuShow || canEditContent) ? rowId : null;
   };
   const openRowMenu = (t: HTMLElement, rowId: string, x: number, y: number, touch: boolean) => {
-    if (!selected.has(rowId)) {
-      setSelected(new Set([rowId]));
-      setLastSelected(rowId);
-    }
+    const fresh = !selected.has(rowId);
+    // The menu first, on its own — see RowMenuHost. A row not already picked
+    // is the only one the menu acts on (`onlyThis`), whatever was picked before.
+    rowMenu.current?.open({ rowId, x, y, from: "row", touch, onlyThis: fresh });
     const colId = t.closest<HTMLElement>("td[data-colid]")?.dataset.colid;
-    if (gridOn && colId) grid.place({ rowId, columnId: colId });
-    setRowMenu({ rowId, x, y, from: "row", touch });
+    // Then the sheet: the row lights up as picked, and the grid's cursor moves
+    // to the cell, once the menu has been painted — after the next frame, and
+    // as a transition, so the re-draw never holds the menu up.
+    requestAnimationFrame(() =>
+      window.setTimeout(() =>
+        startTransition(() => {
+          if (fresh) {
+            setSelected(new Set([rowId]));
+            setLastSelected(rowId);
+          }
+          if (gridOn && colId) grid.place({ rowId, columnId: colId });
+        }),
+      ),
+    );
   };
   /** A long press just opened the menu: the click its release makes is not a tap. */
   const swallowClick = useRef(0);
@@ -4651,7 +4708,7 @@ export function RundownEditor({
   ];
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const undoKeyLabel = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘Z" : "Ctrl+Z";
-  const rowMenuEntries = (rowId: string, from: "row" | "bar"): RowMenuEntry[] => {
+  const rowMenuEntries = ({ rowId, from, onlyThis = false, touch = false }: RowMenuAt): RowMenuEntry[] => {
     const i = rows.findIndex((r) => r.id === rowId);
     const r = rows[i];
     if (!r) return [];
@@ -4694,8 +4751,12 @@ export function RundownEditor({
       );
     }
     if (canEditContent) {
-      const picked = rows.filter((x) => selected.has(x.id) || x.id === rowId);
+      // Opened on a row that was not picked: that row alone, whatever was
+      // picked before (the pick catches up a moment later — see openRowMenu).
+      const picked = rows.filter((x) => (onlyThis ? x.id === rowId : selected.has(x.id) || x.id === rowId));
       const ids = picked.map((x) => x.id);
+      /** What every action below works on — never "whatever is picked by then". */
+      const only: ReadonlySet<string> = new Set(ids);
       const many = picked.length > 1;
       const noun = many ? `${picked.length} rows` : "row";
       const all = (f: (x: ProjectedRow) => boolean) => picked.length > 0 && picked.every(f);
@@ -4717,7 +4778,7 @@ export function RundownEditor({
       out.push({ label: <>{Icon.plus} Insert 1 row above</>, onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
       out.push({ label: <>{Icon.plus} Insert 1 row below</>, onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
       {
-        out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, duplicateSelected) });
+        out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, () => duplicateSelected(only)) });
         out.push("sep");
         // Labelling, where the rows already are — see `toggleTypeSelected`.
         const heading = all((x) => x.type === "group");
@@ -4725,35 +4786,35 @@ export function RundownEditor({
         out.push({
           label: heading ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a heading",
           hint: heading ? undefined : "A title like HALF TIME, with no time of its own",
-          onSelect: did(heading ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a heading.`, () => toggleTypeSelected("group")),
+          onSelect: did(heading ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a heading.`, () => toggleTypeSelected("group", only)),
         });
         out.push({
           label: moment ? `Turn back into a normal ${many ? "rows" : "row"}` : "Turn into a fixed time",
           hint: moment ? undefined : "Something set for a time, like DOORS OPEN 6:00. Shown in yellow",
-          onSelect: did(moment ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a fixed time.`, () => toggleTypeSelected("milestone")),
+          onSelect: did(moment ? `${cap(what)} is a normal row again.` : `${cap(what)} is now a fixed time.`, () => toggleTypeSelected("milestone", only)),
         });
       }
       out.push({
         label: all((x) => !!x.skipped) ? `Un-strike ${noun}` : `Strike out ${noun}`,
         hint: all((x) => !!x.skipped) ? "Puts it back in the show" : "Crossed out and skipped. The times below move up",
-        onSelect: did(all((x) => !!x.skipped) ? `${cap(what)} is back in the show.` : `Struck out ${what}. The times below moved up.`, strikeSelected),
+        onSelect: did(all((x) => !!x.skipped) ? `${cap(what)} is back in the show.` : `Struck out ${what}. The times below moved up.`, () => strikeSelected(only)),
       });
       const allLocked = all((x) => !!x.locked);
-      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: did(allLocked ? `Unlocked ${what}.` : `Locked ${what}.`, () => setSelectedLocked(!allLocked)) });
+      out.push({ label: allLocked ? `Unlock ${noun}` : `Lock ${noun}`, hint: allLocked ? "Lets people change it again" : "Stops anyone changing it", onSelect: did(allLocked ? `Unlocked ${what}.` : `Locked ${what}.`, () => setSelectedLocked(!allLocked, only)) });
       // Running late (20 Oct): which times can't move, and what goes first.
       const allMust = all((x) => !!x.mustStart);
       out.push({
         label: "Must start on time",
         checked: allMust,
         hint: allMust ? "Untick to let it move with the show" : "You're warned if the show is running late into it",
-        onSelect: did(allMust ? `${cap(what)} can move with the show again.` : `${cap(what)} must start on time — you'll be warned if the show runs late into it.`, () => setSelectedFlag("mustStart", !allMust)),
+        onSelect: did(allMust ? `${cap(what)} can move with the show again.` : `${cap(what)} must start on time — you'll be warned if the show runs late into it.`, () => setSelectedFlag("mustStart", !allMust, only)),
       });
       const allDrop = all((x) => !!x.canDrop);
       out.push({
         label: "Can drop if running late",
         checked: allDrop,
         hint: allDrop ? undefined : "Listed first when there's time to find",
-        onSelect: did(allDrop ? `${cap(what)} no longer marked to drop.` : `${cap(what)} marked: first to go if the show runs late.`, () => setSelectedFlag("canDrop", !allDrop)),
+        onSelect: did(allDrop ? `${cap(what)} no longer marked to drop.` : `${cap(what)} marked: first to go if the show runs late.`, () => setSelectedFlag("canDrop", !allDrop, only)),
       });
       if (!showLive) {
         out.push({ label: "Only play this if…", keepOpen: true, hint: menuResultsOpen ? undefined : "For rows that depend on the match result", onSelect: () => setMenuResultsOpen((v) => !v) });
@@ -4798,7 +4859,7 @@ export function RundownEditor({
           danger: true,
           onSelect: () => {
             const before = yOrder.length;
-            deleteSelected();
+            deleteSelected(only);
             // Locked rows are kept (and said so); only report what went.
             const gone = before - yOrder.length;
             if (gone > 0) grid.say(`Deleted ${gone === 1 ? (many ? "1 row" : `row ${n}`) : `${gone} rows`}.`, true);
@@ -4807,7 +4868,7 @@ export function RundownEditor({
       out.push("sep");
       out.push({
         label: many ? "Unselect these rows" : "Unselect this row",
-        hint: rowMenu?.touch && !many ? "Tip: tap more row numbers to pick several rows" : undefined,
+        hint: touch && !many ? "Tip: tap more row numbers to pick several rows" : undefined,
         onSelect: () => {
           setSelected(new Set());
           setLastSelected(null);
@@ -7086,19 +7147,7 @@ export function RundownEditor({
         show={{ connected: channel.connected, role: channel.role, timezone: channel.timezone }}
       />
 
-      {rowMenu && (
-        <RowMenu
-          x={rowMenu.x}
-          y={rowMenu.y}
-          entries={rowMenuEntries(rowMenu.rowId, rowMenu.from)}
-          onClose={closeRowMenu}
-          touch={rowMenu.touch}
-          // A phone gets the menu as a sheet from the bottom, where a thumb
-          // reaches; a tablet keeps it by the finger, with bigger targets —
-          // the way iPadOS shows its own menus.
-          sheet={rowMenu.touch && isPhone}
-        />
-      )}
+      <RowMenuHost ref={rowMenu} entriesFor={rowMenuEntries} isPhone={isPhone} onClosed={() => setMenuResultsOpen(false)} />
       {/* Once per phone: how to put the app on the home screen. Not while a
           show is live — nobody needs a tip then. */}
       {mode !== "edit" && <InstallHint hidden={showLive} />}

@@ -11,3 +11,20 @@ overrides:
   # Comes in via next > postcss; 1.2.2 (30 Sep 2026) is the fix. Build-time
   # only for us, but the audit gate rightly refuses it.
   source-map-js: ">=1.2.2"
+# New releases are held for a day before they can be installed (pnpm's
+# minimumReleaseAge). Next.js 16.4.3 was taken early on 24 Oct 2026, at the
+# owner's request, after checking it was published by Next.js's own release
+# workflow with signed provenance. Exact versions only, so the hold still
+# covers every other package and every later Next.js. Remove these once
+# 16.4.3 is a day old (after 13:30 UTC, 24 Oct 2026) — they do nothing then.
+minimumReleaseAgeExclude:
+  - next@16.4.3
+  - "@next/env@16.4.3"
+  - "@next/swc-darwin-arm64@16.4.3"
+  - "@next/swc-darwin-x64@16.4.3"
+  - "@next/swc-linux-arm64-gnu@16.4.3"
+  - "@next/swc-linux-arm64-musl@16.4.3"
+  - "@next/swc-linux-x64-gnu@16.4.3"
+  - "@next/swc-linux-x64-musl@16.4.3"
+  - "@next/swc-win32-arm64-msvc@16.4.3"
+  - "@next/swc-win32-x64-msvc@16.4.3"

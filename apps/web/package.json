@@ -28,7 +28,7 @@
     "@tiptap/y-tiptap": "^3.0.10",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
-    "next": "^16.4.2",
+    "next": "^16.4.3",
     "pdfjs-dist": "^6.4.299",
     "qrcode-generator": "2.0.4",
     "react": "^19.3.1",

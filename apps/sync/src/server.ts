@@ -182,7 +182,7 @@ const broadcast = (rundownId: string, msg: ServerMsg): void => {
 async function sheetKind(rundownId: string) {
   const rundownRow = await dbHandle.db.query.rundowns.findFirst({
     where: eq(schema.rundowns.id, rundownId),
-    columns: { eventId: true, sport: true, homeImage: true, awayImage: true },
+    columns: { eventId: true, sport: true },
   });
   const eventRow = rundownRow
     ? await dbHandle.db.query.events.findFirst({
@@ -571,7 +571,7 @@ wss.on("connection", (ws, req) => {
       clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo });
       // The event's location decides the timezone every clock renders in;
       // the sheet's kind of show decides its endings.
-      const { rundownRow, eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);
+      const { eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);
       send(ws, {
         v: PROTOCOL_VERSION,
         t: "welcome",
@@ -584,8 +584,9 @@ wss.on("connection", (ws, req) => {
         doc: { mode: resolved.role === "guest" ? "projection" : "sync" },
         timezone: eventRow?.timezone,
         sport,
-        homeImage: rundownRow?.homeImage ?? null,
-        awayImage: rundownRow?.awayImage ?? null,
+        // No team logos (23 Oct): no screen has shown them since 20 Oct, and
+        // they were 60 KB of a real sheet's 63 KB hello — the Show light on
+        // a phone across the world waited for every byte.
         ...(eventTypeSpec ? { eventTypeSpec } : {}),
       });
       broadcastPresence(rundownId);

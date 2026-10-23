@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, type EventSummary } from "../../../lib/api";
+import { early, lastRole } from "../../../lib/lastRole";
 import { sendToSignIn } from "../../../lib/session";
 import { byDate, byName } from "../../../lib/pickOrder";
 import { WithSideNav } from "../../../components/SideNav";
@@ -16,8 +17,11 @@ export default function AdminUsersPage() {
   const [me, setMe] = useState<{ role: string | null; teamName?: string; canManage?: boolean } | null>(null);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  /** The administrators' list, asked for beside "who am I?" when this browser was last an administrator's (see lastRole). */
+  const [firstUsers, setFirstUsers] = useState<ReturnType<typeof api.users> | undefined>(undefined);
 
   const reload = useCallback(() => {
+    if (lastRole() === "admin") setFirstUsers(early(api.users()));
     api
       .me()
       .then(setMe)
@@ -64,7 +68,7 @@ export default function AdminUsersPage() {
               {me?.role === "admin" && (
                 <div>
                   <h2 style={{ fontSize: "1.05rem", fontWeight: 650, margin: "0 0 8px" }}>Every account in this app</h2>
-                  <UsersPanel companies={companies} events={events} />
+                  <UsersPanel companies={companies} events={events} first={firstUsers} />
                 </div>
               )}
             </div>

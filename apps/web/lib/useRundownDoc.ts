@@ -5,6 +5,7 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { API_URL } from "./api";
+import { markOnce } from "./perfMark";
 import { resolveSyncUrl } from "./syncUrl";
 
 const DOC_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_DOC_WS_URL, "ws://localhost:8787/doc");
@@ -253,6 +254,23 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
      */
     const store = `oc:${rundownId}@${epoch}`;
     const persistence = new IndexeddbPersistence(store, fresh);
+    /**
+     * The link opens once the copy on the device is in the document (23 Oct).
+     *
+     * It used to open at once, and the stored copy loaded a moment later — as
+     * a change to the document like any other, so the link sent the whole of
+     * it to the server: every sheet, every open, 78 KB on a real one. The
+     * server already had all of it, but the Sheet light waited for it to say
+     * so, about half a second from Sydney. Loaded first, the copy is simply
+     * where the document starts, the link asks for what changed since, and
+     * nothing goes up that the server has.
+     *
+     * Waiting costs nothing in practice: this socket queues behind the show
+     * link's (a browser opens one at a time to a server), which takes longer
+     * than this to open. And never more than LOCAL_COPY_WAIT_MS — a device
+     * whose storage is slow or broken connects anyway and pays the old way.
+     */
+    let provider: HocuspocusProvider | null = null;
     void pruneStaleStores(rundownId, store);
     setDoc(fresh);
     setSynced(false);
@@ -310,7 +328,7 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
       if (concluded) return;
       concluded = true;
       void fetchEpoch(rundownId).then(async (current) => {
-        if (cancelled) return;
+        if (cancelled || !provider) return;
         if (current !== null && current !== epoch) {
           concluded = false; // a moved epoch is a fresh start, not a refusal
           setEpoch(current);
@@ -320,7 +338,7 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
         // so the device isn't retrying a hopeless socket for the rest of the
         // show. "Try again" and sign-in both reload the page.
         settled = true;
-        provider.disconnect();
+        provider?.disconnect();
         if (current === null) {
           setPhase("no such rundown");
           setLastError("this run sheet no longer exists");
@@ -349,58 +367,66 @@ async function pruneStaleStores(rundownId: string, keep: string): Promise<void> 
         if (!cancelled) setBlocked(describeRefusal(reason ?? "permission-denied", identity, signedIn));
       });
     };
-    const provider = new HocuspocusProvider({
-      url: DOC_WS_URL,
-      name: `${rundownId}@${epoch}`,
-      document: fresh,
-      token,
-      onConnect: () => {
-        setConnected(true);
-        setPhase("connected, waiting for content");
-      },
-      onUnsyncedChanges: ({ number }: { number: number }) => setUnsynced(number),
-      onSynced: () => {
-        setSynced(true);
-        setPhase("synced");
-      },
-      onDisconnect: () => {
-        setConnected(false);
-        // A settled refusal keeps its own phase ("no such rundown", …) rather
-        // than being overwritten by the disconnect it caused.
-        if (settled) return;
-        setPhase("disconnected, retrying");
-      },
-      onClose: ({ event }: { event: { code?: number; reason?: string } }) => {
-        if (settled) {
-          provider.disconnect();
-          return;
-        }
-        if (event?.code && event.code !== 1000) {
-          setLastError(`socket closed ${event.code}${event.reason ? ` ${event.reason}` : ""}`);
-        }
-        // 4401 is the document server refusing us. When the refusal reaches
-        // us only as this close — see `conclude` — it still has to be
-        // concluded, or the tab retries a dead socket for the rest of the show.
-        if (event?.code === 4401) conclude(undefined);
-      },
-      onAuthenticationFailed: ({ reason }: { reason?: string }) => {
-        setAuthFailed(true);
-        setPhase("authentication refused");
-        setLastError(`auth refused${reason ? `: ${reason}` : ""}`);
-        // The provider retries forever. Diagnosing the same refusal on every
-        // attempt would put a steady stream of requests on the server from a
-        // screen that is going nowhere, so conclude it once — see `conclude`.
-        conclude(reason);
-      },
-    });
-    setAwareness(provider.awareness ?? null);
+    const connect = (): void => {
+      if (cancelled || provider) return;
+      markOnce("oc:doc-local");
+      provider = new HocuspocusProvider({
+        url: DOC_WS_URL,
+        name: `${rundownId}@${epoch}`,
+        document: fresh,
+        token,
+        onConnect: () => {
+          markOnce("oc:doc-open");
+          setConnected(true);
+          setPhase("connected, waiting for content");
+        },
+        onUnsyncedChanges: ({ number }: { number: number }) => setUnsynced(number),
+        onSynced: () => {
+          markOnce("oc:doc-synced");
+          setSynced(true);
+          setPhase("synced");
+        },
+        onDisconnect: () => {
+          setConnected(false);
+          // A settled refusal keeps its own phase ("no such rundown", …) rather
+          // than being overwritten by the disconnect it caused.
+          if (settled) return;
+          setPhase("disconnected, retrying");
+        },
+        onClose: ({ event }: { event: { code?: number; reason?: string } }) => {
+          if (settled) {
+            provider?.disconnect();
+            return;
+          }
+          if (event?.code && event.code !== 1000) {
+            setLastError(`socket closed ${event.code}${event.reason ? ` ${event.reason}` : ""}`);
+          }
+          // 4401 is the document server refusing us. When the refusal reaches
+          // us only as this close — see `conclude` — it still has to be
+          // concluded, or the tab retries a dead socket for the rest of the show.
+          if (event?.code === 4401) conclude(undefined);
+        },
+        onAuthenticationFailed: ({ reason }: { reason?: string }) => {
+          setAuthFailed(true);
+          setPhase("authentication refused");
+          setLastError(`auth refused${reason ? `: ${reason}` : ""}`);
+          // The provider retries forever. Diagnosing the same refusal on every
+          // attempt would put a steady stream of requests on the server from a
+          // screen that is going nowhere, so conclude it once — see `conclude`.
+          conclude(reason);
+        },
+      });
+      setAwareness(provider.awareness ?? null);
+    };
+    const LOCAL_COPY_WAIT_MS = 500;
+    void Promise.race([persistence.whenSynced.catch(() => undefined), new Promise((r) => setTimeout(r, LOCAL_COPY_WAIT_MS))]).then(connect);
     const bump = () => setTick((n) => n + 1);
     fresh.on("update", bump);
     return () => {
       cancelled = true;
       fresh.off("update", bump);
       setAwareness(null);
-      provider.destroy();
+      provider?.destroy();
       // Closes the connection, keeps what is stored — the point is that it
       // survives to the next load.
       void persistence.destroy();

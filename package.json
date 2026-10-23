@@ -15,6 +15,7 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "test:security": "bash scripts/security-check.sh",
     "test:layout": "bash scripts/layout-check.sh",
+    "test:perf": "bash scripts/perf-check.sh",
     "test:bars": "node apps/web/scripts/bar-timing.mts",
     "test:clock": "node apps/web/scripts/clock-record.mts"
   },

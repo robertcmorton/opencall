@@ -16,9 +16,12 @@ import { askText, say, sayError, showSecret } from "../lib/dialogs";
 export function UsersPanel({
   companies,
   events,
+  first,
 }: {
   companies: { id: string; name: string }[];
   events: EventSummary[];
+  /** The list, if the page already asked for it (Users asks beside "who am I?"). */
+  first?: ReturnType<typeof api.users>;
 }) {
   const [users, setUsers] = useState<
     { id: string; name: string; email: string; hasToken: boolean; hasPassword: boolean; grants: Grant[] }[]
@@ -34,7 +37,10 @@ export function UsersPanel({
   const reload = useCallback(() => {
     api.users().then(setUsers).catch(() => setUsers([]));
   }, []);
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    if (first) first.then(setUsers).catch(reload);
+    else reload();
+  }, [first, reload]);
 
   const create = () => {
     if (!name.trim() || grants.length === 0) return;

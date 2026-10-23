@@ -3,6 +3,7 @@
 import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EditLockView, type EventTypeSpec, type InkDoc } from "@opencall/core";
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { resolveSyncUrl } from "./syncUrl";
+import { rememberRole } from "./lastRole";
 
 export const API_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_HTTP_URL, "http://localhost:8787");
 
@@ -364,7 +365,10 @@ export const api = {
       imageUrl?: string | null;
       /** An administrator signed in with an account (so it has a photo of its own). */
       hasAccount?: boolean;
-    }>("/me"),
+    }>("/me").then((m) => {
+      rememberRole(m.role);
+      return m;
+    }),
   login: (email: string, password: string) =>
     request<{ token: string; expiresAt: string; name: string }>("/auth/login", {
       method: "POST",

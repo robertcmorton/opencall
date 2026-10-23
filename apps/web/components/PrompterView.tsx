@@ -48,9 +48,18 @@ const CARET_AT = 0.3;
  */
 const FIT_MIN_PX = 40;
 
-export function PrompterView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
+export function PrompterView({
+  rundownId,
+  joinCode,
+  initialEpoch,
+}: {
+  rundownId: string;
+  joinCode?: string;
+  /** Fetched while the page rendered, so the sheet's socket opens at once (lib/prefetchEpoch.ts). */
+  initialEpoch?: number;
+}) {
   useWakeLock();
-  const { doc, synced } = useRundownDoc(rundownId);
+  const { doc, synced } = useRundownDoc(rundownId, undefined, initialEpoch);
   const { columns, rows, meta } = projectRundownDoc(doc);
   /** One rule for what a row is called — see `rowNumbering`. */
   const numberOf = rowNumbering(rows);

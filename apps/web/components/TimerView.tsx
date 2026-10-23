@@ -25,9 +25,18 @@ import { useIsPhone } from "../lib/useIsPhone";
  * show waits for it, the item being walked and its planned length during a
  * walkthrough, and "standing by" only when there is genuinely nothing.
  */
-export function TimerView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
+export function TimerView({
+  rundownId,
+  joinCode,
+  initialEpoch,
+}: {
+  rundownId: string;
+  joinCode?: string;
+  /** Fetched while the page rendered, so the sheet's socket opens at once (lib/prefetchEpoch.ts). */
+  initialEpoch?: number;
+}) {
   useWakeLock();
-  const { doc } = useRundownDoc(rundownId);
+  const { doc } = useRundownDoc(rundownId, undefined, initialEpoch);
   const { meta, rows } = projectRundownDoc(doc);
   const timing = computeTiming(rows, meta.plannedStartSec);
   const channel = useShowChannel(rundownId, "companion", joinCode);

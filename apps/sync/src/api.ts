@@ -366,6 +366,12 @@ export function createApiHandler(
     res.setHeader("access-control-expose-headers", "x-source-name");
     res.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
     if (req.method === "OPTIONS") {
+      // Let the browser keep this answer (23 Oct). Every request the app makes
+      // carries a sign-in header, so the browser asks first — a whole round
+      // trip of its own — and without this it asked again before nearly every
+      // request: 0.7–0.8 s each from Sydney instead of 0.34–0.4 s. Two hours
+      // is the most Chrome will keep it.
+      res.setHeader("access-control-max-age", "7200");
       res.statusCode = 204;
       res.end();
       return true;

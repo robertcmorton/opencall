@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { describeDevice } from "@opencall/core";
 import { api } from "../../../lib/api";
+import { early, lastRole } from "../../../lib/lastRole";
 import { sendToSignIn } from "../../../lib/session";
 import { WithSideNav } from "../../../components/SideNav";
 import { AdminNavSection, CredentialsNavSection } from "../../../components/AdminNav";
@@ -77,13 +78,16 @@ export default function AdminActivityPage() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    // Asked for beside "who am I?" rather than after it when this browser was
+    // last an administrator's — one round trip instead of two (see lastRole).
+    const list = lastRole() === "admin" ? early(api.audit(300)) : null;
     api
       .me()
       .then((m) => {
         setMe(m);
         if (m.role == null) sendToSignIn(router);
         else if (m.role !== "admin") router.replace("/admin");
-        else api.audit(300).then(setRows).catch(() => setFailed(true));
+        else (list ?? api.audit(300)).then(setRows).catch(() => setFailed(true));
       })
       .catch(() => setFailed(true));
   }, [router]);

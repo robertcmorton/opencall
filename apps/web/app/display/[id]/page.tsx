@@ -1,5 +1,7 @@
 import { DisplayView } from "../../../components/DisplayView";
+import { prefetchEpoch } from "../../../lib/prefetchEpoch";
 
+/** The epoch comes with the page — see lib/prefetchEpoch.ts. */
 export default async function Page({
   params,
   searchParams,
@@ -9,5 +11,6 @@ export default async function Page({
 }) {
   const { id } = await params;
   const { code } = await searchParams;
-  return <DisplayView rundownId={id} joinCode={code} />;
+  const prefetched = await prefetchEpoch(id);
+  return <DisplayView rundownId={id} joinCode={code} initialEpoch={prefetched?.epoch} />;
 }

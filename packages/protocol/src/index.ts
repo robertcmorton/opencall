@@ -151,9 +151,10 @@ export const WelcomeMsg = z.object({
   sport: z.string().optional(),
   /** This connection's id, as it appears in presence `people` — so a screen can leave itself out (additive). */
   you: z.string().optional(),
-  /** The two teams' images (data URLs), per sheet: home and away. Additive. */
-  homeImage: z.string().nullable().optional(),
-  awayImage: z.string().nullable().optional(),
+  // homeImage / awayImage: the two teams' logos were sent here as data URLs
+  // until 23 Oct — 60 KB of a 63 KB welcome on a real sheet, sent to every
+  // screen on every connect, after no screen showed them any more (20 Oct).
+  // Gone; an older server that still sends them is ignored.
   /**
    * The whole definition, when the sheet uses a type a company added rather
    * than a built-in one (additive v1.7). Sent rather than looked up so a

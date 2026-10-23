@@ -13,6 +13,7 @@ import { type SpeakerMessage,
 import { viewerName } from "./viewerIdentity";
 import type { EventTypeSpec } from "@opencall/core";
 import { resolveSyncUrl } from "./syncUrl";
+import { markOnce } from "./perfMark";
 
 const SHOW_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_WS_URL, "ws://localhost:8787");
 const OFFSET_SAMPLES = 5;
@@ -65,9 +66,6 @@ export interface ShowChannel {
    * sport-specific live flows.
    */
   sport: string | null;
-  /** The two teams' images, as sent on hello, or null. */
-  homeImage: string | null;
-  awayImage: string | null;
   /**
    * The whole definition when the sheet uses a kind of show a company added.
    * Built-in types are already in the client's own list; this arrives only for
@@ -118,8 +116,6 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
   const [speaker, setSpeaker] = useState<SpeakerMessage | null>(null);
   const [timezone, setTimezone] = useState<string | null>(null);
   const [sport, setSport] = useState<string | null>(null);
-  const [homeImage, setHomeImage] = useState<string | null>(null);
-  const [awayImage, setAwayImage] = useState<string | null>(null);
   const [eventTypeSpec, setEventTypeSpec] = useState<EventTypeSpec | null>(null);
   const [show, setShow] = useState<ShowStatePayload | null>(null);
   const [lastCmdError, setLastCmdError] = useState<{ action: string; msg: string; at: number } | null>(null);
@@ -185,6 +181,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       const pings: number[] = [];
 
       sock.onopen = () => {
+        markOnce("oc:show-open");
         retryDelay = 500;
         lastHeardRef.current = Date.now();
         // A join code always wins (it carries the role). Otherwise any stored
@@ -223,6 +220,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             break;
           }
           case "welcome": {
+            markOnce("oc:show-welcome");
             setConnected(true);
             setMe(msg.you ?? null);
             setRole(msg.role);
@@ -230,8 +228,6 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             setSpeaker(msg.speaker ?? null);
             setTimezone(msg.timezone ?? null);
             setSport(msg.sport ?? null);
-            setHomeImage(msg.homeImage ?? null);
-            setAwayImage(msg.awayImage ?? null);
             setEventTypeSpec((msg.eventTypeSpec as EventTypeSpec | undefined) ?? null);
             lastSeqRef.current = msg.show.seq;
             setShow(msg.show);
@@ -367,8 +363,6 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
     userLabel,
     timezone,
     sport,
-    homeImage,
-    awayImage,
     eventTypeSpec,
     show,
     speaker,

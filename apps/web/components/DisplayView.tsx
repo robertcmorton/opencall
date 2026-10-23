@@ -19,9 +19,18 @@ const NEXT_COUNT = 3;
  * Sized from the viewport (vmin) so the same page fills a TV, a monitor or a
  * tablet propped on a desk.
  */
-export function DisplayView({ rundownId, joinCode }: { rundownId: string; joinCode?: string }) {
+export function DisplayView({
+  rundownId,
+  joinCode,
+  initialEpoch,
+}: {
+  rundownId: string;
+  joinCode?: string;
+  /** Fetched while the page rendered, so the sheet's socket opens at once (lib/prefetchEpoch.ts). */
+  initialEpoch?: number;
+}) {
   useWakeLock();
-  const { doc } = useRundownDoc(rundownId);
+  const { doc } = useRundownDoc(rundownId, undefined, initialEpoch);
   const { meta, rows } = projectRundownDoc(doc);
   const timing = computeTiming(rows, meta.plannedStartSec);
   const channel = useShowChannel(rundownId, "companion", joinCode);

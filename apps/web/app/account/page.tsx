@@ -5,11 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, API_URL, type AssistantConnection, type SignedInDevice } from "../../lib/api";
 import { sendToSignIn } from "../../lib/session";
+import { early } from "../../lib/lastRole";
 import { describeDevice, passwordProblem, PASSWORD_HINT } from "@opencall/core";
 import { Icon } from "../../components/ui";
 import { pickImage } from "../../lib/pickImage";
 import { colorFor, initialsOf } from "../../lib/usePresence";
 import { ask, say, sayError } from "../../lib/dialogs";
+
+/** What My account asks for as it opens, beside "who am I?". */
+interface FirstAnswers {
+  here: ReturnType<typeof api.myDevice>;
+  devices: ReturnType<typeof api.signedInDevices>;
+  assistants: ReturnType<typeof api.assistants>;
+}
 
 /** My account: who I am, what I can access, and my details. */
 export default function AccountPage() {
@@ -22,7 +30,14 @@ export default function AccountPage() {
 
   const router = useRouter();
   const [unreachable, setUnreachable] = useState(false);
+  /**
+   * The sections below, asked for beside "who am I?" rather than after it
+   * (23 Oct): the page used to wait for that answer before its sections even
+   * existed to ask — two round trips in a row, 2.4 s from Sydney.
+   */
+  const [first, setFirst] = useState<FirstAnswers | null>(null);
   useEffect(() => {
+    setFirst({ here: early(api.myDevice()), devices: early(api.signedInDevices()), assistants: early(api.assistants()) });
     void api
       .me()
       .then((m) => {
@@ -198,9 +213,9 @@ export default function AccountPage() {
         </div>
       )}
 
-      <DevicesPanel />
+      <DevicesPanel first={first} />
 
-      <AssistantsPanel />
+      <AssistantsPanel first={first?.assistants} />
     </main>
   );
 }
@@ -222,15 +237,12 @@ const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 
  * account (signed in with email, or its personal token) can have them; for a
  * company or server token the list is refused and the panel stays away.
  */
-function AssistantsPanel() {
+function AssistantsPanel({ first }: { first?: FirstAnswers["assistants"] }) {
   const [list, setList] = useState<AssistantConnection[] | null>(null);
   const [refused, setRefused] = useState(false);
-  const load = () =>
-    void api
-      .assistants()
-      .then((r) => setList(r.assistants))
-      .catch(() => setRefused(true));
-  useEffect(load, []);
+  const load = (answer = api.assistants()) =>
+    void answer.then((r) => setList(r.assistants)).catch(() => setRefused(true));
+  useEffect(() => load(first), [first]);
   if (refused) return null;
   const mcpUrl = `${API_URL}/mcp`;
   return (
@@ -277,7 +289,7 @@ function AssistantsPanel() {
                   return;
                 void api
                   .disconnectAssistant(a.id)
-                  .then(load)
+                  .then(() => load())
                   .catch((err) => sayError(err));
               }}
             >
@@ -301,22 +313,16 @@ const moment = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "
  * Asked for after a sign-in turned up in Account activity that nobody could
  * place. The device was recorded all along; nothing showed it.
  */
-function DevicesPanel() {
+function DevicesPanel({ first }: { first: FirstAnswers | null }) {
   const [here, setHere] = useState<{ address: string | null; userAgent: string | null } | null>(null);
   const [list, setList] = useState<SignedInDevice[] | null>(null);
   const [refused, setRefused] = useState(false);
-  const load = () =>
-    void api
-      .signedInDevices()
-      .then((r) => setList(r.sessions))
-      .catch(() => setRefused(true));
+  const load = (answer = api.signedInDevices()) =>
+    void answer.then((r) => setList(r.sessions)).catch(() => setRefused(true));
   useEffect(() => {
-    void api
-      .myDevice()
-      .then(setHere)
-      .catch(() => setHere(null));
-    load();
-  }, []);
+    void (first?.here ?? api.myDevice()).then(setHere).catch(() => setHere(null));
+    load(first?.devices);
+  }, [first]);
   const others = (list ?? []).filter((d) => !d.current);
   // "Last seen" is kept to the hour, so anything inside it reads as now.
   const seen = (iso: string | null) => (!iso ? "" : Date.now() - new Date(iso).getTime() < 90 * 60_000 ? " · active in the last hour" : ` · last active ${moment(iso)}`);
@@ -364,7 +370,7 @@ function DevicesPanel() {
                       return;
                     void api
                       .signOutDevice(d.id)
-                      .then(load)
+                      .then(() => load())
                       .catch((err) => sayError(err));
                   }}
                 >
@@ -390,7 +396,7 @@ function DevicesPanel() {
                     return;
                   void api
                     .signOutOtherDevices()
-                    .then(load)
+                    .then(() => load())
                     .catch((err) => sayError(err));
                 }}
               >

@@ -1,5 +1,7 @@
 import { RundownEditor } from "../../../components/RundownEditor";
+import { prefetchEpoch } from "../../../lib/prefetchEpoch";
 
+/** The epoch comes with the page — see lib/prefetchEpoch.ts. */
 export default async function Page({
   params,
   searchParams,
@@ -9,5 +11,6 @@ export default async function Page({
 }) {
   const { id } = await params;
   const { code } = await searchParams;
-  return <RundownEditor rundownId={id} mode="edit" joinCode={code} />;
+  const prefetched = await prefetchEpoch(id);
+  return <RundownEditor rundownId={id} mode="edit" joinCode={code} initialEpoch={prefetched?.epoch} initialViewingClosed={prefetched?.viewingClosed} />;
 }

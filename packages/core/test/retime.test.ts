@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixedTimesAfterMove, lengthChangeShift, rippleStop, runningLength, strikeShift, timesAfterAdd, timesAfterDelete } from "../src/retime";
+import { fixedTimesAfterMove, keepsItsTime, lengthChangeShift, rippleStop, runningLength, strikeShift, timesAfterAdd, timesAfterDelete } from "../src/retime";
 import type { PlanRow } from "../src/types";
 
 const T = (h: number, m: number, s = 0): number => h * 3600 + m * 60 + s;
@@ -327,5 +327,40 @@ describe("lengthChangeShift", () => {
     for (const extra of [{ durationMuted: true }, { skipped: true }, { parallel: true }, { spans: true }]) {
       expect(lengthChangeShift(cue("x", 60, null, extra), 60, 120)).toBe(0);
     }
+  });
+});
+
+describe("a yellow fixed time keeps its time, and the cues move past it", () => {
+  // Soundcheck 17:45 15m · DOORS OPEN 18:00 (fixed time) · Walk-in music flowing 10m · Welcome 18:10 · Kick off 19:50 (must start)
+  const doors = (): PlanRow[] => [
+    cue("S", 900, T(17, 45)),
+    { id: "D", type: "milestone", durationSec: null, hardStartSec: T(18, 0) },
+    cue("W", 600, null),
+    cue("C", 300, T(18, 10)),
+    cue("K", 2400, T(19, 50)),
+  ];
+  const must = new Set([4]);
+
+  it("adding 5:00 in front of it: Doors stays at 6:00, the cues after it move on 5:00, kick-off stays", () => {
+    expect(timesAfterAdd(doors(), 0, [cue("N", 300, null)], null, -1, must).changes).toEqual([
+      { id: "S", hardStartSec: T(17, 50) },
+      { id: "W", hardStartSec: T(18, 5) },
+      { id: "C", hardStartSec: T(18, 15) },
+    ]);
+  });
+
+  it("deleting in front of it: Doors stays, the cues after it move up", () => {
+    const rows = [cue("X", 300, T(17, 40)), ...doors()];
+    expect(timesAfterDelete(rows, new Set(["X"]), -1, new Set([5]))).toEqual([
+      { id: "S", hardStartSec: T(17, 40) },
+      { id: "W", hardStartSec: T(17, 55) },
+      { id: "C", hardStartSec: T(18, 5) },
+    ]);
+  });
+
+  it("is a yellow row with a printed time — not a heading, and not one with no time", () => {
+    expect(keepsItsTime({ type: "milestone", hardStartSec: T(18, 0) })).toBe(true);
+    expect(keepsItsTime({ type: "milestone", hardStartSec: null })).toBe(false);
+    expect(keepsItsTime({ type: "cue", hardStartSec: T(18, 0) })).toBe(false);
   });
 });

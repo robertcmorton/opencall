@@ -165,7 +165,8 @@ describe("telling an assistant what its change did", () => {
     expect(reportChange(describeChange(before, now)!)).toEqual(["Row 2 Welcome: Duration “05:00” → “07:00”"]);
     const anyway = copy(before);
     addRow(anyway, null, { title: "Crew call", durationSec: 120 });
-    expect(reportChange(describeChange(before, anyway)!)).toContain("Row 2 Doors: Start time “6:00:00 PM” → “6:02:00 PM”");
+    // Doors is a yellow fixed time and keeps its time; Welcome, which started from it, moves on.
+    expect(reportChange(describeChange(before, anyway)!)).toContain("Row 3 Welcome: Start time “—” → “6:02:00 PM”");
   });
 
   it("lists added rows with their times, and stops at a sensible length", () => {
@@ -174,8 +175,8 @@ describe("telling an assistant what its change did", () => {
     addRow(now, null, { title: "Crew call", durationSec: 120 });
     expect(reportChange(describeChange(before, now)!)).toEqual([
       "Added row 1: Crew call (runs 02:00)",
-      // The knock-on, down to the kick-off — which keeps its time.
-      "Row 2 Doors: Start time “6:00:00 PM” → “6:02:00 PM”",
+      // The knock-on, down to the kick-off — which keeps its time, as Doors (a yellow fixed time) does.
+      "Row 3 Welcome: Start time “—” → “6:02:00 PM”",
     ]);
     const many = copy(before);
     for (let i = 0; i < 5; i++) addRow(many, null, { title: `Extra ${i}` });

@@ -478,7 +478,10 @@ input.inline-edit {
   border-radius: var(--r-md);
   box-shadow: var(--shadow-overlay);
   padding: 5px;
-  animation: menu-in var(--t-fast) var(--ease);
+  /* No fade (23 Oct, Robert: "when right mouse click - menu should be
+     faster"): measured on production the menu was ready in 11-17ms and then
+     spent 130ms fading in, which is what read as slow. A menu is something you
+     reach for; the system's own appear at once. */
 }
 /* Fades, and does NOT move.
    A transform — even one animating to `none` — makes the element a containing
@@ -6089,10 +6092,8 @@ a > svg,
    Short and quiet, in the app's own timings. Menus FADE and do not move — a
    transform would re-anchor the fixed tooltips inside them (see menu-in). The
    phone sheet is the exception: it slides up, as a phone's own sheets do, and
-   holds no tooltips. All of it is switched off by the reduced-motion rule. */
-.row-menu {
-  animation: menu-in var(--t-fast) var(--ease);
-}
+   holds no tooltips. All of it is switched off by the reduced-motion rule.
+   The row menu itself no longer fades — see `.menu`: it appears at once. */
 .row-menu.is-sheet {
   animation: sheet-up var(--t-med) var(--ease);
 }

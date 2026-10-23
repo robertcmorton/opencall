@@ -8,6 +8,7 @@ import {
   startEditRipples,
   strikeShift,
   wrapTimeOfDay,
+  keepsItsTime,
   lengthChangeShift,
   mustStartIndexes,
   rippleStop,
@@ -139,10 +140,20 @@ export function setCellText(doc: Y.Doc, rowId: string, columnRef: string, text: 
 function rippleDown(doc: Y.Doc, rows: ProjectedRows, plannedStartSec: number | null, from: number, delta: number): void {
   if (delta === 0) return;
   const { stop, pin } = rippleStop(rows, from, new Set(mustStartIndexes(rows, plannedStartSec)), plannedStartSec);
+  const starts = computeTiming(rows.slice(), plannedStartSec).rows;
+  let afterKept = false; // straight after a yellow fixed time — see keepsItsTime
   for (let i = from; i < stop; i++) {
-    const later = rowsOf(doc).get(rows[i]!.id);
+    const r = rows[i]!;
+    const later = rowsOf(doc).get(r.id);
     const fixed = later?.get("hardStartSec") as number | null | undefined;
+    if (keepsItsTime({ type: r.type, hardStartSec: fixed ?? null })) {
+      afterKept = true;
+      continue;
+    }
+    const now = starts[i]?.startSec;
     if (fixed != null) later!.set("hardStartSec", wrapTimeOfDay(fixed + delta));
+    else if (afterKept && !r.parallel && now != null) later!.set("hardStartSec", wrapTimeOfDay(now + delta));
+    if (!r.parallel) afterKept = false;
   }
   if (pin) rowsOf(doc).get(pin.id)?.set("hardStartSec", pin.hardStartSec);
 }

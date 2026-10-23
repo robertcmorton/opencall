@@ -51,7 +51,7 @@ import {
   serializeCsv,
   startEditKind,
   zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalsAhead, lateLevel, trimOptions, cueWindows, type PlanTiming,
-  timesAfterAdd, timesAfterDelete, planArrivals, planLevel, heldFrom, rippleStop, lengthChangeShift, type PlanRow,
+  timesAfterAdd, timesAfterDelete, planArrivals, planLevel, heldFrom, rippleStop, lengthChangeShift, keepsItsTime, type PlanRow,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -2517,14 +2517,22 @@ export function RundownEditor({
   // the edit, so whatever is on air never moves. One transaction per press,
   // so one undo takes the whole correction back.
   const shiftFixedTimes = (from: number, to: number, deltaSec: number): void => {
+    /** Straight after a yellow fixed time, which keeps its time — see keepsItsTime. */
+    let afterKept = false;
     for (let i = from; i <= to; i++) {
       const row = rows[i];
       if (!row) continue;
       const yRow = yRows.get(row.id);
       const fixed = yRow?.get("hardStartSec") as number | null | undefined;
+      if (keepsItsTime({ type: row.type, hardStartSec: fixed ?? null })) {
+        afterKept = true;
+        continue;
+      }
       // Kept on the dial, as strike and move already do: a nudge across
       // midnight lands at 00:05, not 24:05.
       if (fixed != null) yRow!.set("hardStartSec", wrapTimeOfDay(fixed + deltaSec));
+      else if (afterKept && !row.parallel && timing.rows[i]?.startSec != null) yRow!.set("hardStartSec", wrapTimeOfDay(timing.rows[i]!.startSec! + deltaSec));
+      if (!row.parallel) afterKept = false;
     }
   };
 
@@ -3420,14 +3428,31 @@ export function RundownEditor({
     return null;
   })();
 
+  /**
+   * A row the live show has not reached: below the cue, never on air (23 Oct,
+   * Robert: deleting rows that haven't played yet during a live show — "yes").
+   * Before the show, every row.
+   */
+  const stillToCome = (id: string): boolean => {
+    if (!showLive) return true;
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    return rows.findIndex((r) => r.id === id) > liveIdx && id !== activeRowId && !playedRowIds.has(id);
+  };
+
   const deleteSelected = (): void => {
     if (selected.size === 0) return;
     // The rule lives with the ACTION, not only with the button that is
     // currently the one way to reach it. Twice today a control turned out to
     // have a second copy somewhere else obeying the old rule; a shortcut added
     // here later should not be able to delete a row out of a running show
-    // because nobody remembered this.
-    if (showLive) return;
+    // because nobody remembered this. During the show only rows still to come
+    // can go: the row on air and everything played are the record of what
+    // happened.
+    const played = [...selected].filter((id) => !stillToCome(id));
+    if (played.length > 0) {
+      say(`${played.length === 1 ? "A row that has played, or is on air," : `${played.length} rows that have played, or are on air,`} can't be deleted during the show — strike instead.`, "error");
+      return;
+    }
     // Locked rows are approved: they are left where they are, and said so.
     const lockedPicked = [...selected].filter((id) => yRows.get(id)?.get("locked"));
     if (lockedPicked.length > 0) {
@@ -3440,7 +3465,8 @@ export function RundownEditor({
     if (deletable.length === 0) return;
     // The time they took leaves the running order: every fixed time below
     // starts earlier by it, as a strike does — see timesAfterDelete.
-    const retimed = timesAfterDelete(rows, new Set(deletable), -1, mustStartIdx, meta.plannedStartSec);
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    const retimed = timesAfterDelete(rows, new Set(deletable), liveIdx, mustStartIdx, meta.plannedStartSec);
     doc.transact(() => {
       for (const c of retimed) yRows.get(c.id)?.set("hardStartSec", c.hardStartSec);
       const order = yOrder.toArray();
@@ -4747,7 +4773,8 @@ export function RundownEditor({
       });
       out.push("sep");
       out.push({ label: "Copy to another sheet…", onSelect: () => setCopyRowIds(ids) });
-      if (showLive) out.push({ note: "The show is on. Deleting rows and changing what plays at full time wait until the show ends." });
+      if (showLive && !picked.every((x) => stillToCome(x.id)))
+        out.push({ note: "Rows that have played, or the one on air, can't be deleted during the show — strike them instead. Changing what plays at full time waits until the show ends." });
       else
         out.push({
           label: `Delete ${noun}`,

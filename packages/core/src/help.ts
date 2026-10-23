@@ -410,7 +410,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Marks rows that are not ordinary items.",
         steps: [
           "A **heading** (grey) names a part of the night, like PRE-GAME or HALF TIME. It has no time of its own. (Some people call this a group.)",
-          "A **fixed time** (yellow) is something set for a time, with no length, like DOORS OPEN 6:00 or TEAM LIST DUE. (Some people call this a milestone.)",
+          "A **fixed time** (yellow) is something set for a time, with no length, like DOORS OPEN 6:00 or TEAM LIST DUE. (Some people call this a milestone.) It keeps its time when the sheet re-times — add, delete or change an item before it and the doors still open at six — while the cues around it move as they would have.",
           "Open the row menu on the row and choose **Turn into a heading** or **Turn into a fixed time**. Choose **Turn back into a normal row** to undo it.",
         ],
         who: EDITORS,
@@ -549,7 +549,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Removes rows from the sheet for good.",
         how: "Pick the rows, open the row menu and choose **Delete row**. The times below move earlier by the time they took — down to the next thing that must start on time, which keeps its time; the minutes freed show as time to spare in front of it.",
         who: EDITORS,
-        good: "Not during a live show — strike instead, so the record of what happened stays.",
+        good: "During a live show, only rows still to come can be deleted. The row on air and everything already played stay — strike them instead, so the record of what happened stays.",
       },
       {
         id: "saving",

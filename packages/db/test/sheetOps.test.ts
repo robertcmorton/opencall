@@ -117,6 +117,22 @@ describe("sheet operations (the assistant's edits)", () => {
     expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 600);
   });
 
+  it("a yellow fixed time keeps its time when a length changes, and the cues move past it", () => {
+    const doc = buildRundownDoc(
+      [
+        { type: "cue", title: "Soundcheck", durationSec: 900, hardStartSec: 17 * 3600 + 45 * 60 },
+        { type: "milestone", title: "DOORS OPEN", hardStartSec: 18 * 3600 },
+        { type: "cue", title: "Walk-in music", durationSec: 600 },
+        { type: "cue", title: "Welcome", durationSec: 300, hardStartSec: 18 * 3600 + 600 },
+      ],
+      { name: "Doors", plannedStartSec: 17 * 3600 + 45 * 60 },
+    );
+    setDuration(doc, row(doc, "Soundcheck").id, 1200);
+    expect(row(doc, "DOORS OPEN").hardStartSec).toBe(18 * 3600);
+    expect(readSheet(doc).rows.find((r) => r.title === "Walk-in music")!.start).toBe("6:05:00 PM");
+    expect(row(doc, "Welcome").hardStartSec).toBe(18 * 3600 + 900);
+  });
+
   it("moves a row after another, up or down", () => {
     const doc = sheet();
     moveRow(doc, row(doc, "Anthem").id, row(doc, "Doors").id);

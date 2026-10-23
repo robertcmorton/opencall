@@ -175,6 +175,18 @@ export function fixedTimesAfterMove(
  * the rows above it moving cannot carry it along.
  */
 
+/**
+ * A yellow fixed time — DOORS OPEN 6:00 — keeps its time when the sheet
+ * re-times (23 Oct, Robert: "this is a general time only. the cues work in the
+ * background of doors open. it literally means that people can enter the
+ * event"). The doors open at six whatever the show is doing, so a ripple goes
+ * past it rather than moving it, and does not stop there either: the cues
+ * around it move as they would have. An item that took its start from it —
+ * no printed time of its own, straight after it — moves with the cues: it is
+ * given its new time, or it would stay tied to six o'clock.
+ */
+export const keepsItsTime = (row: Pick<PlanRow, "type" | "hardStartSec">): boolean => row.type === "milestone" && row.hardStartSec != null;
+
 /** What an added or deleted row puts into, or takes out of, the running order. */
 const lengthInOrder = (row: PlanRow): number => (row.skipped || row.outcome ? 0 : runningLength(row));
 
@@ -277,6 +289,7 @@ export function timesAfterAdd(
   if (shift !== 0) {
     const starts = computeTiming(rows.slice(), plannedStartSec).rows;
     const held = heldRows(starts, mustStart);
+    let afterKept = false;
     for (let i = at; i < rows.length; i++) {
       const r = rows[i]!;
       if (held.has(i)) {
@@ -284,7 +297,14 @@ export function timesAfterAdd(
         if (r.hardStartSec == null && now != null) changes.push({ id: r.id, hardStartSec: timeOfDay(now) });
         break;
       }
+      if (keepsItsTime(r)) {
+        afterKept = true;
+        continue;
+      }
+      const now = starts[i]?.startSec;
       if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
+      else if (afterKept && !r.parallel && now != null) changes.push({ id: r.id, hardStartSec: timeOfDay(now + shift) });
+      if (!r.parallel) afterKept = false;
     }
   }
   let firstStartSec: number | null = null;
@@ -319,6 +339,8 @@ export function timesAfterDelete(
   let shift = 0;
   /** A deleted anchor's time, moved by what left above it, for the next row that stays. */
   let inherited: number | null = null;
+  /** Straight after a yellow fixed time that kept its time — see keepsItsTime. */
+  let afterKept = false;
   rows.forEach((r, i) => {
     if (deleted.has(r.id)) {
       if (r.hardStartSec != null && !r.parallel) inherited = r.hardStartSec + shift;
@@ -332,6 +354,7 @@ export function timesAfterDelete(
       if (r.hardStartSec == null && (shift !== 0 || inherited != null) && now != null) changes.push({ id: r.id, hardStartSec: timeOfDay(now) });
       shift = 0;
       inherited = null;
+      afterKept = false;
       return;
     }
     // A pre-record sits at its own time and is never what a row flows from.
@@ -339,12 +362,21 @@ export function timesAfterDelete(
       if (r.hardStartSec != null && shift !== 0) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
       return;
     }
+    if (keepsItsTime(r)) {
+      inherited = null;
+      afterKept = shift !== 0;
+      return;
+    }
+    const now = starts[i]?.startSec;
     if (r.hardStartSec != null) {
       if (shift !== 0) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
     } else if (inherited != null) {
       changes.push({ id: r.id, hardStartSec: timeOfDay(inherited) });
+    } else if (afterKept && now != null) {
+      changes.push({ id: r.id, hardStartSec: timeOfDay(now + shift) });
     }
     inherited = null;
+    afterKept = false;
   });
   return changes;
 }

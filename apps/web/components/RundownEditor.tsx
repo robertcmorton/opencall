@@ -183,6 +183,7 @@ function SortableRow({
   mineColor,
   clockMark,
   runsWith,
+  together,
   onNow,
   disabled,
   onSelect,
@@ -219,6 +220,13 @@ function SortableRow({
   clockMark: boolean;
   /** Titles of the rows this one shares its window with, if any. */
   runsWith?: string[];
+  /**
+   * In a set of rows that run at the same time, and whether the row above and
+   * the row below are in it too — where the bar beside the numbers starts and
+   * ends (23 Oct, Robert: "we need to determine the difference between a
+   * striked row and a concurrent row").
+   */
+  together?: { top: boolean; bottom: boolean } | null;
   /** This row's window contains the event clock right now. */
   onNow: boolean;
   disabled: boolean;
@@ -263,7 +271,7 @@ function SortableRow({
   return (
     <tr
       ref={setNodeRef}
-      className={`${played && !active ? "played-row " : ""}${band != null ? "game-band" : ""} ${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
+      className={`${played && !active ? "played-row " : ""}${band != null ? "game-band" : ""} ${row.type === "group" ? "group-row" : ""} ${row.type === "milestone" ? "milestone-row" : ""} ${selected ? "selected" : ""} ${active ? "active-row" : ""} ${next ? "next-row" : ""} ${walk ? "walk-row" : ""} ${gapMark ? `gap-row gap-row-${gapMark}` : ""} ${active && paused ? "paused" : ""} ${mine ? "my-role-row" : ""} ${row.skipped ? "skipped-row" : ""} ${row.parallel ? "parallel-row" : ""} ${together ? `together-row${together.top ? " together-top" : ""}${together.bottom ? " together-bottom" : ""}` : ""} ${onNow && !active ? "on-now" : ""} ${clockMark ? "clock-row" : ""} ${
         branch
           ? `branch-row oc-rail-${branch.outcome} ${branch.opens ? "branch-open" : ""} ${branch.closes ? "branch-close" : ""} ${branch.blockOpens ? "branch-block-open" : ""} ${branch.blockCloses ? "branch-block-close" : ""} ${branch.dim ? "branch-dim" : ""}`
           : ""
@@ -1911,6 +1919,15 @@ export function RundownEditor({
    */
   const concurrentGroups = findConcurrentRows(rows, timing);
   const runsWith = new Map<string, string[]>();
+  /** Where each row of a group sits in it, for the bar beside the numbers — see `together` on the row. */
+  const togetherAt = new Map<string, { top: boolean; bottom: boolean }>();
+  for (const g of concurrentGroups) {
+    const inGroup = new Set(g.indexes);
+    for (const i of g.indexes) {
+      const id = rows[i]?.id;
+      if (id) togetherAt.set(id, { top: !inGroup.has(i - 1), bottom: !inGroup.has(i + 1) });
+    }
+  }
   for (const g of concurrentGroups) {
     for (const i of g.indexes) {
       const id = rows[i]?.id;
@@ -6488,6 +6505,7 @@ export function RundownEditor({
                     mineColor={myRowColors.get(rowRecord.id) ?? "#2dd4bf"}
                     clockMark={clockRowId === rowRecord.id && !activeRowId}
                     runsWith={runsWith.get(rowRecord.id)}
+                    together={togetherAt.get(rowRecord.id) ?? null}
                     onNow={onNowIds.has(rowRecord.id)}
                     played={playedRowIds.has(rowRecord.id)}
                     onUnplay={showLive && mayDrive ? () => playAgain(rowRecord.id) : undefined}
@@ -6645,7 +6663,7 @@ export function RundownEditor({
                         return (
                           <td
                             key={col.id}
-                            className="mono"
+                            className="mono start-cell"
                             style={{ position: "relative" }}
                             {...grid.cellProps(rowRecord.id, col.id)}
                             onDoubleClick={canEditContent && !rowRecord.locked ? () => setEditingTime(rowRecord.id) : undefined}

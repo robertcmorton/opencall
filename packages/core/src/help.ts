@@ -379,11 +379,18 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Three extra choices for an item's length.",
         steps: [
           "**Hide** keeps the length in the maths but hides it from crew and guests.",
-          "**Mute** leaves the length out of the running order altogether.",
+          "**Mute** leaves the length out of the running order altogether. A muted length is shown in grey italics — not crossed out, which is how a struck row looks.",
           "**Alongside** is for something that happens at the same time as the show, like a recording in the tunnel. It takes no time in the running order, and the show steps over it.",
         ],
         how: "Double-click the length. The three buttons are under the box.",
         who: EDITORS,
+      },
+      {
+        id: "rows-together",
+        name: "Rows at the same time",
+        forWhat: "Shows which rows happen together, so they're never mistaken for struck ones.",
+        how: "A purple bar beside the row numbers joins rows that run at the same time — a recording in the tunnel and the item it's shot during, or the items inside a HALF TIME block — and their start times turn purple. Each set has its own bar. Point at a row to see what it runs with.",
+        good: "A struck row looks different on purpose: faded, with a red line through it. It doesn't happen; rows with the purple bar do."
       },
       {
         id: "fixed-start",
@@ -1156,7 +1163,7 @@ export const SECTIONS: HelpSection[] = [
         id: "no-delete-live",
         name: "Strike instead of delete",
         forWhat: "Keeps the record of what happened during a show.",
-        how: "While a show is live, Delete is not offered. Strike the row instead — it stays on the sheet with a line through it.",
+        how: "While a show is live, Delete is offered only for rows the show hasn't reached yet. For the row on air, and anything already played, strike instead — it stays on the sheet with a line through it.",
       },
       {
         id: "left-running",

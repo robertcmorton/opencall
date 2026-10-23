@@ -916,9 +916,14 @@ tr:hover .row-number {
   color: var(--text-2);
 }
 
+/* A muted length — kept on the sheet, not counted in the running order — is
+   quiet, not crossed out (23 Oct, Robert). A line through it read as "this
+   doesn't happen", the same as a struck row, on the very rows that run
+   alongside another: a pre-record's camera check, a half-time item inside the
+   HALF TIME block. Struck is the only thing with a line through it now. */
 .duration-muted {
   color: var(--text-3);
-  text-decoration: line-through;
+  font-style: italic;
 }
 .duration-hidden-marker {
   color: var(--text-3);
@@ -2205,6 +2210,51 @@ kbd {
   }
   .rundown-grid tr.parallel-row td:first-child {
     box-shadow: inset 3px 0 0 #000;
+  }
+}
+
+/* ROWS THAT RUN AT THE SAME TIME (23 Oct, Robert's pick "A" of two).
+   A struck row and a row that happens alongside another looked alike — two
+   team entries at 5:37, struck by an earlier test, read as "these don't
+   happen", and a pair that genuinely runs together had no look at all, only a
+   hover tip. Now a bar beside the numbers joins the rows of each set, with a
+   gap where one set ends and the next begins, and their start time takes the
+   same colour. The "alongside" colour, which pre-records already wear: green
+   says on time here, and teal is your own role's edge. A struck row keeps its
+   own look — faded, a red line through it — and is never in a set. */
+.rundown-grid tr.together-row td.row-number {
+  position: relative;
+}
+.rundown-grid tr.together-row td.row-number::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 3px;
+  background: var(--aside);
+  pointer-events: none;
+}
+.rundown-grid tr.together-row.together-top td.row-number::after {
+  top: 5px;
+  border-radius: 2px 2px 0 0;
+}
+.rundown-grid tr.together-row.together-bottom td.row-number::after {
+  bottom: 5px;
+  border-radius: 0 0 2px 2px;
+}
+.rundown-grid tr.together-row.together-top.together-bottom td.row-number::after {
+  border-radius: 2px;
+}
+.rundown-grid tr.together-row td.start-cell {
+  color: var(--aside);
+}
+@media print {
+  .rundown-grid tr.together-row td.row-number::after {
+    background: #000;
+  }
+  .rundown-grid tr.together-row td.start-cell {
+    color: inherit;
   }
 }
 

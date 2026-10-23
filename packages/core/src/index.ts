@@ -16,5 +16,6 @@ export * from "./ink.ts";
 export * from "./password.ts";
 export * from "./runTimes.ts";
 export * from "./runningLate.ts";
+export * from "./mustStart.ts";
 export * from "./timingFix.ts";
 export * from "./device.ts";

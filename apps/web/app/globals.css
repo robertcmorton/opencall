@@ -511,8 +511,10 @@ input.inline-edit {
   cursor: pointer;
   text-decoration: none;
 }
+/* As clear as the row menu's (23 Oct): the 14% tint barely showed. Mixed with
+   transparent, so it reads the same on whatever the menu is drawn over. */
 .menu-item:hover {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 /* Ending the event is the one item in this menu that changes what other people
    can open, so it does not look like the ones that merely change this screen.
@@ -523,7 +525,7 @@ input.inline-edit {
   font-weight: 600;
 }
 .menu-item-danger:hover {
-  background: var(--over-soft);
+  background: color-mix(in srgb, var(--over) 24%, transparent);
 }
 .menu-item .check {
   width: 14px;
@@ -3558,6 +3560,12 @@ th.col-drop-target {
   tr[data-tip]::before {
     content: none;
   }
+  /* Nor while something in the row is being typed into (23 Oct, Robert: "when
+     adjusting in box, cant see"). The row's tip — "Runs at the same time as …"
+     — is about the row, and it covered the very box being changed. */
+  tr[data-tip]:has(:is(input, textarea, select, [contenteditable="true"]):focus)::after {
+    opacity: 0;
+  }
 }
 
 /* The live cue has fallen behind the clock and nothing is advancing it. */
@@ -4258,6 +4266,14 @@ th.col-drop-target {
 .sidenav {
   display: flex;
   flex-direction: column;
+}
+/* Nothing in it squashes; the panel scrolls instead (23 Oct, Robert: "issue
+   with words" — the sheet's name under the logo showed only the top half of
+   its letters, cut by the line under it). A column of flex items shrinks them
+   to fit a short window, and the name, having `overflow: hidden`, may shrink
+   to nothing — so it was the one that gave way. */
+.sidenav > * {
+  flex-shrink: 0;
 }
 
 /* ── Who is signed in ─────────────────────────────────────────────────────
@@ -5854,10 +5870,19 @@ td.peer-cell::after {
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+/* The item you are on, lit clearly enough to see at a glance (23 Oct). It was
+   --accent-soft, a 14% tint that barely showed on the menu's dark grey. `:focus`
+   rather than `:focus-visible`: the menu moves the focus to the item under the
+   mouse itself (RowMenu), so the focused item and the pointed-at one are the
+   same, and it must light however the focus got there. */
 .row-menu-item:hover:not(:disabled),
-.row-menu-item:focus-visible {
-  background: var(--accent-soft);
+.row-menu-item:focus {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-2));
   outline: none;
+}
+.row-menu-item.is-danger:hover:not(:disabled),
+.row-menu-item.is-danger:focus {
+  background: color-mix(in srgb, var(--over) 24%, var(--surface-2));
 }
 .row-menu-item:disabled {
   color: var(--text-3);

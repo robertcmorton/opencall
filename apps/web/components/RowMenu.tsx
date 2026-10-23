@@ -132,6 +132,18 @@ export function RowMenu({
       role="menu"
       style={sheet ? undefined : { left: at.left, top: at.top }}
       onKeyDown={move}
+      // The keyboard follows the mouse (23 Oct, Robert: "as i move the mouse
+      // down the list, it should change the tone / colour of the row so i
+      // know which one i am on"). The first item takes the keyboard when the
+      // menu opens and kept its highlight while the pointer moved on, so two
+      // items were lit and neither said which one a click would choose. Now
+      // the item under the pointer IS the focused one — one highlight — and
+      // the arrow keys carry on from wherever the mouse left it.
+      onPointerMove={(e) => {
+        if (e.pointerType !== "mouse") return;
+        const item = (e.target as HTMLElement).closest<HTMLButtonElement>("button:not(:disabled)");
+        if (item && item !== document.activeElement && box.current?.contains(item)) item.focus({ preventScroll: true });
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {entries.map((entry, i) => {

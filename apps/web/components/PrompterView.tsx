@@ -691,7 +691,11 @@ export function PrompterView({
         }}
       >
         {synced && cues.length === 0 && (
-          <div style={{ color: "#777", fontSize: "1.1rem", lineHeight: 1.6, maxWidth: "40ch" }}>
+          // The full width of the screen, as the lines read below it (23 Oct,
+          // Robert: "this should be along the whole row - not together"). It
+          // was held to 40 characters, a narrow column bunched at the left of
+          // a page that is otherwise edge to edge.
+          <div style={{ color: "#777", fontSize: "1.1rem", lineHeight: 1.6 }}>
             Nothing marked to read yet. Mark a row <strong style={{ color: "#f2f2f2" }}>{PROMPTER_TAG}</strong> in the
             run sheet&rsquo;s cue column — those words then appear here at full size. The rest of the sheet is listed
             below either way, so the show can still be followed.

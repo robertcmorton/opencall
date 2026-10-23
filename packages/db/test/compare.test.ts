@@ -31,7 +31,9 @@ describe("comparing two versions of a sheet", () => {
   it("names rows added and removed, with where they sit", () => {
     const before = sheet();
     const after = copy(before);
-    addRow(after, id(after, "Welcome"), { title: "Sponsor read" });
+    // Two minutes in, two minutes out: the times below come back to where they
+    // were, so this is only about the rows.
+    addRow(after, id(after, "Welcome"), { title: "Sponsor read", durationSec: 120 });
     deleteRow(after, id(after, "Anthem"));
     const c = compareSheets(before, after);
     expect(c.added).toEqual([expect.objectContaining({ title: "Sponsor read", number: 3 })]);
@@ -94,6 +96,7 @@ describe("recording a change and taking back just that one", () => {
     setCellText(after, id(after, "Welcome"), "Audio", "Silence");
     deleteRow(after, id(after, "Anthem"));
     const d = describeChange(before, after)!;
+    // Anthem's two minutes leave the sheet, but Kick-off must start on time and keeps it.
     expect(d.counts).toEqual({ added: 0, removed: 1, changed: 1, moved: 0 });
     expect(d.removed[0]).toMatchObject({ title: "Anthem", duration: "02:00" });
     const audio = d.changed.find((r) => r.title === "Welcome")!.changes.find((c) => c.field === "Audio")!;
@@ -167,11 +170,15 @@ describe("telling an assistant what its change did", () => {
     const before = sheet();
     const now = copy(before);
     addRow(now, null, { title: "Crew call", durationSec: 120 });
-    expect(reportChange(describeChange(before, now)!)).toEqual(["Added row 1: Crew call (runs 02:00)"]);
+    expect(reportChange(describeChange(before, now)!)).toEqual([
+      "Added row 1: Crew call (runs 02:00)",
+      // The knock-on, down to the kick-off — which keeps its time.
+      "Row 2 Doors: Start time “6:00:00 PM” → “6:02:00 PM”",
+    ]);
     const many = copy(before);
     for (let i = 0; i < 5; i++) addRow(many, null, { title: `Extra ${i}` });
     const cut = reportChange(describeChange(before, many)!, 3);
     expect(cut).toHaveLength(4);
-    expect(cut[3]).toMatch(/and 2 more/);
+    expect(cut[3]).toMatch(/and 3 more/);
   });
 });

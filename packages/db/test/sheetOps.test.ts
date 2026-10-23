@@ -72,6 +72,40 @@ describe("sheet operations (the assistant's edits)", () => {
     expect(ids(doc)).not.toContain(id);
   });
 
+  it("an added row starts where it is put, and moves the rows below — but not the kick-off", () => {
+    const doc = sheet();
+    addRow(doc, row(doc, "Welcome").id, { title: "Sponsor read", durationSec: 30 });
+    const start = (t: string) => readSheet(doc).rows.find((r) => r.title === t)!.start;
+    expect(start("Sponsor read")).toBe("6:05:00 PM");
+    expect(start("Anthem")).toBe("6:05:30 PM");
+    // The first half must start on time, and Kick-off is its moment.
+    expect(row(doc, "Kick-off").hardStartSec).toBe(18 * 3600 + 30 * 60);
+    expect(row(doc, "Doors").hardStartSec).toBe(18 * 3600); // above: untouched
+  });
+
+  it("a deleted row's time leaves the sheet, and waits in front of the kick-off", () => {
+    const doc = sheet();
+    deleteRow(doc, row(doc, "Welcome").id);
+    expect(readSheet(doc).rows.find((r) => r.title === "Anthem")!.start).toBe("6:00:00 PM");
+    expect(row(doc, "Kick-off").hardStartSec).toBe(18 * 3600 + 30 * 60);
+  });
+
+  it("with nothing below that must start on time, every fixed time below moves", () => {
+    const doc = buildRundownDoc(
+      [
+        { type: "cue", title: "Doors", durationSec: 600, hardStartSec: 18 * 3600 },
+        { type: "cue", title: "Speeches", durationSec: 900, hardStartSec: 18 * 3600 + 600 },
+        { type: "cue", title: "Dinner", durationSec: 3600, hardStartSec: 18 * 3600 + 1500 },
+      ],
+      { name: "No game", plannedStartSec: 18 * 3600 },
+    );
+    addRow(doc, row(doc, "Doors").id, { title: "Video", durationSec: 120 });
+    expect(row(doc, "Speeches").hardStartSec).toBe(18 * 3600 + 720);
+    expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 1620);
+    deleteRow(doc, row(doc, "Video").id);
+    expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 1500);
+  });
+
   it("moves a row after another, up or down", () => {
     const doc = sheet();
     moveRow(doc, row(doc, "Anthem").id, row(doc, "Doors").id);

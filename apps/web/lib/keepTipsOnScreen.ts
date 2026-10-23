@@ -27,6 +27,16 @@ const OFFSET = 8;
  * timer — explaining something the eye was nowhere near.
  */
 const FOLLOW_POINTER_PX = 480;
+/**
+ * Where a tip that follows the pointer goes: below it and a little to the
+ * right, clear of the arrow — where the system's own tips go (23 Oct, Robert:
+ * "tool tip too close to mouse pointer, when adjusting in box, cant see").
+ * It used to sit 14px ABOVE the pointer, centred on it, which is exactly where
+ * the words being pointed at are: hovering a time to change it put the row's
+ * tip over the time.
+ */
+const POINTER_GAP_X = 12;
+const POINTER_GAP_Y = 24;
 let pointer: { x: number; y: number } | null = null;
 
 function place(el: HTMLElement): void {
@@ -39,7 +49,17 @@ function place(el: HTMLElement): void {
   // Big things — rows — are described where the pointer is; everything else
   // from its own box.
   const atPointer = pointer != null && (el.tagName === "TR" || rect.width > FOLLOW_POINTER_PX);
-  const box = atPointer ? { left: pointer!.x, right: pointer!.x, top: pointer!.y - 6, bottom: pointer!.y + 18, width: 0 } : rect;
+  if (atPointer) {
+    const { x, y } = pointer!;
+    const left = Math.min(Math.max(MARGIN, x + POINTER_GAP_X), window.innerWidth - width - MARGIN);
+    // Above only when there is no room below — the bottom of the screen.
+    const below = y + POINTER_GAP_Y;
+    const top = below + height <= window.innerHeight - MARGIN ? below : Math.max(MARGIN, y - OFFSET - height);
+    el.style.setProperty("--tip-left", `${Math.round(left)}px`);
+    el.style.setProperty("--tip-top", `${Math.round(top)}px`);
+    return;
+  }
+  const box = rect;
 
   // Centred on the element, then pulled back inside the viewport. The nudge is
   // the exact overflow, so a tooltip with room to spare stays centred on the

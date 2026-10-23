@@ -51,6 +51,7 @@ import {
   serializeCsv,
   startEditKind,
   zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalsAhead, lateLevel, trimOptions, cueWindows, type PlanTiming,
+  timesAfterAdd, timesAfterDelete, planArrivals, planLevel, heldFrom, type PlanRow,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -2763,19 +2764,35 @@ export function RundownEditor({
     setLastSelected(rowId);
   };
 
+  /**
+   * New rows take their place in the timing — inside the caller's transaction,
+   * after they are in the document. Every fixed time below moves on by their
+   * length, and a first row with nothing above it to flow from takes the time
+   * of the row it pushed down: see timesAfterAdd.
+   */
+  const retimeAdded = (at: number, added: PlanRow[]): void => {
+    const liveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
+    const { changes, firstStartSec } = timesAfterAdd(rows, at, added, meta.plannedStartSec, liveIdx, mustStartIdx);
+    for (const c of changes) yRows.get(c.id)?.set("hardStartSec", c.hardStartSec);
+    if (firstStartSec != null && added[0]) yRows.get(added[0].id)?.set("hardStartSec", firstStartSec);
+  };
+
   const addRow = (type: "cue" | "group" | "milestone"): void => {
     doc.transact(() => {
       const rowId = ulid();
+      const durationSec = type === "cue" ? 60 : null; // groups & milestones carry no duration
       const yRow = new Y.Map();
       yRow.set("id", rowId);
       yRow.set("type", type);
       yRow.set("hardStartSec", null);
-      yRow.set("durationSec", type === "cue" ? 60 : null); // groups & milestones carry no duration
+      yRow.set("durationSec", durationSec);
       yRow.set("cells", new Y.Map<Y.XmlFragment>());
       yRows.set(rowId, yRow);
       const order = yOrder.toArray();
-      const at = lastSelected ? order.indexOf(lastSelected) + 1 : order.length;
-      yOrder.insert(at > 0 ? at : order.length, [rowId]);
+      const after = lastSelected ? order.indexOf(lastSelected) + 1 : order.length;
+      const at = after > 0 ? after : order.length;
+      yOrder.insert(at, [rowId]);
+      retimeAdded(at, [{ id: rowId, type, durationSec, hardStartSec: null }]);
     });
   };
 
@@ -2952,9 +2969,20 @@ export function RundownEditor({
     [rows, timing, phases, meta.plannedEndSec],
   );
   const lateActiveIdx = activeRowId ? rows.findIndex((r) => r.id === activeRowId) : -1;
-  /** Every fixed time ahead, the next first — see `arrivalsAhead`. */
+  /**
+   * Every fixed time ahead, the next first — see `arrivalsAhead`. Before the
+   * show, and on the edit page, the plan itself checked against them (23 Oct,
+   * Robert: "we should also have on time up pre-show too") — see
+   * `planArrivals`. That is where adding an item in front of kick-off shows up:
+   * kick-off keeps its time, and the plan now runs past it.
+   */
+  const lateSurface = (isShow || mode === "edit") && fixedTimes.length > 0;
+  const liveMeasured = lateSurface && showLive && lateActiveIdx >= 0;
+  // Before the show — and after Start while nothing is on air yet, waiting for
+  // the first item, when there is no "from here" to measure from.
+  const planChecked = lateSurface && !liveMeasured;
   const arrivals =
-    isShow && showLive && lateActiveIdx >= 0 && fixedTimes.length > 0
+    liveMeasured
       ? arrivalsAhead(
           rows,
           timing.rows,
@@ -2963,9 +2991,13 @@ export function RundownEditor({
           live?.rowId === activeRowId ? (live?.remainingInRowSec ?? null) : (rows[lateActiveIdx]?.durationSec ?? null),
           absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing),
         )
-      : [];
+      : planChecked
+        ? planArrivals(rows, timing.rows, fixedTimes, absoluteNow(zoneSecondsOfDay(channel.serverNow(), channel.timezone), timing))
+        : [];
   const arrival = arrivals[0] ?? null;
-  const lateLvl = arrival ? lateLevel(arrival) : null;
+  const lateLvl = arrival ? (planChecked ? planLevel(arrival) : lateLevel(arrival)) : null;
+  /** The rows that must start on time, by index: where an added or deleted row's time stops moving. */
+  const mustStartIdx = useMemo(() => new Set(fixedTimes.filter((t) => !t.end).map((t) => t.index)), [fixedTimes]);
   /** What the running-late panel is listing, while it is open — lit up in the sheet. */
   const [lateListed, setLateListed] = useState<string[] | null>(null);
   const publishDriftHeight = usePublishedBarHeight("--cuedrift-h");
@@ -2973,7 +3005,9 @@ export function RundownEditor({
   const lateSaid = useRef(new Set<string>());
   const lateKey = arrival && (lateLvl === "over" || lateLvl === "urgent") ? `${arrival.target.index}:${lateLvl}` : null;
   useEffect(() => {
-    if (!lateKey || !arrival || !mayDrive || lateSaid.current.has(lateKey)) return;
+    // Said during the show only: before it, the line itself says so, and a
+    // note on every edit that leaves the plan over would be noise.
+    if (!lateKey || !arrival || !mayDrive || planChecked || lateSaid.current.has(lateKey)) return;
     lateSaid.current.add(lateKey);
     const amount = lateAmount(arrival.overSec);
     say(
@@ -2990,6 +3024,9 @@ export function RundownEditor({
     const idx = rows.findIndex((r) => r.id === rowId);
     const yRow = yRows.get(rowId);
     if (idx < 0 || !yRow) return;
+    // Up to the fixed time — and not the rows sitting AT it, straight in front
+    // of it: a "Kick-off" milestone at the half's moment stays with the half.
+    const lastMoved = heldFrom(timing.rows, targetIdx) - 1;
     doc.transact(() => {
       if (kind === "strike" || kind === "unstrike") {
         // Putting one back is the strike in reverse: the times it moved up
@@ -2999,12 +3036,12 @@ export function RundownEditor({
         if (!!rows[idx]!.skipped === struck) return;
         yRow.set("skipped", struck);
         const delta = strikeShift(rows, idx, struck, lateActiveIdx);
-        if (delta !== 0) shiftFixedTimes(idx + 1, targetIdx - 1, delta);
+        if (delta !== 0) shiftFixedTimes(idx + 1, lastMoved, delta);
       } else {
         const was = rows[idx]!.durationSec ?? 0;
         const next = Math.max(0, was - bySec);
         yRow.set("durationSec", next);
-        if (next !== was) shiftFixedTimes(idx + 1, targetIdx - 1, next - was);
+        if (next !== was) shiftFixedTimes(idx + 1, lastMoved, next - was);
       }
     });
   };
@@ -3388,7 +3425,11 @@ export function RundownEditor({
     }
     const deletable = [...selected].filter((id) => !lockedPicked.includes(id));
     if (deletable.length === 0) return;
+    // The time they took leaves the running order: every fixed time below
+    // starts earlier by it, as a strike does — see timesAfterDelete.
+    const retimed = timesAfterDelete(rows, new Set(deletable), -1, mustStartIdx, meta.plannedStartSec);
     doc.transact(() => {
+      for (const c of retimed) yRows.get(c.id)?.set("hardStartSec", c.hardStartSec);
       const order = yOrder.toArray();
       // Delete back-to-front so indices stay valid.
       deletable
@@ -3457,7 +3498,9 @@ export function RundownEditor({
       yRow.set("cells", new Y.Map<Y.XmlFragment>());
       yRows.set(newId, yRow);
       const idx = yOrder.toArray().indexOf(rowId);
-      yOrder.insert(idx < 0 ? yOrder.length : below ? idx + 1 : idx, [newId]);
+      const at = idx < 0 ? yOrder.length : below ? idx + 1 : idx;
+      yOrder.insert(at, [newId]);
+      retimeAdded(at, [{ id: newId, type: "cue", durationSec: 60, hardStartSec: null }]);
     });
     setSelected(new Set([newId]));
     setLastSelected(newId);
@@ -3477,15 +3520,25 @@ export function RundownEditor({
       const order = yOrder.toArray();
       const picked = order.filter((id) => selected.has(id));
       const last = picked[picked.length - 1];
-      let at = (last ? order.indexOf(last) : order.length - 1) + 1;
+      const start = (last ? order.indexOf(last) : order.length - 1) + 1;
+      let at = start;
+      const added: PlanRow[] = [];
       for (const id of picked) {
         const source = yRows.get(id);
         if (!source) continue;
         const newId = ulid();
-        yRows.set(newId, cloneRow(source, newId));
+        const copy = cloneRow(source, newId);
+        // A copy goes in AFTER what it copies, so it starts after it too: a
+        // printed time carried across would put it on top of the original.
+        // A pre-record keeps its own — it sits at its time wherever it is.
+        if (!copy.get("parallel")) copy.set("hardStartSec", null);
+        yRows.set(newId, copy);
         yOrder.insert(at, [newId]);
         at += 1;
+        const plan = rows.find((r) => r.id === id);
+        if (plan) added.push({ ...plan, id: newId, hardStartSec: (copy.get("hardStartSec") as number | null | undefined) ?? null, skipped: false });
       }
+      retimeAdded(start, added);
     });
   };
 
@@ -5385,6 +5438,7 @@ export function RundownEditor({
             <RunningLate
               arrivals={arrivals}
               level={lateLvl}
+              planned={planChecked}
               use24h={meta.use24h}
               manyGames={gameEnds.length > 1}
               canEdit={canEditContent}

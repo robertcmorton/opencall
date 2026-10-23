@@ -226,6 +226,39 @@ export function arrivalsAhead(
   return out;
 }
 
+/**
+ * The plan checked against its fixed times, before the show (23 Oct, Robert:
+ * "we should also have on time up pre-show too"). Nothing is on air, so
+ * nothing is running late yet — but a plan can already be: items printed to
+ * run past a fixed time, which is what adding an item in front of kick-off now
+ * does (retime.ts), or time to spare in front of it. Carried from the sheet's
+ * first timed row to each fixed time the way `arrivalsAhead` carries the live
+ * show: lateness goes on into the next, time in hand does not.
+ */
+export function planArrivals(
+  rows: readonly LateRow[],
+  timing: readonly LateTiming[],
+  targets: readonly FixedTarget[],
+  nowSec: number,
+): Arrival[] {
+  const startIdx = timing.findIndex((t) => t?.startSec != null);
+  if (startIdx < 0) return [];
+  const out: Arrival[] = [];
+  let fromIndex = startIdx;
+  let frontier = timing[startIdx]!.startSec!;
+  let late = 0;
+  for (const target of targets) {
+    if (target.index < fromIndex) continue;
+    const l = carry(rows, timing, fromIndex, frontier, late, target);
+    const a: Arrival = { target, arrivesSec: target.atSec + l, overSec: Math.round(l), untilSec: target.atSec - nowSec };
+    out.push(a);
+    fromIndex = target.index;
+    frontier = target.atSec;
+    late = Math.max(0, a.overSec);
+  }
+  return out;
+}
+
 export type LateLevel = "far" | "spare" | "over" | "urgent";
 
 /**
@@ -252,6 +285,13 @@ export function lateLevel(a: Arrival): LateLevel {
   if (a.untilSec <= 5 * 60 && a.overSec > 30) return "urgent";
   return "over";
 }
+
+/**
+ * How loudly to say it before the show: amber when the plan runs over, quiet
+ * otherwise. The time until it does not matter yet — a plan that cannot make
+ * kick-off is wrong whether kick-off is in ten minutes or tomorrow.
+ */
+export const planLevel = (a: Arrival): LateLevel => (a.overSec > ON_TIME_SEC ? "over" : "spare");
 
 export interface TrimOption {
   index: number;

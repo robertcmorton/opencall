@@ -63,6 +63,7 @@ const verdictOf = (raw: number): string => {
 export function RunningLate({
   arrivals,
   level,
+  planned = false,
   use24h,
   manyGames,
   trimsFor,
@@ -76,6 +77,12 @@ export function RunningLate({
   /** Every fixed time ahead, in order; the first is the next one. */
   arrivals: Arrival[];
   level: LateLevel;
+  /**
+   * Before the show (23 Oct): the PLAN checked against its fixed times, from
+   * the top of the sheet, rather than the show measured from the item on air.
+   * Only the words change.
+   */
+  planned?: boolean;
   use24h: boolean;
   manyGames: boolean;
   trimsFor: (targetIndex: number) => TrimRow[];
@@ -172,10 +179,11 @@ export function RunningLate({
   const at = (a: Arrival) => formatTimeOfDayWithDay(a.target.atSec, use24h);
   const until = (a: Arrival) => (a.untilSec > 0 ? `in ${lateAmount(a.untilSec)}` : "now");
   const reaches = next.target.end ? "the show ends" : `the show reaches ${next.target.name}`;
+  const from = planned ? "As the sheet is planned now" : "If every item from here runs to plan";
   const tip =
     lateBy(next.overSec) > 0
-      ? `If every item from here runs to plan, ${reaches} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after ${next.target.end ? "it is due to" : "it must start"}. Press for every fixed time ahead and what could be trimmed.`
-      : `If every item from here runs to plan, ${reaches} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
+      ? `${from}, ${reaches} at ${formatTimeOfDayWithDay(Math.round(next.arrivesSec), use24h)} — ${lateAmount(lateBy(next.overSec))} after ${next.target.end ? "it is due to" : "it must start"}. Press for every fixed time ahead and what could be trimmed.`
+      : `${from}, ${reaches} ${lateBy(next.overSec) < 0 ? `${lateAmount(lateBy(next.overSec))} early` : "on time"}. Press for every fixed time ahead.`;
   /**
    * Over: everything that could go. On time with nothing done: nothing at
    * all (21 Oct: a dozen Strike buttons under "nothing to find").

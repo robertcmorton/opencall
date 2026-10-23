@@ -561,7 +561,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       {
         title: "Add rows",
         description:
-          "Adds rows, in the order given, after a row (or at the top). type is \"cue\" (an item, a minute long unless a duration is given), \"group\" (a heading) or \"milestone\" (a fixed moment). cells sets other columns by title.",
+          "Adds rows, in the order given, after a row (or at the top). type is \"cue\" (an item, a minute long unless a duration is given), \"group\" (a heading) or \"milestone\" (a fixed moment). cells sets other columns by title. Each new row starts where the row above it ends, and the fixed times below move later by its length — down to the next row that must start on time (kick-off, each half, or one marked so), which keeps its time — as adding a row in the app does.",
         inputSchema: {
           sheet_id: sheetId,
           after_row_id: afterRow,
@@ -597,9 +597,9 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
           const { result: ids, report } = await change(
             "add_rows",
             sheet_id,
-            (doc) => {
+            (doc, liveRowId) => {
               let after = after_row_id;
-              return specs.map((s) => (after = addRow(doc, after, s)));
+              return specs.map((s) => (after = addRow(doc, after, s, liveRowId)));
             },
             { rows: specs.length },
             `added ${specs.length === 1 ? "a row" : `${specs.length} rows`}`,
@@ -641,7 +641,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       "delete_rows",
       {
         title: "Delete rows",
-        description: "Removes rows from the sheet. Prefer strike_row when a row may come back. The version saved before the change can restore them from Versions in the app.",
+        description: "Removes rows from the sheet. The fixed times below move earlier by the time they took, down to the next row that must start on time, as deleting in the app does. Prefer strike_row when a row may come back. The version saved before the change can restore them from Versions in the app.",
         inputSchema: { sheet_id: sheetId, row_ids: z.array(rowId).min(1).max(50) },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       },

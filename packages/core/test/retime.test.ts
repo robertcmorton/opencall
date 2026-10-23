@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixedTimesAfterMove, runningLength, strikeShift } from "../src/retime";
+import { fixedTimesAfterMove, runningLength, strikeShift, timesAfterAdd, timesAfterDelete } from "../src/retime";
 import type { PlanRow } from "../src/types";
 
 const T = (h: number, m: number, s = 0): number => h * 3600 + m * 60 + s;
@@ -201,5 +201,105 @@ describe("fixedTimesAfterMove", () => {
   it("nowhere to go: same place, or off the sheet", () => {
     expect(fixedTimesAfterMove(sheet(), 2, 2)).toEqual([]);
     expect(fixedTimesAfterMove(sheet(), 2, 7)).toEqual([]);
+  });
+});
+
+describe("timesAfterAdd — a new row takes its place in the timing", () => {
+  it("every fixed time below moves on by the new row's length, and nothing above moves", () => {
+    const { changes, firstStartSec } = timesAfterAdd(sheet(), 2, [cue("N", 60, null)]);
+    expect(changes).toEqual([
+      { id: "C", hardStartSec: T(19, 6) },
+      { id: "D", hardStartSec: T(19, 7) },
+    ]);
+    // It flows from the row above: 19:05, where it was put.
+    expect(firstStartSec).toBeNull();
+  });
+
+  it("several new rows move the times below by all of their length", () => {
+    expect(timesAfterAdd(sheet(), 3, [cue("N", 60, null), cue("M", 30, null)]).changes).toEqual([{ id: "D", hardStartSec: T(19, 7, 30) }]);
+  });
+
+  it("a heading, a struck row, an ending or a pre-record puts no time in", () => {
+    const heading: PlanRow = { id: "H", type: "group", durationSec: null, hardStartSec: null };
+    expect(timesAfterAdd(sheet(), 2, [heading]).changes).toEqual([]);
+    expect(timesAfterAdd(sheet(), 2, [cue("S", 60, null, { skipped: true })]).changes).toEqual([]);
+    expect(timesAfterAdd(sheet(), 2, [cue("O", 60, null, { outcome: "win" })]).changes).toEqual([]);
+    expect(timesAfterAdd(sheet(), 2, [cue("P", 60, null, { parallel: true })]).changes).toEqual([]);
+  });
+
+  it("added above the live cue it moves nothing; below it, the rows below move", () => {
+    expect(timesAfterAdd(sheet(), 2, [cue("N", 60, null)], null, 3).changes).toEqual([]);
+    expect(timesAfterAdd(sheet(), 2, [cue("N", 60, null)], null, 1).changes.map((c) => c.id)).toEqual(["C", "D"]);
+  });
+
+  it("at the top of a sheet with no planned start, it takes the time of the row it pushed down", () => {
+    const { changes, firstStartSec } = timesAfterAdd(sheet(), 0, [cue("N", 60, null)]);
+    expect(firstStartSec).toBe(T(19, 0));
+    expect(changes[0]).toEqual({ id: "A", hardStartSec: T(19, 1) });
+  });
+
+  it("…and flows from the planned start when the sheet has one", () => {
+    expect(timesAfterAdd(sheet(), 0, [cue("N", 60, null)], T(18, 59)).firstStartSec).toBeNull();
+  });
+
+  it("keeps times on the dial across midnight", () => {
+    const rows = [cue("A", 600, T(23, 50)), cue("B", 60, T(0, 0))];
+    expect(timesAfterAdd(rows, 1, [cue("N", 300, null)]).changes).toEqual([{ id: "B", hardStartSec: T(0, 5) }]);
+  });
+});
+
+describe("timesAfterDelete — a deleted row's time leaves the sheet", () => {
+  it("every fixed time below starts earlier by the deleted row's length", () => {
+    expect(timesAfterDelete(sheet(), new Set(["B"]))).toEqual([
+      { id: "C", hardStartSec: T(19, 2) },
+      { id: "D", hardStartSec: T(19, 3) },
+    ]);
+  });
+
+  it("several rows at once take all of their time away", () => {
+    expect(timesAfterDelete(sheet(), new Set(["B", "C"]))).toEqual([{ id: "D", hardStartSec: T(19, 2) }]);
+  });
+
+  it("a struck row, a heading or an ending takes nothing away", () => {
+    const rows = [cue("A", 120, T(19, 0)), cue("S", 60, null, { skipped: true }), cue("O", 60, null, { outcome: "win" }), cue("B", 60, T(19, 2))];
+    expect(timesAfterDelete(rows, new Set(["S", "O"]))).toEqual([]);
+  });
+
+  it("a row that flowed from a deleted fixed row takes its time", () => {
+    const rows = [cue("A", 120, T(19, 0)), cue("B", 180, null), cue("C", 60, null)];
+    expect(timesAfterDelete(rows, new Set(["A"]))).toEqual([{ id: "B", hardStartSec: T(19, 0) }]);
+    // Two gone from the top: the first that stays starts where the first gone did.
+    expect(timesAfterDelete(rows, new Set(["A", "B"]))).toEqual([{ id: "C", hardStartSec: T(19, 0) }]);
+  });
+
+  it("above the live cue, nothing below moves", () => {
+    expect(timesAfterDelete(sheet(), new Set(["A"]), 2)).toEqual([]);
+  });
+});
+
+describe("adding and deleting stop at the next row that must start on time", () => {
+  // A 19:00 2m · B 19:02 3m · C 19:05 1m · D 19:06 4m (must start on time) · E flowing
+  const must = new Set([3]);
+
+  it("an added row moves the rows below down to the must-start row, which keeps its time", () => {
+    expect(timesAfterAdd(sheet(), 2, [cue("N", 60, null)], null, -1, must).changes).toEqual([{ id: "C", hardStartSec: T(19, 6) }]);
+  });
+
+  it("added right in front of it, nothing moves — the new row runs past it, which the on-time window shows", () => {
+    expect(timesAfterAdd(sheet(), 3, [cue("N", 60, null)], null, -1, must).changes).toEqual([]);
+  });
+
+  it("a Kick-off row at the same moment, straight in front of the half, keeps its time with it", () => {
+    const rows: PlanRow[] = [cue("A", 120, T(19, 0)), { id: "K", type: "milestone", durationSec: null, hardStartSec: T(19, 2) }, cue("H", 2400, null)];
+    expect(timesAfterAdd(rows, 1, [cue("N", 60, null)], null, -1, new Set([2])).changes).toEqual([]);
+  });
+
+  it("a must-start row with no printed time is given the one it has, so it cannot be carried along", () => {
+    const rows = [cue("A", 120, T(19, 0)), cue("B", 180, null), cue("W", 60, null)];
+    expect(timesAfterAdd(rows, 1, [cue("N", 60, null)], null, -1, new Set([2])).changes).toEqual([{ id: "W", hardStartSec: T(19, 5) }]);
+  });
+
+  it("a deleted row's time waits in front of the must-start row; below it, nothing moves", () => {
+    expect(timesAfterDelete(sheet(), new Set(["B"]), -1, must)).toEqual([{ id: "C", hardStartSec: T(19, 2) }]);
   });
 });

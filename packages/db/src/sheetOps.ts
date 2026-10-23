@@ -8,6 +8,9 @@ import {
   startEditRipples,
   strikeShift,
   wrapTimeOfDay,
+  mustStartIndexes,
+  timesAfterAdd,
+  timesAfterDelete,
 } from "@opencall/core";
 import { projectRundownDoc, type ColumnDef } from "./doc.ts";
 
@@ -178,8 +181,13 @@ export interface NewRow {
   cells?: Record<string, string>;
 }
 
-/** Adds a row after `afterRowId`, or at the top when that is null. Returns its id. */
-export function addRow(doc: Y.Doc, afterRowId: string | null, spec: NewRow): string {
+/**
+ * Adds a row after `afterRowId`, or at the top when that is null, and re-times
+ * the sheet as the editor does: the fixed times below move on by its length,
+ * down to the next row that must start on time (see timesAfterAdd). Returns
+ * its id.
+ */
+export function addRow(doc: Y.Doc, afterRowId: string | null, spec: NewRow, liveRowId: string | null = null): string {
   const type = spec.type ?? "cue";
   const order = orderOf(doc);
   let at = 0;
@@ -188,22 +196,32 @@ export function addRow(doc: Y.Doc, afterRowId: string | null, spec: NewRow): str
     if (idx < 0) throw new SheetOpError(`No row with id "${afterRowId}" on this sheet.`);
     at = idx + 1;
   }
+  const { meta, rows } = projectRundownDoc(doc);
   const id = ulid();
+  const durationSec = spec.durationSec !== undefined ? spec.durationSec : type === "cue" ? 60 : null;
+  const liveIdx = liveRowId ? rows.findIndex((r) => r.id === liveRowId) : -1;
+  const mustStart = new Set(mustStartIndexes(rows, meta.plannedStartSec));
+  const { changes, firstStartSec } = timesAfterAdd(rows, at, [{ id, type, durationSec, hardStartSec: null }], meta.plannedStartSec, liveIdx, mustStart);
   const row = new Y.Map<unknown>();
   row.set("id", id);
   row.set("type", type);
-  row.set("hardStartSec", null);
-  row.set("durationSec", spec.durationSec !== undefined ? spec.durationSec : type === "cue" ? 60 : null);
+  row.set("hardStartSec", firstStartSec);
+  row.set("durationSec", durationSec);
   row.set("cells", new Y.Map<Y.XmlFragment>());
   rowsOf(doc).set(id, row);
   order.insert(at, [id]);
+  for (const c of changes) rowsOf(doc).get(c.id)?.set("hardStartSec", c.hardStartSec);
   setCellText(doc, id, findColumn(doc, "title").id, spec.title);
   for (const [ref, text] of Object.entries(spec.cells ?? {})) setCellText(doc, id, ref, text);
   return id;
 }
 
+/** Deletes a row; the time it took leaves the sheet down to the next must-start row, as in the editor (see timesAfterDelete). */
 export function deleteRow(doc: Y.Doc, rowId: string): void {
   unlockedOrThrow(doc, rowId);
+  const { meta, rows } = projectRundownDoc(doc);
+  const mustStart = new Set(mustStartIndexes(rows, meta.plannedStartSec));
+  for (const c of timesAfterDelete(rows, new Set([rowId]), -1, mustStart, meta.plannedStartSec)) rowsOf(doc).get(c.id)?.set("hardStartSec", c.hardStartSec);
   const order = orderOf(doc);
   const idx = order.toArray().indexOf(rowId);
   if (idx >= 0) order.delete(idx, 1);

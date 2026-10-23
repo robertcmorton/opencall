@@ -146,3 +146,165 @@ export function fixedTimesAfterMove(
   if (ofDay !== moved.hardStartSec) changes.push({ id: moved.id, hardStartSec: ofDay });
   return changes;
 }
+
+/**
+ * Adding and deleting rows re-time the sheet (23 Oct, Robert: "when adding a
+ * new row — the time needs to correspond to its placement in the sheet, and
+ * the duration needs to ripple to other items below. When deleting a row, it
+ * should follow the same logic").
+ *
+ * They did not. A new item flowed from the row above — the right time for
+ * where it sits — but every printed time below stayed put, so a one-minute item
+ * put in after 4:15 (15:00) ran "at the same time as" the 4:30 item, and the
+ * sheet said so in a tooltip instead of moving it. Deleting left a hole the
+ * length of the deleted row.
+ *
+ * Now the time ripples — DOWN TO THE NEXT ROW THAT MUST START ON TIME, and
+ * stops there (Robert: "adding a row should affect things and we should see in
+ * our 'on time' window if we are correct"). Kick-off, each half and any row
+ * marked "Must start on time" are set by somebody else — the broadcaster, the
+ * referee — and do not move because an item was added before them. The rows
+ * between take the change; if they no longer fit, they run past the fixed
+ * time, and the on-time window says by how much and offers what could go. A
+ * first version rippled through to the end of the sheet: kick-off moved with
+ * the new item, and the window measuring lateness against kick-off had nothing
+ * to say about a show that would now start a minute late.
+ *
+ * `mustStart` is the set of those rows' indexes in `rows` (see
+ * mustStartIndexes). One with no printed time is given its current time, so
+ * the rows above it moving cannot carry it along.
+ */
+
+/** What an added or deleted row puts into, or takes out of, the running order. */
+const lengthInOrder = (row: PlanRow): number => (row.skipped || row.outcome ? 0 : runningLength(row));
+
+/**
+ * The rows that keep their time: each must-start row, and the rows straight in
+ * front of it that start at the same moment. A sheet's "Kick-off" milestone, or
+ * a FIRST HALF heading, sits just above the half that is the must-start row and
+ * at its time; rippling those and holding the half put "Kick-off 6:32" over
+ * "First half 6:30", measured on the first try.
+ */
+function heldRows(starts: readonly { startSec: number | null }[], mustStart: ReadonlySet<number>): Set<number> {
+  const held = new Set<number>();
+  for (const w of mustStart) for (let j = heldFrom(starts, w); j <= w; j++) held.add(j);
+  return held;
+}
+
+/**
+ * The first row of the run straight in front of `index` that starts at the
+ * same moment as it — `index` itself when there is none. A ripple running down
+ * to a must-start row stops before this, not just before the row: the on-time
+ * window's own trims moved the "Kick-off" milestone to 6:31 and left the half
+ * it belongs to at 6:32.
+ */
+export function heldFrom(starts: readonly { startSec: number | null }[], index: number): number {
+  const at = starts[index]?.startSec;
+  let j = index;
+  if (at == null) return j;
+  while (j - 1 >= 0 && starts[j - 1]?.startSec === at) j--;
+  return j;
+}
+
+export interface AddRetime {
+  /** Fixed times below the new rows, and what they become. */
+  changes: FixedTime[];
+  /**
+   * A fixed time for the first new row, when it would otherwise have none: at
+   * the top of a sheet with no planned start nothing above it carries a time
+   * to flow from, so it takes the time of the row it pushed down. Null means it
+   * flows from the row above, which is where it sits.
+   */
+  firstStartSec: number | null;
+}
+
+/**
+ * Rows `added` going in at `at` — ahead of `rows[at]`, or at the end when `at`
+ * is `rows.length`. `rows` is the sheet as it is before they go in.
+ */
+export function timesAfterAdd(
+  rows: readonly PlanRow[],
+  at: number,
+  added: readonly PlanRow[],
+  plannedStartSec: number | null = null,
+  liveIndex = -1,
+  mustStart: ReadonlySet<number> = new Set(),
+): AddRetime {
+  const changes: FixedTime[] = [];
+  // Above the live cue is the past: what is written in there costs the show
+  // nothing from here on, and the cue on air never moves.
+  const shift = liveIndex >= 0 && at <= liveIndex ? 0 : added.reduce((n, r) => n + lengthInOrder(r), 0);
+  if (shift !== 0) {
+    const starts = computeTiming(rows.slice(), plannedStartSec).rows;
+    const held = heldRows(starts, mustStart);
+    for (let i = at; i < rows.length; i++) {
+      const r = rows[i]!;
+      if (held.has(i)) {
+        const now = starts[i]?.startSec;
+        if (r.hardStartSec == null && now != null) changes.push({ id: r.id, hardStartSec: timeOfDay(now) });
+        break;
+      }
+      if (r.hardStartSec != null) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
+    }
+  }
+  let firstStartSec: number | null = null;
+  const first = added[0];
+  const displaced = rows[at];
+  if (first && first.hardStartSec == null && !first.parallel && displaced?.hardStartSec != null) {
+    const withIt = [...rows.slice(0, at), first, ...rows.slice(at)];
+    if (computeTiming(withIt, plannedStartSec).rows[at]?.startSec == null) firstStartSec = displaced.hardStartSec;
+  }
+  return { changes, firstStartSec };
+}
+
+/**
+ * The fixed times that change when the rows in `deleted` go. Every row below a
+ * deleted one, down to the next row that must start on time, starts earlier by
+ * the length that left above it; the must-start row keeps its time, and the
+ * time freed up waits in front of it. A row that flowed from a deleted fixed
+ * row takes that row's time: its anchor is gone, and without one it would
+ * start from wherever the next anchor up happened to be — or nowhere, at the
+ * top of a sheet with no planned start.
+ */
+export function timesAfterDelete(
+  rows: readonly PlanRow[],
+  deleted: ReadonlySet<string>,
+  liveIndex = -1,
+  mustStart: ReadonlySet<number> = new Set(),
+  plannedStartSec: number | null = null,
+): FixedTime[] {
+  const changes: FixedTime[] = [];
+  const starts = computeTiming(rows.slice(), plannedStartSec).rows;
+  const held = heldRows(starts, mustStart);
+  let shift = 0;
+  /** A deleted anchor's time, moved by what left above it, for the next row that stays. */
+  let inherited: number | null = null;
+  rows.forEach((r, i) => {
+    if (deleted.has(r.id)) {
+      if (r.hardStartSec != null && !r.parallel) inherited = r.hardStartSec + shift;
+      if (!(liveIndex >= 0 && i < liveIndex)) shift -= lengthInOrder(r);
+      return;
+    }
+    if (held.has(i)) {
+      // It keeps its time whatever left above it — pinned if it only had one
+      // by flowing from rows that have just moved.
+      const now = starts[i]?.startSec;
+      if (r.hardStartSec == null && (shift !== 0 || inherited != null) && now != null) changes.push({ id: r.id, hardStartSec: timeOfDay(now) });
+      shift = 0;
+      inherited = null;
+      return;
+    }
+    // A pre-record sits at its own time and is never what a row flows from.
+    if (r.parallel) {
+      if (r.hardStartSec != null && shift !== 0) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
+      return;
+    }
+    if (r.hardStartSec != null) {
+      if (shift !== 0) changes.push({ id: r.id, hardStartSec: timeOfDay(r.hardStartSec + shift) });
+    } else if (inherited != null) {
+      changes.push({ id: r.id, hardStartSec: timeOfDay(inherited) });
+    }
+    inherited = null;
+  });
+  return changes;
+}

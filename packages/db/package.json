@@ -18,7 +18,7 @@
     "generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite": "^0.5.11",
     "@opencall/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1",
@@ -30,7 +30,7 @@
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }

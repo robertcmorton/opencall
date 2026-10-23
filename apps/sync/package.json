@@ -17,7 +17,7 @@
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",
     "drizzle-orm": "^0.45.4",
-    "nodemailer": "^10.1.7",
+    "nodemailer": "^10.2.1",
     "ulid": "^3.0.2",
     "ws": "^8.22.0",
     "yjs": "^13.6.33",
@@ -29,7 +29,7 @@
     "@types/ws": "^8.18.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }

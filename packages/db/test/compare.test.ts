@@ -49,11 +49,10 @@ describe("comparing two versions of a sheet", () => {
     setDuration(after, id(after, "Welcome"), 360);
     strikeRow(after, id(after, "Anthem"), true);
     const c = compareSheets(before, after);
-    // A longer Welcome moves the fixed Kick-off too, as in the editor.
+    // The first half must start on time, so its Kick-off keeps its time.
     expect(c.changed.map((r) => [r.title, r.fields])).toEqual([
       ["Welcome", ["Duration", "Audio"]],
       ["Anthem", ["Struck"]],
-      ["Kick-off", ["Start time"]],
     ]);
   });
 
@@ -162,8 +161,11 @@ describe("telling an assistant what its change did", () => {
     const before = sheet();
     const now = copy(before);
     setDuration(now, id(now, "Welcome"), 420);
-    const lines = reportChange(describeChange(before, now)!);
-    expect(lines).toEqual(["Row 2 Welcome: Duration “05:00” → “07:00”", "Row 4 Kick-off: Start time “6:30:00 PM” → “6:32:00 PM”"]);
+    // Kick-off keeps its time: the first half must start on time.
+    expect(reportChange(describeChange(before, now)!)).toEqual(["Row 2 Welcome: Duration “05:00” → “07:00”"]);
+    const anyway = copy(before);
+    addRow(anyway, null, { title: "Crew call", durationSec: 120 });
+    expect(reportChange(describeChange(before, anyway)!)).toContain("Row 2 Doors: Start time “6:00:00 PM” → “6:02:00 PM”");
   });
 
   it("lists added rows with their times, and stops at a sensible length", () => {

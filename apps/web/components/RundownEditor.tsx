@@ -51,7 +51,7 @@ import {
   serializeCsv,
   startEditKind,
   zoneSecondsOfDay, strikeShift, fixedTimesAfterMove, fixedTargets, arrivalsAhead, lateLevel, trimOptions, cueWindows, type PlanTiming,
-  timesAfterAdd, timesAfterDelete, planArrivals, planLevel, heldFrom, type PlanRow,
+  timesAfterAdd, timesAfterDelete, planArrivals, planLevel, heldFrom, rippleStop, lengthChangeShift, type PlanRow,
 } from "@opencall/core";
 import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
@@ -2528,6 +2528,19 @@ export function RundownEditor({
     }
   };
 
+  /**
+   * Every printed time from row `from` down moves by `deltaSec` — as far as the
+   * next row that must start on time, which keeps its time, and the on-time
+   * line says if the rows in front of it no longer fit (see rippleStop). For a
+   * typed length and a strike; inside a transaction.
+   */
+  const rippleDown = (from: number, deltaSec: number): void => {
+    if (deltaSec === 0) return;
+    const { stop, pin } = rippleStop(rows, from, mustStartIdx, meta.plannedStartSec);
+    shiftFixedTimes(from, stop - 1, deltaSec);
+    if (pin) yRows.get(pin.id)?.set("hardStartSec", pin.hardStartSec);
+  };
+
   /** ±seconds on this item's duration, rippled away from the live cue. */
   const nudgeRow = (rowId: string, deltaSec: number): void => {
     const idx = rows.findIndex((r) => r.id === rowId);
@@ -3480,8 +3493,7 @@ export function RundownEditor({
         const struck = !(yRow.get("skipped") as boolean | undefined);
         yRow.set("skipped", struck);
         const idx = rows.findIndex((r) => r.id === id);
-        const delta = strikeShift(rows, idx, struck, liveIdx);
-        if (delta !== 0) shiftFixedTimes(idx + 1, rows.length - 1, delta);
+        rippleDown(idx + 1, strikeShift(rows, idx, struck, liveIdx));
       }),
     );
   };
@@ -3764,8 +3776,9 @@ export function RundownEditor({
   };
 
   /** A changed duration ripples through the show: every fixed time BELOW the
-   *  row shifts by the same amount, so an item running long or short moves the
-   *  rest of the sheet with it. One transaction — one undo step reverses the
+   *  row shifts by the same amount — down to the next row that must start on
+   *  time, which keeps its time (23 Oct) — so an item running long or short
+   *  moves the sheet with it. One transaction — one undo step reverses the
    *  duration and the whole ripple together. */
   const commitDuration = (rowId: string, raw: string): void => {
     const trimmed = raw.trim();
@@ -3774,20 +3787,13 @@ export function RundownEditor({
   const setDuration = (rowId: string, newSec: number | null): void => {
     const yRow = yRows.get(rowId);
     const oldSec = (yRow?.get("durationSec") as number | null | undefined) ?? null;
-    // Muted and skipped rows sit outside the running order — no ripple.
-    const inTiming = !yRow?.get("durationMuted") && !yRow?.get("skipped");
+    const idx = rows.findIndex((r) => r.id === rowId);
+    // Nothing for a row outside the running order; an empty box counts as no
+    // length, so clearing one gives its time back — see lengthChangeShift.
+    const delta = idx >= 0 ? lengthChangeShift(rows[idx]!, oldSec, newSec) : 0;
     doc.transact(() => {
       yRow?.set("durationSec", newSec);
-      if (!inTiming || newSec == null || oldSec == null || newSec === oldSec) return;
-      const delta = newSec - oldSec;
-      const order = yOrder.toArray();
-      const idx = order.indexOf(rowId);
-      if (idx < 0) return;
-      for (let i = idx + 1; i < order.length; i++) {
-        const later = yRows.get(order[i]!);
-        const fixed = later?.get("hardStartSec") as number | null | undefined;
-        if (fixed != null) later!.set("hardStartSec", fixed + delta);
-      }
+      rippleDown(idx + 1, delta);
     });
   };
 

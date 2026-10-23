@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixedTimesAfterMove, runningLength, strikeShift, timesAfterAdd, timesAfterDelete } from "../src/retime";
+import { fixedTimesAfterMove, lengthChangeShift, rippleStop, runningLength, strikeShift, timesAfterAdd, timesAfterDelete } from "../src/retime";
 import type { PlanRow } from "../src/types";
 
 const T = (h: number, m: number, s = 0): number => h * 3600 + m * 60 + s;
@@ -301,5 +301,31 @@ describe("adding and deleting stop at the next row that must start on time", () 
 
   it("a deleted row's time waits in front of the must-start row; below it, nothing moves", () => {
     expect(timesAfterDelete(sheet(), new Set(["B"]), -1, must)).toEqual([{ id: "C", hardStartSec: T(19, 2) }]);
+  });
+});
+
+describe("rippleStop — a changed length or a strike stops at the next must-start row", () => {
+  it("stops in front of it; with none below, at the end of the sheet", () => {
+    expect(rippleStop(sheet(), 2, new Set([3]))).toEqual({ stop: 3, pin: null });
+    expect(rippleStop(sheet(), 2, new Set())).toEqual({ stop: 5, pin: null });
+  });
+
+  it("stops in front of the rows at its moment, and pins one with no printed time", () => {
+    const rows: PlanRow[] = [cue("A", 120, T(19, 0)), { id: "K", type: "milestone", durationSec: null, hardStartSec: null }, cue("H", 2400, null)];
+    expect(rippleStop(rows, 1, new Set([2]))).toEqual({ stop: 1, pin: { id: "K", hardStartSec: T(19, 2) } });
+  });
+});
+
+describe("lengthChangeShift", () => {
+  it("is the difference, and an empty length counts as none", () => {
+    expect(lengthChangeShift(cue("x", 60, null), 60, 120)).toBe(60);
+    expect(lengthChangeShift(cue("x", 60, null), 60, null)).toBe(-60);
+    expect(lengthChangeShift(cue("x", null, null), null, 90)).toBe(90);
+  });
+
+  it("is nothing for a row outside the running order", () => {
+    for (const extra of [{ durationMuted: true }, { skipped: true }, { parallel: true }, { spans: true }]) {
+      expect(lengthChangeShift(cue("x", 60, null, extra), 60, 120)).toBe(0);
+    }
   });
 });

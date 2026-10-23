@@ -359,7 +359,7 @@ export const SECTIONS: HelpSection[] = [
           "Press `Enter`.",
         ],
         who: EDITORS,
-        good: "When a length changes, every fixed time below moves by the same amount. One Undo takes it all back.",
+        good: "When a length changes, the fixed times below move by the same amount — down to the next thing that must start on time (kick-off, each half, or a row marked **Must start on time**), which keeps its time; the on-time line says if the rows in front of it no longer fit. Emptying a length gives its time back. One Undo takes it all back.",
       },
       {
         id: "start-time",
@@ -438,7 +438,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Drops an item without losing it. It stays on the sheet with a line through it, out of the timing, and the show steps over it.",
         how: "Open the row menu and choose **Strike out row**. Choose **Un-strike row** to put it back in the show.",
         who: EDITORS,
-        good: "Striking works during the show, even on a locked row — dropping a cue must never be blocked. The time it took is given back to the rows below.",
+        good: "Striking works during the show, even on a locked row — dropping a cue must never be blocked. The time it took is given back to the rows below — down to the next thing that must start on time, which keeps its time.",
       },
       {
         id: "lock",

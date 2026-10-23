@@ -43,20 +43,23 @@ describe("sheet operations (the assistant's edits)", () => {
     expect(() => setCellText(doc, row(doc, "Welcome").id, "Nope", "x")).toThrow(/Columns: /);
   });
 
-  it("a longer duration moves the fixed times below it, as in the editor", () => {
+  it("a longer duration moves the rows below it, down to the kick-off, which keeps its time", () => {
     const doc = sheet();
     setDuration(doc, row(doc, "Welcome").id, 360);
-    expect(row(doc, "Kick-off").hardStartSec).toBe(18 * 3600 + 31 * 60);
+    expect(readSheet(doc).rows.find((r) => r.title === "Anthem")!.start).toBe("6:06:00 PM");
+    expect(row(doc, "Kick-off").hardStartSec).toBe(18 * 3600 + 30 * 60);
     expect(row(doc, "Doors").hardStartSec).toBe(18 * 3600); // above: untouched
   });
 
-  it("a struck row gives its time back below, and putting it back takes it again", () => {
+  it("a struck row gives its time back below, and putting it back takes it again — the kick-off keeps its time", () => {
     const doc = sheet();
     const before = row(doc, "Kick-off").hardStartSec!;
-    strikeRow(doc, row(doc, "Anthem").id, true);
-    expect(row(doc, "Anthem").skipped).toBe(true);
-    expect(row(doc, "Kick-off").hardStartSec).toBe(before - 120);
-    strikeRow(doc, row(doc, "Anthem").id, false);
+    strikeRow(doc, row(doc, "Welcome").id, true);
+    expect(row(doc, "Welcome").skipped).toBe(true);
+    expect(readSheet(doc).rows.find((r) => r.title === "Anthem")!.start).toBe("6:00:00 PM");
+    expect(row(doc, "Kick-off").hardStartSec).toBe(before);
+    strikeRow(doc, row(doc, "Welcome").id, false);
+    expect(readSheet(doc).rows.find((r) => r.title === "Anthem")!.start).toBe("6:05:00 PM");
     expect(row(doc, "Kick-off").hardStartSec).toBe(before);
   });
 
@@ -104,6 +107,14 @@ describe("sheet operations (the assistant's edits)", () => {
     expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 1620);
     deleteRow(doc, row(doc, "Video").id);
     expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 1500);
+    // A length, a strike, and an emptied length — which gives its time back.
+    setDuration(doc, row(doc, "Speeches").id, 1200);
+    expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 1800);
+    setDuration(doc, row(doc, "Speeches").id, null);
+    expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 600);
+    setDuration(doc, row(doc, "Speeches").id, 900);
+    strikeRow(doc, row(doc, "Speeches").id, true);
+    expect(row(doc, "Dinner").hardStartSec).toBe(18 * 3600 + 600);
   });
 
   it("moves a row after another, up or down", () => {

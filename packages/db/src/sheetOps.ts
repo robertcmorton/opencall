@@ -8,7 +8,9 @@ import {
   startEditRipples,
   strikeShift,
   wrapTimeOfDay,
+  lengthChangeShift,
   mustStartIndexes,
+  rippleStop,
   timesAfterAdd,
   timesAfterDelete,
 } from "@opencall/core";
@@ -130,23 +132,34 @@ export function setCellText(doc: Y.Doc, rowId: string, columnRef: string, text: 
 }
 
 /**
- * A new duration; every fixed time below moves by the difference, as in the
- * editor — unless the row is muted or struck and so outside the running order.
+ * Every fixed time from `from` down moves by `delta` — as far as the next row
+ * that must start on time, which keeps its time, as in the editor (see
+ * rippleStop). `rows` is the sheet as it was before the change.
+ */
+function rippleDown(doc: Y.Doc, rows: ProjectedRows, plannedStartSec: number | null, from: number, delta: number): void {
+  if (delta === 0) return;
+  const { stop, pin } = rippleStop(rows, from, new Set(mustStartIndexes(rows, plannedStartSec)), plannedStartSec);
+  for (let i = from; i < stop; i++) {
+    const later = rowsOf(doc).get(rows[i]!.id);
+    const fixed = later?.get("hardStartSec") as number | null | undefined;
+    if (fixed != null) later!.set("hardStartSec", wrapTimeOfDay(fixed + delta));
+  }
+  if (pin) rowsOf(doc).get(pin.id)?.set("hardStartSec", pin.hardStartSec);
+}
+type ProjectedRows = ReturnType<typeof projectRundownDoc>["rows"];
+
+/**
+ * A new duration; the fixed times below move by the difference, down to the
+ * next must-start row, as in the editor — unless the row is outside the running
+ * order. An empty length counts as none, so clearing one gives its time back.
  */
 export function setDuration(doc: Y.Doc, rowId: string, sec: number | null): void {
   const row = unlockedOrThrow(doc, rowId);
+  const { meta, rows } = projectRundownDoc(doc);
+  const idx = rows.findIndex((r) => r.id === rowId);
   const oldSec = (row.get("durationSec") as number | null | undefined) ?? null;
-  const inTiming = !row.get("durationMuted") && !row.get("skipped");
   row.set("durationSec", sec);
-  if (!inTiming || sec == null || oldSec == null || sec === oldSec) return;
-  const delta = sec - oldSec;
-  const order = orderOf(doc).toArray();
-  const idx = order.indexOf(rowId);
-  for (let i = idx + 1; i < order.length; i++) {
-    const later = rowsOf(doc).get(order[i]!);
-    const fixed = later?.get("hardStartSec") as number | null | undefined;
-    if (fixed != null) later!.set("hardStartSec", fixed + delta);
-  }
+  if (idx >= 0) rippleDown(doc, rows, meta.plannedStartSec, idx + 1, lengthChangeShift(rows[idx]!, oldSec, sec));
 }
 
 /** A fixed start time (or none). Ripples below only when the editor's rule says so. */
@@ -261,11 +274,5 @@ export function strikeRow(doc: Y.Doc, rowId: string, struck: boolean, liveRowId:
   const idx = rows.findIndex((r) => r.id === rowId);
   const liveIdx = liveRowId ? rows.findIndex((r) => r.id === liveRowId) : -1;
   row.set("skipped", struck);
-  const delta = strikeShift(rows, idx, struck, liveIdx);
-  if (delta === 0) return;
-  for (let i = idx + 1; i < rows.length; i++) {
-    const later = rowsOf(doc).get(rows[i]!.id);
-    const fixed = later?.get("hardStartSec") as number | null | undefined;
-    if (fixed != null) later!.set("hardStartSec", wrapTimeOfDay(fixed + delta));
-  }
+  rippleDown(doc, rows, projectRundownDoc(doc).meta.plannedStartSec, idx + 1, strikeShift(rows, idx, struck, liveIdx));
 }

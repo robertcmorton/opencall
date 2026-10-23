@@ -206,6 +206,46 @@ export function heldFrom(starts: readonly { startSec: number | null }[], index: 
   return j;
 }
 
+/**
+ * Where a ripple running down from `from` stops, for the edits that move every
+ * printed time below by an amount — a changed length, a strike (23 Oct: they
+ * went on to the end of the sheet, kick-off included, while adding and
+ * deleting a row stopped in front of it). `stop` is the first row at or after
+ * `from` that keeps its time — a must-start row, or one at its moment straight
+ * in front of it — or `rows.length`; shift `from` up to `stop - 1`. `pin` is
+ * that row's current time when it has no printed one, so the rows above it
+ * moving cannot carry it along: set it with the shift, or not at all.
+ */
+export function rippleStop(
+  rows: readonly PlanRow[],
+  from: number,
+  mustStart: ReadonlySet<number>,
+  plannedStartSec: number | null = null,
+): { stop: number; pin: FixedTime | null } {
+  if (mustStart.size === 0) return { stop: rows.length, pin: null };
+  const starts = computeTiming(rows.slice(), plannedStartSec).rows;
+  const held = heldRows(starts, mustStart);
+  for (let i = Math.max(0, from); i < rows.length; i++) {
+    if (!held.has(i)) continue;
+    const now = starts[i]?.startSec;
+    const pin = rows[i]!.hardStartSec == null && now != null ? { id: rows[i]!.id, hardStartSec: timeOfDay(now) } : null;
+    return { stop: i, pin };
+  }
+  return { stop: rows.length, pin: null };
+}
+
+/**
+ * How much a new length moves the rows below (23 Oct). Empty counts as no
+ * length: clearing a 1:00 used to move nothing, so the minute it had added
+ * stayed in the times below for good. A pre-record or a block whose items
+ * carry its time moves nothing whatever its length; a muted or struck row is
+ * outside the running order.
+ */
+export function lengthChangeShift(row: PlanRow, fromSec: number | null, toSec: number | null): number {
+  if (row.durationMuted || row.skipped || row.parallel || row.spans) return 0;
+  return Math.max(0, toSec ?? 0) - Math.max(0, fromSec ?? 0);
+}
+
 export interface AddRetime {
   /** Fixed times below the new rows, and what they become. */
   changes: FixedTime[];

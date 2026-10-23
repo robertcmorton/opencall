@@ -430,7 +430,7 @@ export const SECTIONS: HelpSection[] = [
         mouse: "Click a row number to pick it. Hold `Shift` and click another to pick everything in between. Hold `Cmd` (or `Ctrl` on Windows) and click to add or remove one row.",
         finger: "Tap a row number. Then tap more row numbers — each tap adds or removes one.",
         who: EDITORS,
-        good: "To let go of them, choose **Unpick this row** (or **Unpick these rows**) in the row menu, or press `Esc`.",
+        good: "To let go of them, choose **Unselect this row** (or **Unselect these rows**) in the row menu, or press `Esc`.",
       },
       {
         id: "strike",
@@ -676,7 +676,7 @@ export const SECTIONS: HelpSection[] = [
         finger: "Press and hold the row for half a second. On a phone the menu slides up from the bottom, with **Cancel**. On an iPad it opens beside your finger.",
         steps: [
           "Before the show, on the show page, the top part holds the walkthrough: **Start the walkthrough from this row** (or **Move the walkthrough to this row**), **Previous row**, **Next row**, **End walkthrough** and **Message the stage…**. (Start show isn't here — the show starts on the clock, not from a row; use the green **Start show** button.)",
-          "Below that, for anyone who can edit: **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Only play this if…**, the colours, **Copy to another sheet…**, **Delete row** and **Unpick this row**. With several rows picked, “row” becomes “3 rows”, and so on.",
+          "Below that, for anyone who can edit: **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Only play this if…**, the colours, **Copy to another sheet…**, **Delete row** and **Unselect this row**. With several rows picked, “row” becomes “3 rows”, and so on.",
         ],
         good: "Right-clicking a row that is not picked picks it. With several rows picked, the menu acts on all of them and says how many. A quick tap or a scroll never opens it. Every change shows a note with an **Undo** button.",
       },

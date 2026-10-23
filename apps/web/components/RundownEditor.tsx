@@ -4789,7 +4789,7 @@ export function RundownEditor({
         });
       out.push("sep");
       out.push({
-        label: many ? "Unpick these rows" : "Unpick this row",
+        label: many ? "Unselect these rows" : "Unselect this row",
         hint: rowMenu?.touch && !many ? "Tip: tap more row numbers to pick several rows" : undefined,
         onSelect: () => {
           setSelected(new Set());

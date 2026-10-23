@@ -68,6 +68,7 @@ that ends up somewhere it should not.
 | `WEB_ORIGINS` | Extra allowed web origins, comma-separated (e.g. a staging site). |
 | `ALLOW_DEV_JOIN` | Must be `0` in production. |
 | `DATABASE_URL` | The app's database login. Ideally the restricted `opencall_app` role. |
+| `APP_DB_PASSWORD` | Not read by the app. On Railway it holds the `opencall_app` password, and `DATABASE_URL` refers to it, so changing that password means changing this one value. |
 | `MIGRATION_DATABASE_URL` | The owner login, used only to apply schema changes at boot. Set it together with a restricted `DATABASE_URL`. |
 
 ## Rotating secrets
@@ -79,20 +80,32 @@ that ends up somewhere it should not.
 | A personal token | Users & access → New token | The old token stops at once. |
 | A password | The person changes it, or an admin resets it | Every other session of that account ends, and every assistant connected to it is disconnected. |
 | An assistant's access | My account → AI assistants → Disconnect | Stops at once; the assistant has to be approved again. |
-| `opencall_app` password | `railway connect Postgres`, then `\password opencall_app`; put the new password into the sync service's `DATABASE_URL`; redeploy sync | The running server cannot open new connections with the old password, so change it, set the variable and redeploy in one go. |
-| Database owner password | `railway connect Postgres`, then `\password postgres`; set `POSTGRES_PASSWORD` on the Postgres service (its `PGPASSWORD` and `DATABASE_URL`, and the sync service's `MIGRATION_DATABASE_URL`, follow it); redeploy sync | Used only at boot, to apply schema changes — but a sync restart between the change and the new variable cannot start. |
+| `opencall_app` password | Set it in the database from the Postgres service's Console (below), then put the same value in the sync service's `APP_DB_PASSWORD`; deploy sync | The running server cannot open new connections with the old password, so change it, set the variable and deploy in one sitting. |
+| Database owner password | Postgres → Database → Config → Regenerate; deploy sync | The database restarts and drops every connection. `MIGRATION_DATABASE_URL` follows, being a reference, but only once sync is deployed. |
 | SMTP password | New value in Railway | Invitations fail until set. |
 
 **A database password is changed in the database, not in Railway.** Postgres
 reads `POSTGRES_PASSWORD` only when the database is first created, so changing
-the variable on its own changes nothing and leaves the variable wrong. Change
-it inside the database first, then the variable, then redeploy.
+the variable on its own changes nothing and leaves the variable wrong. For the
+owner, Railway's Regenerate button changes both together; Railway asks that
+this password is never changed by hand. `opencall_app` is ours, so it is changed
+in the database first, then the variable, then deployed.
 
-`\password` (in psql) sends the new password already hashed, so it never
-reaches the server's logs — the same reason `setup-app-role.ts` hashes it. The
-database has no public address, so `railway connect Postgres` is the way in: it
-opens a private tunnel and starts psql. It needs the Railway CLI and psql on
-the machine (`brew install libpq && brew link --force libpq` on a Mac).
+The database has no public address, so the way in is the Postgres service's
+own Console (Railway → Postgres → Console), a shell inside the database server.
+Run there:
+
+```sh
+psql -U postgres -d railway -c '\password opencall_app'
+```
+
+When it asks for the new password, make one on your own machine with
+`openssl rand -hex 24 | tr -d '\n' | pbcopy` (copied, never shown; `tr` drops
+the line break, which a password prompt would take as a press of Enter), then
+paste it, Enter, and paste it again. psql sends it already hashed, so it never
+reaches the database's logs. Then, **before copying anything else**, paste the
+same password into the sync service's `APP_DB_PASSWORD` and deploy. Anything
+copied in between replaces it, and the app cannot start with the wrong one.
 
 ## If something goes wrong
 
@@ -136,9 +149,23 @@ session has not ended. Reads made with the
 admin token are not recorded — only changes are — so the log cannot rule out
 the token having been used to read sheets.
 
-**Rotation.** All three, together, the moment deploys return: the admin token,
-then both database passwords (`\password`), then the variables, then one
-deploy. Open until done.
+**Rotation — done 23 Oct 2026.** When builds returned, all three were changed
+in one sitting: a new admin token; a new `opencall_app` password, set from the
+Postgres service's Console and kept in the new `APP_DB_PASSWORD` variable; and the
+owner password, with Railway's Regenerate button (its own guide says not to
+change that one by hand). Then one deploy, which crashed: the command line used to set the password
+had been pasted into `APP_DB_PASSWORD` instead of the password, and the
+password itself was gone from the clipboard. A second new password, set the
+way described above, fixed it; the app was offline for about fifteen minutes.
+The database and the sync service
+were also moved to Railway's Singapore region, the closest it has to Sydney;
+Railway moved the data at once, before a backup could be taken, and both
+sheets came across intact.
+
+**Also learned.** Railway created no deploy at all for the commits pushed
+while its builds were paused, so the web app stayed on the old version until
+it was told to deploy the latest commit. After an outage, check the version
+badge rather than assuming a push went out.
 
 **What it showed.** The owner password was missing from the rotation table, and
 the table did not say that a database password is changed in the database
@@ -214,11 +241,10 @@ Disconnect stops it at once.
   connects as `opencall_app` (rows only) and applies schema changes as the owner
   through `MIGRATION_DATABASE_URL`. On Railway both are references:
   `MIGRATION_DATABASE_URL = ${{Postgres.DATABASE_URL}}` and
-  `DATABASE_URL = postgresql://opencall_app:<password>@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`.
-  The Postgres service has no public address, so the setup script is run from
-  the sync service's Console, where `DATABASE_URL` is still the owner:
-  `OWNER_DATABASE_URL="$DATABASE_URL" APP_DB_PASSWORD=… node packages/db/scripts/setup-app-role.ts`
-  (before switching the variables over).
+  `DATABASE_URL = postgresql://opencall_app:${{APP_DB_PASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`
+  (the password in its own variable since 23 Oct 2026). The role was made by
+  `packages/db/scripts/setup-app-role.ts`, run from the sync service's Console;
+  changing its password is under Rotating secrets.
 - **Sessions in the browser.** Sign-in tokens are kept in the browser's local
   storage because the web app and the sync server are separate hosts; the
   Content Security Policy is what stops a script stealing them. Moving to an

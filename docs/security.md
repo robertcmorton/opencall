@@ -170,6 +170,20 @@ while its builds were paused, so the web app stayed on the old version until
 it was told to deploy the latest commit. After an outage, check the version
 badge rather than assuming a push went out.
 
+**The provider's preliminary report (read 24 Oct).** Its timeline puts the
+intruder in its systems from 20 Oct 13:58 to 22 Oct 03:32 UTC, after
+privilege escalation in its build machines; a subset of customers' variables
+was decrypted (it puts the share at no more than 1.85% of workspaces and cannot
+say which), user accounts were not logged into, and reading customers' source
+code is not yet ruled out. It says nothing about database contents. What it
+asks, and where this deployment stands: every variable reissued — done here on
+23 Oct, about 21 hours after the intruder was out; no public access to
+databases — this one has none; the provider's own access tokens — all revoked
+by the provider, and none are used here; GitHub's security log and app access
+reviewed — the owner's to do. Source code matters least here: the repository
+is public. The 19:36 sign-in above shows on My account as an iPhone in Safari,
+never used after that minute — the owner's to confirm or sign out.
+
 **What it showed.** The owner password was missing from the rotation table, and
 the table did not say that a database password is changed in the database
 (both fixed above). Admin-token reads leave no trace (open item below).

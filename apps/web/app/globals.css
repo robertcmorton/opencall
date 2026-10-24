@@ -4480,8 +4480,11 @@ th.col-drop-target {
   flex-basis: 100%;
   text-align: left;
 }
+/* My role sits with the other buttons, after them (24 Oct, Robert: "place
+   the My role on the left with the other buttons"). It was pushed to the far
+   right, some 600px from the rest on a laptop, where it read as something
+   apart from the sheet's tools; phones already had it in line. */
 .toolbar-tail {
-  margin-left: auto;
   display: flex;
   gap: var(--space-2);
   align-items: center;
@@ -4491,11 +4494,6 @@ th.col-drop-target {
      but still label above value, the same shape as SHOW and PROJ. END. */
   .header-clock-block {
     text-align: center;
-  }
-  /* My role comes back onto the row above, beside Clock synced, instead of
-     being pushed to the far end of a row of its own. */
-  .toolbar-tail {
-    margin-left: 0;
   }
 }
 

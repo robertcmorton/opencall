@@ -160,7 +160,10 @@ way described above, fixed it; the app was offline for about fifteen minutes.
 The database and the sync service
 were also moved to Railway's Singapore region, the closest it has to Sydney;
 Railway moved the data at once, before a backup could be taken, and both
-sheets came across intact.
+sheets came across intact. All three went back to US West on 24 Oct: a Sydney
+home connection enters Railway at San Jose whatever the region, so Singapore
+doubled every round trip (0.34 s against 0.17 s). That move, too, applied at
+once and carried both sheets across intact.
 
 **Also learned.** Railway created no deploy at all for the commits pushed
 while its builds were paused, so the web app stayed on the old version until

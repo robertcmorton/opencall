@@ -31,6 +31,7 @@ import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume } from "./throttle.ts";
 import { recordChange, versionBefore } from "./sheetChanges.ts";
 import { isLockedDown } from "./lockdown.ts";
+import { readTimeline, type TimelineEntry } from "./timeline.ts";
 import { notify } from "./notices.ts";
 import { randomBytes } from "node:crypto";
 
@@ -478,10 +479,73 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
               where: r.url ?? undefined,
               stack: r.stack ? r.stack.split("\n").slice(0, 6).join("\n") : undefined,
               browser: r.userAgent ? r.userAgent.slice(0, 120) : undefined,
+              // Whose screen, which device, and the steps before it (24 Oct 2026).
+              who: (r.context?.who as string | undefined) ?? undefined,
+              deviceId: (r.context?.deviceId as string | undefined) ?? undefined,
+              place: (r.context?.place as string | undefined) ?? undefined,
+              stepsBefore: Array.isArray(r.context?.trail) ? r.context!.trail : undefined,
               resolved: r.resolvedAt ? { at: r.resolvedAt.toISOString(), by: r.resolvedBy, fix: r.resolution } : undefined,
             })),
             note: rows.length === 0 ? "Nothing in the log for that period." : undefined,
           });
+        }),
+      );
+
+      // The timeline (24 Oct 2026): what people and devices did, in order —
+      // for retracing the steps to a fault from an assistant, the same view
+      // the Timeline page gives. Same permission as the error log.
+      server.registerTool(
+        "read_activity",
+        {
+          title: "Read the activity timeline",
+          description:
+            "What each person and device did, newest first, from the last 90 days: pages opened, show screens joining and dropping (with why — closed, lost to the network, server restart), screens refused, show actions with who pressed them, sign-ins and wrong passwords, sheet edits, and errors with the steps before them. Narrow it by person (a name or email, or user_id), sheet_id, device_id (from an error or another entry), ip, and since/until. The clock's own cue moves are left out unless with_clock is set. Read only.",
+          inputSchema: {
+            person: z.string().max(120).optional().describe("A person's name or email, or part of it."),
+            user_id: z.string().max(64).optional(),
+            sheet_id: z.string().max(64).optional().describe("A sheet's id, from list_sheets."),
+            device_id: z.string().max(40).optional().describe("A device id from an earlier entry or an error."),
+            ip: z.string().max(64).optional(),
+            since: z.string().max(40).optional().describe("Only entries after this time, e.g. 2026-10-24T03:00:00Z."),
+            until: z.string().max(40).optional(),
+            include: z.array(z.enum(["activity", "account", "show", "edit", "error"])).optional().describe("Which records (default all)."),
+            with_clock: z.boolean().optional(),
+            limit: z.number().int().min(1).max(500).optional().describe("At most this many entries (default 100)."),
+          },
+          annotations: { readOnlyHint: true, openWorldHint: false },
+        },
+        guarded(async (a: { person?: string; user_id?: string; sheet_id?: string; device_id?: string; ip?: string; since?: string; until?: string; include?: TimelineEntry["source"][]; with_clock?: boolean; limit?: number }) => {
+          const time = (v?: string) => {
+            if (!v) return undefined;
+            const d = new Date(v);
+            if (Number.isNaN(d.getTime())) throw new ToolRefusal(`"${v}" is not a time. Use e.g. 2026-10-24T03:00:00Z.`);
+            return d;
+          };
+          let userId = a.user_id;
+          if (!userId && a.person) {
+            const needle = `%${a.person.trim().toLowerCase()}%`;
+            const found = await db
+              .select({ id: schema.users.id, name: schema.users.name })
+              .from(schema.users)
+              .where(or(sql`lower(${schema.users.name}) like ${needle}`, sql`lower(${schema.users.email}) like ${needle}`))
+              .limit(5);
+            if (found.length === 0) throw new ToolRefusal(`No account matches "${a.person}".`);
+            if (found.length > 1) throw new ToolRefusal(`"${a.person}" matches ${found.map((f) => f.name).join(", ")} — be more precise, or give user_id.`);
+            userId = found[0]!.id;
+          }
+          const entries = await readTimeline(handle, {
+            userId,
+            rundownId: a.sheet_id,
+            deviceId: a.device_id,
+            ip: a.ip,
+            from: time(a.since),
+            to: time(a.until),
+            sources: a.include ? new Set(a.include) : undefined,
+            withClock: a.with_clock,
+            limit: a.limit ?? 100,
+          });
+          audit(handle, { actor: caller.userId, action: "mcp.read_activity", target: null, ip, ua, detail: { assistant: caller.clientName, returned: entries.length } });
+          return ok({ shown: entries.length, entries, note: entries.length === 0 ? "Nothing recorded for that." : undefined });
         }),
       );
     }
@@ -932,7 +996,7 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       challenge(403, { code: "insufficient_scope", description: "This connection may not resolve errors. A System Administrator can reconnect and allow it." }, "sheets:read sheets:write errors:read errors:resolve");
       return true;
     }
-    if (called.includes("read_error_log") && !caller.scopes.includes("errors:read")) {
+    if ((called.includes("read_error_log") || called.includes("read_activity")) && !caller.scopes.includes("errors:read")) {
       challenge(403, { code: "insufficient_scope", description: "This connection may not read the error log. A System Administrator can reconnect and allow it." }, "sheets:read sheets:write errors:read");
       return true;
     }

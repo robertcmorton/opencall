@@ -788,6 +788,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("mcp errors: an administrator's assistant reads the log", !errs.error && typeof errs.data?.total === "number" && Array.isArray(errs.data?.entries), errs.text.slice(0, 200));
   const future = await tool(boss.tokens.access_token, "read_error_log", { since: "2999-01-01T00:00:00Z" });
   check("mcp errors: 'since' shows only newer entries", future.data?.shown === 0, future.data);
+  // The timeline, from an assistant (24 Oct 2026): same permission as the log.
+  const mgrTimeline = await mcp(freshMgr.tokens.access_token, "tools/call", { name: "read_activity", arguments: {} });
+  check("mcp timeline: a showcaller's connection is refused it — 403 insufficient_scope", mgrTimeline.status === 403, mgrTimeline.status);
+  const story = await tool(boss.tokens.access_token, "read_activity", { sheet_id: rdA.body.id, include: ["show"], limit: 20 });
+  check("mcp timeline: an administrator's assistant reads who started the show", !story.error && (story.data?.entries ?? []).some((e: any) => e.kind === "start" && e.who === "Matrix EventMgr"), story.text.slice(0, 200));
+  check("mcp timeline: a person is found by name", !(await tool(boss.tokens.access_token, "read_activity", { person: "Matrix EventMgr", limit: 5 })).error);
 
   // Resolving fixed errors: hidden from the log, kept, with what fixed them.
   for (const m of ["Matrix fault one: widget exploded", "Matrix fault one: widget exploded", "Matrix fault two: still broken"])

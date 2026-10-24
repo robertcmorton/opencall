@@ -45,6 +45,7 @@ export const AUDIT_WORDS: Record<string, string> = {
   "mcp.delete_rows": "AI assistant deleted rows",
   "mcp.read_error_log": "AI assistant read the error log",
   "mcp.resolve_errors": "AI assistant marked errors as fixed",
+  "mcp.read_activity": "AI assistant read the timeline",
   "sheet.signals_changed": "Changed a show's on-cue signals",
   "session.signed_out": "Signed out one of their devices",
   "session.others_signed_out": "Signed out everywhere else",

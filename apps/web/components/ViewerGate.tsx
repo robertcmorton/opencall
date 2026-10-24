@@ -68,7 +68,9 @@ export function ViewerGate({ code, children }: { code?: string; children: React.
         <p className="vg-note">
           Along with your name, we note the kind of phone or computer and browser you are using, your screen size, and
           your internet address. Only the people who run this run sheet can see it, and it is deleted when the link is
-          turned off.
+          turned off. To keep the show safe and fix problems, OpenCall also keeps a record of the pages you open and
+          when your screen connects or drops, with the town your internet address belongs to, for 90 days. It never
+          records what you type or anything outside OpenCall.
         </p>
       </div>
     </main>

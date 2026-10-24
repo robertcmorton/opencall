@@ -1306,6 +1306,14 @@ export const SECTIONS: HelpSection[] = [
         good: "**Device** says what it was, as the device describes itself (\"iPhone · Safari\"). Entries from before 22 October 2026 have no device, and their address, shown grey, is the hosting company's server rather than the person's. Old records are cleared on a schedule: failed sign-ins after 90 days, the rest after two years.",
       },
       {
+        id: "what-is-recorded",
+        name: "What OpenCall records about you",
+        forWhat: "Says what is kept, for how long, and who can see it.",
+        how: "Sign-ins (and wrong passwords) are kept for two years — wrong passwords for 90 days. For 90 days: the pages you open; when a show screen connects, drops or is refused; the show buttons you press; and the errors your browser runs into, with the last few pages and buttons before each. Every entry notes the kind of device and browser, its internet address, and the town that address belongs to. Edits to a sheet are kept with the sheet's own history.",
+        who: "Only a System Administrator can read it, on the Timeline and Alerts pages.",
+        good: "It never records what you type, your screen, or anything you do outside OpenCall. The town is worked out on OpenCall's own server — no outside service is asked — and is often wrong for phones. It exists to keep shows safe and to work out what went wrong when something breaks.",
+      },
+      {
         id: "alerts",
         name: "Alerts",
         forWhat: "Tells you when something may need a look: a sign-in from a new device or a new country, one person signing in from two countries close together, wrong passwords or view-only codes pouring in from many places, one address trying many accounts, one account opening many sheets in minutes, the administrator code used from a new address, an AI assistant connected, someone's access changed, or a program probing for weaknesses.",

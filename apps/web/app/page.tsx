@@ -188,6 +188,12 @@ export default function Landing() {
         <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
           Your System Administrator makes accounts. No password yet? Paste your personal access token in the box above instead.
         </p>
+        {/* What is recorded, said where people sign in (24 Oct 2026). */}
+        <p style={{ margin: 0, color: "var(--text-3)", fontSize: "var(--fs-xs)" }}>
+          To keep shows safe and fix problems, OpenCall keeps a record of sign-ins, the pages you open and what you do in
+          the app, with your device and the town your internet address belongs to — sign-ins for two years, the rest for
+          90 days. It never records what you type or anything outside OpenCall.
+        </p>
       </form>
 
       {/* No link to the admin dashboard, deliberately — do not add one back.

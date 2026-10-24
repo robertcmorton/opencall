@@ -624,6 +624,39 @@ export const activity = pgTable(
   ],
 );
 
+/**
+ * Things someone should be told about (24 Oct 2026). First the security
+ * alerts — a sign-in from a new device or country, guessing from many
+ * addresses at once, the trap page touched, the admin code used from a new
+ * address — for System Administrators; built to carry a showcaller's
+ * notices too, which is why it says who each one is FOR.
+ *
+ * `key` stops one situation raising a fresh notice every time it is seen:
+ * "guessing spike, this quarter-hour" is one notice, however many guesses.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id().primaryKey(),
+    at: createdAt(),
+    kind: text("kind").notNull(),
+    /** "admins" for now; later "user:<id>" and "sheet:<id>". */
+    audience: text("audience").notNull(),
+    urgent: boolean("urgent").notNull().default(false),
+    /** What happened, in words — the notice itself. */
+    title: text("title").notNull(),
+    body: text("body"),
+    /** Who it is about, when it is about someone. */
+    userId: text("user_id"),
+    rundownId: text("rundown_id"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+    key: text("key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    readBy: text("read_by"),
+  },
+  (t) => [index("notifications_audience_idx").on(t.audience, t.at), uniqueIndex("notifications_key_idx").on(t.key)],
+);
+
 // ── AI assistants (MCP) and how they sign in (OAuth 2.1) ─────────────────────
 // Modelled on Kitshare's: an assistant registers itself, the person approves
 // it once on OpenCall's own page, and then holds short-lived tokens tied to

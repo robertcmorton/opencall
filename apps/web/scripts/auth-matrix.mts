@@ -990,6 +990,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("audit: sign-ins, failures and changes are recorded", actions.has("login.ok") && actions.has("login.failed") && actions.has("code.created") && actions.has("code.revoked"), [...actions]);
 }
 
+// ── Swarm-proof codes (24 Oct 2026) ───────────────────────────────────────────
+{
+  const made = await Promise.all([1, 2, 3].map(() => req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "length probe" }) })));
+  const codes = made.map((m) => m.body?.code as string);
+  check("codes: new view-only codes are eight characters from the readable set", codes.every((c) => /^[ABCDEFGHJKMNPQRSTVWXYZ23456789]{8}$/.test(c ?? "")), codes);
+  check("codes: no two alike", new Set(codes).size === codes.length, codes);
+  for (const m of made) if (m.body?.id) await req(`/rundowns/${rdA.body.id}/join-codes/${m.body.id}`, ADMIN, { method: "DELETE" });
+}
+
 // ── Activity trail and timeline (24 Oct 2026) ─────────────────────────────────
 {
   for (const [who, token] of [["a viewer", viewer.accessToken], ["an event manager", eventMgr.accessToken], ["a company manager", companyMgr.accessToken], ["a company code", companyToken], ["nobody", null]] as const)

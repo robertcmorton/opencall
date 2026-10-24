@@ -35,6 +35,7 @@ that ends up somewhere it should not.
 | Sign-in | 5 failures per email+address and 20 per address in 15 minutes, then 429; past 10 for one email, waits of 2, 4, 8… s (max 60) instead of a lockout; counted before the check, given back on success | `apps/sync/src/api.ts` (login), `throttle.ts` |
 | Sign-in | Unknown email costs the same time as a wrong password (dummy hash); one error for both | `auth.ts` `verifyPassword` |
 | Guessing | 30 wrong join codes or invitation links per address in 15 minutes, on the API, the document socket and the show socket | `auth.ts` `resolveJoinCodeGuarded`, `server.ts` |
+| Swarms | Wrong codes and wrong passwords also counted across all addresses: past 150 codes or 100 passwords in 15 minutes every address drops to 3 tries and an urgent alert is raised (24 Oct 2026). Join codes are 8 characters from `crypto.randomInt` (were 6 from `Math.random`) | `swarm.ts`, `notices.ts`, `api.ts` |
 | Client address | Only the right-most `X-Forwarded-For` entry (Railway's edge); IPv6 grouped by /64 | `clientIp.ts` |
 | Credentials | Sessions, personal and company tokens are 32 random bytes and stored only as SHA-256 (`h:` prefix); shown once at issue; existing ones hashed in place at boot | `auth.ts` |
 | Sessions | 30-day lifetime, ended after 14 idle days; all ended on password change or admin reset (except the one changing it) | `auth.ts`, `api.ts` |
@@ -68,6 +69,7 @@ that ends up somewhere it should not.
 | `PUBLIC_SYNC_URL` | Optional. The sync server's own public address, as assistants should see it. Worked out from the request when unset. |
 | `WEB_ORIGINS` | Extra allowed web origins, comma-separated (e.g. a staging site). |
 | `ALLOW_DEV_JOIN` | Must be `0` in production. |
+| `ALERT_EMAIL` | Optional. Where urgent security alerts are emailed (comma-separated), when mail is set up. Alerts are on the dashboard either way. |
 | `DATABASE_URL` | The app's database login. Ideally the restricted `opencall_app` role. |
 | `APP_DB_PASSWORD` | Not read by the app. On Railway it holds the `opencall_app` password, and `DATABASE_URL` refers to it, so changing that password means changing this one value. |
 | `MIGRATION_DATABASE_URL` | The owner login, used only to apply schema changes at boot. Set it together with a restricted `DATABASE_URL`. |

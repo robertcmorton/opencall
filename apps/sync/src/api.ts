@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomInt } from "node:crypto";
 import { and, count, desc, eq, gt, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
@@ -30,6 +31,7 @@ import { audit, userAgentOf } from "./audit.ts";
 import { actorOf, deviceIdOf, recordActivity } from "./activity.ts";
 import { placeOf } from "./place.ts";
 import { readTimeline, type TimelineEntry } from "./timeline.ts";
+import { codeGuessLimit, loginTryLimit, noteCodeMiss, noteLoginFailure } from "./swarm.ts";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
 import { MAX_WEBHOOKS, webhookProblem, type CueSignals } from "./cueSignals.ts";
@@ -348,13 +350,15 @@ export function createApiHandler(
      */
     const guessing = async <T,>(lookup: () => Promise<T | null | undefined>): Promise<T | null | "throttled"> => {
       const key = `guess:ip:${ipKey}`;
-      const t = await consume(handle, key, { max: GUESS_PER_IP, windowSec: LOGIN_WINDOW_SEC });
+      // Fewer tries per address while guesses are pouring in from everywhere — see swarm.ts.
+      const t = await consume(handle, key, { max: await codeGuessLimit(handle, GUESS_PER_IP), windowSec: LOGIN_WINDOW_SEC });
       if (!t.ok) {
         res.setHeader("retry-after", String(t.retryAfterSec));
         return "throttled";
       }
       const found = await lookup();
       if (found) await release(handle, key);
+      else await noteCodeMiss(handle);
       return found ?? null;
     };
     // Only OpenCall's own site, once its address is configured (see origins.ts).
@@ -836,7 +840,7 @@ export function createApiHandler(
         }
         const counted = await Promise.all([
           consume(handle, pairKey, { max: LOGIN_PER_PAIR, windowSec: LOGIN_WINDOW_SEC }),
-          consume(handle, ipLimitKey, { max: LOGIN_PER_IP, windowSec: LOGIN_WINDOW_SEC }),
+          consume(handle, ipLimitKey, { max: await loginTryLimit(handle, LOGIN_PER_IP), windowSec: LOGIN_WINDOW_SEC }),
           email ? consume(handle, emailKey, { max: Number.MAX_SAFE_INTEGER, windowSec: LOGIN_WINDOW_SEC }) : null,
         ]);
         const refused = counted.slice(0, 2).find((c) => c && !c.ok);
@@ -849,6 +853,7 @@ export function createApiHandler(
         // the same time taken for both (verifyPassword checks a dummy hash).
         if (!verifyPassword(password, user?.passwordHash ?? null) || !user) {
           audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip, ua });
+          await noteLoginFailure(handle);
           json(res, 401, { error: "That email and password don't match an account. Check them and try again." });
           return true;
         }
@@ -2613,12 +2618,13 @@ export function createApiHandler(
         const body = await readJson(req);
         const role = ["caller", "editor", "follower"].includes(String(body.role)) ? String(body.role) : "follower";
         const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 80) : null;
-        // Readable code: no confusable characters.
+        // Readable code: no confusable characters. Eight of them, from the
+        // security-grade generator (24 Oct 2026): six from Math.random were
+        // about 730 million possibilities and predictable to someone who had
+        // seen a few; eight are about 650 billion, and are not. Old six-letter
+        // codes keep working.
         const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
-        const code = Array.from(
-          { length: 6 },
-          () => alphabet[Math.floor(Math.random() * alphabet.length)]!,
-        ).join("");
+        const code = Array.from({ length: 8 }, () => alphabet[randomInt(alphabet.length)]!).join("");
         // Every code is view-only. Running or editing a show takes an account
         // with a password: a code is a thing that gets photographed off a wall
         // and forwarded out of a group chat, and neither of those should end

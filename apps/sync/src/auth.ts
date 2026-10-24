@@ -5,6 +5,7 @@ import { ulid } from "ulid";
 import { schema, type DbHandle } from "@opencall/db";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, release } from "./throttle.ts";
+import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
 
 /**
  * Interim token auth (full accounts land later; this module is the seam they
@@ -290,10 +291,11 @@ export async function resolveJoinCodeGuarded(
   rundownId?: string,
 ): Promise<Awaited<ReturnType<typeof resolveJoinCode>>> {
   const key = `guess:ip:${ipKey}`;
-  const t = await consume(handle, key, { max: 30, windowSec: 15 * 60 });
+  const t = await consume(handle, key, { max: await codeGuessLimit(handle, 30), windowSec: 15 * 60 });
   if (!t.ok) return null;
   const found = await resolveJoinCode(handle, code, rundownId);
   if (found) await release(handle, key);
+  else await noteCodeMiss(handle);
   return found;
 }
 

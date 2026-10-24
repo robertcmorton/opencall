@@ -197,6 +197,13 @@
       "when": 1792816521980,
       "tag": "0027_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792817383128,
+      "tag": "0028_notifications",
+      "breakpoints": true
     }
   ]
 }

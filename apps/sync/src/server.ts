@@ -46,6 +46,7 @@ import * as authMod from "./auth.ts";
 import { deviceIdOf, recordActivity, type Actor, type Origin } from "./activity.ts";
 import { userAgentOf } from "./audit.ts";
 import { loadPlaces } from "./place.ts";
+import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.
@@ -278,7 +279,7 @@ async function resolveAuth(
     // Misses count against the address, as on every other way a code is
     // tried (see resolveJoinCodeGuarded); a hit is given back.
     const guessKey = `guess:ip:${ipKey}`;
-    const t = await consume(dbHandle, guessKey, { max: GUESS_PER_IP, windowSec: LOGIN_WINDOW_SEC });
+    const t = await consume(dbHandle, guessKey, { max: await codeGuessLimit(dbHandle, GUESS_PER_IP), windowSec: LOGIN_WINDOW_SEC });
     if (!t.ok) return null;
     const row = await dbHandle.db.query.shareTokens.findFirst({
       where: and(
@@ -293,6 +294,7 @@ async function resolveAuth(
       return { role: row.role as Role, label: row.label || (row.role === "caller" ? "Caller" : "Crew"), via: "code" };
     }
     if (auth.code === "DEV123" && process.env.ALLOW_DEV_JOIN !== "0") return { role: "follower", label: "Crew (dev)", via: "code" };
+    await noteCodeMiss(dbHandle);
     return null;
   }
   const row = await dbHandle.db.query.shareTokens.findFirst({

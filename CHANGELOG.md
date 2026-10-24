@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-10-24
+
 ### Fixed
 - **The big timer's bar moves on every item, not just the first.** From the second item on it sat full for the whole item, because the browser kept the first item's finished animation instead of starting a new one. Each item now gets a bar of its own, and lengthening an item mid-way re-aims the bar from where the item has got to.
 - **Start show is ready sooner.** A sheet waited for a separate clock check with the server before showing Start and its clocks; the server's first reply now carries what that check measured. One round trip sooner on every open: 0.21 s on a link like Sydney's to the servers.

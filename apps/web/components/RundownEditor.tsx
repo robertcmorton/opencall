@@ -5479,14 +5479,17 @@ export function RundownEditor({
             <span className="shape-val">{timing.startSec != null ? formatTimeOfDay(timing.startSec, meta.use24h) : "—"}</span>
             <span className="shape-key">Dur</span>
             <span className="shape-val">{formatDuration(timing.totalDurationSec)}</span>
+            {/* Over, Under or On plan (24 Oct, Robert's pick): the word says which
+                way, so "+1:36" no longer has to be decoded. It was "Ran", which
+                said neither what ran nor whether the number was good news. */}
             {ranTotal != null && (
               <>
-                <span className="shape-key">Ran</span>
+                <span className="shape-key">{ranTotal > 0 ? "Over" : ranTotal < 0 ? "Under" : "On plan"}</span>
                 <span
                   className={`shape-val ${ranTotal > 0 ? "ran-over" : ranTotal < 0 ? "ran-under" : ""}`}
                   data-tip={`The items played ${runTimes?.live ? "so far" : "in the last show"} ran ${ranTotal === 0 ? "exactly to plan" : `${formatOverUnder(ranTotal).slice(1)} ${ranTotal > 0 ? "over" : "under"} their planned lengths`}. Starting a show starts a fresh count.`}
                 >
-                  {formatOverUnder(ranTotal)}
+                  {ranTotal === 0 ? "0:00" : formatOverUnder(ranTotal).slice(1)}
                 </span>
               </>
             )}

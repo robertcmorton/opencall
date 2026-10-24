@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Changed
+- **"Ran" at the top of the sheet now says which way: Over (in red), Under (in green), or On plan.** "Ran +1:36" said neither what ran nor whether that was good news; it now reads "Over 1:36". The figure is the same — how far the items played so far have run past or short of their planned lengths.
+
 ### Added
 - **An activity record, kept 90 days, for spotting trouble and retracing a fault.** OpenCall now notes the pages each person opens, every show screen joining and leaving — and how it left: closed, lost to a dropped network or a sleeping device, or put off by a server restart — and screens refused for a wrong or switched-off code. Each entry carries the device ("iPad · Safari"), a random id the browser keeps for itself so one device's steps can be followed, and the town and country its address belongs to, worked out on OpenCall's own server from a free address table (no outside service sees the address). Nothing typed is recorded, and a code or secret in a page's address is never kept.
 - **Every show action now records who pressed it, and on what.** Start, Stop, Pause, cue moves, the walkthrough and stage messages are kept with the person (or "Administrator (server code)", or a view link's name) and their device; the clock's own moves read as the clock's. The sheet's Changes page now says who started and stopped each show. Until now nothing recorded who pressed Start.

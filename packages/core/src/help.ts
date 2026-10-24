@@ -135,7 +135,7 @@ export const SECTIONS: HelpSection[] = [
         id: "dashboard",
         name: "Dashboard",
         forWhat: "The home page after you sign in: every company and event, with each of its shows on a row.",
-        how: "Under each show's name, one line says when it starts, how long it runs and when it ends; how many rows it has and when it was last changed; and, once a show has been run, the day of the last one and how far over or under it ran (the same figure as **Ran** at the top of the sheet). Each has one big button — **Open show**, **Edit run sheet** or **View**, depending on what you are allowed to do — and a **⋯** menu with everything else.",
+        how: "Under each show's name, one line says when it starts, how long it runs and when it ends; how many rows it has and when it was last changed; and, once a show has been run, the day of the last one and how far over or under it ran (the same figure as **Over** or **Under** at the top of the sheet). Each has one big button — **Open show**, **Edit run sheet** or **View**, depending on what you are allowed to do — and a **⋯** menu with everything else.",
         good: "A show that is on air is marked **LIVE** (or **PAUSED**). One nobody remembered to stop is marked **left running** or **left paused** in grey. Over is red and under is green, like on the sheet. Type in **Search events and shows** to find one, and each event says **Today**, **Tomorrow**, **In 5 days** or **Past** beside its name.",
       },
       {
@@ -869,7 +869,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Tells you, at a glance, how the show is doing.",
         steps: [
           "The big timer in the middle counts down the item on air: green, then amber near the end, then red counting up if it runs over.",
-          "On the left: **Start**, **Dur** and **End** — the plan. **Ran** shows how far over or under the items so far have run.",
+          "On the left: **Start**, **Dur** and **End** — the plan. **Over** (in red) or **Under** (in green) says how far the items played so far have run past or short of their lengths; **On plan** when they are level.",
           "On the right: **Proj. end** — when the show will really finish — and the time of day.",
           "Top right, the **Sheet** and **Show** lights are green when everything is connected, and flash as data comes in. If a link drops its light goes red and words appear: **Offline · changes kept here** — keep working; your changes are sent when it reconnects — or **Show link reconnecting…**, which means Start, Next and the clock are reconnecting by themselves.",
         ],
@@ -883,7 +883,7 @@ export const SECTIONS: HelpSection[] = [
           "**joined late** — the show got to this item after it was due to start (it was started late, or handed back to the clock part-way through), so it only saw the rest of it. Point at it to see how late.",
           "**in its items** — a block such as half time, whose length is played by the rows inside it. Those rows carry the figures.",
         ],
-        good: "Neither counts in **Ran** at the top. The figures stay after the show, so the next morning you can see where the time went.",
+        good: "Neither counts in **Over** or **Under** at the top. The figures stay after the show, so the next morning you can see where the time went.",
       },
       {
         id: "ticks",

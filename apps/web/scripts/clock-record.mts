@@ -20,7 +20,7 @@
  *   - Start opens on Warm up, the clock's item. Doors is never on air.
  *   - Neither note row is ever on air.
  *   - Relay, Wrap, Ads and Feature ran exactly their length: ±0:00.
- *   - Warm up says "joined late", Interval "in its items", and "Ran" ±0:00.
+ *   - Warm up says "joined late", Interval "in its items", and the readout "On plan 0:00".
  *
  *   pnpm test:clock         (web on :3010, sync on :8787; ~3 minutes)
  *
@@ -142,7 +142,10 @@ try {
     chips: Object.fromEntries(
       [...document.querySelectorAll("tr[data-rowid]")].map((tr) => [(tr as HTMLElement).dataset.rowid!, (tr.querySelector(".ran-chip") as HTMLElement | null)?.innerText.trim() ?? null]),
     ),
-    ran: ([...document.querySelectorAll("[data-tip]")].find((e) => /The items played/.test((e as HTMLElement).dataset.tip ?? "")) as HTMLElement | undefined)?.innerText.trim() ?? null,
+    ran: (() => {
+      const v = [...document.querySelectorAll("[data-tip]")].find((e) => /The items played/.test((e as HTMLElement).dataset.tip ?? "")) as HTMLElement | undefined;
+      return v ? `${(v.previousElementSibling as HTMLElement | null)?.innerText.trim() ?? ""} ${v.innerText.trim()}` : null;
+    })(),
   }));
   const chip = (title: string) => sheet.chips[idOf[title]!] ?? null;
   const expect: Record<string, string | null> = {
@@ -154,7 +157,7 @@ try {
   };
   for (const [t, want] of Object.entries(expect))
     ok(chip(t) === want, `${t.padEnd(13)} reads ${chip(t) == null ? "nothing" : `"${chip(t)}"`}`, `${t} reads ${JSON.stringify(chip(t))}, expected ${JSON.stringify(want)}`);
-  ok(!!sheet.ran && sheet.ran.includes("±0:00"), `Ran reads "${sheet.ran}"`, `the Ran readout says ${JSON.stringify(sheet.ran)}, expected ±0:00`);
+  ok(sheet.ran === "On plan 0:00", `the readout reads "${sheet.ran}"`, `the over/under readout says ${JSON.stringify(sheet.ran)}, expected "On plan 0:00"`);
 } finally {
   await browser.close();
   await fetch(`${SYNC}/rundowns/${id}`, { method: "DELETE" });

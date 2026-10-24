@@ -330,7 +330,7 @@ export const SECTIONS: HelpSection[] = [
         forWhat: "Adds a new timed item to the sheet.",
         how: "Press **+ Row** in the toolbar. The row goes after the row you last picked, or at the end. It starts where the row above it ends, and the times below move later by its length — down to the next thing that must start on time (kick-off, each half, or a row marked **Must start on time**), which keeps its time. If the rows in front of it no longer fit, the on-time line under the cue timer says by how much.",
         who: EDITORS,
-        good: "To put a row in an exact place, right-click a row (or press and hold it) and choose **Insert 1 row above** or **Insert 1 row below** — during a show too. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
+        good: "To put a row in an exact place, right-click a row (or press and hold it) and choose **Insert 1 row above** or **Insert 1 row below** — during a show too. With three rows picked it offers **Insert 3 rows above**, and so on. An empty sheet has an **Add the first row** button — or copy rows from Google Sheets or Excel, click the sheet and paste.",
       },
       {
         id: "edit-cell",
@@ -518,6 +518,22 @@ export const SECTIONS: HelpSection[] = [
         good: "Not while that other show is live, or while someone else is editing it. Anything it has no column for is listed, not lost.",
       },
       {
+        id: "clear-row",
+        name: "Clear row",
+        forWhat: "Empties what's written in a row and keeps the row.",
+        how: "Open the row menu and choose **Clear row** (or **Clear 3 rows** with several picked).",
+        who: EDITORS,
+        good: "The row keeps its time and its length, so nothing below it moves — safe during the show. A locked row is left as it is. **Undo** brings the words back.",
+      },
+      {
+        id: "link-to-row",
+        name: "Copy link to a row",
+        forWhat: "A link that opens the sheet at one row, to paste in a message.",
+        how: "Open the row menu and choose **Copy link to row 12** (the number is the row's). Paste it wherever you like.",
+        who: EDITORS,
+        good: "Opening it scrolls the sheet to the row and makes it glow for a moment. It works only for people who can already open the sheet — it gives nobody new access. A link copied on the show page opens the show page; one from the edit page opens the edit page.",
+      },
+      {
         id: "find-replace",
         name: "Find and replace",
         forWhat: "Finds words anywhere on the sheet, and changes them all at once if you want.",
@@ -682,8 +698,8 @@ export const SECTIONS: HelpSection[] = [
         keys: "Put the blue box on a cell in the row, then press `Shift+F10` or the Menu key. Use the arrow keys and `Enter` to choose; `Esc` closes it.",
         finger: "Press and hold the row for half a second. On a phone the menu slides up from the bottom, with **Cancel**. On an iPad it opens beside your finger.",
         steps: [
-          "Before the show, on the show page, the top part holds the walkthrough: **Start the walkthrough from this row** (or **Move the walkthrough to this row**), **Previous row**, **Next row**, **End walkthrough** and **Message the stage…**. (Start show isn't here — the show starts on the clock, not from a row; use the green **Start show** button.)",
-          "Below that, for anyone who can edit: **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Only play this if…**, the colours, **Copy to another sheet…**, **Delete row** and **Unselect this row**. With several rows picked, “row” becomes “3 rows”, and so on.",
+          "Before the show, on the show page, the top part holds the walkthrough: **Start the walkthrough from this row** (or **Move the walkthrough to this row**), **Previous row**, **Next row**, **End walkthrough** and **Message…**. (Start show isn't here — the show starts on the clock, not from a row; use the green **Start show** button.)",
+          "Below that, for anyone who can edit: **Insert 1 row above**, **Insert 1 row below**, **Make a copy of this row**, **Turn into a heading**, **Turn into a fixed time**, **Strike out row**, **Lock row**, **Must start on time**, **Can drop if running late**, **Only play this if…**, the colours, **Clear row**, **Copy to another sheet…**, **Copy link to row 12**, **Delete row** and **Unselect this row**. With several rows picked, “row” becomes “3 rows” — **Insert 3 rows above** adds three — and so on.",
         ],
         good: "Right-clicking a row that is not picked picks it. With several rows picked, the menu acts on all of them and says how many. A quick tap or a scroll never opens it. Every change shows a note with an **Undo** button.",
       },

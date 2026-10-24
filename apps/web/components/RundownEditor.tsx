@@ -57,6 +57,7 @@ import { describeDevice, viewerName } from "../lib/viewerIdentity";
 import { API_URL, api, setActiveJoinCode } from "../lib/api";
 import { exportRundownPdf } from "../lib/exportPdf";
 import { projectRundownDoc, type ColumnDef, type ProjectedRow } from "@opencall/db/doc";
+import { clearCells } from "@opencall/db/sheetGrid";
 import { CuePool } from "./CuePool";
 import { ReconcilePanel, findTimingGaps } from "./ReconcilePanel";
 import { MatchCard, type MatchGame, type SheetPeriod } from "./MatchCard";
@@ -3591,30 +3592,38 @@ export function RundownEditor({
   };
 
   /** A new item straight above or below a row — the row menu's Insert. */
-  const insertRowBeside = (rowId: string, below: boolean): void => {
-    const newId = ulid();
+  /**
+   * New one-minute rows above or below a row — as many as are picked, the way
+   * Google Sheets offers "Insert 3 rows above" with three rows selected (24 Oct).
+   */
+  const insertRowBeside = (rowId: string, below: boolean, count = 1): void => {
+    const newIds = Array.from({ length: Math.max(1, count) }, () => ulid());
     doc.transact(() => {
-      const yRow = new Y.Map();
-      yRow.set("id", newId);
-      yRow.set("type", "cue");
-      yRow.set("hardStartSec", null);
-      yRow.set("durationSec", 60);
-      yRow.set("cells", new Y.Map<Y.XmlFragment>());
-      yRows.set(newId, yRow);
+      for (const newId of newIds) {
+        const yRow = new Y.Map();
+        yRow.set("id", newId);
+        yRow.set("type", "cue");
+        yRow.set("hardStartSec", null);
+        yRow.set("durationSec", 60);
+        yRow.set("cells", new Y.Map<Y.XmlFragment>());
+        yRows.set(newId, yRow);
+      }
       const idx = yOrder.toArray().indexOf(rowId);
       const at = idx < 0 ? yOrder.length : below ? idx + 1 : idx;
-      yOrder.insert(at, [newId]);
-      retimeAdded(at, [{ id: newId, type: "cue", durationSec: 60, hardStartSec: null }]);
+      yOrder.insert(at, newIds);
+      retimeAdded(at, newIds.map((id) => ({ id, type: "cue" as const, durationSec: 60, hardStartSec: null })));
     });
-    setSelected(new Set([newId]));
-    setLastSelected(newId);
-    // A brief glow on the new row, so the eye finds it — the same one Jump
-    // to row uses. After the render that draws it.
+    setSelected(new Set(newIds));
+    setLastSelected(newIds[newIds.length - 1]!);
+    // A brief glow on the new rows, so the eye finds them — the same one Jump
+    // to row uses. After the render that draws them.
     window.setTimeout(() => {
-      const tr = document.querySelector(`tr[data-rowid="${newId}"]`);
-      if (!tr) return;
-      tr.classList.add("jump-flash");
-      window.setTimeout(() => tr.classList.remove("jump-flash"), 1600);
+      for (const newId of newIds) {
+        const tr = document.querySelector(`tr[data-rowid="${newId}"]`);
+        if (!tr) continue;
+        tr.classList.add("jump-flash");
+        window.setTimeout(() => tr.classList.remove("jump-flash"), 1600);
+      }
     }, 50);
   };
 
@@ -4183,6 +4192,26 @@ export function RundownEditor({
     setSelected(new Set([rowId]));
     setLastSelected(rowId);
   };
+  /**
+   * A link to one row — the row menu's "Copy link to row" (24 Oct) — opens the
+   * sheet there: `#row=<id>` on the page's own address, so it works on the
+   * show, edit and crew pages alike and needs nothing from the server. Waits
+   * for the row, which a sheet still syncing may not have yet; a pasted link
+   * to the page already open arrives as a hash change, without a reload.
+   */
+  const [linkedRow, setLinkedRow] = useState<string | null>(null);
+  useEffect(() => {
+    const read = () => setLinkedRow(/^#row=([0-9A-Za-z]{10,40})$/.exec(window.location.hash)?.[1] ?? null);
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+  useEffect(() => {
+    if (!linkedRow || !gridEl || !rows.some((r) => r.id === linkedRow)) return;
+    goToRow(linkedRow);
+    setLinkedRow(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedRow, gridEl, rows]);
   const jumpItems = useMemo(
     () =>
       jumpOpen
@@ -4775,8 +4804,13 @@ export function RundownEditor({
       // Live too, and with no switch to turn on first: "Edit run sheet" is
       // gone ("these functions should be achieved through the right mouse
       // click on a row"). The row menu is where a sheet is changed mid-show.
-      out.push({ label: <>{Icon.plus} Insert 1 row above</>, onSelect: did(`Added a row above ${what}.`, () => insertRowBeside(picked[0]!.id, false)) });
-      out.push({ label: <>{Icon.plus} Insert 1 row below</>, onSelect: did(`Added a row below ${what}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true)) });
+      // As many as are picked, as Google Sheets does: three rows picked offer
+      // "Insert 3 rows above" (24 Oct).
+      const k = Math.max(1, picked.length);
+      const newRows = k === 1 ? "a row" : `${k} rows`;
+      const beside = many ? "the rows you picked" : what;
+      out.push({ label: <>{Icon.plus} Insert {k} {k === 1 ? "row" : "rows"} above</>, onSelect: did(`Added ${newRows} above ${beside}.`, () => insertRowBeside(picked[0]!.id, false, k)) });
+      out.push({ label: <>{Icon.plus} Insert {k} {k === 1 ? "row" : "rows"} below</>, onSelect: did(`Added ${newRows} below ${beside}.`, () => insertRowBeside(picked[picked.length - 1]!.id, true, k)) });
       {
         out.push({ label: many ? "Make a copy of these rows" : "Make a copy of this row", onSelect: did(`Copied ${what}. The copy is underneath.`, () => duplicateSelected(only)) });
         out.push("sep");
@@ -4850,7 +4884,37 @@ export function RundownEditor({
         ],
       });
       out.push("sep");
+      // Google Sheets' "Clear row" (24 Oct): the words go, the row stays —
+      // with its time and length, so nothing below moves, live or not.
+      out.push({
+        label: `Clear ${noun}`,
+        hint: "Empties what's written. Its time and length stay",
+        onSelect: () => {
+          let r = { cleared: 0, lockedSkipped: 0 };
+          doc.transact(() => {
+            r = clearCells(doc, ids, columns.filter((c) => c.kind === "title" || c.kind === "richtext").map((c) => ({ id: c.id, kind: c.kind })));
+          });
+          const kept = r.lockedSkipped ? ` ${r.lockedSkipped === 1 ? "A locked row was" : `${r.lockedSkipped} locked rows were`} left as it was.` : "";
+          grid.say(`Cleared ${what}.${kept}`, true);
+        },
+      });
       out.push({ label: "Copy to another sheet…", onSelect: () => setCopyRowIds(ids) });
+      out.push({
+        label: `Copy link to row ${n}`,
+        hint: "Opens this sheet at this row, for anyone who can open the sheet",
+        onSelect: () => {
+          // Never the access code a sheet was opened with: the link says where
+          // to look, not who may — passing it on would hand over the sheet.
+          const search = new URLSearchParams(window.location.search);
+          search.delete("code");
+          const query = search.toString();
+          const url = `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ""}#row=${r.id}`;
+          void navigator.clipboard.writeText(url).then(
+            () => grid.say(`Copied a link to row ${n}. Paste it in a message — it opens this sheet at that row.`),
+            () => grid.say(`Couldn't copy the link. Here it is: ${url}`),
+          );
+        },
+      });
       if (showLive && !picked.every((x) => stillToCome(x.id)))
         out.push({ note: "Rows that have played, or the one on air, can't be deleted during the show — strike them instead. Changing what plays at full time waits until the show ends." });
       else

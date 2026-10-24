@@ -30,7 +30,7 @@ beforeAll(async () => {
   handle = await createDb(undefined, dir);
   await ensureSchema(handle.db);
   usePlaceTable(fake as never);
-});
+}, 30_000); // a fresh test database and every migration: slow on the CI machines
 afterAll(async () => {
   usePlaceTable(null);
   await handle.close?.();

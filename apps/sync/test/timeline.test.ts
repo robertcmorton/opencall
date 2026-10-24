@@ -63,7 +63,7 @@ describe("the timeline", () => {
       await handle.close?.();
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 30_000); // a fresh test database and every migration: slow on the CI machines
 });
 
 describe("where an address is", () => {

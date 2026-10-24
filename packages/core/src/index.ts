@@ -19,3 +19,4 @@ export * from "./runningLate.ts";
 export * from "./mustStart.ts";
 export * from "./timingFix.ts";
 export * from "./device.ts";
+export * from "./activityWords.ts";

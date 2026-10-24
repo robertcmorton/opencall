@@ -17,6 +17,7 @@
     "@opencall/db": "workspace:*",
     "@opencall/protocol": "workspace:*",
     "drizzle-orm": "^0.45.4",
+    "mmdb-lib": "3.0.3",
     "nodemailer": "^10.2.1",
     "ulid": "^3.0.2",
     "ws": "^8.22.0",

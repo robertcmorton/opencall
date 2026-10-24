@@ -445,6 +445,17 @@ export const showTransitions = pgTable("show_transitions", {
   type: text("type", { enum: transitionTypes }).notNull(),
   rowId: text("row_id"),
   actorUserId: text("actor_user_id").references(() => users.id),
+  /**
+   * Who pressed it, in words, and from what (24 Oct 2026). The account column
+   * above existed from the start and was never filled in, so on the day a
+   * show was found running that nobody remembered starting, the record could
+   * not say who had. These say it for anyone: an account, the server's admin
+   * code, a company code. Null for the clock and the server itself.
+   */
+  who: text("who"),
+  deviceId: text("device_id"),
+  device: text("device"),
+  ip: text("ip"),
 });
 
 // ── Error log (server-kept; reviewed from the admin dashboard) ─────────────────
@@ -566,6 +577,51 @@ export const auditLog = pgTable(
     detail: jsonb("detail"),
   },
   (t) => [index("audit_log_at_idx").on(t.at)],
+);
+
+/**
+ * The activity trail (24 Oct 2026): what each person and device did, in order —
+ * pages and sheets opened, show screens connecting and dropping, and anything
+ * else worth retracing — so a problem can be followed back step by step, and
+ * odd behaviour noticed. Sign-ins and access changes stay in `auditLog`, edits
+ * in `sheetChanges`, show actions in `showTransitions` and faults in
+ * `errorLogs`; the timeline reads all five together. Kept ninety days.
+ *
+ * Never blocks what it records, and has no foreign keys for the same reason:
+ * an insert must not fail because the account it names was deleted.
+ */
+export const activity = pgTable(
+  "activity",
+  {
+    id: id().primaryKey(),
+    at: createdAt(),
+    /** "page", "connect", "disconnect", "trap", … */
+    kind: text("kind").notNull(),
+    /** The account, when there is one. */
+    userId: text("user_id"),
+    /** Who, in words: a name, "Administrator (server code)", a view link's name. */
+    who: text("who"),
+    /** caller, editor, follower, admin, company. */
+    role: text("role"),
+    /** A random id the browser keeps, so one device's steps can be followed. */
+    deviceId: text("device_id"),
+    /** "iPad · Safari". */
+    device: text("device"),
+    ip: text("ip"),
+    /** "Sydney, Australia", worked out on this server from the address. */
+    place: text("place"),
+    /** Two-letter country code, for noticing a sign-in from somewhere new. */
+    country: text("country"),
+    rundownId: text("rundown_id"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index("activity_at_idx").on(t.at),
+    index("activity_user_idx").on(t.userId, t.at),
+    index("activity_rundown_idx").on(t.rundownId, t.at),
+    index("activity_device_idx").on(t.deviceId, t.at),
+    index("activity_ip_idx").on(t.ip, t.at),
+  ],
 );
 
 // ── AI assistants (MCP) and how they sign in (OAuth 2.1) ─────────────────────

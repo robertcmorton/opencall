@@ -4,6 +4,8 @@ import { parseCsv, parseDurationShorthand, parseTimeOfDay, type EditLockView, ty
 import { DEFAULT_COLUMNS, type SeedRow } from "@opencall/db/doc";
 import { resolveSyncUrl } from "./syncUrl";
 import { rememberRole } from "./lastRole";
+import { deviceId } from "./deviceId";
+import { trailStep } from "./trail";
 
 export const API_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_HTTP_URL, "http://localhost:8787");
 
@@ -117,6 +119,7 @@ export const setAdminToken = (token: string | null): void => {
 export const setActiveJoinCode = (code: string | null): void => {
   activeJoinCode = code;
 };
+export const getActiveJoinCode = (): string | null => activeJoinCode;
 
 export class ApiError extends Error {
   status: number;
@@ -191,10 +194,14 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const admin = getAdminToken();
   if (admin) headers.authorization = `Bearer ${admin}`;
   if (activeJoinCode) headers["x-join-code"] = activeJoinCode;
+  // Which browser asked — see lib/deviceId.ts.
+  const device = deviceId();
+  if (device) headers["x-oc-device"] = device;
   const res = await fetch(`${API_URL}${path}`, { headers, ...init });
   if (!res.ok) {
     const detail = await res.text();
     const method = init?.method ?? "GET";
+    trailStep("request", `${method} ${path.split("?")[0]} → ${res.status}`);
     // 401s are ordinary auth gating; anything else is journaled server-side.
     // This keeps the path, the status and the body — the journal is useless
     // without them, and the message a person reads no longer carries any.

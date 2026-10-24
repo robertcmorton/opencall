@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { installGlobalErrorHandlers } from "../lib/errorReport";
+import { installTrail, trailPage } from "../lib/trail";
 
 // A redeploy invalidates old hashed chunks; browsers holding the previous
 // build then fail dynamic imports ("Loading chunk …", "e[o] is not a
@@ -25,6 +27,11 @@ function recoverIfStaleChunks(message: string): void {
  * in dev serves stale HMR chunks).
  */
 export function ErrorReporter() {
+  // Every page opened, onto the trail and the server's activity record.
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname) trailPage(pathname);
+  }, [pathname]);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     if (process.env.NODE_ENV === "production") {
@@ -50,3 +57,4 @@ export function ErrorReporter() {
  * begins and the listener is there to hear it.
  */
 installGlobalErrorHandlers(recoverIfStaleChunks);
+installTrail();

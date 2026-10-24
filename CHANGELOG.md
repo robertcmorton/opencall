@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 
 ## [Unreleased]
 
+### Added
+- **An activity record, kept 90 days, for spotting trouble and retracing a fault.** OpenCall now notes the pages each person opens, every show screen joining and leaving — and how it left: closed, lost to a dropped network or a sleeping device, or put off by a server restart — and screens refused for a wrong or switched-off code. Each entry carries the device ("iPad · Safari"), a random id the browser keeps for itself so one device's steps can be followed, and the town and country its address belongs to, worked out on OpenCall's own server from a free address table (no outside service sees the address). Nothing typed is recorded, and a code or secret in a page's address is never kept.
+- **Every show action now records who pressed it, and on what.** Start, Stop, Pause, cue moves, the walkthrough and stage messages are kept with the person (or "Administrator (server code)", or a view link's name) and their device; the clock's own moves read as the clock's. The sheet's Changes page now says who started and stopped each show. Until now nothing recorded who pressed Start.
+- **Browser errors arrive with who hit them and the steps that led there:** the person, their device and place, and the last 30 things that browser did — pages, buttons pressed, the show link coming and going, requests that failed.
+
 ## [0.40.0] — 2026-10-24
 
 ### Fixed

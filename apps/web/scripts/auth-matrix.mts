@@ -990,6 +990,27 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("audit: sign-ins, failures and changes are recorded", actions.has("login.ok") && actions.has("login.failed") && actions.has("code.created") && actions.has("code.revoked"), [...actions]);
 }
 
+// ── Activity trail and timeline (24 Oct 2026) ─────────────────────────────────
+{
+  for (const [who, token] of [["a viewer", viewer.accessToken], ["an event manager", eventMgr.accessToken], ["a company manager", companyMgr.accessToken], ["a company code", companyToken], ["nobody", null]] as const)
+    check(`timeline: ${who} cannot read it`, [401, 403].includes((await req("/timeline", token)).status));
+  // Anyone may report pages they opened, but a secret in the address is never kept.
+  const post = await fetch(API + "/activity", { method: "POST", headers: { "content-type": "application/json", "x-oc-device": "matrixDevice01" }, body: JSON.stringify({ events: [{ path: "/guest/SECRETGUESTTOKEN?code=ABCDEF", at: Date.now() }, { path: "not a path" }] }) });
+  check("activity: an anonymous page report is accepted, with no answer", post.status === 204);
+  await new Promise((r) => setTimeout(r, 400));
+  const mine = await req("/timeline?device=matrixDevice01", ADMIN);
+  const text = JSON.stringify(mine.body);
+  check("activity: the page is recorded without its secret or code", mine.status === 200 && text.includes("/guest/…") && !text.includes("SECRETGUESTTOKEN") && !text.includes("ABCDEF"), mine.body);
+  check("activity: a report that is not a path is dropped", (mine.body?.entries ?? []).length === 1, mine.body);
+  // The show started earlier in these checks is recorded with who pressed Start.
+  const sheet = await req(`/timeline?sheet=${rdA.body.id}&sources=show`, ADMIN);
+  const start = (sheet.body?.entries ?? []).find((e: any) => e.kind === "start");
+  check("timeline: Start is recorded with who pressed it", start?.who === "Matrix EventMgr" && start?.what === "Pressed Start show", start);
+  const conn = await req(`/timeline?sheet=${rdA.body.id}&sources=activity`, ADMIN);
+  const kinds = new Set((conn.body?.entries ?? []).map((e: any) => e.kind));
+  check("timeline: show screens joining and leaving are recorded", kinds.has("connect") && kinds.has("disconnect"), [...kinds]);
+}
+
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────
 {
   // Every account the run used can be deleted — including ones that held the

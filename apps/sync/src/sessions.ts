@@ -1,5 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { ulid } from "ulid";
+import { originColumns, type Actor, type Origin } from "./activity.ts";
 import type { CmdAction, ShowStatePayload } from "@opencall/protocol";
 import { schema, type DbHandle } from "@opencall/db";
 import { ShowStateMachine } from "./show.ts";
@@ -11,6 +12,22 @@ import { ShowStateMachine } from "./show.ts";
  * On first access after a restart, any non-ended session is hydrated back.
  * Writes are chained per rundown so they land in command order.
  */
+
+/**
+ * Who pressed it and from what, for the show record (24 Oct 2026). Absent for
+ * the clock and for the server's own sweeps — those are nobody's press.
+ */
+export interface By {
+  actor: Actor;
+  origin: Origin;
+}
+
+const byColumns = (by?: By) => {
+  if (!by) return {};
+  const o = originColumns(by.origin);
+  return { actorUserId: by.actor.userId, who: by.actor.who, deviceId: o.deviceId, device: o.device, ip: o.ip };
+};
+
 export class PersistentShowStore {
   private machines = new Map<string, ShowStateMachine>();
   private loaded = new Set<string>();
@@ -55,7 +72,7 @@ export class PersistentShowStore {
    * Logs a fired pool cue into the as-run record of the live session without
    * touching the state machine. No-op when no session is live.
    */
-  async logFire(rundownId: string, label: string): Promise<boolean> {
+  async logFire(rundownId: string, label: string, by?: By): Promise<boolean> {
     const machine = await this.get(rundownId);
     const { sessionId, state } = machine.current;
     if (!sessionId || (state !== "running" && state !== "paused")) return false;
@@ -65,6 +82,7 @@ export class PersistentShowStore {
       at: new Date(),
       type: "fire",
       rowId: label,
+      ...byColumns(by),
     });
     return true;
   }
@@ -72,10 +90,10 @@ export class PersistentShowStore {
   /** Queue the DB write-through for an accepted command. Walkthrough moves
    *  ("walk") are rehearsal, not history — they are never persisted, and the
    *  type says so. */
-  persist(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number): void {
+  persist(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number, by?: By): void {
     const prev = this.writeChains.get(rundownId) ?? Promise.resolve();
     const next = prev
-      .then(() => this.write(rundownId, state, action, rowId, atMs))
+      .then(() => this.write(rundownId, state, action, rowId, atMs, by))
       .catch((err) => console.error("[sync] session persist failed:", err));
     this.writeChains.set(rundownId, next);
   }
@@ -111,7 +129,7 @@ export class PersistentShowStore {
    */
   private lastAt = new Map<string, number>();
 
-  private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number): Promise<void> {
+  private async write(rundownId: string, state: ShowStatePayload, action: Exclude<CmdAction, "walk">, rowId?: string, atMs?: number, by?: By): Promise<void> {
     const { db } = this.handle;
     const at = new Date(Math.max(atMs ?? Date.now(), (this.lastAt.get(rundownId) ?? 0) + 1));
     this.lastAt.set(rundownId, at.getTime());
@@ -166,6 +184,7 @@ export class PersistentShowStore {
         at,
         type: action,
         rowId: rowId ?? state.activeRowId,
+        ...byColumns(by),
       });
     });
   }

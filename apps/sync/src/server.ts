@@ -43,6 +43,9 @@ import { customEventTypeSpec } from "./eventTypes.ts";
 import { ABANDON_AFTER_MS, abandonedSessions, PersistentShowStore } from "./sessions.ts";
 import { applyAsPerson, msUntilClockTick } from "./show.ts";
 import * as authMod from "./auth.ts";
+import { deviceIdOf, recordActivity, type Actor, type Origin } from "./activity.ts";
+import { userAgentOf } from "./audit.ts";
+import { loadPlaces } from "./place.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.
@@ -126,6 +129,8 @@ if (process.env.MIGRATION_DATABASE_URL && process.env.DATABASE_URL) {
 await authMod.hashStoredCredentials(dbHandle);
 // Old counters, ended sessions, aged audit and error records — see retention.ts.
 scheduleRetention(dbHandle);
+// The address-to-place table, fetched in the background; places stay blank until it lands.
+void loadPlaces();
 
 interface ClientCtx {
   role: Role;
@@ -139,6 +144,13 @@ interface ClientCtx {
   userId?: string;
   /** Path to the account's photo, with its version, if it has one. */
   photo?: string;
+  /** Who, for the show record and the activity trail, and from what (24 Oct). */
+  actor: Actor;
+  origin: Origin;
+  /** Which screen: show, edit, view, timer, display, prompter. */
+  page: string | null;
+  /** When the hello was accepted, for how long the screen stayed. */
+  since: number;
 }
 
 /**
@@ -228,17 +240,17 @@ async function resolveAuth(
   auth: { kind: "session"; token: string } | { kind: "join"; code: string } | { kind: "guest"; token: string },
   rundownId: string,
   ipKey: string,
-): Promise<{ role: Role; label: string; userId?: string } | null> {
+): Promise<{ role: Role; label: string; userId?: string; via: "admin-code" | "account" | "company" | "code" | "guest" | "open" } | null> {
   if (auth.kind === "session") {
-    if (auth.token && auth.token === authMod.adminToken()) return { role: "admin", label: "Admin" };
-    if (authMod.isOpenAccess()) return { role: "caller", label: "Caller" };
+    if (auth.token && auth.token === authMod.adminToken()) return { role: "admin", label: "Admin", via: "admin-code" };
+    if (authMod.isOpenAccess()) return { role: "caller", label: "Caller", via: "open" };
     // Company (showcaller) tokens call shows within their own company only.
     const bearer = await authMod.resolveBearer(dbHandle, auth.token);
     // An account holding the admin grant is an admin here too — the check
     // above only recognises the literal ADMIN_TOKEN string.
-    if (bearer?.kind === "admin") return { role: "admin", label: bearer.name ?? "Admin", userId: bearer.userId };
+    if (bearer?.kind === "admin") return { role: "admin", label: bearer.name ?? "Admin", userId: bearer.userId, via: bearer.userId ? "account" : "admin-code" };
     if (bearer?.kind === "company" && (await authMod.teamIdForRundown(dbHandle, rundownId)) === bearer.teamId)
-      return { role: "caller", label: bearer.teamName };
+      return { role: "caller", label: bearer.teamName, via: "company" };
     // User accounts: managers call, view-grants follow.
     if (bearer?.kind === "user") {
       const rundown = await dbHandle.db.query.rundowns.findFirst({
@@ -247,17 +259,17 @@ async function resolveAuth(
       });
       if (rundown) {
         if (await authMod.canManageEvent(dbHandle, bearer, rundown.eventId))
-          return { role: "caller", label: bearer.name, userId: bearer.userId };
+          return { role: "caller", label: bearer.name, userId: bearer.userId, via: "account" };
         // Edits the sheet, never drives it: the editor role the join codes
         // already know, now reachable from an account.
         if (await authMod.canEditEvent(dbHandle, bearer, rundown.eventId))
-          return { role: "editor", label: bearer.name, userId: bearer.userId };
+          return { role: "editor", label: bearer.name, userId: bearer.userId, via: "account" };
         const event = await dbHandle.db.query.events.findFirst({
           where: eq(schema.events.id, rundown.eventId),
           columns: { teamId: true },
         });
         if (event && (await authMod.canSeeEvent(dbHandle, bearer, rundown.eventId, event.teamId)))
-          return { role: "follower", label: bearer.name, userId: bearer.userId };
+          return { role: "follower", label: bearer.name, userId: bearer.userId, via: "account" };
       }
     }
     return null;
@@ -278,9 +290,9 @@ async function resolveAuth(
     });
     if (row) {
       await release(dbHandle, guessKey);
-      return { role: row.role as Role, label: row.label || (row.role === "caller" ? "Caller" : "Crew") };
+      return { role: row.role as Role, label: row.label || (row.role === "caller" ? "Caller" : "Crew"), via: "code" };
     }
-    if (auth.code === "DEV123" && process.env.ALLOW_DEV_JOIN !== "0") return { role: "follower", label: "Crew (dev)" };
+    if (auth.code === "DEV123" && process.env.ALLOW_DEV_JOIN !== "0") return { role: "follower", label: "Crew (dev)", via: "code" };
     return null;
   }
   const row = await dbHandle.db.query.shareTokens.findFirst({
@@ -290,7 +302,7 @@ async function resolveAuth(
       isNull(schema.shareTokens.revokedAt),
     ),
   });
-  return row && row.rundownId === rundownId ? { role: "guest", label: "Guest" } : null;
+  return row && row.rundownId === rundownId ? { role: "guest", label: "Guest", via: "guest" } : null;
 }
 
 // Crash-level errors land in the same journal the admin dashboard reads.
@@ -557,8 +569,13 @@ wss.on("connection", (ws, req) => {
         ws.close(CloseCodes.UNKNOWN_RUNDOWN, "missing rundown");
         return;
       }
+      const origin: Origin = { ua: userAgentOf(req), deviceId: deviceIdOf(msg.deviceId), ip: clientIp(req) };
+      const page = typeof msg.page === "string" && /^[a-z]{2,12}$/.test(msg.page) ? msg.page : null;
       const resolved = await resolveAuth(msg.auth, rundownId, ipBucket(clientIp(req)));
       if (!resolved) {
+        // Refused, on the trail too: one device trying codes on many sheets,
+        // or many devices trying one, is what a guessing swarm looks like.
+        recordActivity(dbHandle, { kind: "refused", origin, rundownId, detail: { page, how: msg.auth.kind } });
         ws.close(CloseCodes.AUTH_FAILED, "invalid credentials");
         return;
       }
@@ -571,7 +588,22 @@ wss.on("connection", (ws, req) => {
         if (u?.imageUrl) photo = `/users/${resolved.userId}/photo?v=${createHash("sha1").update(u.imageUrl).digest("hex").slice(0, 10)}`;
       }
       const connId = ulid();
-      clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo });
+      const actor: Actor = {
+        userId: resolved.userId ?? null,
+        who:
+          resolved.via === "admin-code"
+            ? "Administrator (server code)"
+            : resolved.via === "company"
+              ? `${resolved.label} (company code)`
+              : resolved.via === "code"
+                ? `${typed || resolved.label} (view link)`
+                : resolved.via === "guest"
+                  ? "Guest pass"
+                  : resolved.label,
+        role: resolved.role,
+      };
+      clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo, actor, origin, page, since: Date.now() });
+      recordActivity(dbHandle, { kind: "connect", actor, origin, rundownId, detail: { page } });
       // The event's location decides the timezone every clock renders in;
       // the sheet's kind of show decides its endings.
       const { eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);
@@ -614,6 +646,13 @@ wss.on("connection", (ws, req) => {
         return;
       }
       const message = msg.text ? { text: msg.text, from: ctx.label, atMs: Date.now(), to: msg.to ?? "stage" } : null;
+      recordActivity(dbHandle, {
+        kind: "show",
+        actor: ctx.actor,
+        origin: ctx.origin,
+        rundownId: ctx.rundownId,
+        detail: message ? { action: "message", to: message.to, text: message.text.slice(0, 160) } : { action: "message_down" },
+      });
       if (message) speakerMessages.set(ctx.rundownId, message);
       else speakerMessages.delete(ctx.rundownId);
       broadcast(ctx.rundownId, { v: PROTOCOL_VERSION, t: "speaker", message });
@@ -633,7 +672,7 @@ wss.on("connection", (ws, req) => {
 
       // Pool-cue fire: as-run log entry only, never a state transition.
       if (msg.action === "fire") {
-        const logged = await showStore.logFire(ctx.rundownId, msg.rowId!);
+        const logged = await showStore.logFire(ctx.rundownId, msg.rowId!, { actor: ctx.actor, origin: ctx.origin });
         if (!logged)
           send(ws, { v: PROTOCOL_VERSION, t: "cmd_error", id: msg.id, code: 400, msg: "no live session to fire into" });
         return;
@@ -756,7 +795,10 @@ wss.on("connection", (ws, req) => {
       // as-run record (and "walk" isn't a transition type). Every step is
       // written, in order: the clock handing over is part of the record.
       for (const step of steps)
-        if (step.action !== "walk") showStore.persist(ctx.rundownId, step.state, step.action, step.action === msg.action ? rowId : undefined);
+        if (step.action !== "walk") showStore.persist(ctx.rundownId, step.state, step.action, step.action === msg.action ? rowId : undefined, undefined, { actor: ctx.actor, origin: ctx.origin });
+      // The walkthrough is rehearsal, so it stays out of the show record — but
+      // who moved it is still worth having on the trail.
+      if (msg.action === "walk") recordActivity(dbHandle, { kind: "show", actor: ctx.actor, origin: ctx.origin, rundownId: ctx.rundownId, detail: { action: "walk", rowId: rowId ?? null } });
 
       // Automatic safety snapshot the moment a show goes live.
       if (msg.action === "start") {
@@ -778,10 +820,21 @@ wss.on("connection", (ws, req) => {
     }
   });
 
-  ws.on("close", () => {
+  ws.on("close", (code, reason) => {
     const ctx = clients.get(ws);
     clients.delete(ws);
-    if (ctx) broadcastPresence(ctx.rundownId);
+    if (!ctx) return;
+    broadcastPresence(ctx.rundownId);
+    // How the screen went — the code says whether it was closed (1000, 1001),
+    // lost (1006: the network went, or the device slept) or put out by the
+    // server — and how long it had been there.
+    recordActivity(dbHandle, {
+      kind: "disconnect",
+      actor: ctx.actor,
+      origin: ctx.origin,
+      rundownId: ctx.rundownId,
+      detail: { page: ctx.page, code, reason: reason.toString("utf8").slice(0, 80) || null, seconds: Math.round((Date.now() - ctx.since) / 1000) },
+    });
   });
 });
 

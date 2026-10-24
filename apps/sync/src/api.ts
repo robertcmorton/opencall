@@ -27,6 +27,9 @@ import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
 import { audit, userAgentOf } from "./audit.ts";
+import { actorOf, deviceIdOf, recordActivity } from "./activity.ts";
+import { placeOf } from "./place.ts";
+import { readTimeline, type TimelineEntry } from "./timeline.ts";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
 import { MAX_WEBHOOKS, webhookProblem, type CueSignals } from "./cueSignals.ts";
@@ -362,7 +365,7 @@ export function createApiHandler(
       res.setHeader("vary", "Origin");
       if (origin && originAllowed(origin, origins)) res.setHeader("access-control-allow-origin", origin);
     }
-    res.setHeader("access-control-allow-headers", "content-type,authorization,x-join-code");
+    res.setHeader("access-control-allow-headers", "content-type,authorization,x-join-code,x-oc-device");
     res.setHeader("access-control-expose-headers", "x-source-name");
     res.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
     if (req.method === "OPTIONS") {
@@ -1140,13 +1143,87 @@ export function createApiHandler(
           reported.stack = browserStack
             ? browserStack.slice(0, 8000)
             : `${reported.message}\n    (the browser reported no stack)`;
+          // Whose screen it was and which device, with the steps that led up to
+          // it (24 Oct) — so the log answers "who hit this, doing what?".
+          const who = actorOf(await authContext(handle, req).catch(() => null));
+          const trail = Array.isArray(body.trail)
+            ? (body.trail as unknown[]).slice(-30).flatMap((s) => {
+                const step = s as { at?: unknown; kind?: unknown; what?: unknown };
+                return typeof step.at === "number" && typeof step.kind === "string" && typeof step.what === "string"
+                  ? [{ at: step.at, kind: step.kind.slice(0, 12), what: step.what.slice(0, 120) }]
+                  : [];
+              })
+            : [];
+          const where = placeOf(ip);
           logServerError(handle, "client", reported, {
-            url: typeof body.url === "string" ? body.url : undefined,
+            url: typeof body.url === "string" ? body.url.replace(/([?&]code=)[^&#]*/gi, "$1…") : undefined,
             userAgent: req.headers["user-agent"],
+            context: {
+              ...(who.who ? { who: who.who } : {}),
+              ...(who.userId ? { userId: who.userId } : {}),
+              ...(deviceIdOf(req.headers["x-oc-device"]) ? { deviceId: deviceIdOf(req.headers["x-oc-device"]) } : {}),
+              ...(where ? { place: where.place } : {}),
+              ...(trail.length ? { trail } : {}),
+            },
           });
         }
         res.statusCode = 204;
         res.end();
+        return true;
+      }
+
+      /**
+       * Pages a browser opened, for the activity trail (24 Oct 2026). Sent in
+       * batches by lib/trail.ts; answered with nothing either way, because a
+       * page must never wait on or fail because of its own record. Works
+       * without a sign-in too — a stranger looking round the sign-in page is
+       * part of the picture — and a busy address is quietly ignored.
+       */
+      if (req.method === "POST" && pathname === "/activity") {
+        res.statusCode = 204;
+        const body = await readJson(req).catch(() => ({}) as Record<string, unknown>);
+        const t = await consume(handle, `activity:ip:${ipKey}`, { max: 300, windowSec: LOGIN_WINDOW_SEC });
+        if (t.ok && Array.isArray(body.events)) {
+          const who = actorOf(await authContext(handle, req).catch(() => null));
+          const origin = { ua, deviceId: deviceIdOf(req.headers["x-oc-device"]), ip };
+          for (const raw of (body.events as unknown[]).slice(0, 20)) {
+            const path = typeof (raw as { path?: unknown }).path === "string" ? String((raw as { path: string }).path) : null;
+            if (!path || !path.startsWith("/")) continue;
+            // The client strips secrets already; strip them again here, since
+            // anyone can call this.
+            const clean = path.split("?")[0]!.replace(/^\/(guest|invite)\/[^/]+/, "/$1/…").slice(0, 120);
+            const sheet = /^\/(?:show|edit|view|timer|display|prompter|changes|rundown)\/([0-9A-HJKMNP-TV-Z]{26})/.exec(clean)?.[1] ?? null;
+            recordActivity(handle, { kind: "page", actor: who, origin, rundownId: sheet, detail: { path: clean } });
+          }
+        }
+        res.end();
+        return true;
+      }
+
+      /**
+       * The timeline (24 Oct 2026): System Administrators only. Filters by
+       * person (?user=<id>, or ?actor=admin for the server's admin code),
+       * device, sheet, address and time; ?sources= picks which records.
+       */
+      if (req.method === "GET" && pathname === "/timeline") {
+        if (!(await requireAdmin())) return true;
+        const q = url.searchParams;
+        const date = (v: string | null) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : undefined);
+        const sources = q.get("sources")
+          ? new Set(q.get("sources")!.split(",").filter((x): x is TimelineEntry["source"] => ["activity", "account", "show", "edit", "error"].includes(x)))
+          : undefined;
+        const entries = await readTimeline(handle, {
+          userId: q.get("user") || undefined,
+          actor: q.get("actor") === "admin" ? "admin" : undefined,
+          deviceId: deviceIdOf(q.get("device")) ?? undefined,
+          rundownId: q.get("sheet") || undefined,
+          ip: q.get("ip") || undefined,
+          from: date(q.get("from")),
+          to: date(q.get("to")),
+          sources,
+          limit: Number(q.get("limit") ?? 300),
+        });
+        json(res, 200, { entries });
         return true;
       }
 
@@ -3273,6 +3350,16 @@ export function createApiHandler(
         const nameOf = new Map(
           people.length ? (await db.query.users.findMany({ where: inArray(schema.users.id, people), columns: { id: true, name: true } })).map((u) => [u.id, u.name]) : [],
         );
+        // Who pressed Start and Stop, and on what (24 Oct): the session's own
+        // caller column was never filled in, so the record now says it.
+        const presses = shows.length
+          ? await db
+              .select({ sessionId: schema.showTransitions.sessionId, type: schema.showTransitions.type, who: schema.showTransitions.who, device: schema.showTransitions.device })
+              .from(schema.showTransitions)
+              .where(and(inArray(schema.showTransitions.sessionId, shows.map((x) => x.id)), inArray(schema.showTransitions.type, ["start", "stop"])))
+          : [];
+        const pressOf = (sessionId: string, type: "start" | "stop") => presses.find((p) => p.sessionId === sessionId && p.type === type);
+        const byWhom = (p: { who: string | null; device: string | null } | undefined) => (p?.who ? `${p.who}${p.device ? ` · ${p.device}` : ""}` : null);
         const NOTE: Record<string, string> = {
           "sheet.viewing_changed": "Closed to viewers, or opened to them again",
           "sheet.archived": "Archived, or brought back",
@@ -3282,8 +3369,8 @@ export function createApiHandler(
         const entries = [
           ...changes.map((c) => ({ type: "change" as const, ...c })),
           ...shows.flatMap((x) => [
-            { type: "show" as const, id: `${x.id}:start`, at: x.startedAt, summary: "Show started", actorName: x.callerUserId ? (nameOf.get(x.callerUserId) ?? null) : null },
-            ...(x.endedAt ? [{ type: "show" as const, id: `${x.id}:end`, at: x.endedAt, summary: "Show ended", actorName: null }] : []),
+            { type: "show" as const, id: `${x.id}:start`, at: x.startedAt, summary: "Show started", actorName: byWhom(pressOf(x.id, "start")) ?? (x.callerUserId ? (nameOf.get(x.callerUserId) ?? null) : null) },
+            ...(x.endedAt ? [{ type: "show" as const, id: `${x.id}:end`, at: x.endedAt, summary: "Show ended", actorName: byWhom(pressOf(x.id, "stop")) }] : []),
           ]),
           ...notes.map((n) => ({ type: "note" as const, id: n.id, at: n.at, summary: NOTE[n.action] ?? n.action, actorName: n.actor ? (nameOf.get(n.actor) ?? (n.actor === "admin" ? "Administrator" : null)) : null })),
         ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());

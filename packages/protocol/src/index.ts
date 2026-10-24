@@ -33,6 +33,13 @@ export const HelloMsg = z.object({
   lastSeq: z.number().int().nonnegative().optional(),
   /** What a view-only link's holder typed at "Who's watching?" — names them in presence (additive). */
   viewerName: z.string().max(80).optional(),
+  /**
+   * The id this browser keeps for itself, and which screen this is (additive,
+   * 24 Oct 2026): the activity trail follows one device's steps by the first,
+   * and says "opened the timer" by the second.
+   */
+  deviceId: z.string().max(40).optional(),
+  page: z.string().max(20).optional(),
 });
 
 export const PingMsg = z.object({ ...envelope, t: z.literal("ping"), t0: z.number() });

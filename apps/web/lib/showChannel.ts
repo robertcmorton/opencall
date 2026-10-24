@@ -15,6 +15,8 @@ import type { EventTypeSpec } from "@opencall/core";
 import { resolveSyncUrl } from "./syncUrl";
 import { markOnce } from "./perfMark";
 import { clockOffset } from "./clockOffset";
+import { deviceId } from "./deviceId";
+import { trailStep } from "./trail";
 
 const SHOW_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_WS_URL, "ws://localhost:8787");
 const OFFSET_SAMPLES = 5;
@@ -204,7 +206,11 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         // name in the faces at the top right rather than "Crew" (20 Oct).
         const typedName = auth.kind === "join" ? viewerName() ?? undefined : undefined;
         helloSentAt = Date.now();
-        sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined, ...(typedName ? { viewerName: typedName.slice(0, 80) } : {}) }));
+        // Which browser and which screen, for the activity trail (24 Oct).
+        const id = deviceId();
+        const page = window.location.pathname.split("/")[1] || undefined;
+        trailStep("link", "show link open");
+        sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined, ...(typedName ? { viewerName: typedName.slice(0, 80) } : {}), ...(id ? { deviceId: id } : {}), ...(page ? { page } : {}) }));
       };
 
       sock.onmessage = (event) => {
@@ -292,12 +298,13 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         }
       };
 
-      sock.onclose = () => {
+      sock.onclose = (ev) => {
         // A socket that has already been replaced is not the one to reconnect
         // from — the watchdog closes a quiet socket and reconnects, and if the
         // dying socket also reconnected there would be two of them, each
         // reconnecting the other's losses.
         if (wsRef.current !== sock) return;
+        trailStep("link", `show link closed (${ev.code})`);
         setConnected(false);
         welcomedRef.current = false;
         if (closed) return;

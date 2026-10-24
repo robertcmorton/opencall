@@ -1,6 +1,8 @@
 "use client";
 
-import { API_URL } from "./api";
+import { API_URL, getActiveJoinCode, getAdminToken } from "./api";
+import { deviceId } from "./deviceId";
+import { trailSoFar } from "./trail";
 
 // Everything that breaks in a browser gets journaled on the server so it can
 // be reviewed (and fixed) from the admin dashboard's Error log. Reporting is
@@ -15,13 +17,23 @@ export function reportClientError(message: string, stack?: string | null): void 
     if (budget <= 0 || seen.has(key)) return;
     seen.add(key);
     budget -= 1;
+    // Who and which device, so the error log can say whose screen it was and
+    // the timeline can show what that device did just before (24 Oct).
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    const admin = getAdminToken();
+    if (admin) headers.authorization = `Bearer ${admin}`;
+    const code = getActiveJoinCode();
+    if (code) headers["x-join-code"] = code;
+    const device = deviceId();
+    if (device) headers["x-oc-device"] = device;
     void fetch(`${API_URL}/client-errors`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({
         message: message.slice(0, 2000),
         stack: stack?.slice(0, 8000),
         url: typeof window === "undefined" ? undefined : window.location.href,
+        trail: trailSoFar(),
       }),
       keepalive: true,
     }).catch(() => undefined);

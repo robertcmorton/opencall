@@ -23,6 +23,8 @@ export const RETENTION_DAYS = {
   /** The sheets' change logs (their details outlive the versions; only undo needs those). */
   sheetChanges: 730,
   endedAssistants: 30,
+  /** The activity trail: pages, connections, show screens dropping (24 Oct 2026). */
+  activity: 90,
 } as const;
 
 export async function applyRetention(handle: DbHandle): Promise<void> {
@@ -37,6 +39,7 @@ export async function applyRetention(handle: DbHandle): Promise<void> {
   await handle.db.execute(sql`DELETE FROM error_logs WHERE at < now() - ${days(d.errors)}`);
   await handle.db.execute(sql`DELETE FROM rundown_snapshots WHERE kind IN ('assistant', 'edit') AND created_at < now() - ${days(d.automaticVersions)}`);
   await handle.db.execute(sql`DELETE FROM sheet_changes WHERE at < now() - ${days(d.sheetChanges)}`);
+  await handle.db.execute(sql`DELETE FROM activity WHERE created_at < now() - ${days(d.activity)}`);
   await handle.db.execute(sql`DELETE FROM mcp_tokens WHERE expires_at < now() - ${days(d.assistantTokens)} OR revoked_at < now() - ${days(d.assistantTokens)}`);
   await handle.db.execute(
     sql`DELETE FROM mcp_grants WHERE revoked_at < now() - ${days(d.endedAssistants)} OR authorized_at < now() - interval '90 days' - ${days(d.endedAssistants)}`,

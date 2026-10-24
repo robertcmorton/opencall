@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { describeDevice } from "@opencall/core";
+import { AUDIT_WORDS, describeDevice } from "@opencall/core";
 import { api } from "../../../lib/api";
 import { early, lastRole } from "../../../lib/lastRole";
 import { sendToSignIn } from "../../../lib/session";
@@ -11,51 +11,6 @@ import { AdminNavSection, CredentialsNavSection } from "../../../components/Admi
 
 type Entry = Awaited<ReturnType<typeof api.audit>>[number];
 
-/** What each recorded action means, in words. */
-const ACTION_LABEL: Record<string, string> = {
-  "login.ok": "Signed in",
-  "login.failed": "Tried to sign in, but the email or password was wrong",
-  "login.throttled": "Sign-in blocked for a minute (too many tries)",
-  "password.changed": "Changed their password",
-  "password.change_failed": "Tried to change password, but typed the old one wrong",
-  "password.reset_by_admin": "Password reset by an administrator",
-  "invite.sent": "Invitation sent",
-  "invite.withdrawn": "Invitation cancelled",
-  "invite.accepted": "Accepted an invitation",
-  "user.created": "Account made",
-  "user.updated": "Account details changed",
-  "user.deleted": "Account deleted",
-  "access.changed": "Changed what someone can open",
-  "token.user_rotated": "Personal access token replaced",
-  "token.company_rotated": "Company access token replaced",
-  "company.created": "Company made",
-  "company.deleted": "Company deleted",
-  "event.deleted": "Event deleted",
-  "event.archived": "Event archived",
-  "sheet.deleted": "Show deleted",
-  "sheet.archived": "Show archived",
-  "sheet.reimported": "Show rebuilt from its file",
-  "sheet.viewing_changed": "Show closed to viewers, or opened again",
-  "code.created": "View-only link made",
-  "code.revoked": "View-only link switched off",
-  "kind_of_show.deleted": "Kind of show deleted",
-  "error_log.cleared": "Error log cleared",
-  "sheet.change_undone": "Undid one change to a show",
-  "mcp.connected": "Connected an AI assistant",
-  "mcp.disconnected": "Disconnected an AI assistant",
-  "mcp.update_cells": "AI assistant edited text",
-  "mcp.set_duration": "AI assistant changed a duration",
-  "mcp.set_start_time": "AI assistant changed a start time",
-  "mcp.add_rows": "AI assistant added rows",
-  "mcp.move_row": "AI assistant moved a row",
-  "mcp.strike_row": "AI assistant struck a row, or put one back",
-  "mcp.delete_rows": "AI assistant deleted rows",
-  "mcp.read_error_log": "AI assistant read the error log",
-  "mcp.resolve_errors": "AI assistant marked errors as fixed",
-  "sheet.signals_changed": "Changed a show's on-cue signals",
-  "session.signed_out": "Signed out one of their devices",
-  "session.others_signed_out": "Signed out everywhere else",
-};
 
 /**
  * Entries from before 22 Oct 2026 carry no device, and their address is the
@@ -128,7 +83,7 @@ export default function AdminActivityPage() {
                       <td className="mono">{new Date(r.at).toLocaleString()}</td>
                       <td>{who(r)}</td>
                       <td>
-                        {ACTION_LABEL[r.action] ?? r.action}
+                        {AUDIT_WORDS[r.action] ?? r.action}
                         {r.target?.startsWith("email:") && <span className="activity-sub"> · {r.target.slice(6)}</span>}
                         {r.action === "session.signed_out" && r.detail?.device && <span className="activity-sub"> · {describeDevice(r.detail.device).label}</span>}
                       </td>

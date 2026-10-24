@@ -1,4 +1,6 @@
 import { lookup } from "node:dns/promises";
+import { lookup as lookupNow, type LookupAddress } from "node:dns";
+import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import type { Hocuspocus } from "@hocuspocus/server";
 import { eq } from "drizzle-orm";
@@ -90,6 +92,45 @@ export async function webhookProblem(raw: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * Posting to the address that was checked, not to whatever the name says a
+ * moment later (24 Oct 2026).
+ *
+ * The address was checked (webhookProblem), then fetch looked the name up
+ * AGAIN to connect. A name server that answered "public" the first time and
+ * "private" the second — DNS rebinding — could aim the request inside the
+ * hosting company's private network. Now the check is made on the very
+ * address the connection is opened to, in the lookup the connection itself
+ * uses. Never follows a redirect.
+ */
+export function postPinned(url: string, init: { headers: Record<string, string>; body: string; signal?: AbortSignal }): Promise<{ ok: boolean; status: number }> {
+  return new Promise((resolve, reject) => {
+    const refused = () => new Error("That address now points at a private network, so it was not called.");
+    const req = httpsRequest(
+      url,
+      {
+        method: "POST",
+        headers: { ...init.headers, "content-length": String(Buffer.byteLength(init.body)) },
+        signal: init.signal,
+        lookup: ((hostname: string, options: { all?: boolean; family?: number }, callback: (...args: unknown[]) => void) => {
+          lookupNow(hostname, { family: options.family ?? 0, all: true }, (err, found: LookupAddress[]) => {
+            if (err) return callback(err);
+            if (found.length === 0 || found.some((a) => privateAddress(a.address))) return callback(refused());
+            if (options.all) return callback(null, found);
+            callback(null, found[0]!.address, found[0]!.family);
+          });
+        }) as never,
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve({ ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300, status: res.statusCode ?? 0 }));
+      },
+    );
+    req.on("error", reject);
+    req.end(init.body);
+  });
+}
+
 export interface Delivery {
   at: string;
   host: string;
@@ -115,7 +156,8 @@ export function createCueSignals(
   /** For tests only: a stand-in for fetch, and for the address check. */
   test: { fetch?: typeof fetch; check?: typeof webhookProblem } = {},
 ) {
-  const send = test.fetch ?? fetch;
+  const send = (url: string, init: { method: string; headers: Record<string, string>; body: string; redirect?: "manual"; signal?: AbortSignal }) =>
+    test.fetch ? test.fetch(url, init) : postPinned(url, init);
   const check = test.check ?? webhookProblem;
   const lastOnAir = new Map<string, string | null>();
   const logs = new Map<string, Delivery[]>();

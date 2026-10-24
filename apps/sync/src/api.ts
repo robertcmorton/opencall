@@ -1232,9 +1232,14 @@ export function createApiHandler(
       if (req.method === "POST" && pathname === "/activity") {
         res.statusCode = 204;
         const body = await readJson(req).catch(() => ({}) as Record<string, unknown>);
-        const t = await consume(handle, `activity:ip:${ipKey}`, { max: 300, windowSec: LOGIN_WINDOW_SEC });
+        const ctx = await authContext(handle, req).catch(() => null);
+        // Somebody not signed in gets far less room (24 Oct 2026): 30 reports a
+        // quarter-hour rather than 300, and only for the pages a stranger can
+        // actually be on — the sign-in page, Help, a guest pass, an
+        // invitation. Anything else from nobody is somebody filling the table.
+        const t = await consume(handle, ctx ? `activity:ip:${ipKey}` : `activity:anon:${ipKey}`, { max: ctx ? 300 : 30, windowSec: LOGIN_WINDOW_SEC });
         if (t.ok && Array.isArray(body.events)) {
-          const who = actorOf(await authContext(handle, req).catch(() => null));
+          const who = actorOf(ctx);
           const origin = { ua, deviceId: deviceIdOf(req.headers["x-oc-device"]), ip };
           for (const raw of (body.events as unknown[]).slice(0, 20)) {
             const path = typeof (raw as { path?: unknown }).path === "string" ? String((raw as { path: string }).path) : null;
@@ -1242,6 +1247,7 @@ export function createApiHandler(
             // The client strips secrets already; strip them again here, since
             // anyone can call this.
             const clean = path.split("?")[0]!.replace(/^\/(guest|invite)\/[^/]+/, "/$1/…").slice(0, 120);
+            if (!ctx && !(clean === "/" || clean === "/help" || clean.startsWith("/guest/") || clean.startsWith("/invite/"))) continue;
             const sheet = /^\/(?:show|edit|view|timer|display|prompter|changes|rundown)\/([0-9A-HJKMNP-TV-Z]{26})/.exec(clean)?.[1] ?? null;
             recordActivity(handle, { kind: "page", actor: who, origin, rundownId: sheet, detail: { path: clean } });
             if (sheet) onSheetOpened(handle, who, origin.deviceId);

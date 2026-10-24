@@ -32,5 +32,5 @@ describe("a guessing swarm", () => {
       await handle.close?.();
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 30_000); // some 270 writes to the test database: slow beside the other suites
 });

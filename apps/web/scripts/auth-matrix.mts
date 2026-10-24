@@ -1032,13 +1032,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   for (const [who, token] of [["a viewer", viewer.accessToken], ["an event manager", eventMgr.accessToken], ["a company manager", companyMgr.accessToken], ["a company code", companyToken], ["nobody", null]] as const)
     check(`timeline: ${who} cannot read it`, [401, 403].includes((await req("/timeline", token)).status));
   // Anyone may report pages they opened, but a secret in the address is never kept.
-  const post = await fetch(API + "/activity", { method: "POST", headers: { "content-type": "application/json", "x-oc-device": "matrixDevice01" }, body: JSON.stringify({ events: [{ path: "/guest/SECRETGUESTTOKEN?code=ABCDEF", at: Date.now() }, { path: "not a path" }] }) });
+  const post = await fetch(API + "/activity", { method: "POST", headers: { "content-type": "application/json", "x-oc-device": "matrixDevice01" }, body: JSON.stringify({ events: [{ path: "/guest/SECRETGUESTTOKEN?code=ABCDEF", at: Date.now() }, { path: "not a path" }, { path: "/admin/users", at: Date.now() }] }) });
   check("activity: an anonymous page report is accepted, with no answer", post.status === 204);
   await new Promise((r) => setTimeout(r, 400));
   const mine = await req("/timeline?device=matrixDevice01", ADMIN);
   const text = JSON.stringify(mine.body);
   check("activity: the page is recorded without its secret or code", mine.status === 200 && text.includes("/guest/…") && !text.includes("SECRETGUESTTOKEN") && !text.includes("ABCDEF"), mine.body);
-  check("activity: a report that is not a path is dropped", (mine.body?.entries ?? []).length === 1, mine.body);
+  check("activity: a report that is not a path, or a page a stranger can't be on, is dropped", (mine.body?.entries ?? []).length === 1, mine.body);
+  // Behind an HTTPS front door the API says "HTTPS only" too (24 Oct 2026).
+  const hsts = await fetch(API + "/health", { headers: { "x-forwarded-proto": "https" } });
+  check("https: the API sends Strict-Transport-Security behind HTTPS", (hsts.headers.get("strict-transport-security") ?? "").includes("max-age=31536000"), hsts.headers.get("strict-transport-security"));
   // The show started earlier in these checks is recorded with who pressed Start.
   const sheet = await req(`/timeline?sheet=${rdA.body.id}&sources=show`, ADMIN);
   const start = (sheet.body?.entries ?? []).find((e: any) => e.kind === "start");

@@ -49,6 +49,8 @@ import { loadPlaces } from "./place.ts";
 import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
 import { onAdminCode, onSheetOpened } from "./watch.ts";
 import { isLockedDown, loadLockdown } from "./lockdown.ts";
+import { SOCKETS_PER_ADDRESS, SocketCounter } from "./socketLimit.ts";
+import { notify } from "./notices.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.
@@ -436,6 +438,11 @@ const appVersion = (() => {
 })();
 const handleMcp = createMcpRoutes(dbHandle, docServer, liveState, appVersion);
 const httpServer = createServer(async (req, res) => {
+  // HTTPS only, remembered by the browser — as the website already says
+  // (24 Oct 2026). Only behind the hosting company's HTTPS front door: on a
+  // plain-http local server the header would be a lie.
+  if (process.env.RAILWAY_ENVIRONMENT_ID || req.headers["x-forwarded-proto"] === "https")
+    res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
   /**
    * Health, for the platform and an uptime check: can this process reach its
    * database within two seconds? 200 if so, 503 if not, the reason in the
@@ -533,6 +540,7 @@ function toBytes(data: RawData): Uint8Array {
   return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
+const socketsByAddress = new SocketCounter();
 httpServer.on("upgrade", (req, socket, head) => {
   // A WebSocket is not protected by the browser's cross-site rules the way a
   // fetch is, so the Origin is checked here: a page on another site cannot
@@ -542,6 +550,23 @@ httpServer.on("upgrade", (req, socket, head) => {
     socket.destroy();
     return;
   }
+  // No more than SOCKETS_PER_ADDRESS open at once from one address, counted
+  // across both channels until the connection itself closes (socketLimit.ts).
+  const address = ipBucket(clientIp(req));
+  if (!socketsByAddress.tryTake(address)) {
+    socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    notify(dbHandle, {
+      kind: "unusual.many_sockets",
+      urgent: true,
+      title: `One address tried to hold more than ${SOCKETS_PER_ADDRESS} screens open at once`,
+      body: "That is more than a whole crew on one venue's Wi-Fi. The extra connections were refused. If it keeps up, switch off the view-only links that address has, or use Lockdown.",
+      detail: { ip: clientIp(req) },
+      key: `unusual.many_sockets:${address}:${new Date().toISOString().slice(0, 13)}`,
+    });
+    return;
+  }
+  socket.once("close", () => socketsByAddress.give(address));
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
   if (pathname === "/doc" || pathname.startsWith("/doc/")) {
     docWss.handleUpgrade(req, socket, head, (ws) => {

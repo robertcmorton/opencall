@@ -5239,6 +5239,17 @@ tr.played-row td {
   margin-top: 10px;
   font-size: var(--fs-sm);
 }
+.lockdown-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.lockdown-on {
+  border-color: var(--over);
+  background: var(--over-soft);
+}
 .timeline-filters {
   display: flex;
   flex-wrap: wrap;

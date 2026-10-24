@@ -536,7 +536,9 @@ export const api = {
       urgentUnread: number;
       items: { id: string; at: string; kind: string; urgent: boolean; title: string; body: string | null; userId: string | null; rundownId: string | null; detail: Record<string, unknown> | null; readAt: string | null; readBy: string | null }[];
     }>("/notifications"),
-  notificationCount: () => request<{ unread: number; urgentUnread: number }>("/notifications?count=1"),
+  notificationCount: () => request<{ unread: number; urgentUnread: number; lockdown: boolean }>("/notifications?count=1"),
+  lockdown: () => request<{ on: boolean; since: string | null; by: string | null }>("/lockdown"),
+  setLockdown: (on: boolean) => request<{ on: boolean; since: string | null; by: string | null; sessionsEnded: number }>("/lockdown", { method: "POST", body: JSON.stringify({ on }) }),
   markNotificationsRead: (ids?: string[]) => request<{ ok: true }>("/notifications/read", { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
   /** The timeline (24 Oct 2026): System Administrators only. */
   timeline: (q: { user?: string; actor?: "admin"; device?: string; sheet?: string; ip?: string; from?: string; to?: string; sources?: string; clock?: "1"; limit?: number }) => {

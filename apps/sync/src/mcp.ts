@@ -30,6 +30,9 @@ import { audit, userAgentOf } from "./audit.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume } from "./throttle.ts";
 import { recordChange, versionBefore } from "./sheetChanges.ts";
+import { isLockedDown } from "./lockdown.ts";
+import { notify } from "./notices.ts";
+import { randomBytes } from "node:crypto";
 
 const probeBefore = (bytes: Uint8Array) => {
   const d = new Y.Doc();
@@ -71,9 +74,23 @@ export const MCP_BATCH_MAX = 10;
 export const MCP_LIMITS = {
   perMinute: 60,
   perDay: 2000,
-  writesPerMinute: 30,
+  /**
+   * Changes an assistant may make in a minute. Was 30; 10 since 24 Oct 2026 —
+   * an assistant led astray by instructions hidden in a sheet's text should
+   * be slow to do damage, and a person reading along does not need more.
+   */
+  writesPerMinute: 10,
   anonymousPerMinute: 30,
+  /** Rows an assistant may change in ten minutes before an administrator is alerted. */
+  bulkAlertRows: 25,
 } as const;
+
+/**
+ * Deletions waiting for the person's yes (24 Oct 2026): code → what it
+ * would delete. A first delete_rows only rehearses and hands back a code;
+ * the deletion happens on a second call carrying it. Ten minutes.
+ */
+const pendingDeletes = new Map<string, { userId: string; sheet: string; rows: string; exp: number }>();
 
 /** What the show is doing, from the server's live state. */
 export type LiveState = (rundownId: string) => Promise<{ state: string; activeRowId: string | null }>;
@@ -284,6 +301,30 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
         await conn.disconnect();
       }
       audit(handle, { actor: caller.userId, action: `mcp.${tool}`, target: rundownId, ip, ua, detail: { assistant: caller.clientName, ...summary } });
+      // Many rows changed in a short time: worth an administrator's look, in
+      // case the assistant is doing something nobody asked for.
+      if (recorded) {
+        void (async () => {
+          const recent = await db.query.sheetChanges.findMany({
+            where: and(eq(schema.sheetChanges.rundownId, rundownId), eq(schema.sheetChanges.kind, "assistant"), eq(schema.sheetChanges.actorUserId, caller.userId), gt(schema.sheetChanges.at, new Date(Date.now() - 10 * 60_000))),
+            columns: { detail: true },
+          });
+          const rows = recent.reduce((n, c) => n + c.detail.counts.added + c.detail.counts.removed + c.detail.counts.changed + c.detail.counts.moved, 0);
+          if (rows >= MCP_LIMITS.bulkAlertRows) {
+            const person = (await db.query.users.findFirst({ where: eq(schema.users.id, caller.userId), columns: { name: true } }))?.name ?? "Someone";
+            notify(handle, {
+              kind: "assistant.bulk",
+              urgent: true,
+              title: `${person}'s AI assistant (${caller.clientName}) changed ${rows} rows of ${rundown.name} in ten minutes`,
+              body: "That's a lot for an assistant. If nobody asked for it, check the sheet's Changes page — each change can be undone — and disconnect the assistant from the account.",
+              userId: caller.userId,
+              rundownId,
+              detail: { assistant: caller.clientName, rows },
+              key: `assistant.bulk:${caller.userId}:${rundownId}:${new Date().toISOString().slice(0, 13)}`,
+            });
+          }
+        })().catch((err) => console.error("[mcp] bulk check failed:", err));
+      }
       return {
         result,
         report: recorded
@@ -641,14 +682,49 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       "delete_rows",
       {
         title: "Delete rows",
-        description: "Removes rows from the sheet. The fixed times below move earlier by the time they took, down to the next row that must start on time, as deleting in the app does. Prefer strike_row when a row may come back. The version saved before the change can restore them from Versions in the app.",
-        inputSchema: { sheet_id: sheetId, row_ids: z.array(rowId).min(1).max(50) },
+        description: "Removes rows from the sheet — after the person says yes. Called without `confirm`, it deletes nothing: it says what would go and what would move, and gives a code; ask the person, and only if they agree call it again with the same rows and that code. The fixed times below move earlier by the time the rows took, down to the next row that must start on time, as deleting in the app does. Prefer strike_row when a row may come back. The version saved before the change can restore them from Versions in the app.",
+        inputSchema: {
+          sheet_id: sheetId,
+          row_ids: z.array(rowId).min(1).max(50),
+          confirm: z
+            .string()
+            .max(64)
+            .optional()
+            .describe("Leave this out at first: the answer says what the deletion would do and gives a code. Ask the person; only if they say yes, call again with the same rows and that code."),
+        },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       },
-      guarded(async ({ sheet_id, row_ids }: { sheet_id: string; row_ids: string[] }) => {
-        const { report } = await change("delete_rows", sheet_id, (doc) => {
+      guarded(async ({ sheet_id, row_ids, confirm }: { sheet_id: string; row_ids: string[]; confirm?: string }) => {
+        const apply = (doc: Y.Doc) => {
           for (const id of row_ids) deleteRow(doc, id);
-        }, { rows: row_ids.length }, `deleted ${row_ids.length === 1 ? "a row" : `${row_ids.length} rows`}`);
+        };
+        const what = `deleted ${row_ids.length === 1 ? "a row" : `${row_ids.length} rows`}`;
+        // The person says yes first (24 Oct 2026). A rehearsal from
+        // preview_change runs straight through to its own preview.
+        if (!previewing.getStore()) {
+          const rows = [...row_ids].sort().join(",");
+          const waiting = confirm ? pendingDeletes.get(confirm) : undefined;
+          if (!waiting || waiting.userId !== caller.userId || waiting.sheet !== sheet_id || waiting.rows !== rows || waiting.exp < Date.now()) {
+            let lines: string[] = [];
+            try {
+              await previewing.run(true, () => change("delete_rows", sheet_id, apply, { rows: row_ids.length }, what));
+            } catch (err) {
+              if (!(err instanceof PreviewOutcome)) throw err;
+              lines = err.lines;
+            }
+            for (const [k, v] of pendingDeletes) if (v.exp < Date.now()) pendingDeletes.delete(k);
+            const code = randomBytes(9).toString("base64url");
+            pendingDeletes.set(code, { userId: caller.userId, sheet: sheet_id, rows, exp: Date.now() + 10 * 60_000 });
+            return ok({
+              notYet: "Nothing has been deleted yet.",
+              wouldChange: lines,
+              confirm: code,
+              next: "Ask the person whether to delete these rows — say which, and what moves as a result. Only if they say yes, call delete_rows again with the same row_ids and confirm set to this code. It lasts 10 minutes.",
+            });
+          }
+          pendingDeletes.delete(confirm!);
+        }
+        const { report } = await change("delete_rows", sheet_id, apply, { rows: row_ids.length }, what);
         return ok({ done: `Deleted ${row_ids.length} row${row_ids.length === 1 ? "" : "s"}.`, ...report });
       }),
     );
@@ -804,6 +880,11 @@ export function createMcpRoutes(handle: DbHandle, docServer: Hocuspocus, liveSta
       const t = await consume(handle, `mcp:anon:${ipKey}`, { max: MCP_LIMITS.anonymousPerMinute, windowSec: 60 });
       if (!t.ok) return respond(res, 429, { error: "too_many_requests" }, { "retry-after": String(t.retryAfterSec) }), true;
       challenge(401, { code: "invalid_token", description: caller.error });
+      return true;
+    }
+    // Lockdown: assistants are paused until it is lifted (lockdown.ts).
+    if (isLockedDown()) {
+      respond(res, 503, { jsonrpc: "2.0", error: { code: -32000, message: "OpenCall is in lockdown: AI assistants are paused until an administrator lifts it." }, id: null });
       return true;
     }
     const ctx = await contextForAccount(handle, caller.userId);

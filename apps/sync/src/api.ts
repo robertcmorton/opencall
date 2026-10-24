@@ -35,6 +35,7 @@ import { readTimeline, type TimelineEntry } from "./timeline.ts";
 import { codeGuessLimit, loginTryLimit, noteCodeMiss, noteLoginFailure } from "./swarm.ts";
 import { onAdminCode, onFailedSignIn, onSheetOpened, onSignIn, onTrap } from "./watch.ts";
 import { notify } from "./notices.ts";
+import { isLockedDown, lockdownState, setLockdown } from "./lockdown.ts";
 
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
@@ -234,6 +235,8 @@ export function createApiHandler(
   /** Ways into the show channel the API has no handle on itself. */
   hooks: {
     stopShow?: (rundownId: string) => Promise<void>;
+    /** Lockdown: disconnect every show screen and sheet connection. */
+    closeAllScreens?: () => void;
     /** The sheet's kind of show changed: tell its open screens. */
     kindChanged?: (rundownId: string) => Promise<void>;
     /** What the show on a sheet is doing, for refusing changes under a live show. */
@@ -377,6 +380,8 @@ export function createApiHandler(
      * misses in 15 minutes the address is refused until the window passes.
      */
     const guessing = async <T,>(lookup: () => Promise<T | null | undefined>): Promise<T | null | "throttled"> => {
+      // Lockdown: codes and invitation links answer "not found" — and are not guesses.
+      if (isLockedDown()) return null;
       const key = `guess:ip:${ipKey}`;
       // Fewer tries per address while guesses are pouring in from everywhere — see swarm.ts.
       const t = await consume(handle, key, { max: await codeGuessLimit(handle, GUESS_PER_IP), windowSec: LOGIN_WINDOW_SEC });
@@ -1247,6 +1252,34 @@ export function createApiHandler(
       }
 
       /**
+       * Lockdown (24 Oct 2026): System Administrators only. See lockdown.ts
+       * for what it does and what it leaves alone.
+       */
+      if (pathname === "/lockdown" && (req.method === "GET" || req.method === "POST")) {
+        if (!(await requireAdmin())) return true;
+        if (req.method === "GET") {
+          json(res, 200, lockdownState());
+          return true;
+        }
+        const body = await readJson(req);
+        const on = body.on === true;
+        const who = actorOf(await authContext(handle, req)).who ?? "Administrator";
+        const { sessionsEnded } = await setLockdown(handle, on, who, bearerToken(req));
+        if (on) hooks.closeAllScreens?.();
+        audit(handle, { actor: "admin", action: on ? "lockdown.on" : "lockdown.off", ip, ua, detail: { by: who, sessionsEnded } });
+        notify(handle, {
+          kind: on ? "lockdown.on" : "lockdown.off",
+          urgent: on,
+          title: on ? `${who} locked everything down` : `${who} ended the lockdown`,
+          body: on
+            ? `${sessionsEnded} sign-in session${sessionsEnded === 1 ? "" : "s"} ended. View-only links and AI assistants are off until the lockdown is lifted; everyone else has to sign in again.`
+            : "View-only links and AI assistants work again. Sessions ended by the lockdown stay ended.",
+        });
+        json(res, 200, { ...lockdownState(), sessionsEnded });
+        return true;
+      }
+
+      /**
        * Alerts (24 Oct 2026): the notices for System Administrators, newest
        * first, with how many are unread — the dashboard's red count — and a
        * way to mark them read.
@@ -1260,7 +1293,7 @@ export function createApiHandler(
           .select({ unread: sql<number>`count(*) filter (where ${n.readAt} is null)`, urgent: sql<number>`count(*) filter (where ${n.readAt} is null and ${n.urgent})` })
           .from(n)
           .where(eq(n.audience, "admins"));
-        json(res, 200, { unread: Number(counts?.unread ?? 0), urgentUnread: Number(counts?.urgent ?? 0), items });
+        json(res, 200, { unread: Number(counts?.unread ?? 0), urgentUnread: Number(counts?.urgent ?? 0), lockdown: isLockedDown(), items });
         return true;
       }
       if (req.method === "POST" && pathname === "/notifications/read") {
@@ -2744,7 +2777,15 @@ export function createApiHandler(
        */
       if (req.method === "POST" && /^\/codes\/[^/]+\/notes$/.test(pathname)) {
         const code = pathname.split("/")[2]!;
-        const resolved = await resolveJoinCode(handle, code);
+        // Counted as a guess like every other way in (24 Oct 2026). It was a
+        // bare lookup: "not found" for a wrong code and a different answer
+        // for a right one, with no limit — a way to test codes as fast as
+        // anyone liked, round every other limit.
+        const resolved = await guessing(() => resolveJoinCode(handle, code));
+        if (resolved === "throttled") {
+          json(res, 429, { error: "Too many wrong codes. Wait a few minutes, then try again." });
+          return true;
+        }
         if (!resolved) {
           json(res, 404, { error: "That code doesn't open anything. Check it and try again." });
           return true;
@@ -2872,7 +2913,15 @@ export function createApiHandler(
 
       if (req.method === "POST" && /^\/codes\/[^/]+\/viewer$/.test(pathname)) {
         const code = pathname.split("/")[2]!;
-        const resolved = await resolveJoinCode(handle, code);
+        // Counted as a guess like every other way in (24 Oct 2026). It was a
+        // bare lookup: "not found" for a wrong code and a different answer
+        // for a right one, with no limit — a way to test codes as fast as
+        // anyone liked, round every other limit.
+        const resolved = await guessing(() => resolveJoinCode(handle, code));
+        if (resolved === "throttled") {
+          json(res, 429, { error: "Too many wrong codes. Wait a few minutes, then try again." });
+          return true;
+        }
         if (!resolved) {
           json(res, 404, { error: "That code doesn't open anything. Check it and try again." });
           return true;
@@ -3117,7 +3166,7 @@ export function createApiHandler(
       // Guests get a server-filtered plain-JSON projection — never the CRDT.
       if (req.method === "GET" && pathname.startsWith("/guest/")) {
         const token = pathname.slice("/guest/".length);
-        const pass = await db.query.shareTokens.findFirst({ where: eq(schema.shareTokens.token, token) });
+        const pass = isLockedDown() ? null : await db.query.shareTokens.findFirst({ where: eq(schema.shareTokens.token, token) });
         if (!pass || pass.kind !== "guest" || pass.revokedAt) {
           json(res, 404, { error: "This guest pass doesn't work. It may have been turned off. Ask for a view-only link instead." });
           return true;

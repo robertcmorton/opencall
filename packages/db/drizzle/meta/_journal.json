@@ -204,6 +204,13 @@
       "when": 1792817383128,
       "tag": "0028_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792818343239,
+      "tag": "0029_server_flags",
+      "breakpoints": true
     }
   ]
 }

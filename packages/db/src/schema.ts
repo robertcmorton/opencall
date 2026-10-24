@@ -657,6 +657,17 @@ export const notifications = pgTable(
   (t) => [index("notifications_audience_idx").on(t.audience, t.at), uniqueIndex("notifications_key_idx").on(t.key)],
 );
 
+/**
+ * Server-wide switches that must survive a restart (24 Oct 2026). One so far:
+ * `lockdown` — every view-only link and AI assistant off until it is lifted.
+ */
+export const serverFlags = pgTable("server_flags", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
 // ── AI assistants (MCP) and how they sign in (OAuth 2.1) ─────────────────────
 // Modelled on Kitshare's: an assistant registers itself, the person approves
 // it once on OpenCall's own page, and then holds short-lived tokens tied to

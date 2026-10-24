@@ -711,6 +711,20 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const afterRefusal = ((await req(`/rundowns/${rdA.body.id}/snapshots`, ADMIN)).body as any[]).filter((s) => s.kind === "assistant").length;
   const titleNow = (await tool(at, "get_sheet", { sheet_id: rdA.body.id })).data?.rows?.find((r: any) => r.id === first)?.title;
   check("mcp versions: a refused batch changes nothing and saves no version", refused.error && afterRefusal === 2 && titleNow === "Matrix opener, renamed", { afterRefusal, titleNow });
+  // Deleting takes the person's yes (24 Oct 2026): the first call deletes nothing.
+  {
+    const added = await tool(at, "add_rows", { sheet_id: rdA.body.id, after_row_id: null, rows: [{ title: "Matrix doomed row", duration: "1:00" }] });
+    const rowsNow = async () => ((await tool(at, "get_sheet", { sheet_id: rdA.body.id })).data?.rows ?? []) as any[];
+    const doomed = (await rowsNow()).find((r) => r.title === "Matrix doomed row")?.id;
+    const ask = await tool(at, "delete_rows", { sheet_id: rdA.body.id, row_ids: [doomed] });
+    check("mcp delete: the first call deletes nothing and asks for the person's yes", !added.error && !ask.error && typeof ask.data?.confirm === "string" && (await rowsNow()).some((r) => r.id === doomed), ask.text.slice(0, 200));
+    const wrong = await tool(at, "delete_rows", { sheet_id: rdA.body.id, row_ids: [doomed], confirm: "not-the-code" });
+    check("mcp delete: a made-up code deletes nothing", typeof wrong.data?.confirm === "string" && (await rowsNow()).some((r) => r.id === doomed), wrong.text.slice(0, 120));
+    const yes = await tool(at, "delete_rows", { sheet_id: rdA.body.id, row_ids: [doomed], confirm: ask.data?.confirm });
+    check("mcp delete: with the code, the row goes", !yes.error && !(await rowsNow()).some((r) => r.id === doomed), yes.text.slice(0, 160));
+    const again = await tool(at, "delete_rows", { sheet_id: rdA.body.id, row_ids: [doomed], confirm: ask.data?.confirm });
+    check("mcp delete: a code works once", typeof again.data?.confirm === "string" || again.error, again.text.slice(0, 120));
+  }
 
   // Someone else editing: hands off.
   const claimed = await req(`/rundowns/${rdA.body.id}/lock`, companyMgr.accessToken, { method: "POST", body: JSON.stringify({}) });
@@ -992,6 +1006,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── Swarm-proof codes (24 Oct 2026) ───────────────────────────────────────────
 {
+  // The name and note endpoints count wrong codes too — they used to answer
+  // "not found" or "type your name" with no limit at all.
+  let throttledAt = 0;
+  for (let i = 1; i <= 32 && !throttledAt; i++) {
+    const r = await fetch(`${API}/codes/ZZZZ${String(i).padStart(4, "0")}/viewer`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.88" }, body: "{}" });
+    if (r.status === 429) throttledAt = i;
+  }
+  check("codes: the view-link name endpoint stops a guesser too", throttledAt > 0 && throttledAt <= 31, { throttledAt });
   const made = await Promise.all([1, 2, 3].map(() => req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "length probe" }) })));
   const codes = made.map((m) => m.body?.code as string);
   check("codes: new view-only codes are eight characters from the readable set", codes.every((c) => /^[ABCDEFGHJKMNPQRSTVWXYZ23456789]{8}$/.test(c ?? "")), codes);
@@ -1035,6 +1057,27 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const read = await req("/notifications/read", ADMIN, { method: "POST", body: "{}" });
   const after = await req("/notifications?count=1", ADMIN);
   check("alerts: an administrator can mark them all read", read.status === 200 && after.body?.unread === 0, after.body);
+}
+
+// ── Lockdown (24 Oct 2026) — last, because it ends sessions ──────────────────
+{
+  check("lockdown: only an administrator can switch it", [401, 403].includes((await req("/lockdown", eventMgr.accessToken, { method: "POST", body: JSON.stringify({ on: true }) })).status));
+  const code = await req(`/rundowns/${rdA.body.id}/join-codes`, ADMIN, { method: "POST", body: JSON.stringify({ role: "follower", label: "lockdown probe" }) });
+  // From an address of its own: earlier checks spend this machine's guesses.
+  const viaCode = () =>
+    fetch(`${API}/codes/${code.body.code}/viewer`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.77" }, body: "{}" }).then((r) => r.status);
+  const beforeCode = await viaCode(); // a working code with no name: 400 "Type your name first"
+  await req("/users", ADMIN, { method: "POST", body: JSON.stringify({ name: "Matrix Lockdown", email: "matrix.lockdown@example.com", password: "lockdown-pass-1", grants: [{ kind: "view", targetId: eventA.body.id }] }) });
+  const ses = (await req("/auth/login", null, { method: "POST", body: JSON.stringify({ email: "matrix.lockdown@example.com", password: "lockdown-pass-1" }) })).body?.token as string | undefined;
+  const on = await req("/lockdown", ADMIN, { method: "POST", body: JSON.stringify({ on: true }) });
+  check("lockdown: switched on, sessions are ended", on.status === 200 && on.body?.on === true && typeof on.body?.sessionsEnded === "number", on.body);
+  const duringCode = await viaCode();
+  check("lockdown: a view-only link stops working", beforeCode === 400 && duringCode === 404, { beforeCode, duringCode });
+  if (ses) check("lockdown: a signed-in session is ended", (await req("/me", ses)).body?.role == null);
+  check("lockdown: the administrator code still works", (await req("/lockdown", ADMIN)).body?.on === true);
+  const off = await req("/lockdown", ADMIN, { method: "POST", body: JSON.stringify({ on: false }) });
+  check("lockdown: lifted, the link works again", off.body?.on === false && (await viaCode()) === 400);
+  if (code.body?.id) await req(`/rundowns/${rdA.body.id}/join-codes/${code.body.id}`, ADMIN, { method: "DELETE" });
 }
 
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────

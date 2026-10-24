@@ -6,6 +6,7 @@ import { schema, type DbHandle } from "@opencall/db";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, release } from "./throttle.ts";
 import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
+import { isLockedDown } from "./lockdown.ts";
 
 /**
  * Interim token auth (full accounts land later; this module is the seam they
@@ -178,6 +179,8 @@ export async function resolveJoinCode(
   code: string,
   rundownId?: string,
 ): Promise<{ role: "caller" | "editor" | "follower"; rundownId: string; tokenId: string } | null> {
+  // Lockdown: every view-only link is off until it is lifted (lockdown.ts).
+  if (isLockedDown()) return null;
   const conditions = [
     eq(schema.shareTokens.joinCode, code.toUpperCase()),
     eq(schema.shareTokens.kind, "join"),
@@ -290,6 +293,7 @@ export async function resolveJoinCodeGuarded(
   ipKey: string,
   rundownId?: string,
 ): Promise<Awaited<ReturnType<typeof resolveJoinCode>>> {
+  if (isLockedDown()) return null; // refused, and not a guess
   const key = `guess:ip:${ipKey}`;
   const t = await consume(handle, key, { max: await codeGuessLimit(handle, 30), windowSec: 15 * 60 });
   if (!t.ok) return null;

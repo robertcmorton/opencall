@@ -1226,7 +1226,7 @@ export const SECTIONS: HelpSection[] = [
           "**Change your run sheets** — change words, lengths and times, and add, move, strike or delete rows. Offered to a System Administrator, Showcaller or Producer.",
           "**Read the error log** and **Mark fixed errors as resolved** — only offered to a System Administrator.",
         ],
-        good: "It can never start, step or stop a show. While a show is live it can only change words and strike rows. It leaves a sheet alone while someone else is editing it, and never changes a locked row.",
+        good: "It can never start, step or stop a show. While a show is live it can only change words and strike rows. It leaves a sheet alone while someone else is editing it, and never changes a locked row. It asks you before it deletes rows — it says which, and what moves — and only deletes once you say yes. It can make at most 10 changes a minute, and if it changes 25 or more rows of a sheet within ten minutes, your administrator is alerted.",
       },
       {
         id: "assistant-preview",
@@ -1312,6 +1312,18 @@ export const SECTIONS: HelpSection[] = [
         how: "Open **Alerts** from the menu — a number beside it counts the ones not read yet, red when one is urgent. **See the timeline** shows what that person or address did. **Mark as read** (or **Mark all as read**) clears the number.",
         who: "Only a System Administrator.",
         good: "Nothing here locks anyone out — you decide what to do. When guessing pours in from many places, OpenCall slows every address down by itself until it stops. Urgent alerts are also emailed when an alert address is set up on the server.",
+      },
+      {
+        id: "lockdown",
+        name: "Lockdown",
+        forWhat: "One press for when something is going on: ends every sign-in except yours, turns off every view-only link and guest pass, pauses every AI assistant, and disconnects every open screen.",
+        steps: [
+          "Open **Alerts** from the menu.",
+          "Press **Lock everything down**, then **Press again to lock down**.",
+          "When it is safe again, press **End the lockdown**.",
+        ],
+        who: "Only a System Administrator.",
+        good: "Ending it brings every view-only link back as it was; anyone it signed out signs in again. It does not change the administrator code, company codes or personal access tokens — if one of those is the problem, change it as well (the security guide says how). While it is on, **Alerts** in the menu says **Lockdown**.",
       },
       {
         id: "timeline",

@@ -21,7 +21,7 @@ export function AdminNavSection({
   const isAdmin = role == null || role === "admin";
   // How many alerts nobody has read yet — the red number by Alerts (24 Oct).
   // Asked once a minute; anyone who isn't an administrator is simply refused.
-  const [unread, setUnread] = useState<{ unread: number; urgentUnread: number } | null>(null);
+  const [unread, setUnread] = useState<{ unread: number; urgentUnread: number; lockdown: boolean } | null>(null);
   useEffect(() => {
     if (!isAdmin) return;
     let live = true;
@@ -65,7 +65,8 @@ export function AdminNavSection({
         <Link className="menu-item" href="/admin/alerts">
           <span className="check">{active === "alerts" && "✓"}</span>
           Alerts
-          {unread && unread.unread > 0 && (
+          {unread?.lockdown && <span className="nav-count nav-count-urgent">Lockdown</span>}
+          {unread && unread.unread > 0 && !unread.lockdown && (
             <span className={`nav-count ${unread.urgentUnread > 0 ? "nav-count-urgent" : ""}`} aria-label={`${unread.unread} unread`}>
               {unread.unread > 99 ? "99+" : unread.unread}
             </span>

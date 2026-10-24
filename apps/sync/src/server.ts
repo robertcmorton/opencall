@@ -48,6 +48,7 @@ import { userAgentOf } from "./audit.ts";
 import { loadPlaces } from "./place.ts";
 import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
 import { onAdminCode, onSheetOpened } from "./watch.ts";
+import { isLockedDown, loadLockdown } from "./lockdown.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.
@@ -133,6 +134,8 @@ await authMod.hashStoredCredentials(dbHandle);
 scheduleRetention(dbHandle);
 // The address-to-place table, fetched in the background; places stay blank until it lands.
 void loadPlaces();
+// A lockdown switched on before a restart is still on after it.
+void loadLockdown(dbHandle);
 
 interface ClientCtx {
   role: Role;
@@ -276,6 +279,8 @@ async function resolveAuth(
     }
     return null;
   }
+  // Lockdown: view-only links and guest passes are off (lockdown.ts).
+  if (isLockedDown()) return null;
   if (auth.kind === "join") {
     // Misses count against the address, as on every other way a code is
     // tried (see resolveJoinCodeGuarded); a hit is given back.
@@ -405,6 +410,12 @@ const handleApi = createApiHandler(dbHandle, docServer, {
   kindChanged: async (rundownId) => {
     const { sport, eventTypeSpec } = await sheetKind(rundownId);
     broadcast(rundownId, { v: PROTOCOL_VERSION, t: "kind", sport: sport ?? null, eventTypeSpec: eventTypeSpec ?? undefined });
+  },
+  // Lockdown: every open screen is disconnected, so each comes back in only
+  // with something still valid — a show screen reconnects within seconds.
+  closeAllScreens: () => {
+    for (const [ws] of clients) ws.close(CloseCodes.TOKEN_REVOKED, "lockdown");
+    docServer.closeConnections();
   },
   // "End event" from the sheet or the dashboard: the show stops with it.
   stopShow: async (rundownId) => {

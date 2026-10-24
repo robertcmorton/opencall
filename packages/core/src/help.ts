@@ -1305,6 +1305,22 @@ export const SECTIONS: HelpSection[] = [
         who: "Only a System Administrator.",
         good: "**Device** says what it was, as the device describes itself (\"iPhone · Safari\"). Entries from before 22 October 2026 have no device, and their address, shown grey, is the hosting company's server rather than the person's. Old records are cleared on a schedule: failed sign-ins after 90 days, the rest after two years.",
       },
+      {
+        id: "alerts",
+        name: "Alerts",
+        forWhat: "Tells you when something may need a look: a sign-in from a new device or a new country, one person signing in from two countries close together, wrong passwords or view-only codes pouring in from many places, one address trying many accounts, one account opening many sheets in minutes, the administrator code used from a new address, an AI assistant connected, someone's access changed, or a program probing for weaknesses.",
+        how: "Open **Alerts** from the menu — a number beside it counts the ones not read yet, red when one is urgent. **See the timeline** shows what that person or address did. **Mark as read** (or **Mark all as read**) clears the number.",
+        who: "Only a System Administrator.",
+        good: "Nothing here locks anyone out — you decide what to do. When guessing pours in from many places, OpenCall slows every address down by itself until it stops. Urgent alerts are also emailed when an alert address is set up on the server.",
+      },
+      {
+        id: "timeline",
+        name: "Timeline",
+        forWhat: "What each person and device did, in order: pages opened, show screens joining and dropping (and why — closed, lost to the network, or a server restart), show actions with who pressed them, sign-ins, edits and errors. The last 90 days.",
+        how: "Open **Timeline** from the menu. Choose a **Person**, a **Sheet** or a time. Click a name, a sheet, a device or a place in the list to see only that. **Export to a spreadsheet** downloads what is shown.",
+        who: "Only a System Administrator.",
+        good: "An error shows **The steps before it** — the pages and buttons that browser went through, never what anyone typed. Each time the clock moved the cue by itself is hidden unless you tick **The clock's own moves**. Places come from the internet address and can be wrong, especially for phones.",
+      },
     ],
   },
 

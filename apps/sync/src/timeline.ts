@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { schema, type DbHandle } from "@opencall/db";
 import { AUDIT_WORDS, connectWords, describeDevice, disconnectWords, pageWords, showWords } from "@opencall/core";
 import { placeOf } from "./place.ts";
@@ -37,6 +37,8 @@ export interface TimelineFilter {
   from?: Date;
   to?: Date;
   sources?: ReadonlySet<TimelineEntry["source"]>;
+  /** The clock's own cue moves — many a show. Left out unless asked for. */
+  withClock?: boolean;
   limit?: number;
 }
 
@@ -80,7 +82,7 @@ export async function readTimeline(handle: DbHandle, f: TimelineFilter): Promise
                 : r.kind === "show"
                   ? showWords(String(d.action ?? ""), true)
                   : r.kind === "trap"
-                    ? "Touched the trap page — nothing real links there"
+                    ? `Tried ${String(d.path ?? "a trap page")} — a trap: nothing real links there`
                     : r.kind;
       out.push({ at: r.at.toISOString(), source: "activity", kind: r.kind, what, who: r.who, userId: r.userId, device: r.device, deviceId: r.deviceId, ip: r.ip, place: r.place, rundownId: r.rundownId, sheet: null, detail: d });
     }
@@ -130,6 +132,8 @@ export async function readTimeline(handle: DbHandle, f: TimelineFilter): Promise
           f.deviceId ? eq(t.deviceId, f.deviceId) : undefined,
           f.rundownId ? eq(s.rundownId, f.rundownId) : undefined,
           f.ip ? eq(t.ip, f.ip) : undefined,
+          // A cue move nobody pressed is the clock's.
+          f.withClock ? undefined : or(isNotNull(t.who), notInArray(t.type, ["jump", "next"])),
           ...range(t.at),
         ),
       )

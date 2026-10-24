@@ -5176,6 +5176,125 @@ tr.played-row td {
   color: var(--text-2);
 }
 
+/* ---------- Alerts and the timeline (admin, 24 Oct 2026) ---------- */
+/* The red number by Alerts in the menu: grey when nothing urgent is unread. */
+.nav-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  color: var(--text);
+  background: var(--border);
+}
+.nav-count-urgent {
+  color: #fff;
+  background: var(--over);
+}
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.alert-item {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.alert-urgent {
+  border-left-color: var(--over);
+  background: var(--over-soft);
+}
+.alert-read {
+  opacity: 0.7;
+}
+.alert-head {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.alert-when {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.alert-body {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.alert-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+}
+.timeline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+.timeline-filters label {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-label);
+}
+.timeline-filters select,
+.timeline-filters input[type="datetime-local"] {
+  min-width: 0;
+  max-width: 260px;
+}
+.timeline-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.timeline-sources label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.timeline-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.timeline-trail {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.timeline-table .link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.timeline-table td:nth-child(3) .link-button {
+  color: var(--accent-text);
+}
+
 /* Version history: why each version was saved, and a quiet text button. */
 .version-tag {
   display: inline-block;

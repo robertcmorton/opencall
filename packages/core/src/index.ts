@@ -20,3 +20,4 @@ export * from "./mustStart.ts";
 export * from "./timingFix.ts";
 export * from "./device.ts";
 export * from "./activityWords.ts";
+export * from "./trap.ts";

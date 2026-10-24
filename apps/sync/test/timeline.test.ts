@@ -50,12 +50,14 @@ describe("the timeline", () => {
       expect(ipad.map((e) => e.source)).toEqual(["error", "activity", "show", "activity", "activity"]);
 
       // A sheet: everyone on it, and the clock's move too.
-      const sheet = await readTimeline(handle, { rundownId: "r" });
+      const sheet = await readTimeline(handle, { rundownId: "r", withClock: true });
       expect(sheet.map((e) => `${e.who}: ${e.what}`)).toContain("The clock: The clock moved the cue on");
+      // …which is left out unless asked for: many a show, noise when looking for a person.
+      expect((await readTimeline(handle, { rundownId: "r" })).some((e) => e.who === "The clock")).toBe(false);
       expect(sheet.some((e) => e.who === "Lee")).toBe(false);
 
       // A time window.
-      const window = await readTimeline(handle, { from: new Date(t(3)), to: new Date(t(5)) });
+      const window = await readTimeline(handle, { from: new Date(t(3)), to: new Date(t(5)), withClock: true });
       expect(window.map((e) => e.at)).toEqual([t(5), t(4), t(3)].map((x) => new Date(x).toISOString()));
     } finally {
       await handle.close?.();

@@ -529,6 +529,23 @@ export const api = {
       }[]
     >(`/errors?limit=${limit}${resolved ? "&resolved=1" : ""}`),
   clearErrors: () => request<Record<string, never>>("/errors", { method: "DELETE" }),
+  /** Alerts for System Administrators (24 Oct 2026). */
+  notifications: () =>
+    request<{
+      unread: number;
+      urgentUnread: number;
+      items: { id: string; at: string; kind: string; urgent: boolean; title: string; body: string | null; userId: string | null; rundownId: string | null; detail: Record<string, unknown> | null; readAt: string | null; readBy: string | null }[];
+    }>("/notifications"),
+  notificationCount: () => request<{ unread: number; urgentUnread: number }>("/notifications?count=1"),
+  markNotificationsRead: (ids?: string[]) => request<{ ok: true }>("/notifications/read", { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
+  /** The timeline (24 Oct 2026): System Administrators only. */
+  timeline: (q: { user?: string; actor?: "admin"; device?: string; sheet?: string; ip?: string; from?: string; to?: string; sources?: string; clock?: "1"; limit?: number }) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(q)) if (v != null && v !== "") params.set(k, String(v));
+    return request<{
+      entries: { at: string; source: "activity" | "account" | "show" | "edit" | "error"; kind: string; what: string; who: string | null; userId: string | null; device: string | null; deviceId: string | null; ip: string | null; place: string | null; rundownId: string | null; sheet: string | null; detail?: Record<string, unknown> }[];
+    }>(`/timeline?${params}`);
+  },
   audit: (limit = 200) =>
     request<
       {

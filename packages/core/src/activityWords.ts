@@ -101,7 +101,11 @@ export function pageWords(path: string): string {
           ? "Opened the error log"
           : path.startsWith("/admin/timeline")
             ? "Opened the timeline"
-            : "Opened the dashboard",
+            : path.startsWith("/admin/alerts")
+              ? "Opened Alerts"
+              : path.startsWith("/admin/event-types")
+                ? "Opened Kinds of show"
+                : "Opened the dashboard",
     account: "Opened My account",
     help: "Opened Help",
     show: "Opened the show page",

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./help": "./src/help.ts",
-    "./helpSearch": "./src/helpSearch.ts"
+    "./helpSearch": "./src/helpSearch.ts",
+    "./trap": "./src/trap.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

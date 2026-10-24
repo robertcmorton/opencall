@@ -14,11 +14,29 @@ export function AdminNavSection({
   active,
   role,
 }: {
-  active?: "users" | "errors" | "event-types" | "activity";
+  active?: "users" | "errors" | "event-types" | "activity" | "alerts" | "timeline";
   /** Who is looking. A company administers its own people but not the server. */
   role?: string | null;
 }) {
   const isAdmin = role == null || role === "admin";
+  // How many alerts nobody has read yet — the red number by Alerts (24 Oct).
+  // Asked once a minute; anyone who isn't an administrator is simply refused.
+  const [unread, setUnread] = useState<{ unread: number; urgentUnread: number } | null>(null);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let live = true;
+    const ask = () =>
+      void api
+        .notificationCount()
+        .then((c) => live && setUnread(c))
+        .catch(() => undefined);
+    ask();
+    const t = window.setInterval(ask, 60_000);
+    return () => {
+      live = false;
+      window.clearInterval(t);
+    };
+  }, [isAdmin]);
   return (
     <SideNavSection heading={isAdmin ? "Admin" : "Company"}>
       <Link className="menu-item" href="/admin/users">
@@ -41,6 +59,23 @@ export function AdminNavSection({
         <Link className="menu-item" href="/admin/activity">
           <span className="check">{active === "activity" && "✓"}</span>
           Account activity
+        </Link>
+      )}
+      {isAdmin && (
+        <Link className="menu-item" href="/admin/alerts">
+          <span className="check">{active === "alerts" && "✓"}</span>
+          Alerts
+          {unread && unread.unread > 0 && (
+            <span className={`nav-count ${unread.urgentUnread > 0 ? "nav-count-urgent" : ""}`} aria-label={`${unread.unread} unread`}>
+              {unread.unread > 99 ? "99+" : unread.unread}
+            </span>
+          )}
+        </Link>
+      )}
+      {isAdmin && (
+        <Link className="menu-item" href="/admin/timeline">
+          <span className="check">{active === "timeline" && "✓"}</span>
+          Timeline
         </Link>
       )}
     </SideNavSection>

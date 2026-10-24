@@ -3,6 +3,7 @@ import { randomInt } from "node:crypto";
 import { and, count, desc, eq, gt, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import {
+  adminToken,
   authContext,
   bearerToken,
   canEditEvent,
@@ -23,7 +24,7 @@ import {
   teamIdForRundown,
   verifyPassword,
 } from "./auth.ts";
-import { runTimes, serializeCsv } from "@opencall/core";
+import { runTimes, serializeCsv, TRAP_PATH } from "@opencall/core";
 import { inviteEmail, mailConfigured, sendMail } from "./mail.ts";
 import { clientIp, ipBucket } from "./clientIp.ts";
 import { consume, peek, release, clearStartingWith } from "./throttle.ts";
@@ -32,6 +33,9 @@ import { actorOf, deviceIdOf, recordActivity } from "./activity.ts";
 import { placeOf } from "./place.ts";
 import { readTimeline, type TimelineEntry } from "./timeline.ts";
 import { codeGuessLimit, loginTryLimit, noteCodeMiss, noteLoginFailure } from "./swarm.ts";
+import { onAdminCode, onFailedSignIn, onSheetOpened, onSignIn, onTrap } from "./watch.ts";
+import { notify } from "./notices.ts";
+
 import type { Hocuspocus } from "@hocuspocus/server";
 import { recordChange, versionBefore, type EditTracker } from "./sheetChanges.ts";
 import { MAX_WEBHOOKS, webhookProblem, type CueSignals } from "./cueSignals.ts";
@@ -321,6 +325,18 @@ export function createApiHandler(
     const { pathname } = url;
     const ip = clientIp(req);
     const ua = userAgentOf(req);
+    if (TRAP_PATH.test(pathname)) {
+      recordActivity(handle, { kind: "trap", origin: { ua, ip }, detail: { path: pathname.slice(0, 120), method: req.method } });
+      onTrap(handle, pathname.slice(0, 120), ip, ua);
+      res.statusCode = 404;
+      res.end();
+      return true;
+    }
+    // The server's admin code, used from somewhere new, is worth a look.
+    {
+      const presented = bearerToken(req);
+      if (presented && presented === adminToken()) onAdminCode(handle, ip, ua);
+    }
     // Successful changes on audited routes are recorded once the answer has
     // gone, with who made them (worked out from the same credentials).
     const audited = AUDITED.find((a) => a.method === req.method && a.pattern.test(pathname));
@@ -333,6 +349,18 @@ export function createApiHandler(
             const actor =
               ctx?.kind === "user" ? ctx.userId : ctx?.kind === "company" ? `company:${ctx.teamId}` : ctx?.kind === "admin" ? "admin" : (ctx?.kind ?? null);
             audit(handle, { actor, action: audited.action, target: audited.pattern.exec(pathname)?.[1] ?? null, ip, ua, detail: { path: pathname } });
+            // Who can open what is the thing an intruder changes first.
+            if (audited.action === "access.changed") {
+              const target = audited.pattern.exec(pathname)?.[1] ?? null;
+              void (target ? db.query.users.findFirst({ where: eq(schema.users.id, target), columns: { name: true } }) : Promise.resolve(undefined)).then((u) =>
+                notify(handle, {
+                  kind: "access.changed",
+                  title: `${actorOf(ctx).who ?? "Someone"} changed what ${u?.name ?? "someone"} can open`,
+                  userId: target,
+                  detail: { by: actorOf(ctx).who, ip },
+                }),
+              );
+            }
           });
       });
     }
@@ -854,12 +882,14 @@ export function createApiHandler(
         if (!verifyPassword(password, user?.passwordHash ?? null) || !user) {
           audit(handle, { actor: null, action: "login.failed", target: email ? `email:${email}` : null, ip, ua });
           await noteLoginFailure(handle);
+          onFailedSignIn(handle, ip);
           json(res, 401, { error: "That email and password don't match an account. Check them and try again." });
           return true;
         }
         // Right password: the attempt was not a guess, so it does not count.
         await Promise.all([release(handle, pairKey), release(handle, ipLimitKey), release(handle, emailKey)]);
         audit(handle, { actor: user.id, action: "login.ok", target: `user:${user.id}`, ip, ua });
+        onSignIn(handle, { id: user.id, name: user.name }, ip, ua);
         const session = await createSession(handle, user.id, req.headers["user-agent"]);
         json(res, 200, { token: session.token, expiresAt: session.expiresAt.toISOString(), name: user.name });
         return true;
@@ -909,7 +939,17 @@ export function createApiHandler(
           const allow = body.allow === true;
           const ticked = (Array.isArray(body.scopes) ? body.scopes.map(String) : []).filter((s: string) => offered(s));
           const out = await decideAuthorize(handle, base, userId, p, allow, ticked);
-          if (out.grantId) audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, ua, detail: { assistant: out.clientName, scopes: ticked } });
+          if (out.grantId) {
+            audit(handle, { actor: userId, action: "mcp.connected", target: out.grantId, ip, ua, detail: { assistant: out.clientName, scopes: ticked } });
+            const person = await db.query.users.findFirst({ where: eq(schema.users.id, userId), columns: { name: true } });
+            notify(handle, {
+              kind: "assistant.connected",
+              title: `${person?.name ?? "Someone"} connected an AI assistant (${out.clientName})`,
+              body: `It can ${ticked.join(", ").replace(/_/g, " ") || "read sheets"}. If that wasn't them, disconnect it from their account.`,
+              userId,
+              detail: { assistant: out.clientName, scopes: ticked, ip },
+            });
+          }
           json(res, 200, { redirect: out.redirect });
         } catch (err) {
           if (err instanceof OAuthError) json(res, 400, { error: err.description });
@@ -1199,9 +1239,41 @@ export function createApiHandler(
             const clean = path.split("?")[0]!.replace(/^\/(guest|invite)\/[^/]+/, "/$1/…").slice(0, 120);
             const sheet = /^\/(?:show|edit|view|timer|display|prompter|changes|rundown)\/([0-9A-HJKMNP-TV-Z]{26})/.exec(clean)?.[1] ?? null;
             recordActivity(handle, { kind: "page", actor: who, origin, rundownId: sheet, detail: { path: clean } });
+            if (sheet) onSheetOpened(handle, who, origin.deviceId);
           }
         }
         res.end();
+        return true;
+      }
+
+      /**
+       * Alerts (24 Oct 2026): the notices for System Administrators, newest
+       * first, with how many are unread — the dashboard's red count — and a
+       * way to mark them read.
+       */
+      if (req.method === "GET" && pathname === "/notifications") {
+        if (!(await requireAdmin())) return true;
+        const n = schema.notifications;
+        // ?count=1 for the menu's red number: just the counts, asked often.
+        const items = url.searchParams.get("count") === "1" ? [] : await db.select().from(n).where(eq(n.audience, "admins")).orderBy(desc(n.at)).limit(200);
+        const [counts] = await db
+          .select({ unread: sql<number>`count(*) filter (where ${n.readAt} is null)`, urgent: sql<number>`count(*) filter (where ${n.readAt} is null and ${n.urgent})` })
+          .from(n)
+          .where(eq(n.audience, "admins"));
+        json(res, 200, { unread: Number(counts?.unread ?? 0), urgentUnread: Number(counts?.urgent ?? 0), items });
+        return true;
+      }
+      if (req.method === "POST" && pathname === "/notifications/read") {
+        if (!(await requireAdmin())) return true;
+        const body = await readJson(req);
+        const ids = Array.isArray(body.ids) ? body.ids.map(String).slice(0, 500) : null;
+        const by = actorOf(await authContext(handle, req)).who ?? "Administrator";
+        const n = schema.notifications;
+        await db
+          .update(n)
+          .set({ readAt: new Date(), readBy: by })
+          .where(and(eq(n.audience, "admins"), isNull(n.readAt), ids ? inArray(n.id, ids) : undefined));
+        json(res, 200, { ok: true });
         return true;
       }
 
@@ -1226,6 +1298,7 @@ export function createApiHandler(
           from: date(q.get("from")),
           to: date(q.get("to")),
           sources,
+          withClock: q.get("clock") === "1",
           limit: Number(q.get("limit") ?? 300),
         });
         json(res, 200, { entries });

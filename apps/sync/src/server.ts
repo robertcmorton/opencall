@@ -47,6 +47,7 @@ import { deviceIdOf, recordActivity, type Actor, type Origin } from "./activity.
 import { userAgentOf } from "./audit.ts";
 import { loadPlaces } from "./place.ts";
 import { codeGuessLimit, noteCodeMiss } from "./swarm.ts";
+import { onAdminCode, onSheetOpened } from "./watch.ts";
 
 // One public port for everything: HTTP API, the show channel (default ws
 // path), and Yjs doc sync (ws path /doc). PORT is what PaaS hosts inject.
@@ -606,6 +607,8 @@ wss.on("connection", (ws, req) => {
       };
       clients.set(ws, { role: resolved.role, rundownId, device: msg.device, label: typed || resolved.label, id: connId, userId: resolved.userId, photo, actor, origin, page, since: Date.now() });
       recordActivity(dbHandle, { kind: "connect", actor, origin, rundownId, detail: { page } });
+      onSheetOpened(dbHandle, actor, origin.deviceId ?? null);
+      if (resolved.via === "admin-code") onAdminCode(dbHandle, clientIp(req), origin.ua ?? null);
       // The event's location decides the timezone every clock renders in;
       // the sheet's kind of show decides its endings.
       const { eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);

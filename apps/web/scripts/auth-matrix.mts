@@ -1020,6 +1020,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   check("timeline: show screens joining and leaving are recorded", kinds.has("connect") && kinds.has("disconnect"), [...kinds]);
 }
 
+// ── Alerts and the trap (24 Oct 2026) ─────────────────────────────────────────
+{
+  for (const [who, token] of [["a viewer", viewer.accessToken], ["a company manager", companyMgr.accessToken], ["nobody", null]] as const) {
+    check(`alerts: ${who} cannot read them`, [401, 403].includes((await req("/notifications", token)).status));
+    check(`alerts: ${who} cannot mark them read`, [401, 403].includes((await req("/notifications/read", token, { method: "POST", body: "{}" })).status));
+  }
+  const probe = await fetch(API + "/wp-login.php");
+  check("trap: a probe for a weakness gets 'not found'", probe.status === 404);
+  await new Promise((r) => setTimeout(r, 400));
+  const alerts = await req("/notifications", ADMIN);
+  check("trap: and raises an alert", (alerts.body?.items ?? []).some((n: any) => n.kind === "trap" && /wp-login/.test(n.title)), alerts.body?.items?.map((n: any) => n.kind));
+  check("alerts: the administrator code from a new address is noticed", (alerts.body?.items ?? []).some((n: any) => n.kind === "admin_code.new_address"), alerts.body?.items?.map((n: any) => n.kind));
+  const read = await req("/notifications/read", ADMIN, { method: "POST", body: "{}" });
+  const after = await req("/notifications?count=1", ADMIN);
+  check("alerts: an administrator can mark them all read", read.status === 200 && after.body?.unread === 0, after.body);
+}
+
 // ── Cleanup fixtures ──────────────────────────────────────────────────────────
 {
   // Every account the run used can be deleted — including ones that held the

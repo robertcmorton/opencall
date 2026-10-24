@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); the project is n
 ## [Unreleased]
 
 ### Fixed
+- **The big timer's bar moves on every item, not just the first.** From the second item on it sat full for the whole item, because the browser kept the first item's finished animation instead of starting a new one. Each item now gets a bar of its own, and lengthening an item mid-way re-aims the bar from where the item has got to.
+- **Start show is ready sooner.** A sheet waited for a separate clock check with the server before showing Start and its clocks; the server's first reply now carries what that check measured. One round trip sooner on every open: 0.21 s on a link like Sydney's to the servers.
+- **The cue moves on as the bar reaches the end.** The server looked for the next item 20 thousandths of a second after each second; it now looks 3 after. Measured on a production build: the next row lights 15–18 thousandths after the bar ends, about one frame, where it was 33–39.
 - **When the cue moves on, the next row's bar starts at once.** It sat empty and still for up to half a second — until the once-a-second timing caught up — so for a moment nothing on the sheet was moving. It now runs from the moment the row went on air.
 - **Security: a library under the AI-assistant connection is updated** (body-parser 2.3.0 → 2.4.0), after a newly published advisory that a malformed request could tie the server up.
 - **The right-click menu opens at once, even on a big sheet.** Opening it re-drew the whole sheet first; it now appears on its own in a few thousandths of a second, and the row lights up as picked just after. Whatever you choose acts on the row you right-clicked, even if you choose before it has lit up.

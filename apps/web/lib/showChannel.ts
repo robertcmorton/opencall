@@ -14,6 +14,7 @@ import { viewerName } from "./viewerIdentity";
 import type { EventTypeSpec } from "@opencall/core";
 import { resolveSyncUrl } from "./syncUrl";
 import { markOnce } from "./perfMark";
+import { clockOffset } from "./clockOffset";
 
 const SHOW_WS_URL = resolveSyncUrl(process.env.NEXT_PUBLIC_SYNC_WS_URL, "ws://localhost:8787");
 const OFFSET_SAMPLES = 5;
@@ -106,7 +107,8 @@ export interface ShowChannel {
 
 /**
  * Client for the PROTOCOL.md show channel: hello/welcome, NTP-style clock
- * offset (median of 5 pings, refreshed each connect), seq-guarded show_state,
+ * offset (the hello/welcome exchange plus 5 pings, median, refreshed each
+ * connect), seq-guarded show_state,
  * jittered reconnect backoff, idempotent command ids.
  */
 export function useShowChannel(rundownId: string, device: "console" | "companion", joinCode?: string): ShowChannel {
@@ -179,6 +181,8 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
       ws = sock;
       wsRef.current = sock;
       const pings: number[] = [];
+      /** When this socket's hello left, for the clock sample the welcome completes. */
+      let helloSentAt: number | null = null;
 
       sock.onopen = () => {
         markOnce("oc:show-open");
@@ -199,13 +203,15 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
         // A view-only link says who is holding it, so the showcaller sees a
         // name in the faces at the top right rather than "Crew" (20 Oct).
         const typedName = auth.kind === "join" ? viewerName() ?? undefined : undefined;
+        helloSentAt = Date.now();
         sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "hello", auth, device, lastSeq: lastSeqRef.current >= 0 ? lastSeqRef.current : undefined, ...(typedName ? { viewerName: typedName.slice(0, 80) } : {}) }));
       };
 
       sock.onmessage = (event) => {
         // Anything at all counts as proof of life, including the server's
         // heartbeat, which is otherwise ignored below.
-        lastHeardRef.current = Date.now();
+        const receivedAt = Date.now();
+        lastHeardRef.current = receivedAt;
         for (const fn of activityRef.current) fn();
         const msg = JSON.parse(String(event.data));
         if (msg.v !== PROTOCOL_VERSION) return;
@@ -233,6 +239,17 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             setShow(msg.show);
             welcomedRef.current = true;
             flushPending();
+            // The hello and this welcome are a clock sample in their own right,
+            // when the server says when the hello arrived (24 Oct). So the
+            // clock — and everything that waits on it, Start show included — is
+            // ready now, not a round trip from now when the first pong lands:
+            // 0.17 s from Sydney to the servers in US West. The pings below
+            // still go out and refine it.
+            if (typeof msg.helloAtMs === "number" && typeof msg.serverTimeMs === "number" && helloSentAt != null) {
+              pings.push(clockOffset(helloSentAt, msg.helloAtMs, msg.serverTimeMs, receivedAt));
+              offsetRef.current = pings[0]!;
+              setClockReady(true);
+            }
             for (let i = 0; i < OFFSET_SAMPLES; i++)
               setTimeout(() => sock.readyState === WebSocket.OPEN && sock.send(JSON.stringify({ v: PROTOCOL_VERSION, t: "ping", t0: Date.now() })), i * 200);
             // A backstop, so nothing waits on the clock for ever. If no pong
@@ -248,8 +265,7 @@ export function useShowChannel(rundownId: string, device: "console" | "companion
             break;
           }
           case "pong": {
-            const rtt = Date.now() - msg.t0;
-            pings.push(msg.t1 + rtt / 2 - Date.now());
+            pings.push(clockOffset(msg.t0, msg.t1, msg.t1, receivedAt));
             if (pings.length >= 1) {
               const sorted = [...pings].sort((a, b) => a - b);
               offsetRef.current = sorted[Math.floor(sorted.length / 2)]!;

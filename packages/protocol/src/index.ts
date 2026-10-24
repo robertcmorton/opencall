@@ -136,7 +136,15 @@ export const WelcomeMsg = z.object({
   t: z.literal("welcome"),
   role: Role,
   userLabel: z.string(),
+  /** The server's clock as the welcome left it. */
   serverTimeMs: z.number(),
+  /**
+   * The server's clock as the hello arrived (additive, 24 Oct 2026). With the
+   * client's own send and receive times this makes the hello and welcome a
+   * complete clock sample, so a screen knows the server's time one round trip
+   * sooner than by waiting for its first pong.
+   */
+  helloAtMs: z.number().optional(),
   show: ShowStatePayload,
   /** The speaker message on screen right now, if any (additive v1.8). */
   speaker: z.lazy(() => SpeakerMessage).nullable().optional(),

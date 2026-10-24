@@ -230,6 +230,8 @@ export function applyAsPerson(
  * late, and a test of the bars failed on it by a tenth of a second.
  *
  * `afterMs` makes sure the second has turned when it looks — a timer can fire
- * a millisecond early.
+ * a millisecond early, and the scheduler waits out one that does. It was 20 ms
+ * until 24 Oct, which was most of the time between a bar reaching its end and
+ * the cue moving on (measured on a production build: 33–39 ms in all).
  */
-export const msUntilClockTick = (nowMs: number, afterMs = 20): number => 1000 - (nowMs % 1000) + afterMs;
+export const msUntilClockTick = (nowMs: number, afterMs = 3): number => 1000 - (nowMs % 1000) + afterMs;

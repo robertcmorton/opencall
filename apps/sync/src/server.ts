@@ -549,6 +549,9 @@ wss.on("connection", (ws, req) => {
 
     if (msg.t === "hello") {
       if (ctx) return;
+      // Stamped before anything is looked up: with the welcome's own stamp it
+      // lets the screen take its first clock sample from this exchange.
+      const helloAtMs = Date.now();
       clearTimeout(helloTimer);
       if (!rundownId) {
         ws.close(CloseCodes.UNKNOWN_RUNDOWN, "missing rundown");
@@ -572,14 +575,18 @@ wss.on("connection", (ws, req) => {
       // The event's location decides the timezone every clock renders in;
       // the sheet's kind of show decides its endings.
       const { eventRow, sport, eventTypeSpec } = await sheetKind(rundownId);
+      // Read before the welcome is built, so serverTimeMs is the moment it
+      // leaves and not a moment before the last lookup.
+      const show = (await showStore.get(rundownId)).current;
       send(ws, {
         v: PROTOCOL_VERSION,
         t: "welcome",
         role: resolved.role,
         userLabel: resolved.label,
         you: connId,
+        helloAtMs,
         serverTimeMs: Date.now(),
-        show: (await showStore.get(rundownId)).current,
+        show,
         speaker: speakerFor(rundownId),
         doc: { mode: resolved.role === "guest" ? "projection" : "sync" },
         timezone: eventRow?.timezone,
@@ -1117,6 +1124,10 @@ void abandonedSessionSweep();
 // started — see `msUntilClockTick`. Each look books the next.
 const scheduleClockTick = (): void => {
   setTimeout(() => {
+    // Fired before the second turned (a timer can be a millisecond early):
+    // looking now would see the old second and leave a due row for another
+    // whole second. Wait the moment out instead.
+    if (Date.now() % 1000 > 500) return scheduleClockTick();
     scheduleClockTick();
     void clockTick();
   }, msUntilClockTick(Date.now())).unref();

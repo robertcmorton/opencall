@@ -27,8 +27,17 @@ import { useLayoutEffect, useMemo, useRef } from "react";
  * the row's length and how far into it we are, and runs one linear animation
  * for the whole row with a NEGATIVE delay that starts it exactly where it
  * should be. The compositor draws every frame; nothing has to tick. A nudge or
- * a hold changes the numbers, the delay is recomputed, and it re-aims without
- * a visible jump.
+ * a hold changes the numbers, and the bar starts a fresh animation from where
+ * the row has got to.
+ *
+ * FRESH MEANS A NEW ELEMENT (24 Oct). A browser does not restart a running CSS
+ * animation when its delay or length is rewritten: it keeps the one it has and
+ * treats the new values as if they had applied from the start. So the big
+ * timer — one bar that every row passes through — went on to the second row
+ * with an animation that had already run its four seconds, and sat full for
+ * the whole of every row after the first. Measured: "4000ms linear 0ms",
+ * playState finished, from the moment row two came up. The fill is keyed on
+ * the row and its length, so each gets an animation of its own.
  */
 export function BarFill({
   frac,
@@ -51,11 +60,11 @@ export function BarFill({
   /**
    * WORKED OUT ONCE PER ROW, and then left alone.
    *
-   * Rewriting `animation-delay` restarts the animation from the new offset. So
-   * recomputing this on every render — which happens once a second, when the
-   * timing publishes a new whole second — restarted the sweep once a second,
-   * and each restart re-anchored it a fraction away from where it had got to.
-   * That is a bar that is moving but not smoothly.
+   * Rewriting `animation-delay` re-aims the running animation as if the new
+   * offset had applied from its start. So recomputing this on every render —
+   * which happens once a second, when the timing publishes a new whole second —
+   * re-aimed the sweep once a second, each time a fraction away from where it
+   * had got to. That is a bar that is moving but not smoothly.
    *
    * Measured: the alongside bars' animation string never changed and they were
    * smooth; the active row's shifted by exactly -1000ms every second and it
@@ -63,7 +72,8 @@ export function BarFill({
    *
    * Nothing here needs updating while a row runs: the animation already
    * describes the whole row. Only its LENGTH changing — a nudge, extra time —
-   * is a reason to re-aim, and that is in the deps.
+   * is a reason to start again, and that is in the deps (and in the fill's
+   * key, below, which is what actually starts it again).
    */
   const anim = useMemo(
     () =>
@@ -80,7 +90,7 @@ export function BarFill({
     // — see `.bar-sweep-fill` for why it no longer animates width.
     return (
       <div className={`${className ?? ""} bar-sweeping`} style={{ width: "100%", transition: "none" }}>
-        <div className="bar-sweep-fill" style={{ animation: anim }} />
+        <div key={`${sweep!.key}:${sweep!.durationMs}`} className="bar-sweep-fill" style={{ animation: anim }} />
       </div>
     );
   }

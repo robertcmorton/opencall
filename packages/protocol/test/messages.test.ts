@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CmdMsg, HelloMsg, PROTOCOL_VERSION, ShowStateMsg, parseClientMsg } from "../src/index";
+import { CmdMsg, HelloMsg, PROTOCOL_VERSION, ShowStateMsg, WelcomeMsg, parseClientMsg } from "../src/index";
 
 describe("protocol schemas", () => {
   it("accepts a valid hello", () => {
@@ -32,6 +32,13 @@ describe("protocol schemas", () => {
       sessionStartedAtMs: 900,
     };
     expect(ShowStateMsg.parse(frame).seq).toBe(42);
+  });
+
+  it("a welcome may say when the hello arrived, and need not", () => {
+    const show = { seq: 1, state: "idle", sessionId: null, activeRowId: null, activeRowStartedAtMs: null, pausedAtMs: null, pausedAccumMs: 0, sessionStartedAtMs: null };
+    const base = { v: 1, t: "welcome", role: "caller", userLabel: "R", serverTimeMs: 2000, show, doc: { mode: "sync" } };
+    expect(WelcomeMsg.parse({ ...base, helloAtMs: 1940 }).helloAtMs).toBe(1940);
+    expect(WelcomeMsg.parse(base).helloAtMs).toBeUndefined();
   });
 
   it("parseClientMsg ignores garbage", () => {

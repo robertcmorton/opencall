@@ -61,6 +61,12 @@ offset = t1 + rtt/2 − now, with rtt = now − t0. Clients take 5 samples at co
 median, refresh every 60 s and after every reconnect. Display rule: all times derive from
 `serverNow() = Date.now() + offset`.
 
+The hello and welcome are a sample too, when the welcome carries `helloAtMs` (the server's
+clock as the hello arrived) beside `serverTimeMs` (as the welcome left): offset =
+((helloAtMs − sent) + (serverTimeMs − received)) / 2, which leaves out the time the server
+spent signing the screen in. A client uses it at once, so it knows the server's time one round
+trip before its first pong; the pings still refine it.
+
 ## 3. Show state
 
 Single authoritative object, broadcast in full on every change (it is tiny; no deltas):
@@ -176,6 +182,12 @@ Server supports current and previous `v` for one release cycle. This file is nor
   `photo` is a path on the sync server (`/users/<id>/photo?v=<hash>`) when the
   account has uploaded one. `counts` is unchanged, so older screens still work.
 
+
+## The welcome is a clock sample (additive, 24 Oct 2026)
+
+- `welcome` adds `helloAtMs`: the server's clock when the hello arrived, stamped before the
+  sign-in and the sheet's lookups. See §2. Clients that don't know it wait for a pong, as
+  before.
 
 ## Kind of show changes live (additive, 21 Oct 2026)
 
